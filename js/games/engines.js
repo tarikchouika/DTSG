@@ -62,6 +62,12 @@ function give(w) {
   save();
 }
 function gres(m, w, noRec) {
+  /* [BotsLedger v2.28] مؤشر المنصة: كل جولة محرك تُسجَّل تلقائياً —
+     دلتا المنصة = الرهان − المدفوع (موجب = ربح منصة، سالب = دفع للفائز).
+     الاسترداد الكامل (w==GB) يعطي صفراً فيتجاهله record(). */
+  if (!noRec && typeof window !== 'undefined' && window.BotsLedger && window._currentGameId && typeof GB === 'number' && GB > 0) {
+    try { window.BotsLedger.record(window._currentGameId, (w > 0 ? GB - w : GB)); } catch (e) {}
+  }
   /* noRec=true: عرض فقط بلا تسجيل تذكرة (ملخصات جماعية مثلاً) */
   if (!noRec && (m !== '' || w > 0) && typeof recordRound === 'function') {
     recordRound(w > 0, (typeof w === 'number' && w > 0) ? w : 0, m);
