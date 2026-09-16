@@ -50,34 +50,41 @@
     const PAD = 18, GAP = 4;
     const n = chain.length;
 
+    /* [v2.28] ثعبان متصل: الرأس يتقدم أفقياً؛ عند ضيق المسافة قطعة رأسية
+       (منعطف) عند الرأس نفسه ثم نزول صف — الصف الجديد يبدأ من عمود المنعطف
+       لا من الحافة المقابلة، فتبقى السلسلة متصلة بلا فجوات وبلا فيضان. */
     function simulate(u) {
       const rowH = 2 * u + GAP;
       const items = [];
-      let x = PAD, y = 0, dir = 1, rows = 1;
+      let headX = PAD, y = 0, dir = 1, rows = 1;
       let firstPos = null, lastPos = null;
       for (let i = 0; i < n; i++) {
         const node = chain[i];
         const isDbl = node.dbl;
         const len = isDbl ? u : 2 * u;
-        if (i > 0 && x + len > W - PAD) {
-          /* منعطف: عمودي عند نهاية الصف ثم صعود/نزول */
-          items.push({ node: node, kind: 'turn', x: x + u / 2, y: y + rowH / 2, rot: dir === 1 ? 0 : 180, u: u });
-          if (!firstPos) firstPos = { x: PAD + u, y: y + rowH / 2 };
-          lastPos = { x: x + u / 2, y: y + rowH / 2 };
-          rows++;
-          y += rowH;
-          dir = -dir;
-          x = (dir === 1) ? PAD + u + GAP : W - PAD - u - GAP;
-          continue;
+        if (i > 0) {
+          const space = dir === 1 ? (W - PAD - headX) : (headX - PAD);
+          if (space < len) {
+            const tx = headX + (dir === 1 ? u / 2 : -u / 2);
+            const ty = y + rowH; /* منتصف عمودي بين الصف الحالي والتالي */
+            items.push({ node: node, kind: 'turn', x: tx, y: ty, rot: 0, u: u });
+            if (!firstPos) firstPos = { x: tx, y: ty };
+            lastPos = { x: tx, y: ty + u };
+            y += rowH; rows++;
+            dir = -dir;
+            headX = tx;
+            continue;
+          }
         }
-        const cx = x + len / 2, cy = y + rowH / 2;
+        const cx = dir === 1 ? headX + len / 2 : headX - len / 2;
+        const cy = y + rowH / 2;
         let rot;
         if (isDbl) rot = 0;
         else rot = (dir === 1) ? (leftMatchIsA(chain, i) ? -90 : 90) : (leftMatchIsA(chain, i) ? 90 : -90);
         items.push({ node: node, kind: isDbl ? 'dbl' : 'flat', x: cx, y: cy, rot: rot, u: u });
-        if (!firstPos) firstPos = { x: x, y: cy };
-        lastPos = { x: x + len, y: cy };
-        x += len + GAP;
+        if (!firstPos) firstPos = { x: dir === 1 ? headX : headX - len, y: cy };
+        lastPos = { x: dir === 1 ? headX + len : headX - len, y: cy };
+        headX = dir === 1 ? headX + len + GAP : headX - len - GAP;
       }
       return { items: items, rows: rows, firstPos: firstPos, lastPos: lastPos };
     }
@@ -137,13 +144,11 @@
       lastEl.classList.add('dm-pop');
       setTimeout(function () { try { lastEl.classList.remove('dm-pop'); } catch (e) {} }, 460);
     }
-    /* إزاحة السلسلة داخل الطاولة: تحسب من inset الفعلي (.dm-chain بـ inset 6px 30px)
-       — الاحترام لاتجاه الصفحة: في RTL يبدأ الصف من اليمين فنعكس إحداثيات X
-         نسبة لعرض صندوق السلسلة (الأطراف تبقى قرب قطعها الصحيحة). */
+    /* التلميحات تُوضع داخل .dm-table بينما إحداثيات القطع نسبة لصندوق السلسلة
+       (.dm-chain بـ inset 6px 30px متماثل الجانبين) — نضيف الإزاحة فقط بلا عكس
+       RTL لأن القطع نفسها تُرسم بإحداثيات left مطلقة في الاتجاهين. */
     const chainBoxOff = { x: 30, y: 6 }; /* inset للسلسلة داخل الطاولة */
-    const rtl = (function () { try { return getComputedStyle(box).direction === 'rtl'; } catch (e) { return false; } })();
-    const boxW = box.clientWidth || 600;
-    const mapX = function (x) { return rtl ? (boxW - x) : (x + chainBoxOff.x); };
+    const mapX = function (x) { return x + chainBoxOff.x; };
     return {
       first: lay.firstPos ? { x: mapX(lay.firstPos.x), y: lay.firstPos.y + offsetY + chainBoxOff.y } : null,
       last: lay.lastPos ? { x: mapX(lay.lastPos.x), y: lay.lastPos.y + offsetY + chainBoxOff.y } : null
