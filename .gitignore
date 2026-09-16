@@ -9,3 +9,4 @@ node_modules/
 # Local runtime
 server.log
 .wrangler/
+.vercel/

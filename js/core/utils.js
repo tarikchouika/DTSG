@@ -1,6 +1,8 @@
 /* ═══════════════════════════════════════════
    DTSG — Digital Traditional Skills Games — Utility Functions
    ═══════════════════════════════════════════ */
+/* [DTSG-BUILD] احتياطي وسم النسخة لمن يصل عبر JS مباشرة (الأساس في <head> لكل صفحة) */
+if (typeof window !== 'undefined' && !window.DTSG_BUILD) window.DTSG_BUILD = 'v2.28.1';
 "use strict";
 /* ── فهرس اللغة الحالي ── */
 function langIndex() {
