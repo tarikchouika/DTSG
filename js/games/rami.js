@@ -4126,6 +4126,10 @@ class RamiUIAdapter {
         }
         _ramiToast('🏆 ربحت الجولة — تم إضافة ' + pot + ' 🪙 إلى حسابك!', 'ok');
       }
+      /* [BotsLedger v2.28] فردي فقط: دلتا المنصة = الرهان − الوعاء عند فوز بشري، +الرهان عند فوز بوت */
+      if (!this.multiplayer && typeof window !== 'undefined' && window.BotsLedger) {
+        try { window.BotsLedger.record('rm', (winner && !winner.isBot) ? bet - pot : bet); } catch (e) {}
+      }
     }
 
     /* [V30] تسجيل الجولة المنتهية بشكل دائم في سجل رهانات اللعبة + سجل الحساب.
