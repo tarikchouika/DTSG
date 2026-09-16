@@ -1256,7 +1256,12 @@ function eChess(g) {
         '<div class="dama-field"><div class="dama-flab">' + T('dama.timer') + ' (' + T('chess.localOnly') + ')</div>' +
           '<div class="dama-timer-row" id="chessTimerRow">' + timerChips + '</div>' +
         '</div>' +
+        /* [v2.28] صف رهان الوضع الفردي + زر ضد البوت (كانا ساقطين من الدمج) */
+        '<div class="dama-field"><div class="dama-flab">' + T('dama.stakeLabel') + '</div>' +
+          '<div class="dama-timer-row" id="chessBet">' + betChips + '</div>' +
+        '</div>' +
         '<div class="ch-modes">' +
+          '<button class="big dama-go" onclick="chessStartSolo()"><i class="fa-solid fa-robot" aria-hidden="true"></i> ' + chessLevelName() + '</button>' +
           '<button class="big dama-go" onclick="chessStartLocal()"><i class="fa-solid fa-user-group" aria-hidden="true"></i> ' + T('chess.faceToFace') + '</button>' +
           '<button class="big ch-online" onclick="Rooms.toggleFromGame()"><i class="fa-solid fa-globe" aria-hidden="true"></i> ' + T('chess.onlineRoom') + '</button>' +
         '</div>' +
@@ -1322,6 +1327,13 @@ function initChess() {
 }
 window.initChess = initChess;
 window.eChess = eChess;
+
+/* [v2.28] فردي ضد البوت: نفس مسار غرف البوت (oppBot) مع رهان اختياري يخصم محلياً */
+function chessStartSolo() {
+  if (!CHESS) initChess();
+  var bet = CHESS.bet || 0;
+  chessStartRoom('w', true, false, bet);
+}
 
 function chessSetBet(b) {
   if (!CHESS) return;
@@ -1735,7 +1747,7 @@ function chessFinalize() {
     if (amt) {
       if (CHESS.mode === 'room' && CHESS.bet > 0 && !CHESS.isSpectator) {
         giveWin(CHESS.bet);
-        if (typeof gres === 'function') gres(T('dama.drawRefund'), 0);
+        if (typeof gres === 'function') gres(T('dama.drawRefund'), 0, true);
         amt.innerHTML = T('dama.refunded');
       } else if (amt) amt.textContent = reasonTxt || '';
     }
@@ -1752,11 +1764,18 @@ function chessFinalize() {
         if (iWon) {
           var payout = CHESS.bet * 2;
           giveWin(payout);
-          if (typeof gres === 'function') gres(T('dama.win') + ' +' + payout + ' 🪙', payout);
+          if (typeof gres === 'function') gres(T('dama.win') + ' +' + payout + ' 🪙', payout, true);
           if (typeof winFX === 'function') winFX(payout);
+          /* [BotsLedger v2.28] فردي بوت: المنصة دفعت صافي (−) */
+          if (CHESS.oppBot && !CHESS.isSpectator && typeof window !== 'undefined' && window.BotsLedger) {
+            try { window.BotsLedger.record('ch', CHESS.bet - payout); } catch (e) {}
+          }
           amt.innerHTML = '+' + payout + ' 🪙';
         } else {
-          if (typeof gres === 'function') gres(T('dama.lose') + ' — ' + T('ts.lose'), 0);
+          if (typeof gres === 'function') gres(T('dama.lose') + ' — ' + T('ts.lose'), 0, true);
+          if (CHESS.oppBot && !CHESS.isSpectator && typeof window !== 'undefined' && window.BotsLedger) {
+            try { window.BotsLedger.record('ch', CHESS.bet); } catch (e) {}
+          }
           amt.textContent = '−' + CHESS.bet + ' 🪙';
         }
       } else amt.textContent = reasonTxt || '';
@@ -1957,8 +1976,9 @@ function chessApplyRemoteMove(mv) {
 
 function chessResetBoardOnly() {
   if (!CHESS) return;
-  /* جولة جديدة في غرفة الرهان: كل طرف يعيد حصته (جولة = رهن مستقل) */
-  if (CHESS.mode === 'room' && CHESS.bet > 0 && !CHESS.isSpectator && !CHESS.oppBot) {
+  /* جولة جديدة في غرفة الرهان: كل طرف يعيد حصته (جولة = رهن مستقل)
+     [v2.28] الفردي ضد البوت يخصم أيضاً عند كل إعادة مباراة */
+  if (CHESS.mode === 'room' && CHESS.bet > 0 && !CHESS.isSpectator) {
     if (typeof takeBet === 'function' && !takeBet(CHESS.bet)) CHESS.bet = 0;   /* لا يكفي الرصيد → تكمل ودية */
   }
   CHESS.state = chessNewState();
@@ -2080,6 +2100,7 @@ function chessRegisterRooms() {
 
 /* تصدير دوال الواجهة */
 window.chessStartLocal = chessStartLocal;
+window.chessStartSolo = chessStartSolo;
 window.chessClick = chessClick;
 window.chessSetBet = chessSetBet;
 window.chessSetTimer = chessSetTimer;
