@@ -606,6 +606,8 @@
           /* خسارة أو انسحاب المباراة المُراهن عليها — تذكرة خسارة واحدة */
           try { root.recordRound(false, 0, resigned ? T('bg.resign') : T('bg.match.lost'), this.betPlaced, 'bg'); } catch (e) {}
         }
+        /* [BotsLedger v2.28] مؤشر المنصة */
+        try { if (root.BotsLedger) root.BotsLedger.record('bg', iWon ? this.betPlaced - payout : this.betPlaced); } catch (e) {}
       }
       if (amt) amt.innerHTML = (isAI && payout && s.phase === 'matchEnd')
         ? '<span class="plus">+' + payout + '</span> <i class="fa-solid fa-coins" aria-hidden="true"></i>' : '';
