@@ -1687,10 +1687,10 @@ canvas.game {
 }
 /* [DTSG] عملة المنصة الرسمية — وجه الأسد وضهر الشعار (800×800 متطابقان) */
 .coinFace.heads {
-  background: url('../assets/dtsg/coin-obverse.webp') center / cover no-repeat;
+  background: url('../assets/dtsg/coin-obverse.webp?v=228') center / cover no-repeat;
 }
 .coinFace.tails {
-  background: url('../assets/dtsg/coin-reverse.webp') center / cover no-repeat;
+  background: url('../assets/dtsg/coin-reverse.webp?v=228') center / cover no-repeat;
 }
 .cf-hint {
   margin: 6px 0 4px;
