@@ -411,18 +411,20 @@ var RoomDO = class {
       const seat0 = room.players.filter((x) => !x.spectate).sort((a, b) => a.seat - b.seat)[0];
       if (room.owner_id !== data.user_id && !(seat0 && seat0.id === data.user_id)) return Response.json({ ok: false, message: "\u0627\u0644\u0645\u0627\u0644\u0643 \u0623\u0648 \u0631\u0627\u0628\u062D \u0627\u0644\u062C\u0648\u0644\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629 \u0641\u0642\u0637" }, 403);
       const payers = room.players.filter((x) => !x.spectate && x.id > 0);
-      const golds = [];
-      for (const pl of payers) {
+        const golds = [];
+        for (const pl of payers) {
         const u = await this.env.royalcoin.prepare("SELECT id, gold FROM users WHERE id = ?").bind(pl.id).first();
         if (!u) continue;
         if ((u.gold || 0) < room.bet) {
           return Response.json({ ok: false, error: "insufficient_funds", user: pl.username }, 400);
         }
-        golds.push(pl.id);
+        golds.push({ id: pl.id, username: pl.username, after: (u.gold || 0) - room.bet });
       }
-      for (const id of golds) {
-        await this.env.royalcoin.prepare("UPDATE users SET gold = gold - ? WHERE id = ?").bind(room.bet, id).run();
+      for (const g of golds) {
+        await this.env.royalcoin.prepare("UPDATE users SET gold = gold - ? WHERE id = ?").bind(room.bet, g.id).run();
       }
+      /* [TxLog v2.28] خصم رهان الجولة */
+      for (const g of golds) txLog(this.env, { id: g.id }, "bet", room.bet, { game_id: room.game_id, note: "\u0631\u0647\u0627\u0646 \u062C\u0648\u0644\u0629", balance_after: g.after });
       room.status = "playing";
       room.settled = null;
       await this.save();
@@ -586,6 +588,8 @@ var RoomDO = class {
         for (const u of humanRows) {
           await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(pot, u.id).run();
           u.gold = (u.gold || 0) + pot;
+          /* [TxLog v2.28] إرجاع الرهان عند التعادل */
+          txLog(this.env, { id: u.id }, "win", pot, { game_id: room.game_id, note: "\u062A\u0639\u0627\u062F\u0644 \u2014 \u0625\u0631\u062C\u0627\u0639 \u0627\u0644\u0631\u0647\u0627\u0646", balance_after: u.gold });
         }
         refunds = humanRows.map(shape);
       } else {
@@ -598,7 +602,11 @@ var RoomDO = class {
         await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(stake - fee, winner.id).run();
         winner.gold = (winner.gold || 0) + (stake - fee);
         winnerOut = shape(winner);
-        loserOut = typeof loseId === "number" ? shape(humanRows.find((u) => u.id === loseId)) : null;
+        const loserU = typeof loseId === "number" ? humanRows.find((u) => u.id === loseId) : null;
+        loserOut = shape(loserU);
+        /* [TxLog v2.28] فوز/خسارة الجولة مع الطرف الآخر */
+        txLog(this.env, { id: winner.id }, "win", stake - fee, { game_id: room.game_id, balance_after: winner.gold, counterparty_id: loserU ? loserU.id : null, counterparty_name: loserU ? loserU.username : null });
+        if (loserU) txLog(this.env, { id: loserU.id }, "bet", pot, { game_id: room.game_id, note: "\u062E\u0633\u0627\u0631\u0629 \u062C\u0648\u0644\u0629", balance_after: loserU.gold, counterparty_id: winner.id, counterparty_name: winner.username });
         /* [Rotation] الرابح يحتفظ بمقعد 0 (حق الكسر)؛ الخاسر يعطي مكانه لصاحب الدور إن وُجد منتظر */
         const winPl = room.players.find((x) => x.id === winId);
         const losePl = room.players.find((x) => x.id === loseId);
@@ -637,7 +645,10 @@ var RoomDO = class {
       if (room.settled) return Response.json({ ok: true, already: true });
       const payouts = data.payouts || [];
       for (const po of payouts) {
-        await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(Math.max(0, Number(po.amount) || 0), po.id).run();
+        const amtPo = Math.max(0, Number(po.amount) || 0);
+        await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(amtPo, po.id).run();
+        /* [TxLog v2.28] تسوية الغرفة */
+        if (amtPo > 0) txLog(this.env, { id: po.id }, "win", amtPo, { game_id: room.game_id, note: "\u062A\u0633\u0648\u064A\u0629 \u063A\u0631\u0641\u0629" });
       }
       room.settled = { at: Date.now(), payouts };
       room.status = data.next_status || "waiting";
@@ -815,6 +826,35 @@ async function dbAll(env, sql, params = []) {
   return r.results || [];
 }
 __name(dbAll, "dbAll");
+/* [TxLog v2.28] سجل معاملات المستخدمين — يطابق جدول transactions في server.js.
+   يُنشأ الجدول كسولاً إن لم تُشغَّل هجرة D1 بعد، وكل حركة رصيد (رهان/فوز/شحن/
+   خصم/ضبط/تحويل) تُكتب هنا ليطّلع عليها السوبر أدمن عبر /api/admin/transactions. */
+var __txReady = null;
+function ensureTx(env) {
+  if (!__txReady) __txReady = dbRun(env, "CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, type TEXT NOT NULL, amount INTEGER NOT NULL, balance_after INTEGER, counterparty_id INTEGER, counterparty_name TEXT, actor_id INTEGER, actor_name TEXT, game_id TEXT, note TEXT, created_at INTEGER NOT NULL)").catch(function () {});
+  return __txReady;
+}
+__name(ensureTx, "ensureTx");
+async function txLog(env, user, type, amount, extra) {
+  try {
+    await ensureTx(env);
+    const e = extra || {};
+    await dbRun(env, "INSERT INTO transactions (user_id, type, amount, balance_after, counterparty_id, counterparty_name, actor_id, actor_name, game_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
+      user ? user.id : null,
+      type,
+      amount,
+      e.balance_after !== undefined ? e.balance_after : null,
+      e.counterparty_id !== undefined ? e.counterparty_id : null,
+      e.counterparty_name !== undefined ? e.counterparty_name : null,
+      e.actor_id !== undefined ? e.actor_id : null,
+      e.actor_name !== undefined ? e.actor_name : null,
+      e.game_id !== undefined ? e.game_id : null,
+      e.note !== undefined ? e.note : null,
+      Math.floor(Date.now() / 1e3)
+    ]);
+  } catch (err) {}
+}
+__name(txLog, "txLog");
 function publicUser(u) {
   if (!u) return null;
   return {
@@ -1176,6 +1216,33 @@ var C = {
       }));
       return _json({ ok: true, users: list, my_gold: me.gold });
     }
+    /* ═══ [TxLog v2.28] سجل معاملات المستخدمين — سوبر أدمن فقط (يطابق عقد server.js) ═══ */
+    if (p === "/api/admin/transactions" && method === "GET") {
+      if (!me || me.role !== "super") return _json({ ok: false, message: "\u0633\u0648\u0628\u0631 \u0623\u062F\u0645\u0646 \u0641\u0642\u0637" }, 403);
+      await ensureTx(env);
+      const where = [];
+      const params = [];
+      const uidS = url.searchParams.get("user_id");
+      if (uidS !== null && uidS !== "" && !isNaN(parseInt(uidS, 10))) { where.push("t.user_id = ?"); params.push(parseInt(uidS, 10)); }
+      const tyS = url.searchParams.get("type");
+      if (tyS) { where.push("t.type = ?"); params.push(String(tyS)); }
+      const whereSql = where.length ? " WHERE " + where.join(" AND ") : "";
+      const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get("limit"), 10) || 200));
+      const offset = Math.max(0, parseInt(url.searchParams.get("offset"), 10) || 0);
+      const totalRow = await dbOne(env, "SELECT COUNT(*) AS c FROM transactions t" + whereSql, params);
+      const rows = await dbAll(env, "SELECT t.*, u.username AS username FROM transactions t LEFT JOIN users u ON u.id = t.user_id" + whereSql + " ORDER BY t.id DESC LIMIT " + limit + " OFFSET " + offset, params);
+      return _json({
+        ok: true,
+        total: totalRow ? totalRow.c : 0,
+        transactions: rows.map(function (t) {
+          return {
+            id: t.id, user_id: t.user_id, username: t.username || null, type: t.type, amount: t.amount,
+            balance_after: t.balance_after, counterparty_name: t.counterparty_name || null,
+            actor_name: t.actor_name || null, game_id: t.game_id || null, note: t.note || null, created_at: t.created_at
+          };
+        })
+      });
+    }
     /* ═══ [Admin] عمليات على مستخدم: شحن/خصم/ضبط، كلمة سر، حظر، دور، مسح، إسكات — نقل حرفي من server.js ═══ */
     let adm;
     if ((adm = /^\/api\/admin\/user\/(\d+)\/(balance|password|ban|role|delete|mute)$/.exec(p)) && method === "POST") {
@@ -1191,6 +1258,8 @@ var C = {
           if (!isSuper) return _json({ ok: false, message: "\u0633\u0648\u0628\u0631 \u0623\u062F\u0645\u0646 \u0641\u0642\u0637" }, 403);
           const g = Math.max(0, parseInt(data.gold, 10) || 0);
           await dbRun(env, "UPDATE users SET gold = ? WHERE id = ?", [g, target.id]);
+          /* [TxLog v2.28] */
+          txLog(env, { id: target.id }, "set_balance", g, { balance_after: g, actor_id: me.id, actor_name: me.username });
           return _json({ ok: true, gold: g });
         }
         const amt = parseInt(data.amount, 10);
@@ -1211,6 +1280,9 @@ var C = {
           await dbRun(env, "UPDATE users SET gold = gold + ?, first_topup_done = 1 WHERE id = ?", [amt, target.id]);
           const tg = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [target.id]);
           const mg = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [me.id]);
+          /* [TxLog v2.28] شحن + هدية إحالة، مع المنفِّذ */
+          txLog(env, { id: target.id }, "charge", amt, { balance_after: tg ? tg.gold : null, actor_id: me.id, actor_name: me.username });
+          if (refBonus > 0) txLog(env, { id: target.referred_by }, "referral_bonus", refBonus, { actor_id: me.id, actor_name: me.username, note: "\u0647\u062F\u064A\u0629 \u0625\u062D\u0627\u0644\u0629" });
           return _json({ ok: true, gold: tg.gold, admin_gold: mg.gold, referral_bonus: refBonus });
         }
         if (data.action === "deduct") {
@@ -1219,6 +1291,8 @@ var C = {
           const dec = await dbRun(env, "UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?", [amt, target.id, amt]);
           if (!dec.meta || !dec.meta.changes) return _json({ ok: false, message: "\u0631\u0635\u064A\u062F \u0627\u0644\u0639\u0645\u064A\u0644 \u063A\u064A\u0631 \u0643\u0627\u0641\u064D" }, 400);
           const tg = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [target.id]);
+          /* [TxLog v2.28] سحب مباشر */
+          txLog(env, { id: target.id }, "deduct", amt, { balance_after: tg ? tg.gold : null, actor_id: me.id, actor_name: me.username });
           return _json({ ok: true, gold: tg.gold });
         }
         return _json({ ok: false, message: "\u0639\u0645\u0644\u064A\u0629 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629" }, 400);
@@ -1502,6 +1576,9 @@ var C = {
         "INSERT INTO transfers (from_id, from_name, to_id, to_name, amount, created_at) VALUES (?,?,?,?,?,?)",
         [me.id, me.username, target.id, String(data.to).trim(), amt, Math.floor(Date.now() / 1e3)]
       );
+      /* [TxLog v2.28] تحويل صادر/وارد */
+      txLog(env, { id: me.id }, "transfer_out", amt, { balance_after: myGold, counterparty_id: target.id, counterparty_name: String(data.to).trim() });
+      txLog(env, { id: target.id }, "transfer_in", amt, { balance_after: tGold, counterparty_id: me.id, counterparty_name: me.username });
       return _json({ ok: true, amount: amt, to: data.to, gold: myGold });
     }
     if (p === "/api/transfers") {
