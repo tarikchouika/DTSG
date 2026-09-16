@@ -532,11 +532,18 @@ function blEndFrame() {
       if (iWon) {
         var payout = B.bet * 2;
         if (typeof giveWin === 'function') giveWin(payout);
-        if (typeof gres === 'function') gres(T('dama.win') + ' +' + payout + ' 🪙', payout);
+        if (typeof gres === 'function') gres(T('dama.win') + ' +' + payout + ' 🪙', payout, true);
         if (typeof winFX === 'function') winFX(payout);
+        /* [BotsLedger v2.28] غرفة بوت: دلتا المنصة */
+        if (B.oppBot && !B.isSpectator && typeof window !== 'undefined' && window.BotsLedger) {
+          try { window.BotsLedger.record(window._currentGameId || 'bl8', B.bet - payout); } catch (e) {}
+        }
         amt.innerHTML = '+' + payout + ' 🪙';
       } else {
-        if (typeof gres === 'function') gres(T('dama.lose') + ' — ' + T('ts.lose'), 0);
+        if (typeof gres === 'function') gres(T('dama.lose') + ' — ' + T('ts.lose'), 0, true);
+        if (B.oppBot && !B.isSpectator && typeof window !== 'undefined' && window.BotsLedger) {
+          try { window.BotsLedger.record(window._currentGameId || 'bl8', B.bet); } catch (e) {}
+        }
         amt.textContent = '−' + B.bet + ' 🪙';
       }
     } else amt.textContent = reasonTxt || '';
