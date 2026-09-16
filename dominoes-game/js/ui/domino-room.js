@@ -359,6 +359,13 @@
        (result: 'w0' فاز صاحب order[0] | 'w1' فاز order[1] | 'draw'). */
     settle(s.matchWinner);
     const iWon = !rc.spec && s.matchWinner === rc.mySeat;
+    /* [BotsLedger v2.28] مؤشر المنصة لغرف البوت: +الرهان خسارة، −الرهان فوزاً */
+    if (rc.oppBot && !rc.spec) {
+      try {
+        const _b = (root.Rooms && root.Rooms.state && root.Rooms.state.bet) || 0;
+        if (_b > 0 && root.BotsLedger) root.BotsLedger.record('do', iWon ? -_b : _b);
+      } catch (e) {}
+    }
     a.$('dmMatchEm').textContent = (rc.spec || iWon) ? '🏆' : '💀';
     a.$('dmMatchTitle').textContent = rc.spec
       ? (s.matchWinner === 0 ? (T('dm.p1won') || 'اللاعب 1 يفوز') : (T('dm.p2won') || 'اللاعب 2 يفوز'))
