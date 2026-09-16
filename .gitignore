@@ -1,0 +1,11 @@
+# Dependencies
+node_modules/
+
+# SQLite — بيانات تشغيل (يخلق المخطط تلقائياً server.cjs عبر CREATE TABLE IF NOT EXISTS)
+*.db
+*.db-wal
+*.db-shm
+
+# Local runtime
+server.log
+.wrangler/

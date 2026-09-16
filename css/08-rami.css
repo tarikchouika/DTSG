@@ -1,0 +1,856 @@
+/* ═══════════════════════════════════════════════════════════════════
+   DTSG — Digital Traditional Skills Games — رامي المغربي طاولة 360° متناظرة
+   نظام قياس سائل موحّد:
+   · متغير واحد --card-w (يحسبه JS من clientWidth/clientHeight بعد كل resize)
+   · كل الأبعاد (أزرار، خطوط، كومات، شارات) مشتقة منه بـ calc(var(--card-w)*F)
+   · الخطوط مشتقة بـ em (1em = --card-w) عبر font-size الموروث من .rami-stage
+   ═══════════════════════════════════════════════════════════════════ */
+.rami-stage {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  /* الخطوة الأساسية: كل em في الشجرة يساوي --card-w */
+  font-size: var(--card-w, 42px);
+  background: transparent;
+  color: #e9e2cf;
+  font-family: 'Cairo', sans-serif;
+  position: relative;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+/* ═══════════ Luxury Setup Modal (مستقل عن مقياس الطاولة) ═══════════ */
+.rami-setup-modal {
+  max-width: 480px;
+  margin: 16px auto;
+  padding: 22px 20px;
+  max-width: 100%;
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 212, 137, 0.5) transparent;
+  background: radial-gradient(circle at top, #133327 0%, #081a14 100%);
+  border: 2px solid rgba(242, 212, 137, 0.45);
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), inset 0 0 20px rgba(242, 212, 137, 0.08);
+  text-align: center;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: 16px; /* يعيد rem إلى سياقه الطبيعي داخل المودال */
+}
+
+.rami-setup-header { margin-bottom: 16px; }
+.rami-setup-emblem { font-size: 2.2rem; margin-bottom: 2px; }
+.rami-setup-title { font-size: 1.15rem; font-weight: 800; color: var(--gold, #d9b45c); letter-spacing: 0.5px; }
+.rami-setup-subtitle { font-size: 0.75rem; color: rgba(255, 255, 255, 0.65); margin-top: 2px; }
+
+.rami-setup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
+@media (max-width: 480px) {
+  /* عمودان مضغوطان لإبقاء زر البدء ظاهراً دون سكرول على الهاتف */
+  .rami-setup-grid { grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .rami-setup-modal { padding: 12px 10px; margin: 6px auto; }
+  .rami-setup-header { margin-bottom: 8px; }
+  .rami-setup-emblem { font-size: 1.6rem; }
+  .rami-setup-title { font-size: 0.95rem; }
+  .rami-setup-subtitle { font-size: 0.66rem; }
+  .rami-custom-select { padding: 6px 8px; font-size: 0.7rem; }
+  .rami-field-label { font-size: 0.64rem; }
+  .rami-setup-bet-box { padding: 8px 10px; margin-bottom: 8px; }
+  .rami-bet-val-display { font-size: 0.9rem; padding: 5px 12px; }
+  .rami-start-btn { padding: 10px 14px; font-size: 0.85rem; }
+}
+.rami-setup-field { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.rami-field-label { font-size: 0.72rem; font-weight: 700; color: #E2E8F0; }
+.rami-select-wrap { width: 100%; }
+.rami-custom-select {
+  width: 100%; padding: 8px 10px;
+  background: rgba(6, 23, 18, 0.85);
+  border: 1.5px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px; color: #F8FAFC;
+  font-size: 0.78rem; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: all 0.15s ease; box-sizing: border-box;
+}
+.rami-custom-select:focus, .rami-custom-select:hover { border-color: var(--gold, #d9b45c); box-shadow: 0 0 12px rgba(242, 212, 137, 0.35); }
+
+.rami-setup-bet-box { background: rgba(0,0,0,0.4); border: 1px solid rgba(242,212,137,0.3); border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; }
+.rami-bet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-size: 0.74rem; }
+.rami-user-balance { color: rgba(255,255,255,0.75); }
+.rami-user-balance strong { color: var(--gold, #d9b45c); }
+.rami-bet-controls { display: flex; justify-content: center; align-items: center; gap: 6px; flex-wrap: wrap; }
+.rami-bet-val-display {
+  font-family: 'Orbitron', monospace; font-size: 1rem; font-weight: 900; color: var(--gold, #d9b45c);
+  background: rgba(6,23,18,0.85); border: 1.5px solid rgba(242,212,137,0.45); border-radius: 8px; padding: 6px 16px;
+}
+.rami-setup-action { margin-top: 4px; }
+.rami-start-btn {
+  width: 100%; font-weight: 900; letter-spacing: 0.5px;
+  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  border: 1.5px solid rgba(242, 212, 137, 0.5);
+  box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+  transition: all 0.2s ease; padding: 12px 20px; font-size: 0.95rem; border-radius: 12px;
+}
+.rami-start-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(16,185,129,0.6); border-color: var(--gold, #d9b45c); }
+
+/* ═══════════ إعدادات مبسّطة (طالاج/سامبل) ═══════════ */
+.rami-setup-modal .rami-field { display: flex; flex-direction: column; align-items: stretch; gap: 5px; margin-bottom: 12px; text-align: start; }
+.rami-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+.rami-field-row .rami-field { margin-bottom: 0; }
+.rami-bal-hint { font-weight: 600; color: var(--gold, #d9b45c); }
+
+/* النوع: زرّان متجاوران (طالاج / سامبل) */
+.rami-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rami-seg-btn {
+  padding: 9px 8px; font-size: 0.82rem; font-weight: 800; font-family: inherit;
+  border-radius: 10px; cursor: pointer; transition: all 0.16s ease;
+  background: rgba(6,23,18,0.85); color: rgba(255,255,255,0.7);
+  border: 1.5px solid rgba(255,255,255,0.18);
+}
+.rami-seg-btn:hover { border-color: var(--gold, #d9b45c); color: #fff; }
+.rami-seg-btn.on {
+  background: linear-gradient(135deg, #f2d489, #b8892f);
+  color: #0b1526; border-color: var(--gold, #d9b45c);
+  box-shadow: 0 0 14px rgba(242,212,137,0.6);
+}
+
+/* الرهان: خانة رقم يدوية + أزرار −/+ وMAX */
+.rami-bet-row { display: flex; align-items: stretch; gap: 6px; }
+.rami-bet-input {
+  flex: 1 1 auto; min-width: 0; text-align: center;
+  padding: 8px 6px; font-size: 0.9rem; font-weight: 900;
+  font-family: 'Orbitron', monospace; color: var(--gold, #d9b45c);
+  background: rgba(6,23,18,0.85); border: 1.5px solid rgba(242,212,137,0.45);
+  border-radius: 8px; box-sizing: border-box;
+}
+.rami-bet-input:focus { outline: none; border-color: var(--gold, #d9b45c); box-shadow: 0 0 12px rgba(242,212,137,0.4); }
+.rami-bet-row .bbtn {
+  flex: 0 0 auto; min-width: 40px; padding: 0 12px; font-size: 0.95rem; font-weight: 900;
+  background: rgba(6,23,18,0.85); color: #F8FAFC; border: 1.5px solid rgba(255,255,255,0.2);
+  border-radius: 8px; cursor: pointer; transition: all 0.15s ease;
+}
+.rami-bet-row .bbtn:hover { border-color: var(--gold, #d9b45c); color: var(--gold, #d9b45c); }
+.rami-bet-row .bbtn.small { font-size: 0.66rem; letter-spacing: 0.5px; }
+@media (max-width: 480px) {
+  .rami-seg-btn { padding: 7px 6px; font-size: 0.74rem; }
+  .rami-field-row { gap: 6px; }
+}
+
+/* ═══════════ حاوية اللعبة ═══════════ */
+.rami-game { width: 100%; height: 100%; display: flex; flex-direction: column; box-sizing: border-box; }
+
+/* ═══════════ طاولة الرامي — CSS Grid بمناطق مسماة ═══════════ */
+.rami-round-table {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  background:
+    /* [Logo] شعار المنصة بمنتصف الطاولة — واضح ومتناسق، خلف أكوام الأوراق */
+    url('../../assets/dtsg/dtsg-logo-watermark.png') center / min(38%, 340px) auto no-repeat,
+    radial-gradient(ellipse at center, #1b4d3e 0%, #0d2e24 65%, #061712 100%);
+  border: calc(var(--card-w) * 0.22) solid #4a2e18;
+  /* زوايا قائمة لاستغلال كامل مساحة المستطيل دون قصّ للأوراق عند المنحنيات */
+  border-radius: 6px;
+  box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.85), 0 12px 36px rgba(0, 0, 0, 0.7), 0 0 0 2px rgba(242, 212, 137, 0.35);
+  display: grid;
+  grid-template-areas:
+    "above"
+    "center"
+    "below"
+    "bottom";
+  /* [V14] توزيع عمودي متوازن: مجموعتا المقاعد تتمددان (1fr) والمركز ومنطقة اللاعب بمحتواهما */
+  grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  padding: calc(var(--card-w) * 0.1);
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ═══════════ مقاعد الخصوم — عمود رأسي فوق اللاعب (لا مقاعد جانبية) ═══════════ */
+.rami-seats-container {
+  position: relative;
+  /* LTR إجباري: الأوراق تُقرأ يسار→يمين حتى لا تنعكس في وضع RTL */
+  direction: ltr;
+  display: flex;
+  flex-direction: column;
+  /* [V14] توزيع المقاعد بانتظام لملء المساحة الرأسية بدل التكدس في المنتصف */
+  justify-content: space-evenly;
+  gap: calc(var(--card-w) * 0.08);
+  min-width: 0;
+  min-height: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+.rami-seats-above { grid-area: above; }
+.rami-seats-below { grid-area: below; }
+
+/* مقعد خصم واحد = صف أفقي: أوراق يسار + HUD يمين */
+.rami-seat-node {
+  position: static;
+  pointer-events: auto;
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-start;
+  gap: 0.02em;
+  min-width: 0; max-width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  transition: none; /* المواضع ثابتة لا تتزحزح عند انتقال الدور */
+}
+
+/* [V22] مقعد الخصم: عمودي — شريط HUD أفقي فوق، وخانات الأوراق تملأ كامل العرض تحته */
+.rami-seat-node.seat-row {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 0.02em;
+}
+.rami-seat-hud {
+  /* [V23] شريط أفقي: أيقونة ← نقاط ← تاج التوزيع ← مؤقت، مُزاح إلى أقصى اليمين */
+  flex: 0 0 auto;
+  align-self: flex-end;
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-end;
+  gap: 0.14em;
+  min-width: 0;
+  padding: 0.02em 0.1em;
+  box-sizing: border-box;
+}
+.rami-dealer-crown {
+  font-size: 0.22em; font-weight: 800; color: var(--gold, #d9b45c);
+  min-width: 0.6em; text-align: center; line-height: 1;
+}
+
+/* ═══════════ الأفاتار والشارات ═══════════ */
+.rami-avatar-wrap {
+  display: flex; align-items: center; justify-content: center; gap: 0.08em;
+  background: transparent !important; border: none !important;
+  box-shadow: none !important; padding: 0 !important;
+  height: calc(var(--card-w) * 0.7);
+  flex: 0 0 auto;
+  min-width: 0;
+}
+.rami-node-info {
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1; min-width: 0;
+}
+.rami-seat-node.active .rami-avatar-wrap,
+.rami-player-node.active .rami-avatar-wrap {
+  background: transparent !important; border: none !important; box-shadow: none !important;
+}
+.rami-avatar-circle {
+  width: calc(var(--card-w) * 0.66);
+  height: calc(var(--card-w) * 0.66);
+  border-radius: 50%;
+  background: rgba(30, 41, 59, 0.7);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  color: #F8FAFC;
+  font-size: 0.26em; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+  letter-spacing: 0.5px; font-family: 'Orbitron', sans-serif;
+  transition: all 0.2s ease;
+}
+
+/* الهالة الذهبية للاعب النشط فقط */
+.active-turn-halo .rami-avatar-circle,
+.rami-avatar-circle.active,
+.rami-seat-node.active .rami-avatar-circle {
+  border-color: var(--gold, #d9b45c) !important;
+  background: linear-gradient(135deg, #f2d489, #b8892f) !important;
+  color: #0b1526 !important;
+  box-shadow: 0 0 0 3px rgba(242, 212, 137, 0.45), 0 0 20px rgba(242, 212, 137, 1), inset 0 0 8px rgba(255, 255, 255, 0.6) !important;
+  animation: goldHaloPulse 1.4s infinite alternate ease-in-out;
+}
+@keyframes goldHaloPulse {
+  /* نبض الظل فقط — بلا transform حتى تبقى مواضع العناصر ثابتة تماماً */
+  0%   { box-shadow: 0 0 0 2px rgba(242,212,137,0.3), 0 0 12px rgba(242,212,137,0.8); }
+  100% { box-shadow: 0 0 0 5px rgba(242,212,137,0.65), 0 0 24px rgba(242,212,137,1); }
+}
+
+.rami-node-score { font-family: 'Orbitron', monospace; font-weight: 700; color: var(--gold, #d9b45c); font-size: 0.26em; line-height: 1; white-space: nowrap; display: inline-block; }
+.rami-avatar-timer {
+  font-family: 'Orbitron', monospace; font-size: 0.3em; font-weight: 900; color: #EF4444;
+  background: transparent !important; border: none !important; box-shadow: none !important;
+  padding: 0 calc(var(--card-w) * 0.1); letter-spacing: 0.5px;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.85);
+  /* خانة محجوزة ثابتة: تُخفى برؤية لا بإزالة، حتى لا تتزحزح العناصر عند انتقال الدور */
+  visibility: hidden;
+  min-width: calc(var(--card-w) * 1.3);
+  text-align: center;
+}
+.rami-seat-node.active .rami-avatar-timer { visibility: visible; }
+.rami-dock-center.active-turn-halo .rami-avatar-timer { visibility: visible; }
+.rami-seat-name {
+  font-size: 0.24em; font-weight: 800; color: #E2E8F0;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.9); white-space: nowrap; letter-spacing: 0.3px;
+  font-family: 'Cairo', sans-serif;
+}
+
+/* ═══════════ سلسلة أوراق كل لاعب: خط أفقي ثابت (ظهور + وجوه) ═══════════
+   كل مقاعد الخصوم أفقية الآن (عمود رأسي من المقاعد فوق اللاعب).
+   الخط ثابت لا يتغير موضعه أثناء الشوط؛ يتغير فقط القلب (ظهر/وجه). */
+.rami-seat-line {
+  display: flex; align-items: center; justify-content: flex-start;
+  flex: 1 1 auto;
+  min-width: 0; min-height: 0;
+  max-width: 100%; max-height: 100%;
+  overflow: hidden;
+  gap: 0;
+}
+.rami-seat-line.line-h { flex-direction: row; flex-wrap: nowrap; gap: 0; }
+.mini-meld-wrap { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 0; }
+/* [V18] أوراق الخصوم: حجم مقاس بـ --seat-sc */
+.rami-seat-line .mini-back {
+  width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1)) !important;
+  height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1)) !important;
+  margin-inline-end: 0;
+  border-width: 1px !important;
+  border-color: rgba(242, 212, 137, 0.5) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+}
+.rami-seat-line .mini-meld {
+  margin-inline-end: 0;
+}
+
+/* [V19] خمس خانات ثابتة لكل خصم — مثل خانات اللاعب الرئيسي */
+.rami-seat-line.line-slots {
+  display: flex; flex-direction: row; flex-wrap: nowrap;
+  align-items: center; justify-content: space-between;
+  gap: calc(var(--card-w) * 0.05);
+  flex: 1 1 auto; min-width: 0;
+}
+.rami-opp-slot {
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1));
+  border: 1px dashed rgba(242, 212, 137, 0.30);
+  border-radius: 0.12em;
+  box-sizing: border-box;
+  padding: 0.03em;
+  overflow: hidden;
+  transition: none;
+}
+.rami-opp-slot.empty { border-color: rgba(242, 212, 137, 0.10); }
+/* تراكب داخل الخانة الواحدة (يُحقنه JS كـ --slot-ov) */
+.rami-opp-slot .mini-back,
+.rami-opp-slot .mini-meld-wrap {
+  margin-inline-end: var(--slot-ov, calc(var(--card-w) * -0.25));
+}
+.rami-opp-slot .mini-back:last-child,
+.rami-opp-slot .mini-meld-wrap:last-child {
+  margin-inline-end: 0;
+}
+
+/* ═══════════ مركز الطاولة: العنوان + المجرف + المرموق ═══════════ */
+.rami-center-zone {
+  grid-area: center;
+  position: relative;
+  /* [V27] شبكة 3 أعمدة: العنوان في العمود الأيسر، والمرموق/المجرف متمركزان بالضبط في المنتصف
+     (العمود الأيمن فارغ موازن) */
+  direction: ltr;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  padding: 0 calc(var(--card-w) * 0.3);
+  min-width: 0; min-height: 0;
+}
+.rami-rim-header {
+  /* [V15/V20/V27] العنوان + رقم الرهان في العمود الأيسر — بلا خلفية ولا إطار */
+  grid-column: 1;
+  justify-self: end;
+  margin-inline-end: calc(var(--card-w) * 0.5);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  z-index: 20;
+  white-space: nowrap;
+}
+.rami-rim-title {
+  /* [V26] ذهبي لامع ثلاثي الأبعاد */
+  font-size: 0.42em; font-weight: 800; color: var(--gold, #d9b45c);
+  text-shadow:
+    0 1px 0 #b8892f, 0 2px 0 #7a5a1e, 0 3px 6px rgba(0,0,0,0.85),
+    0 0 18px rgba(242,212,137,0.45);
+  letter-spacing: 0.5px; font-family: 'Cairo', sans-serif;
+}
+/* [V18] مجموع الرهان أسفل العنوان — نص صغير متناسق بلا خلفية ولا إطار */
+.rami-rim-bet {
+  /* [V26] رقم الرهان ذهبي أسفل العنوان مباشرة */
+  display: block;
+  font-size: 0.32em; font-weight: 800; color: var(--gold, #d9b45c);
+  text-shadow: 0 1px 0 #b8892f, 0 2px 4px rgba(0,0,0,0.9);
+  letter-spacing: 0.4px; font-family: 'Cairo', sans-serif;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+/* ═══════════ تسمية نوع الرامي على الحافة اليمنى (طالاج/سامبل) ═══════════
+   تعكس rami-rim-header تماماً: العمود الثالث (الأيمن) بدل الأول، justify-self:start
+   وهامش على الجهة الداخلية (نحو المركز). */
+.rami-side-type {
+  grid-column: 3;
+  justify-self: start;
+  margin-inline-start: calc(var(--card-w) * 0.5);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: transparent; border: none; padding: 0; z-index: 20; white-space: nowrap;
+}
+.rami-side-type-txt {
+  font-size: 0.42em; font-weight: 800; color: var(--gold, #d9b45c);
+  text-shadow:
+    0 1px 0 #b8892f, 0 2px 0 #7a5a1e, 0 3px 6px rgba(0,0,0,0.85),
+    0 0 18px rgba(242,212,137,0.45);
+  letter-spacing: 0.5px; font-family: 'Cairo', sans-serif;
+}
+
+.rami-table-center {
+  position: relative;
+  /* [V27] العمود الأوسط: المرموق + المجرف متمركزان بالضبط */
+  grid-column: 2;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.1em;
+  z-index: 30;
+}
+.rami-piles-row { display: flex; align-items: center; justify-content: center; gap: calc(var(--card-w) * 1.15); }
+/* [V19b] سامبل: عنصر ثالث في المركز (فوجوك/وصف الجوكر) — فجوة مضغوطة كي لا يُدفَع
+   عنوان سامبل وهدف الجولة ومجموع الرهان خارج الطاولة */
+.rami-piles-row:has(.rami-indicator-box) { gap: calc(var(--card-w) * 0.45); }
+.rami-deck-box, .rami-discard-box, .rami-indicator-box {
+  display: flex; flex-direction: column; align-items: center; gap: 0.05em;
+  cursor: pointer; transition: transform 0.18s ease;
+}
+.rami-deck-box:hover, .rami-discard-box:hover { transform: translateY(-2px) scale(1.04); }
+.rami-pile-label {
+  font-size: 0.24em; font-weight: 700; color: var(--t1, #e9e2cf);
+  background: rgba(0, 0, 0, 0.65); padding: 1px 6px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.15); backdrop-filter: blur(4px);
+}
+
+/* ═══════════ مجموعات الأوراق المنزلة للاعب البشري ═══════════ */
+.rami-meld-group {
+  display: flex; background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(242, 212, 137, 0.35); border-radius: 4px;
+  padding: 1px 3px; gap: 2px; cursor: pointer;
+  transition: transform 0.15s ease; min-width: 0; max-width: 100%;
+}
+.rami-meld-group:hover { transform: scale(1.05); border-color: var(--gold, #d9b45c); }
+
+.rami-human-melds-area {
+  display: flex; flex-wrap: wrap; gap: 4px; justify-content: center;
+  min-height: 26px; margin-bottom: 2px; z-index: 22;
+  max-width: 100%; min-width: 0;
+  max-height: calc(var(--card-w) * 2.1);
+  overflow-y: auto; overflow-x: hidden; padding: 2px 4px;
+  box-sizing: border-box; scrollbar-width: thin;
+  scrollbar-color: rgba(242, 212, 137, 0.5) transparent;
+  -webkit-overflow-scrolling: touch;
+}
+.rami-human-melds-area::-webkit-scrollbar { height: 4px; width: 4px; }
+.rami-human-melds-area::-webkit-scrollbar-thumb { background: rgba(242, 212, 137, 0.5); border-radius: 999px; }
+/* أوراق اللاعب المنزلة تعرض الآن داخل خانات اليد بحلقة ذهبية — المنطقة الفارغة لا تشغل حيزاً */
+.rami-human-melds-area:empty { display: none; }
+
+/* ═══════════ شريط التحكم الموحّد ═══════════ */
+.rami-action-dock {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; max-width: min(760px, 100%);
+  padding: calc(var(--card-w) * 0.08) calc(var(--card-w) * 0.3);
+  background: transparent; border: none;
+  margin: 2px auto 4px; z-index: 40; box-sizing: border-box; gap: 0.14em;
+  flex: 0 0 auto;
+}
+.rami-dock-center { display: flex; align-items: center; gap: 0.14em; }
+/* ═══════════ خانة العزل (بجنب تاج التوزيع) ═══════════
+   تساعد اللاعب البشري على عزل ورقة واحدة خارج المجموعات الخمس،
+   فيتمكن من الافتتاح/الإنهاء الصحيح (14 ورقة في مجموعات + ورقة معزولة تُقلب). */
+.rami-isolate-slot {
+  display: flex; align-items: center; justify-content: center;
+  width: calc(var(--card-w) * 0.86); height: calc(var(--card-w) * 1.26);
+  border: 1.5px dashed rgba(242, 212, 137, 0.55); border-radius: 0.14em;
+  background: rgba(6, 23, 18, 0.35); cursor: pointer; box-sizing: border-box;
+  flex: 0 0 auto; min-width: 0; padding: 2px;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.rami-isolate-slot:hover { background: rgba(242, 212, 137, 0.12); border-color: var(--gold, #d9b45c); border-style: solid; }
+.rami-isolate-slot.filled { border-style: solid; border-color: var(--gold, #d9b45c); box-shadow: 0 0 12px rgba(242,212,137,0.5); }
+.rami-isolate-slot.drag-hover { background: rgba(242, 212, 137, 0.22); border-color: var(--gold, #d9b45c); border-style: solid; }
+.rami-isolate-ph { font-size: 0.46em; color: rgba(242,212,137,0.85); font-weight: 800; line-height: 1; text-align: center; }
+.rami-isolate-card .rcard-vector { width: calc(var(--card-w) * 0.8) !important; height: calc(var(--card-w) * 1.18) !important; }
+.rami-isolate-card .rcard-corner { font-size: 0.2em !important; }
+.rami-isolate-card .rcard-glyph { font-size: 0.2em !important; }
+.rami-isolate-card .rcard-big-glyph { font-size: 0.42em !important; }
+.rami-isolate-card .joker-star { font-size: 0.24em !important; }
+
+.rbtn {
+  display: inline-flex; align-items: center; gap: 0.12em;
+  padding: calc(var(--card-w) * 0.12) calc(var(--card-w) * 0.3);
+  font-size: 0.29em; white-space: nowrap; font-weight: 700; font-family: inherit;
+  border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(6, 23, 18, 0.35); color: var(--t1, #e9e2cf);
+  cursor: pointer; transition: all 0.16s ease;
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 3px 10px rgba(0,0,0,0.25); touch-action: manipulation;
+}
+.rbtn:hover { transform: translateY(-2px); background: rgba(242, 212, 137, 0.2); border-color: var(--gold, #d9b45c); }
+.rbtn.rbtn-open { background: rgba(242, 212, 137, 0.2); border-color: var(--gold, #d9b45c); color: var(--gold, #d9b45c); }
+.rbtn.rbtn-open.ready { background: linear-gradient(135deg, #f2d489, #b8892f); color: #0b1526; box-shadow: 0 0 16px rgba(242, 212, 137, 0.7); }
+.rbtn.rbtn-finish { background: rgba(16, 185, 129, 0.25); border-color: rgba(16, 185, 129, 0.6); color: #6EE7B7; }
+.rbtn.rbtn-clear { padding: 4px 8px; color: #F87171; border-color: rgba(239, 68, 68, 0.4); }
+.rbtn.btn-cancel-auto { padding: 4px 8px; color: #FBBF24; }
+.rami-score-pill {
+  display: inline-flex; align-items: center; gap: 3px; font-size: 0.27em; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px; background: rgba(6, 23, 18, 0.4);
+  border: 1px solid rgba(242, 212, 137, 0.4); color: var(--gold, #d9b45c); backdrop-filter: blur(4px);
+}
+
+/* ═══════════ تسميات مصغّرة لمنطقتي الأوراق أسفل الطاولة ═══════════ */
+.rami-area-label {
+  font-size: 0.22em;
+  font-weight: 800;
+  color: rgba(242, 212, 137, 0.85);
+  letter-spacing: 0.4px;
+  line-height: 1.2;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-family: 'Cairo', sans-serif;
+}
+
+/* ═══════════ نافذة نهاية الشوط: حاوية واحدة قابلة للتمرير ═══════════ */
+.rami-round-end {
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 212, 137, 0.5) transparent;
+  box-sizing: border-box;
+  padding-bottom: 24px;
+}
+.rami-round-end::-webkit-scrollbar { width: 6px; }
+.rami-round-end::-webkit-scrollbar-thumb { background: rgba(242, 212, 137, 0.5); border-radius: 999px; }
+.rami-round-end .rami-scores-final { flex: 0 0 auto; }
+.rami-round-end .rami-history-box { flex: 0 0 auto; margin-bottom: 4px; }
+.rami-round-end .rami-next-btn-zone { flex: 0 0 auto; margin-top: 10px; text-align: center; }
+
+/* ═══════════ جدول سجل النقاط والمخالفات ═══════════ */
+.rami-hist-scroll {
+  max-height: calc(var(--card-w) * 5.2);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(242, 212, 137, 0.5) transparent;
+  margin-top: 8px;
+}
+.rami-hist-table { display: flex; flex-direction: column; gap: 2px; }
+.rami-hist-row { display: flex; gap: 8px; padding: 4px 6px; align-items: flex-start; }
+.rami-hist-head {
+  font-weight: 800; color: var(--gold, #d9b45c);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  position: sticky; top: 0; background: #0b1f18; z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.rami-hist-c-name { flex: 0 0 80px; font-weight: 700; white-space: nowrap; }
+.rami-hist-c-pts { flex: 0 0 76px; font-family: Orbitron, monospace; }
+.rami-hist-c-pen { flex: 1; color: rgba(255, 255, 255, 0.82); }
+.rami-hist-c-tot { flex: 0 0 60px; font-family: Orbitron, monospace; text-align: end; }
+.rami-hist-round { padding: 5px 6px; color: #34D399; font-weight: 700; border-bottom: 1px dashed rgba(255,255,255,0.14); }
+.rami-round-end .rami-scores-final { margin-bottom: 6px; }
+.rami-round-end .rami-history-box { margin-top: 10px; }
+
+/* سطر الإرشاد لمرة واحدة عند أول استخدام */
+.rami-hint-line {
+  font-size: 0.22em;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(6, 23, 18, 0.55);
+  border: 1px solid rgba(242, 212, 137, 0.3);
+  border-radius: 999px;
+  padding: 2px 10px;
+  max-width: 96%;
+  text-align: center;
+  line-height: 1.4;
+}
+.rami-hint-line[hidden] { display: none; }
+
+/* ═══════════ منطقة اللاعب السفلي + الخانات الخمس ═══════════ */
+.rami-player-bottom-wrap {
+  grid-area: bottom; width: 100%; min-width: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 0.05em; z-index: 20;
+}
+.rami-5slots-container {
+  display: flex; justify-content: center; align-items: stretch; gap: 0.1em;
+  width: 100%; max-width: min(980px, 100%); padding: 2px;
+  box-sizing: border-box; min-width: 0;
+}
+.rami-slot-box {
+  flex: 1; min-width: calc(var(--card-w) * 1.35); min-height: calc(var(--card-w) * 1.7);
+  background: rgba(6, 23, 18, 0.22); border: 1.5px dashed rgba(242, 212, 137, 0.5);
+  border-radius: 0.19em; padding: 0.05em;
+  display: flex; align-items: center; justify-content: center;
+  box-sizing: border-box; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease; backdrop-filter: blur(4px);
+}
+.rami-slot-box:hover, .rami-slot-box.drag-hover { background: rgba(242, 212, 137, 0.12); border-color: var(--gold, #d9b45c); border-style: solid; }
+.rami-slot-cards {
+  display: flex; justify-content: center; align-items: center;
+  width: 100%; min-height: calc(var(--card-w) * 1.45);
+  flex-wrap: var(--wrap, nowrap);
+}
+/* الأوراق داخل الخانات تتدرج حسب --sc (تصغير تدريجي) دون كسر النصوص */
+.rami-slot-cards .rcard-vector {
+  width: calc(var(--card-w) * var(--sc, 1));
+  height: calc(var(--card-w) * 1.48 * var(--sc, 1));
+}
+.rami-slot-cards .rcard-corner { font-size: calc(0.26em * var(--sc, 1)); }
+.rami-slot-cards .rcard-glyph { font-size: calc(0.26em * var(--sc, 1)); }
+.rami-slot-cards .rcard-big-glyph { font-size: calc(0.48em * var(--sc, 1)); }
+.rami-slot-cards .joker-star { font-size: calc(0.55em * var(--sc, 1)); }
+.rami-slot-cards .joker-lbl { font-size: calc(0.2em * var(--sc, 1)); }
+.rami-slot-cards .rami-card-wrap {
+  flex: 0 0 auto;
+  margin-inline-end: var(--ov, calc(var(--card-w) * -0.4));
+}
+.rami-slot-cards .rami-card-wrap:last-child { margin-inline-end: 0; }
+
+.rami-card-wrap {
+  position: relative; display: inline-flex; cursor: grab; user-select: none;
+  transition: transform 0.16s ease, z-index 0.1s ease;
+}
+.rami-card-wrap:hover { transform: translateY(-8px) scale(1.08); z-index: 40 !important; }
+.rami-card-wrap.selected { transform: translateY(-14px) scale(1.12); z-index: 50 !important; }
+.rami-card-wrap.selected .rcard-vector { border: 2px solid var(--gold, #d9b45c); box-shadow: 0 0 16px rgba(242, 212, 137, 0.95); }
+/* [V10] أوراق اللاعب المنزلة في الخانات: حلقة ذهبية ثابتة تميّزها دون حركة */
+.rami-card-wrap.melded { cursor: default; }
+.rami-card-wrap.melded:hover { transform: none; }
+.rami-card-wrap.melded .rcard-vector {
+  border: 2px solid var(--gold, #d9b45c);
+  box-shadow: 0 0 12px rgba(242, 212, 137, 0.85), inset 0 0 6px rgba(242, 212, 137, 0.35);
+}
+.card-sel-badge {
+  position: absolute; top: calc(var(--card-w) * -0.24); right: calc(var(--card-w) * -0.24);
+  background: var(--gold, #d9b45c); color: #0b1526; border-radius: 50%;
+  width: calc(var(--card-w) * 0.44); height: calc(var(--card-w) * 0.44);
+  font-size: 0.26em; display: flex; align-items: center; justify-content: center; z-index: 5;
+  font-weight: 900;
+}
+
+/* ═══════════ بطاقات المتجه (Crisp Vector Cards) ═══════════ */
+.rcard-vector {
+  width: calc(var(--card-w) * 1);
+  height: calc(var(--card-w) * 1.48);
+  border-radius: 0.12em;
+  background: #ffffff; border: 1px solid #d1d5db;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  position: relative; display: flex; flex-direction: column; justify-content: space-between;
+  padding: 0.05em 0.07em; box-sizing: border-box; user-select: none;
+  font-family: 'Cairo', sans-serif;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+/* [Assets] أوراق المنصة الحقيقية: الوجه والظهر صور كاملة (cover) — لا نصوص فوقها */
+.rcard-vector.rcard-img,
+.rcard-vector.rcard-back {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 0;
+}
+.rcard-vector.red { color: #DC2626; }
+.rcard-vector.black { color: #0F172A; }
+.rcard-corner { display: flex; flex-direction: column; align-items: center; line-height: 1; font-size: 0.28em; font-weight: 800; }
+.rcard-corner.top-left { align-self: flex-start; }
+.rcard-corner.bottom-right { align-self: flex-end; transform: rotate(180deg); }
+.rcard-glyph { font-size: 0.28em; }
+.rcard-center-emblem { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; justify-content: center; }
+/* [V15] الرمز المركزي واضح وبارز تماماً */
+.rcard-big-glyph { font-size: 0.55em; opacity: 1; }
+
+.rcard-back {
+  background: linear-gradient(135deg, #1E3A8A 0%, #0F172A 100%);
+  border: 1.5px solid var(--gold, #d9b45c);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.6); position: relative; overflow: hidden;
+}
+/* [BackImg] بطاقات الظهر بصورة الشفافة الجديدة — الخلفية الزرقاء تُخفى فقط
+   عندما تحمل صورة الظهر inline (أوراق التشكيل rami-shuffle-card بلا صورة تبقى زرقاء) */
+.rcard-vector.rcard-back[style*="back.webp"] {
+  background: transparent;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+.rcard-back-pattern {
+  position: absolute; inset: 2px; border: 1px dashed rgba(242, 212, 137, 0.6); border-radius: 3px;
+  background: repeating-linear-gradient(45deg, rgba(242,212,137,0.12), rgba(242,212,137,0.12) 3px, transparent 3px, transparent 6px);
+}
+.rcard-joker { background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%); border: 1.5px solid var(--gold, #d9b45c); color: #B45309; }
+.rcard-joker .rcard-center-emblem { flex-direction: column; gap: 1px; }
+.joker-star { font-size: 0.42em; color: var(--gold, #f2d489); line-height: 1; }
+.joker-lbl {
+  font-size: 0.15em;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  color: #78350F;
+  white-space: nowrap;
+  line-height: 1;
+  overflow: visible;
+}
+/* البطاقات المصغّرة (في مجموعات الـAI): نجمة فقط دون نص لتجنب قصّ "JOKER" */
+.mini-meld .joker-lbl { display: none; }
+.mini-meld .joker-star { font-size: 0.26em; }
+
+/* بطاقات مصغّرة (الخصوم + المنزلات) — مكبّرة لملء المساحة */
+.mini-back { width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1)) !important; height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1)) !important; padding: 0 !important; flex: 0 0 auto; }
+.mini-meld {
+  width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1)) !important;
+  height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1)) !important;
+  padding: 1px !important; flex: 0 1 auto; min-width: 0;
+}
+.mini-meld .rcard-corner { font-size: 0.18em !important; }
+.mini-meld .rcard-glyph { font-size: 0.18em !important; }
+.mini-meld .rcard-big-glyph { font-size: 0.44em !important; }
+.mini-meld .joker-lbl { font-size: 0.12em !important; }
+.mini-meld .joker-star { font-size: 0.3em !important; }
+
+/* [V18] الشاشات المتوسطة والعريضة: حجم أساسي أكبر لأوراق الخصوم (يُضبط بالمقاس --seat-sc) */
+@media (min-width: 601px) {
+  .rami-seat-line { --seat-base-w: 1.0; --seat-base-h: 1.48; }
+  .mini-back, .mini-meld { --seat-base-w: 1.0; --seat-base-h: 1.48; }
+  .mini-meld .rcard-corner, .mini-meld .rcard-glyph { font-size: 0.2em !important; }
+  .mini-meld .rcard-big-glyph { font-size: 0.5em !important; }
+}
+
+/* [V26] المنظر الأفقي (لاندسكيب): 4 خصوم في الزوايا حول مركز كبير */
+@media (orientation: landscape) and (min-width: 640px) {
+  .rami-round-table {
+    grid-template-areas:
+      "above above"
+      "center center"
+      "below below"
+      "bottom bottom";
+    grid-template-columns: 1fr 1fr;
+  }
+  .rami-seats-above, .rami-seats-below {
+    /* [V27] عكس اتجاه الصف ليطابق القراءة العربية RTL:
+       الصف العلوي يُقرأ 4 ثم 3 من اليمين لليسار، والسفلي 2 ثم 1 — كما في البورتريه */
+    flex-direction: row-reverse;
+    justify-content: space-between;
+    align-items: center;
+    gap: calc(var(--card-w) * 0.2);
+  }
+  .rami-seats-above .rami-seat-node,
+  .rami-seats-below .rami-seat-node {
+    flex: 0 0 49%;
+    max-width: 49%;
+  }
+  /* مركز أكبر وواضح في الوضع الأفقي */
+  .rami-center-zone {
+    min-height: calc(var(--card-w) * 1.9);
+  }
+}
+
+/* ═══════════ مقاسات دقيقة عبر النطاقات (فقط الفراغات) ═══════════ */
+@media (max-width: 768px) {
+  /* تداخل الخانات عبر --ov من JS */
+  .rami-seat-node { gap: 1px; }
+  .rami-action-dock { padding: 0 4px; }
+}
+@media (max-width: 480px) {
+  /* تداخل الخانات عبر --ov من JS */
+  .rami-action-dock { padding: 0 2px; margin: 2px auto; gap: 3px; }
+  /* سلسلة أوراق الخصوم تتمدد وتتصغر تلقائياً ضمن المقعد */
+}
+@media (max-width: 360px) {
+  /* تداخل الخانات عبر --ov من JS */
+}
+
+/* ═══════════ مقدمة الخلط وانتقاء الموزع ═══════════ */
+.rami-intro-overlay {
+  position: absolute; inset: 0; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: rgba(6, 23, 18, 0.82); backdrop-filter: blur(6px);
+}
+.rami-shuffling-deck { display: flex; gap: 8px; }
+.rami-shuffle-card { animation: ramiShuffleSpin 1s infinite alternate ease-in-out; }
+.rami-shuffle-card:nth-child(2) { animation-delay: 0.15s; }
+.rami-shuffle-card:nth-child(3) { animation-delay: 0.3s; }
+@keyframes ramiShuffleSpin { from { transform: rotate(-6deg) translateY(-2px); } to { transform: rotate(6deg) translateY(2px); } }
+.rami-intro-title { font-size: 0.9rem; font-weight: 800; color: var(--gold, #d9b45c); text-align: center; }
+.rami-intro-cards-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+.rami-cut-card-box { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.rami-cut-card-box.dealer-winner .rcard-vector { border: 3px solid var(--gold, #d9b45c); box-shadow: 0 0 22px rgba(242, 212, 137, 1); }
+.rami-cut-pname { font-size: 0.7rem; font-weight: 700; color: #E2E8F0; }
+
+/* ═══════════ تحسينات اللمس ═══════════ */
+.rcard-vector, .rbtn, .rami-slot-box, .rami-card-wrap,
+.rami-deck-box, .rami-discard-box, .rami-meld-group {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+.rami-card-wrap { touch-action: none; -webkit-user-select: none; }
+
+/* ═══════════ السحب والإفلات (Pointer Events) ═══════════ */
+.rami-drag-ghost {
+  position: fixed; z-index: 9999; pointer-events: none;
+  transform: translate(-50%, -58%) rotate(-5deg) scale(1.15);
+  transform-origin: center; box-shadow: 0 14px 32px rgba(0, 0, 0, 0.6); opacity: 0.96;
+}
+body.rami-dragging { cursor: grabbing; user-select: none; -webkit-user-select: none; }
+
+.rami-discard-dropzone {
+  position: absolute; inset: 0;
+  border: 2.5px dashed rgba(255, 215, 0, 0.0);
+  border-radius: 6px;
+  background: transparent; pointer-events: none; z-index: 11;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+.rami-discard-dropzone.active {
+  border-color: rgba(255, 215, 0, 0.9);
+  background: rgba(242, 212, 137, 0.10);
+  box-shadow: inset 0 0 24px rgba(242, 212, 137, 0.2);
+  z-index: 14;
+}
+.rami-discard-dropzone .dz-label {
+  display: none;
+  position: absolute;
+  bottom: 0.1em;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.rami-discard-dropzone.active .dz-label {
+  display: block; font-size: 0.26em; font-weight: 800; color: #d9b45c;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.6); padding: 2px 10px; border-radius: 999px;
+  border: 1px solid rgba(255, 215, 0, 0.5);
+  white-space: nowrap;
+}
+
+/* [Spectator] شارة عدد الأوراق المخفية لكل لاعب + بانر المتفرج */
+.rami-spec-count {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(242,212,137,0.14); border: 1px solid rgba(242,212,137,0.4);
+  color: var(--gold,#f2d489); font-weight: 800; font-size: 0.74rem;
+  font-family: Orbitron, monospace; white-space: nowrap; margin-inline-start: 6px;
+}
+.rami-spectator-bar { border-radius: 12px; }
+.rami-spec-pending, .rami-spec-full {
+  font-size: 0.8rem; color: var(--gold,#f2d489); padding: 6px 14px;
+  border-radius: 999px; background: rgba(242,212,137,0.1);
+}
+
+/* [Req3] لوحة تصويت المباراة الجديدة */
+.rami-rematch-box {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 12px 14px; margin: 6px auto; max-width: 380px;
+  background: rgba(242,212,137,0.06); border: 1px solid rgba(242,212,137,0.3);
+  border-radius: 12px;
+}
+.rami-rematch-title { font-size: 0.95rem; font-weight: 800; color: var(--gold,#f2d489); text-align: center; }
+.rami-rematch-tally {
+  display: flex; flex-direction: column; gap: 4px; width: 100%;
+  background: rgba(0,0,0,0.25); border-radius: 8px; padding: 8px 10px;
+}
+.rami-rematch-row {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 0.78rem; color: rgba(255,255,255,0.9); padding: 2px 0;
+}
+.rami-rematch-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.rami-rematch-actions .rami-start-btn { min-width: 110px; }
+.rami-ghost-btn { background: rgba(255,255,255,0.08) !important; border: 1px solid rgba(255,255,255,0.2) !important; }
+.rami-rematch-voted { font-size: 0.78rem; color: rgba(255,255,255,0.7); padding: 6px 10px; }
+.rami-rematch-timer { font-size: 0.72rem; color: rgba(255,255,255,0.55); }

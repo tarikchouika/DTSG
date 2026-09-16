@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/fairness.html">
+<meta name="description" content="العدالة والشفافية — ضمان عدم التلاعب في ألعاب الدكاء التقليدية الرقمية (DTSG)">
+<meta name="theme-color" content="#0b1526">
+<title>ألعاب الدكاء التقليدية الرقمية — العدالة والشفافية</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" href="css/01-variables.css?v=dtsg5">
+<link rel="stylesheet" href="css/02-base.css?v=dtsg5">
+<link rel="stylesheet" href="css/03-components.css?v=dtsg5">
+<link rel="stylesheet" href="css/07-responsive.css?v=dtsg5">
+<link rel="stylesheet" href="css/09-chrome.css?v=dtsg5">
+<!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+<script>
+(function () {
+var t = 'dark';
+try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radiant'); }
+})();
+</script>
+<script src="js/i18n/auto-lang.js?v=dtsg5"></script>
+<style>
+/* ── Legal content layout (header/footer provided by legal-ui.js) ── */
+.legal-wrap {
+max-width: 860px;
+margin: 0 auto;
+padding: 34px 20px 60px;
+}
+.legal-wrap .legal-icon {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 52px;
+height: 52px;
+border-radius: 14px;
+background: var(--gg);
+color: #0b1526;
+font-size: 1.3rem;
+margin-bottom: 18px;
+}
+.legal-wrap h1 {
+font-family: var(--font2, 'Orbitron'), sans-serif;
+font-weight: 900;
+font-size: 1.55rem;
+margin: 0 0 8px;
+background: var(--gg);
+-webkit-background-clip: text;
+background-clip: text;
+color: transparent;
+}
+.legal-wrap .updated {
+color: var(--t3);
+font-size: 0.78rem;
+margin-bottom: 28px;
+}
+.legal-wrap h2 {
+font-size: 1.05rem;
+font-weight: 800;
+color: var(--gold);
+margin: 26px 0 8px;
+display: flex;
+align-items: center;
+gap: 9px;
+}
+.legal-wrap h2 i {
+color: var(--gold);
+}
+.legal-wrap p,
+.legal-wrap li {
+color: var(--t2);
+font-size: 0.92rem;
+line-height: 1.85;
+}
+.legal-wrap ul {
+padding-inline-start: 22px;
+margin: 8px 0;
+}
+.legal-wrap .legal-note {
+background: var(--bg2);
+border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28));
+border-radius: 12px;
+padding: 14px 16px;
+margin: 18px 0;
+}
+.legal-wrap .legal-note b {
+color: var(--gold);
+}
+.legal-wrap a {
+color: var(--gold);
+}
+.legal-wrap .icon-box {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 56px;
+height: 56px;
+border-radius: 14px;
+background: var(--gg);
+color: #0b1526;
+font-size: 1.4rem;
+margin-bottom: 16px;
+}
+</style>
+</head>
+<body>
+<article class="legal-content">
+<main class="legal-wrap">
+<div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-scale-balanced"></i></div>
+<h1 data-k="fairness.title">العدالة والشفافية</h1>
+<div class="updated" data-k="fairness.updated">آخر تحديث: 14 أغسطس 2026</div>
+
+<p data-k="fairness.intro">نلتزم بأعلى معايير <strong>العدالة والشفافية</strong> في جميع ألعابنا. نؤمن بأن كل لاعب له الحق في معرفة أن النتائج لم يتم التلاعب بها، وله القدرة على التحقق من ذلك بنفسه.</p>
+
+<h2><i class="fa-solid fa-eye" aria-hidden="true"></i> <span data-k="fairness.transparencyTitle">الشفافية الكاملة</span></h2>
+<p data-k="fairness.transparencyBody">جميع قواعد كل لعبة مذكورة بوضوح في صفحة <a href="index.html#games">الألعاب</a>. لا توجد شروط خفية أو قواعد تتغير أثناء اللعب. ما تراه هو ما تحصل عليه.</p>
+
+<h2><i class="fa-solid fa-ban" aria-hidden="true"></i> <span data-k="fairness.noRiggingTitle">لا مجال للتلاعب</span></h2>
+<p data-k="fairness.noRiggingBody">باستخدام نظام <strong>Provably Fair</strong>، لا يمكن لأي شخص داخل المنصة ولا حتى لنا تعديل نتيجة جورة بعد بدئها. الخوارزمية تُقفل بمجرد انطلاق الجولة.</p>
+
+<h2><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> <span data-k="fairness.auditTitle">تدقيق مستقل</span></h2>
+<p data-k="fairness.auditBody">نقوم بإجراء تدقيقات دورية على كل الألعاب من طرف خبراء مستقلين في التشفير. تقارير التدقيق تُنشر بانتظام وتظل متاحة للجميع.</p>
+
+<h2><i class="fa-solid fa-file-shield" aria-hidden="true"></i> <span data-k="fairness.commitmentTitle">التزامنا</span></h2>
+<ul>
+<li data-k="fairness.commit1">كل جولة يمكن التحقق منها محلياً</li>
+<li data-k="fairness.commit2">لا يوجد سيرفر يملك مفاتيح تغيير النتائج</li>
+<li data-k="fairness.commit3">ال seeds تُبدل تلقائياً بعد كل جولة</li>
+<li data-k="fairness.commit4">نشر تقارير التدقيق بشكل دوري</li>
+</ul>
+
+<div class="legal-note">
+<b data-k="fairness.noteTitle">ضمان العدالة</b><br>
+<span data-k="fairness.noteBody">إذا لم تكن مقتنعاً بالنتيجة، يمكنك دائماً التحقق منها باستخدام القيم المعروضة (Server Seed Hash، Client Seed، Nonce). العملية تتم كاملاً على جهازك ولا نحتاج لثقتنا.</span>
+</div>
+
+<p data-k="fairness.outro">لمزيد من التفاصيل التقنية، زر صفحة <a href="provably-fair.html">Provably Fair</a> أو <a href="contact.html">تواصل معنا</a>.</p>
+
+<p><a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="fairness.back">العودة للموقع</span></a></p>
+</main>
+</article>
+
+<!-- External JS (same system as index.html: state, audio, utils, TR, legal-ui) -->
+<script src="js/core/state.js?v=dtsg5"></script>
+<script src="js/core/audio.js?v=dtsg5"></script>
+<script src="js/core/utils.js?v=dtsg5"></script>
+<script src="js/i18n/translations.js?v=dtsg5"></script>
+<script src="js/core/api.js?v=dtsg5"></script>
+<script src="js/core/auth.js?v=dtsg5"></script>
+<script src="js/ui/legal-ui.js?v=lu5"></script>
+<script>
+/* ── محتوى الصفحة (data-k — ترجمة محتوى الصفحة) ── */
+var D = {
+    "fairness.title": {
+        "ar": "العدالة والشفافية",
+        "da": "العدالة والشفافية",
+        "fr": "Équité et transparence",
+        "en": "Fairness and Transparency"
+    },
+    "fairness.updated": {
+        "ar": "آخر تحديث: 14 أغسطس 2026",
+        "da": "آخر تحديث: 14 غشت 2026",
+        "fr": "Dernière mise à jour : 14 août 2026",
+        "en": "Last updated: August 14, 2026"
+    },
+    "fairness.intro": {
+        "ar": "نلتزم بأعلى معايير <strong>العدالة والشفافية</strong> في جميع ألعابنا. نؤمن بأن كل لاعب له الحق في معرفة أن النتائج لم يتم التلاعب بها، وله القدرة على التحقق من ذلك بنفسه.",
+        "da": "ملتزمين بأعلى درجات <strong>العدالة والشفافية</strong> فكاع الألعاب ديالنا. كل لعاب عندو الحق يعرف باللي النتائج نقية وما فيهاش غش ويقدر يتحقق براسو.",
+        "fr": "Nous nous engageons aux normes les plus élevées d'<strong>équité et de transparence</strong> dans tous nos jeux. Nous croyons que chaque joueur a le droit de savoir que les résultats n'ont pas été manipulés et de pouvoir le vérifier lui-même.",
+        "en": "We are committed to the highest standards of <strong>fairness and transparency</strong> in all our games. We believe every player has the right to know that results have not been tampered with and to verify this themselves."
+    },
+    "fairness.transparencyTitle": {
+        "ar": "الشفافية الكاملة",
+        "da": "شفافية كاملة",
+        "fr": "Transparence totale",
+        "en": "Full Transparency"
+    },
+    "fairness.transparencyBody": {
+        "ar": "جميع قواعد كل لعبة مذكورة بوضوح في صفحة <a href=\"index.html#games\">الألعاب</a>. لا توجد شروط خفية أو قواعد تتغير أثناء اللعب. ما تراه هو ما تحصل عليه.",
+        "da": "كاع قواعد الألعاب مشروحة بوضوح فصفحة الألعاب. ما كاينش شروط مخبية ولا قواعد كتبدل وسط اللعب.",
+        "fr": "Toutes les règles de chaque jeu sont clairement indiquées sur la page <a href=\"index.html#games\">Jeux</a>. Pas de conditions cachées ni de règles qui changent en cours de jeu. Ce que vous voyez est ce que vous obtenez.",
+        "en": "All rules for each game are clearly listed on the <a href=\"index.html#games\">Games</a> page. No hidden terms or rules that change mid-play. What you see is what you get."
+    },
+    "fairness.noRiggingTitle": {
+        "ar": "لا مجال للتلاعب",
+        "da": "ما كاينش مجال للتلاعب",
+        "fr": "Aucune manipulation possible",
+        "en": "No Rigging"
+    },
+    "fairness.noRiggingBody": {
+        "ar": "باستخدام نظام <strong>Provably Fair</strong>، لا يمكن لأي شخص داخل المنصة ولا حتى لنا تعديل نتيجة جولة بعد بدئها. الخوارزمية تُقفل بمجرد انطلاق الجولة.",
+        "da": "بنظام <strong>Provably Fair</strong>، حتى واحد فالموقع ولا حتى حنا نقدرو نبدلو نتيجة الجولة من بعد ما تبدا.",
+        "fr": "Grâce au système <strong>Provably Fair</strong>, personne sur la plateforme, pas même nous, ne peut modifier le résultat d'une manche après son lancement. L'algorithme est verrouillé dès le début de la manche.",
+        "en": "Using the <strong>Provably Fair</strong> system, no one on the platform—not even us—can change a round result after it starts. The algorithm locks as soon as the round launches."
+    },
+    "fairness.auditTitle": {
+        "ar": "تدقيق مستقل",
+        "da": "تدقيق مستقل",
+        "fr": "Audit indépendant",
+        "en": "Independent Audit"
+    },
+    "fairness.auditBody": {
+        "ar": "نقوم بإجراء تدقيقات دورية على كل الألعاب من طرف خبراء مستقلين في التشفير. تقارير التدقيق تُنشر بانتظام وتظل متاحة للجميع.",
+        "da": "كنديرو تدقيق دوري على الألعاب من طرف خبراء فالتشفير، والتقارير كتبقى ديما متاحة للجميع.",
+        "fr": "Nous effectuons des audits réguliers de tous les jeux par des experts en cryptographie indépendants. Les rapports d'audit sont publiés régulièrement et restent accessibles à tous.",
+        "en": "We conduct regular audits of all games by independent cryptography experts. Audit reports are published regularly and remain publicly accessible."
+    },
+    "fairness.commitmentTitle": {
+        "ar": "التزامنا",
+        "da": "الالتزامات ديالنا",
+        "fr": "Nos engagements",
+        "en": "Our Commitment"
+    },
+    "fairness.commit1": {
+        "ar": "كل جولة يمكن التحقق منها محلياً",
+        "da": "كل جولة يمكن التحقق منها محلياً",
+        "fr": "Chaque manche peut être vérifiée localement",
+        "en": "Every round can be verified locally"
+    },
+    "fairness.commit2": {
+        "ar": "لا يوجد سيرفر يملك مفاتيح تغيير النتائج",
+        "da": "لا يوجد سيرفر يملك مفاتيح تغيير النتائج",
+        "fr": "Aucun serveur ne détient les clés pour modifier les résultats",
+        "en": "No server holds keys to change results"
+    },
+    "fairness.commit3": {
+        "ar": "البذور تُبدل تلقائياً بعد كل جولة",
+        "da": "البذور تُبدل تلقائياً بعد كل جولة",
+        "fr": "Les seeds sont automatiquement changées après chaque manche",
+        "en": "Seeds are automatically swapped after every round"
+    },
+    "fairness.commit4": {
+        "ar": "نشر تقارير التدقيق بشكل دوري",
+        "da": "نشر تقارير التدقيق بشكل دوري",
+        "fr": "Publication régulière des rapports d'audit",
+        "en": "Regular publication of audit reports"
+    },
+    "fairness.noteTitle": {
+        "ar": "ضمان العدالة",
+        "da": "ضمان العدالة",
+        "fr": "Garantie d'équité",
+        "en": "Fairness Guarantee"
+    },
+    "fairness.noteBody": {
+        "ar": "إذا لم تكن مقتنعاً بالنتيجة، يمكنك دائماً التحقق منها باستخدام القيم المعروضة (Server Seed Hash، Client Seed، Nonce). العملية تتم كاملاً على جهازك ولا نحتاج لثقتنا.",
+        "da": "إذا لم تكن مقتنعاً بالنتيجة، يمكنك دائماً التحقق منها باستخدام القيم المعروضة (Server Seed Hash، Client Seed، Nonce). العملية تتم كاملاً على جهازك ولا نحتاج لثقتنا.",
+        "fr": "Si vous n'êtes pas convaincu du résultat, vous pouvez toujours le vérifier avec les valeurs affichées (Server Seed Hash, Client Seed, Nonce). L'opération s'effectue entièrement sur votre appareil et ne requiert aucune confiance envers nous.",
+        "en": "If you are not convinced by a result, you can always verify it using the displayed values (Server Seed Hash, Client Seed, Nonce). The process is completed entirely on your device and does not require any trust in us."
+    },
+    "fairness.outro": {
+        "ar": "لمزيد من التفاصيل التقنية، زر صفحة <a href=\"provably-fair.html\">Provably Fair</a> أو <a href=\"contact.html\">تواصل معنا</a>.",
+        "da": "لمزيد من التفاصيل التقنية، زر صفحة <a href=\"provably-fair.html\">Provably Fair</a> أو <a href=\"contact.html\">تواصل معنا</a>.",
+        "fr": "Pour plus de détails techniques, visitez la page <a href=\"provably-fair.html\">Provably Fair</a> ou <a href=\"contact.html\">contactez-nous</a>.",
+        "en": "For more technical details, visit the <a href=\"provably-fair.html\">Provably Fair</a> page or <a href=\"contact.html\">contact us</a>."
+    },
+    "fairness.back": {
+        "ar": "العودة للموقع",
+        "da": "الرجوع للموقع",
+        "fr": "Retour au site",
+        "en": "Back to site"
+    }
+};
+    var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || 'ar'; } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      
+      // Update data-k elements
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) {
+          el.innerHTML = D[k][currentLang];
+        }
+      });
+      // Update active state in lang buttons
+      document.querySelectorAll('.lang-drop button[data-lang], .lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      applyLang(currentLang);
+    });
+    applyLang(currentLang);
+
+    if (typeof _origSetLang === 'function') _origSetLang(currentLang);
+/* تهيئة الصفحة: حقن الهيدر/الفوتر + ترجمة المحتوى */
+injectLegalUI('fairness');
+applyLang();
+</script>
+</body>
+</html>

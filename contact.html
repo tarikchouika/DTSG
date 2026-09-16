@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/contact.html">
+<meta name="description" content="تواصل معنا — ألعاب الدكاء التقليدية الرقمية (DTSG): الشحن، السحب، الدعم، والإبلاغ عن المخالفات">
+  <meta name="theme-color" content="#0b1526">
+  <title>ألعاب الدكاء التقليدية الرقمية — تواصل معنا</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="css/01-variables.css?v=dtsg5">
+  <link rel="stylesheet" href="css/02-base.css?v=dtsg5">
+  <link rel="stylesheet" href="css/03-components.css?v=dtsg5">
+  <link rel="stylesheet" href="css/07-responsive.css?v=dtsg5">
+  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg5">
+  <!-- Language detection (must run before CSS paint) -->
+  <script src="js/i18n/auto-lang.js?v=dtsg5"></script>
+  <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+      if (t === 'radiant') {
+        document.documentElement.setAttribute('data-theme', 'radiant');
+      }
+    })();
+  </script>
+  <style>
+    /* ── Legal content layout (header/footer provided by legal-ui.js) ── */
+    .legal-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 34px 20px 60px;
+    }
+    .legal-wrap .legal-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: var(--gg);
+      color: #0b1526;
+      font-size: 1.3rem;
+      margin-bottom: 18px;
+    }
+    .legal-wrap h1 {
+      font-family: var(--font2, 'Orbitron'), sans-serif;
+      font-weight: 900;
+      font-size: 1.55rem;
+      margin: 0 0 8px;
+      background: var(--gg);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .legal-wrap .updated {
+      color: var(--t3);
+      font-size: 0.78rem;
+      margin-bottom: 28px;
+    }
+    .legal-wrap h2 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--gold);
+      margin: 26px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .legal-wrap h2 i {
+      color: var(--gold);
+    }
+    .legal-wrap p,
+    .legal-wrap li {
+      color: var(--t2);
+      font-size: 0.92rem;
+      line-height: 1.85;
+    }
+    .legal-wrap ul {
+      padding-inline-start: 22px;
+      margin: 8px 0;
+    }
+    .legal-wrap .legal-note {
+      background: var(--bg2);
+      border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28));
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+    .legal-wrap .legal-note b {
+      color: var(--gold);
+    }
+    .legal-wrap a {
+      color: var(--gold);
+    }
+    /* ── WhatsApp contact buttons ── */
+    .whatsapp-btns {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 12px 0;
+    }
+    .whatsapp-btns .btn {
+      flex: 1 1 0;
+      min-width: 140px;
+      justify-content: center;
+      border-color: var(--green2);
+      color: var(--green2);
+    }
+    .whatsapp-btns .btn:hover {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: var(--green2);
+      color: var(--green2);
+    }
+    /* ── Contact form ── */
+    .form-row {
+      margin-bottom: 14px;
+    }
+    .form-row:last-child {
+      margin-bottom: 18px;
+    }
+    .afinput {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    .afinput textarea {
+      resize: vertical;
+      min-height: 100px;
+    }
+    .required {
+      color: var(--red);
+      font-weight: 900;
+    }
+  </style>
+</head>
+<body>
+  <article class="legal-content">
+    <main class="legal-wrap">
+    <div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-headset"></i></div>
+    <h1 data-k="c.title">تواصل معنا</h1>
+    <div class="updated" data-k="c.updated">آخر تحديث: 12 أغسطس 2026</div>
+
+    <p data-k="c.intro">فريق منصة ألعاب الدكاء التقليدية الرقمية جاهز لمساعدتك في كل ما يخص الشحن والسحب والإحالة والغرف. اختر الطريقة الأنسب لك.</p>
+
+    <h2><i class="fa-solid fa-comments" aria-hidden="true"></i> <span data-k="c.chatTitle">الدردشة داخل المنصة</span></h2>
+    <p data-k="c.chatP">أسرع طريقة للتواصل معنا هي عبر الدردشة في الموقع الرئيسي، حيث يتواجد فريق الدعم والأدمنز.</p>
+
+    <h2><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> <span data-k="c.withdrawTitle">طلبات السحب</span></h2>
+    <p data-k="c.withdrawP">لطلب سحب أرباحك، تواصل مع أحد الأدمنز واختر طريقة السحب التي تناسبك:</p>
+    <ul>
+      <li data-k="c.withdraw1">حوالة بنكية — نحوّل المبلغ إلى حسابك البنكي.</li>
+      <li data-k="c.withdraw2">كاش وجه لوجه — لقاء أحد الأدمنز في مكان عام آمن.</li>
+      <li data-k="c.withdraw3">عملات رقمية — نحوّل إلى محفظتك الرقمية.</li>
+    </ul>
+
+    <h2><i class="fa-solid fa-credit-card" aria-hidden="true"></i> <span data-k="c.topupTitle">الشحن</span></h2>
+    <p data-k="c.topupP">لشحن حسابك بمال حقيقي، تواصل مع أحد الأدمنز لإتمام العملية. يُضاف الرصيد فوراً ككوينز (10 كوينز = 1 درهم).</p>
+
+    <h2><i class="fa-solid fa-user-plus" aria-hidden="true"></i> <span data-k="c.referTitle">الإحالة</span></h2>
+    <p data-k="c.referP">ادعُ صديقاً عبر رابط الإحالة الخاص بحسابك، واحصل تلقائياً على 10٪ من قيمة أول عملية شحن له.</p>
+
+    <h2><i class="fa-solid fa-flag" aria-hidden="true"></i> <span data-k="c.reportTitle">الإبلاغ عن مخالفة</span></h2>
+    <p data-k="c.reportP">إذا تعرضت لكلام نابٍ أو هجومي أو خادش للحياء في الدردشة أو الغرف، أبلغ أحد الأدمنز. يُحظر المخالف من الدردشة لمدة 24 ساعة قابلة للمضاعفة مع كل تكرار، ويُحظر من يخل بالآداب العامة أو بخصوصية اللاعبين.</p>
+
+    <h2><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <span data-k="c.safetyTitle">أمان حسابك</span></h2>
+    <div class="legal-note">
+      <b data-k="c.safetyTitle2">تنبيه أمني:</b>
+      <span data-k="c.safetyP">لن يطلب منك أي أدمن كلمة المرور الخاصة بك أبداً. لا تشارك كلمة مرورك أو رمز التحقق مع أي شخص.</span>
+    </div>
+
+    <h2><i class="fa-solid fa-whatsapp" aria-hidden="true"></i> <span data-k="c.whatsappTitle">الدعم عبر واتساب</span></h2>
+    <p data-k="c.whatsappIntro">تواصل مع الدعم عبر واتساب — متاح 7/24.</p>
+    <div class="whatsapp-btns">
+      <a href="https://wa.me/212706865019" class="btn ghost small" target="_blank" rel="noopener" aria-label="واتساب الرسمي">
+        <i class="fa-brands fa-whatsapp" aria-hidden="true"></i> <span data-k="c.whatsapp2">واتساب الرسمي</span>
+      </a>
+    </div>
+
+    <h2><i class="fa-solid fa-envelope" aria-hidden="true"></i> <span data-k="c.formTitle">نموذج التواصل</span></h2>
+    <p data-k="c.formIntro">أرسل رسالتك إلى فريق الدعم عبر النموذج أدناه.</p>
+    <form id="contactForm" autocomplete="on">
+      <div class="form-row">
+        <label class="aflabel" for="cName"><i class="fa-solid fa-user" aria-hidden="true"></i> <span data-k="c.formName">الاسم</span> <span class="required" aria-label="مطلوب">*</span></label>
+        <input class="afinput" type="text" id="cName" name="name" maxlength="100" required>
+      </div>
+      <div class="form-row">
+        <label class="aflabel" for="cEmail"><i class="fa-solid fa-envelope" aria-hidden="true"></i> <span data-k="c.formEmail">البريد الإلكتروني</span> <span class="required" aria-label="مطلوب">*</span></label>
+        <input class="afinput" type="email" id="cEmail" name="email" maxlength="254" required>
+      </div>
+      <div class="form-row">
+        <label class="aflabel" for="cSubject"><i class="fa-solid fa-tag" aria-hidden="true"></i> <span data-k="c.formSubject">الموضوع</span></label>
+        <input class="afinput" type="text" id="cSubject" name="subject" maxlength="120">
+      </div>
+      <div class="form-row">
+        <label class="aflabel" for="cMessage"><i class="fa-solid fa-pen" aria-hidden="true"></i> <span data-k="c.formMessage">الرسالة</span> <span class="required" aria-label="مطلوب">*</span></label>
+        <textarea class="afinput" id="cMessage" name="message" rows="5" maxlength="3000" required></textarea>
+      </div>
+      <div id="contactMsg" class="authmsg" role="alert" aria-live="polite"></div>
+      <button type="submit" class="btn full" id="contactSubmit"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i> <span data-k="c.formSubmit">إرسال الرسالة</span></button>
+    </form>
+
+    <p><a class="btn ghost small" href="about.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> <span data-k="c.aboutBtn">صفحة من نحن</span></a>
+    <a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="c.back">العودة للموقع</span></a></p>
+  </main>
+  </article>
+
+  <!-- External JS (same system as index.html: state, audio, utils, TR, legal-ui) -->
+  <script src="js/core/state.js?v=dtsg5"></script>
+  <script src="js/core/audio.js?v=dtsg5"></script>
+  <script src="js/core/utils.js?v=dtsg5"></script>
+  <script src="js/i18n/translations.js?v=dtsg5"></script>
+  <script src="js/core/api.js?v=dtsg5"></script>
+<script src="js/core/auth.js?v=dtsg5"></script>
+<script src="js/ui/legal-ui.js?v=lu5"></script>
+  <script>
+    /* ── محتوى الصفحة (data-k — ترجمة محتوى الصفحة) ── */
+    var D = {
+    "c.title": {
+        "ar": "تواصل معنا",
+        "da": "تواصل معنا",
+        "fr": "Contactez-nous",
+        "en": "Contact Us"
+    },
+    "c.updated": {
+        "ar": "آخر تحديث: 12 أغسطس 2026",
+        "da": "آخر تحديث: 12 غشت 2026",
+        "fr": "Dernière mise à jour : 12 août 2026",
+        "en": "Last updated: August 12, 2026"
+    },
+    "c.intro": {
+        "ar": "فريق منصة ألعاب الدكاء التقليدية الرقمية جاهز لمساعدتك في كل ما يخص الشحن والسحب والإحالة والغرف. اختر الطريقة الأنسب لك.",
+        "da": "فريق منصة ألعاب الدكاء التقليدية الرقمية واجد يعاونك فكل ما يخص الشحن، السحب، الإحالة، والغرف.",
+        "fr": "L'équipe de Digital Traditional Skills Games est prête à vous aider pour la recharge, le retrait, le parrainage et les salles. Choisissez la méthode la plus adaptée.",
+        "en": "The Digital Traditional Skills Games team is ready to help you with top-ups, withdrawals, referrals and rooms. Choose the method that suits you best."
+    },
+    "c.chatTitle": {
+        "ar": "الدردشة داخل المنصة",
+        "da": "الشات داخل الموقع",
+        "fr": "Chat de la plateforme",
+        "en": "Platform chat"
+    },
+    "c.chatP": {
+        "ar": "أسرع طريقة للتواصل معنا هي عبر الدردشة في الموقع الرئيسي، حيث يتواجد فريق الدعم والأدمنز.",
+        "da": "أسرع طريقة للتواصل معنا هي عبر الشات فالموقع الرئيسي، فين كاينين الأدمنز والدعم.",
+        "fr": "Le moyen le plus rapide de nous contacter est le chat du site principal, où se trouvent le support et les admins.",
+        "en": "The fastest way to reach us is through the chat on the main site, where support and admins are available."
+    },
+    "c.withdrawTitle": {
+        "ar": "طلبات السحب",
+        "da": "طلبات السحب",
+        "fr": "Demandes de retrait",
+        "en": "Withdrawal requests"
+    },
+    "c.withdrawP": {
+        "ar": "لطلب سحب أرباحك، تواصل مع أحد الأدمنز واختر طريقة السحب التي تناسبك:",
+        "da": "باش تطلب سحب الأرباح، تواصل مع أحد الأدمنز واختار الطريقة اللي تناسبك:",
+        "fr": "Pour retirer vos gains, contactez l'un des admins et choisissez la méthode qui vous convient :",
+        "en": "To withdraw your winnings, contact one of the admins and choose the withdrawal method that suits you:"
+    },
+    "c.withdraw1": {
+        "ar": "حوالة بنكية — نحوّل المبلغ إلى حسابك البنكي.",
+        "da": "حوالة بنكية — كنصيفطو المبلغ لحسابك البنكي.",
+        "fr": "Virement bancaire — nous transférons le montant sur votre compte.",
+        "en": "Bank transfer — we send the amount to your bank account."
+    },
+    "c.withdraw2": {
+        "ar": "كاش وجه لوجه — لقاء أحد الأدمنز في مكان عام آمن.",
+        "da": "كاش يد ليد — تلاقى مع أدمن فمكان عام ومأمن.",
+        "fr": "Espèces en face à face — rencontre avec un admin dans un lieu public sûr.",
+        "en": "Face-to-face cash — meeting an admin in a safe public place."
+    },
+    "c.withdraw3": {
+        "ar": "عملات رقمية — نحوّل إلى محفظتك الرقمية.",
+        "da": "عملات رقمية — كنحولو للمحفظة الرقمية ديالك.",
+        "fr": "Cryptomonnaies — transfert vers votre portefeuille numérique.",
+        "en": "Cryptocurrency — we transfer to your digital wallet."
+    },
+    "c.topupTitle": {
+        "ar": "الشحن",
+        "da": "الشحن",
+        "fr": "Recharge",
+        "en": "Top-up"
+    },
+    "c.topupP": {
+        "ar": "لشحن حسابك بمال حقيقي، تواصل مع أحد الأدمنز لإتمام العملية. يُضاف الرصيد فوراً ككوينز (10 كوينز = 1 درهم).",
+        "da": "باش تشحن حسابك، تواصل مع الأدمن (10 كوينز = 1 درهم).",
+        "fr": "Pour recharger votre compte avec de l'argent réel, contactez l'un des admins. Le montant est ajouté immédiatement en pièces (10 pièces = 1 dirham).",
+        "en": "To top up your account with real money, contact one of the admins. The amount is added instantly as coins (10 coins = 1 dirham)."
+    },
+    "c.referTitle": {
+        "ar": "الإحالة",
+        "da": "الإحالة",
+        "fr": "Parrainage",
+        "en": "Referral"
+    },
+    "c.referP": {
+        "ar": "ادعُ صديقاً عبر رابط الإحالة الخاص بحسابك، واحصل تلقائياً على 10٪ من قيمة أول عملية شحن له.",
+        "da": "ادعُ صديقاً عبر رابط الإحالة الخاص بحسابك، واحصل تلقائياً على 10٪ من قيمة أول عملية شحن له.",
+        "fr": "Parrainez un ami via votre lien de parrainage et recevez automatiquement 10% de la valeur de sa première recharge.",
+        "en": "Invite a friend through your referral link and automatically receive 10% of the value of their first top-up."
+    },
+    "c.reportTitle": {
+        "ar": "الإبلاغ عن مخالفة",
+        "da": "الإبلاغ عن مخالفة",
+        "fr": "Signaler une infraction",
+        "en": "Report a violation"
+    },
+    "c.reportP": {
+        "ar": "إذا تعرضت لكلام نابٍ أو هجومي أو خادش للحياء في الدردشة أو الغرف، أبلغ أحد الأدمنز. يُحظر المخالف من الدردشة لمدة 24 ساعة قابلة للمضاعفة مع كل تكرار، ويُحظر من يخل بالآداب العامة أو بخصوصية اللاعبين.",
+        "da": "إلا تعرضتي لكلام خايب فالشات ولا الغرف، علم الأدمن باش يتبلوكا المخالف 24 ساعة.",
+        "fr": "Si vous êtes victime de propos grossiers, agressifs ou indécents dans le chat ou les salles, signalez-le à un admin. Le contrevenant est banni du chat pendant 24 heures, doublé à chaque récidive, et toute atteinte aux bonnes mœurs ou à la vie privée entraîne un bannissement.",
+        "en": "If you are exposed to abusive, aggressive or indecent language in chat or rooms, report it to an admin. The violator is banned from chat for 24 hours, doubled on each repeat, and anyone violating public decency or player privacy is banned."
+    },
+    "c.safetyTitle": {
+        "ar": "أمان حسابك",
+        "da": "أمان حسابك",
+        "fr": "Sécurité de votre compte",
+        "en": "Account security"
+    },
+    "c.safetyTitle2": {
+        "ar": "تنبيه أمني:",
+        "da": "تنبيه أمني:",
+        "fr": "Alerte de sécurité :",
+        "en": "Security alert:"
+    },
+    "c.safetyP": {
+        "ar": "لن يطلب منك أي أدمن كلمة المرور الخاصة بك أبداً. لا تشارك كلمة مرورك أو رمز التحقق مع أي شخص.",
+        "da": "لن يطلب منك أي أدمن كلمة المرور الخاصة بك أبداً. لا تشارك كلمة مرورك أو رمز التحقق مع أي شخص.",
+        "fr": "Aucun admin ne vous demandera jamais votre mot de passe. Ne partagez jamais votre mot de passe ou votre code de vérification.",
+        "en": "No admin will ever ask for your password. Never share your password or verification code with anyone."
+    },
+    "c.aboutBtn": {
+        "ar": "صفحة من نحن",
+        "da": "صفحة من نحن",
+        "fr": "Page à propos",
+        "en": "About page"
+    },
+    "c.back": {
+        "ar": "العودة للموقع",
+        "da": "الرجوع للموقع",
+        "fr": "Retour au site",
+        "en": "Back to site"
+    },
+    "c.fb2fa": {
+        "ar": "2FA محمي",
+        "da": "2FA محمي",
+        "fr": "2FA protégé",
+        "en": "2FA protected"
+    },
+    "c.fbSecure": {
+        "ar": "اتصال آمن",
+        "da": "اتصال آمن",
+        "fr": "Connexion sécurisée",
+        "en": "Secure connection"
+    },
+    "c.footer": {
+        "ar": "جميع الحقوق محفوظة",
+        "da": "جميع الحقوق محفوظة",
+        "fr": "Tous droits réservés",
+        "en": "All rights reserved"
+    },
+    "c.whatsappTitle": {
+        "ar": "الدعم عبر واتساب",
+        "da": "الدعم عبر واتساب",
+        "fr": "Support via WhatsApp",
+        "en": "Support via WhatsApp"
+    },
+    "c.whatsappIntro": {
+        "ar": "تواصل مع الدعم عبر واتساب — متاح 7/24.",
+        "da": "تواصل مع الدعم عبر واتساب — متاح 7/24.",
+        "fr": "Contactez le support via WhatsApp — 7j/24",
+        "en": "Contact support via WhatsApp — available 24/7."
+    },
+    "c.whatsapp2": {
+        "ar": "واتساب الرسمي",
+        "da": "واتساب الرسمي",
+        "fr": "WhatsApp officiel",
+        "en": "Official WhatsApp"
+    },
+    "c.formTitle": {
+        "ar": "نموذج التواصل",
+        "da": "نموذج المراسلة",
+        "fr": "Formulaire de contact",
+        "en": "Contact form"
+    },
+    "c.formIntro": {
+        "ar": "أرسل رسالتك إلى فريق الدعم عبر النموذج أدناه.",
+        "da": "أرسل رسالتك إلى فريق الدعم عبر النموذج أدناه.",
+        "fr": "Envoyez votre message à l'équipe de support.",
+        "en": "Send your message to the support team."
+    },
+    "c.formName": {
+        "ar": "الاسم",
+        "da": "الاسم الكامل",
+        "fr": "Nom",
+        "en": "Your name"
+    },
+    "c.formEmail": {
+        "ar": "البريد الإلكتروني",
+        "da": "البريد الإلكتروني",
+        "fr": "Email",
+        "en": "Your email"
+    },
+    "c.formSubject": {
+        "ar": "الموضوع",
+        "da": "الموضوع",
+        "fr": "Objet",
+        "en": "Subject"
+    },
+    "c.formMessage": {
+        "ar": "الرسالة",
+        "da": "الرسالة",
+        "fr": "Message",
+        "en": "Message"
+    },
+    "c.formSubmit": {
+        "ar": "إرسال الرسالة",
+        "da": "إرسال الرسالة",
+        "fr": "Envoyer le message",
+        "en": "Send message"
+    },
+    "c.formSuccess": {
+        "ar": "تم إرسال رسالتك بنجاح! سيتواصل معك الدعم قريباً.",
+        "da": "تم إرسال رسالتك بنجاح! سيتواصل معك الدعم قريباً.",
+        "fr": "Votre message a été envoyé avec succès !",
+        "en": "Your message was sent successfully! Support will contact you soon."
+    },
+    "c.formError": {
+        "ar": "فشل إرسال الرسالة — حاول مجدداً.",
+        "da": "فشل إرسال الرسالة — حاول مجدداً.",
+        "fr": "Échec de l'envoi — réessayez.",
+        "en": "Failed to send message — please try again."
+    }
+};
+        var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || 'ar'; } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      
+      // Update data-k elements
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) {
+          el.innerHTML = D[k][currentLang];
+        }
+      });
+      // Update active state in lang buttons
+      document.querySelectorAll('.lang-drop button[data-lang], .lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      applyLang(currentLang);
+    });
+    applyLang(currentLang);
+
+    if (typeof _origSetLang === 'function') _origSetLang(currentLang);
+    /* إرسال نموذج التواصل إلى الخادم — يعمل بشكل منعزل عن تبديل اللغة */
+    (function () {
+      var form = document.getElementById('contactForm');
+      if (!form) return;
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = document.getElementById('contactSubmit');
+        var msg = document.getElementById('contactMsg');
+        if (btn) btn.disabled = true;
+        var fd = new FormData(form);
+        var payload = {
+          name: (fd.get('name') || '').trim(),
+          email: (fd.get('email') || '').trim(),
+          subject: (fd.get('subject') || '').trim(),
+          message: (fd.get('message') || '').trim()
+        };
+        fetch('/api/contact', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data && data.ok) {
+              msg.textContent = D['c.formSuccess'] ? D['c.formSuccess'][curLang] : 'تم إرسال رسالتك بنجاح';
+              msg.className = 'authmsg ok';
+              form.reset();
+            } else {
+              msg.textContent = (data && data.message) ? data.message : (D['c.formError'] ? D['c.formError'][curLang] : 'فشل الإرسال');
+              msg.className = 'authmsg err';
+            }
+          })
+          .catch(function () {
+            msg.textContent = D['c.formError'] ? D['c.formError'][curLang] : 'فشل الإرسال';
+            msg.className = 'authmsg err';
+          })
+          .finally(function () {
+            if (btn) btn.disabled = false;
+          });
+      });
+    })();
+    /* تهيئة الصفحة: حقن الهيدر/الفوتر + ترجمة المحتوى */
+    injectLegalUI('contact');
+    applyLang();
+  </script>
+</body>
+</html>

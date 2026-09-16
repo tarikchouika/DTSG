@@ -1,0 +1,742 @@
+/* ════════════════════════════════════════════════════════════
+   Dama Maghribia — Moroccan Checkers styling
+   نفس هوية بارشيسي: خشب بني دافئ + إطار ذهبي بزوايا قائمة
+   يملأ الشاشة بلا فراغات — Board, pieces, hints, HUD, overlay
+   ════════════════════════════════════════════════════════════ */
+
+/* ── المسرح: يملأ جسم صفحة اللعبة بالكامل (بلا فراغ أسود) ── */
+#pg-game.active #gamePageBody #damaStage {
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 !important;
+  transform: none !important;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  background:
+    radial-gradient(140% 90% at 50% 0%, rgba(97, 62, 33, 0.95) 0%, rgba(43, 25, 11, 0.97) 70%),
+    linear-gradient(180deg, #4a2f1a, #241206);
+  border: 3px solid #d9b45c;
+  border-radius: 0;
+  padding: 6px 6px 8px;
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 227, 150, 0.25);
+  overflow: hidden;
+}
+#gamePageBody #damaStage { margin-bottom: 0 !important; }
+#damaStage .gstage-bg { opacity: 0.15; }
+#damaStage .res { flex: 0 0 auto; margin-top: 6px; }
+#damaStage .rulesBox { flex: 0 0 auto; }
+
+.dama-wrap {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;      /* أمان أخير: لا يُقصّ محتوى أبداً */
+  overscroll-behavior: contain;
+}
+
+/* ── Setup screen ── */
+.dama-setup {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 6px 2px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* توسيط آمن: عند اتساع المكان تتوسّط البطاقة، وعند الضيق تنكمش الفراغات ويمكن التمرير */
+.dama-setup::before,
+.dama-setup::after { content: ''; flex: 0 0 0; margin: auto 0; min-height: 6px; }
+.dama-logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 30%, #4a2f18, #1d0f05 85%);
+  border: 2.5px solid #d9b45c;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55), inset 0 2px 8px rgba(255, 227, 150, 0.22);
+}
+.dama-logo-em {
+  font-size: 27px;
+  color: #ffe08a;
+  font-weight: 800;
+  line-height: 1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+.dama-title {
+  font-size: clamp(1.15rem, 5vw, 1.45rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-align: center;
+  background: linear-gradient(180deg, #fff6cf 0%, #ffe08a 30%, #f2b93b 58%, #b97f1e 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 0 rgba(122, 77, 8, 0.9)) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.5));
+}
+.dama-sub {
+  font-size: 11px;
+  color: #e8d9ae;
+  text-align: center;
+  margin-top: -4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.dama-field {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  background: rgba(0, 0, 0, 0.28);
+  border: 1px solid rgba(217, 169, 78, 0.28);
+  border-radius: 10px;
+  padding: 7px 9px;
+}
+.dama-flab {
+  font-size: 11px;
+  color: #efe2c2;
+  font-weight: 800;
+  padding-right: 2px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.dama-pick { display: flex; gap: 5px; flex-wrap: wrap; }
+.dama-chip {
+  flex: 1 1 auto;
+  min-width: 46px;
+  padding: 6px 5px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: rgba(255, 215, 94, 0.07);
+  border: 1.5px solid rgba(217, 169, 78, 0.35);
+  color: #f0e3c0;
+  transition: 0.16s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.dama-chip:hover { background: rgba(255, 215, 94, 0.14); border-color: rgba(255, 215, 94, 0.55); }
+.dama-chip.on {
+  background: linear-gradient(180deg, #ffd75e, #d9a13a);
+  border-color: #b8892e;
+  color: #241305;
+  box-shadow: 0 3px 12px rgba(217, 169, 78, 0.4);
+}
+.dama-cd { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1.5px solid rgba(0, 0, 0, 0.35); }
+.dama-cd.w { background: radial-gradient(circle at 35% 30%, #fff, #cdbb9a); }
+.dama-cd.b { background: radial-gradient(circle at 35% 30%, #5a5a5a, #1c1c1c); }
+.dama-pay {
+  font-size: 11.5px;
+  padding: 6px 14px;
+  color: #ffedbe;
+  background: rgba(255, 215, 94, 0.08);
+  border: 1px solid rgba(217, 169, 78, 0.35);
+  padding: 8px 16px;
+  border-radius: 10px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.dama-pay b { color: #ffd75e; }
+.dama-go {
+  margin-top: 2px;
+  width: 100%;
+  max-width: 300px;
+  padding: 9px 10px;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, #ffd75e, #d9a13a);
+  color: #241305;
+  border: 1px solid #b8892e;
+  border-radius: 10px;
+  font-weight: 900;
+  box-shadow: 0 5px 16px rgba(217, 169, 78, 0.4);
+}
+
+/* ── Play screen ── */
+.dama-play {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  max-width: 440px;
+  margin: 0 auto;
+  padding: 2px 0;
+}
+/* صندوق اللوحة يتمدد ليملأ المساحة المتاحة مع الحفاظ على شكل مربّع */
+.dama-boardbox {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 100%;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  position: relative;        /* [Owner] مرجع تموضع مقاعد اللاعبين */
+}
+/* [Owner] المقاعد مطلقة داخل صندوق اللوحة — تتمركز فوق/تحت حافتها بغض النظر عن الاتجاه */
+.dama-boardbox > .dama-seat {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  margin: 0;
+  z-index: 6;
+}
+.dama-boardbox > .dama-seat-top { top: 0; }
+.dama-boardbox > .dama-seat-bottom { top: 100%; }
+/* ── [Owner] شريط المتفرجين (شفاف 100%) ── */
+.dama-spectators {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0 auto 4px;
+  min-height: 26px;
+  background: transparent;          /* شفاف 100% — لا فراغ أسود */
+  pointer-events: none;
+}
+.dama-spectators:empty { display: none; }   /* فارغ بلا متفرجين ⇒ يُخفى تماماً */
+.dama-spec {
+  width: 26px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(22, 11, 4, 0.82);
+  border: 1.5px solid rgba(255, 215, 94, 0.55);
+  font-size: 15px;
+  line-height: 1;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+/* ── [Owner] مقاعد اللاعبين (فوق/تحت اللوحة) ── */
+.dama-seat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+.dama-seat-top { margin-bottom: 3px; }
+.dama-seat-bottom { margin-top: 3px; }
+.dama-picon {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 35% 28%, #4a2f18, #1d0f05 82%);
+  border: 3px solid #d9b45c;
+  box-shadow: 0 3px 9px rgba(0, 0, 0, 0.6), inset 0 1px 2px rgba(255, 230, 170, 0.25);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+.dama-picon.w { border-color: #ffe9a8; }
+.dama-picon.b { border-color: #d9b45c; }
+.dama-picon.turn {
+  border-color: #ffd75e;
+  box-shadow: 0 0 0 3px rgba(255, 215, 94, 0.9), 0 0 20px rgba(255, 215, 94, 0.55), 0 3px 9px rgba(0, 0, 0, 0.6);
+}
+.dama-pface {
+  font-size: 22px;
+  color: #ffe9a8;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  line-height: 1;
+  user-select: none;
+}
+
+/* ── Board ── */
+.dama-board {
+  width: 100%;               /* [Layout] تملأ صندوق اللوحة الذي يُحجَّم بالـ JS كمربّع */
+  height: 100%;
+  max-width: 100%;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  border-radius: 0;
+  overflow: hidden;
+  position: relative;   /* [B9] مرجع طبقة الطيران */
+  direction: ltr;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.55),
+    0 0 0 4px #3a2a12,
+    0 0 0 6px #d9b45c,
+    inset 0 0 0 1px rgba(255, 227, 150, 0.2);
+}
+/* [Logo] اللوغو الرسمي بمنتصف لوحة الدامة — علامة مائية فوق المربعات وخلف القطع */
+.dama-board::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: url('../assets/dtsg/dtsg-logo-watermark.png') center / min(44%, 250px) auto no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 1;
+}
+.dm-sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: default; }
+.dm-sq.light { background: linear-gradient(135deg, #e9d6a8, #dcc189); }
+.dm-sq.dark { background: linear-gradient(135deg, #7a4a22, #5e3618); }
+.dm-sq.sel { box-shadow: inset 0 0 0 3px #d9b45c; inset 0 0 14px rgba(217, 180, 92, 0.5); }
+.dm-sq.last { box-shadow: inset 0 0 0 2px rgba(217, 180, 92, 0.55); }
+.dm-sq.sel.last { box-shadow: inset 0 0 0 3px #d9b45c, inset 0 0 14px rgba(217, 180, 92, 0.5); }
+.dm-sq.hint { cursor: pointer; }
+.dm-dot {
+  width: 30%;
+  height: 30%;
+  border-radius: 50%;
+  background: rgba(255, 215, 94, 0.65);
+  box-shadow: 0 0 9px rgba(255, 215, 94, 0.65);
+  animation: dmPulse 1.1s ease-in-out infinite;
+}
+.dm-dot.cap { width: 62%; height: 62%; background: transparent; border: 3px solid rgba(239, 68, 68, 0.85); box-shadow: 0 0 10px rgba(239, 68, 68, 0.55); }
+@keyframes dmPulse { 0%, 100% { transform: scale(0.82); opacity: 0.7; } 50% { transform: scale(1.08); opacity: 1; } }
+
+/* ── Pieces ── */
+.dm-pc { width: 74%; height: 74%; border-radius: 50%; position: relative; }
+.dm-pc.just { animation: dmDrop 0.22s ease; }
+.dm-pc.w {
+  background: radial-gradient(circle at 34% 28%, #ffffff, #efe2c6 55%, #bda277);
+  border: 1.5px solid #9a8048;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), inset 0 -3px 6px rgba(120, 90, 40, 0.35);
+}
+.dm-pc.b {
+  background: radial-gradient(circle at 34% 28%, #5b5b5b, #2c2c2c 55%, #0c0c0c);
+  border: 1.5px solid #000;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.5);
+}
+.dm-pc.king::after {
+  content: '♛';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 54%;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+.dm-pc.w.king::after { color: #b8892f; }
+.dm-pc.b.king::after { color: #d9b45c; }
+@keyframes dmDrop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+/* ── [B9] الترقية المؤجلة: هالة ذهبية نابضة + تاج مؤقت فوق القطعة المتوقفة ── */
+.dm-pc.pending {
+  animation: dmPendingPulse 1.1s ease-in-out infinite;
+}
+.dm-pc.pending::after {
+  content: '⏳';
+  position: absolute;
+  top: -42%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.65);
+}
+@keyframes dmPendingPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(217, 180, 92, 0.55), 0 0 9px rgba(217, 180, 92, 0.35); }
+  50% { box-shadow: 0 0 0 4px rgba(217, 180, 92, 0.95), 0 0 22px rgba(217, 180, 92, 0.75); }
+}
+
+/* ── [B10] القطعة الملزَمة بالأكل: نبض ذهبي يجذب النظر ── */
+.dm-pc.obliged {
+  animation: dmObligedPulse 0.9s ease-in-out infinite;
+}
+@keyframes dmObligedPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(255, 215, 94, 0.55), 0 0 10px rgba(255, 215, 94, 0.35); }
+  50% { box-shadow: 0 0 0 5px rgba(255, 215, 94, 0.95), 0 0 26px rgba(255, 215, 94, 0.8); }
+}
+.dm-pc.obliged::before {
+  content: '⚡';
+  position: absolute;
+  top: -46%;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  line-height: 1;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+/* ── [B10] الرهان الجاري (عرض ساكن أعلى اللوحة) ── */
+.dama-stake {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ffd75e;
+  min-height: 16px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  padding: 1px 4px 0;
+}
+.dama-stake[hidden] { display: none; }
+
+/* ── [B10] شريط مصادقة التعادل الوارد ── */
+.dama-drawbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 6px 0 2px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(255, 215, 94, 0.12);
+  border: 1px solid rgba(255, 215, 94, 0.45);
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #f0e3c0;
+}
+.dama-drawbar[hidden] { display: none; }
+.dama-drawbar .dama-mini.ok { background: rgba(46, 160, 67, 0.25); border-color: rgba(46, 160, 67, 0.7); }
+.dama-drawbar .dama-mini.no { background: rgba(185, 28, 28, 0.22); border-color: rgba(185, 28, 28, 0.6); }
+
+/* ── [B10] خانة الرهان داخل شاشة الإعدادات ── */
+.dama-betrow .bets { margin: 0 auto; width: max-content; }
+
+/* ── [UI] شريط النتيجة الفارغ: يُخفى كي لا يترك هامشاً ذهبياً أسفل اللوحة.
+   يظهر تلقائياً عند وجود رسالة فعلية (فوز/خسارة/تعادل gres) — عنصر .res
+   يبدأ بلا محتوى نصي فيختفي بـ :empty ويبقى معروضاً عند وجود رسالة. ── */
+#damaStage > .res:empty { display: none !important; margin: 0 !important; min-height: 0 !important; }
+
+/* ── [B9] طبقة الطيران: القطعة تنزلق/تقفز قوساً والضحية تتلاشى ── */
+.dm-fly {
+  position: absolute;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.dm-fly .dm-pc { width: 74%; height: 74%; }
+.dm-fly .dm-pc.just { animation: none; }
+.dm-fly.dm-ghost { z-index: 29; }
+.dm-fly .dm-pc.pending::after { top: -36%; font-size: 10px; }
+
+.dama-status {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: #f0e3c0;
+  min-height: 20px;
+  text-align: center;
+  padding: 0 6px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+/* [B10 v2.27] رقيقة الرهان الجاري أثناء المباراة (ساكنة — التعديل من الإعدادات فقط) */
+.dama-stake {
+  min-height: 0;
+  width: max-content;
+  margin: 0 auto 2px;
+  padding: 2px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.38);
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  color: #f0d98c;
+}
+.dama-stake[hidden] { display: none; }
+.dama-ctrls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.dama-mini {
+  padding: 8px 14px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 12.5px;
+  font-weight: 800;
+  background: rgba(255, 215, 94, 0.1);
+  border: 1px solid rgba(217, 169, 78, 0.5);
+  color: #ffe9a8;
+  transition: 0.15s;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.dama-mini:hover { background: rgba(255, 215, 94, 0.2); border-color: rgba(255, 215, 94, 0.75); }
+
+/* ── Result overlay ── */
+.dama-over {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  background: rgba(20, 10, 3, 0.8);
+  backdrop-filter: blur(3px);
+  border-radius: 0;
+  animation: dmFade 0.25s ease;
+}
+@keyframes dmFade { from { opacity: 0; } to { opacity: 1; } }
+.dama-over-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 26px 30px;
+  background: linear-gradient(180deg, #3d2713, #1d0e04);
+  border: 2px solid #d9b45c;
+  border-radius: 0;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.65), inset 0 0 0 1px rgba(255, 227, 150, 0.22);
+  width: min(300px, 86%);
+}
+.dama-over-em { font-size: 50px; line-height: 1; }
+.dama-over-tx {
+  font-size: 24px;
+  font-weight: 900;
+  color: #ffe08a;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+.dama-over-amt { font-size: 15px; font-weight: 800; color: #ffedbe; }
+.dama-over-card .dama-go { margin-top: 6px; }
+
+/* ── Turn timer (0–300s) ── */
+.dama-timer-row { display: flex; gap: 7px; flex-wrap: wrap; }
+.dama-timer {
+  font-size: 13.5px;
+  font-weight: 900;
+  color: #ffe9a8;
+  text-align: center;
+  min-height: 17px;
+  letter-spacing: 0.5px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+.dama-timer.low { color: #ff8f6a; animation: dmPulse 0.8s ease-in-out infinite; }
+/* [Timer-Seat] عدّاد التشغيل القديم يُخفى بصرياً — الشارة الجانبية (dama-ptimer)
+   على أيقونة صاحب الدور هي العرض المعتمد؛ العنصر يبقى للنص (توافق الاختبارات) */
+#damaTimer { display: none; }
+/* [Timer-Seat] مؤقت الدور بجانب أيقونة اللاعب صاحب الدور (نمط روندا rd-turn-timer):
+   كبسولة ذهبية على حافة الأيقونة — بورتريه ولاندسكيه — لا تحت الأزرار ولا خلف عنصر */
+.dama-ptimer {
+  position: absolute;
+  top: -8px;
+  inset-inline-end: -14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 40px;
+  height: 21px;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: linear-gradient(160deg, #ffd75e, #d9b45c);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  color: #241305;
+  font-size: 11px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  animation: dmTimerBlink 1s steps(2) infinite;
+  z-index: 7;
+}
+.dama-ptimer.low {
+  background: linear-gradient(160deg, #ff8f6a, #d95f38);
+  color: #2a0d02;
+  border-color: rgba(255, 255, 255, 0.6);
+  animation: dmTimerBlink 0.55s steps(2) infinite;
+}
+.dama-ptimer[hidden] { display: none; }
+@keyframes dmTimerBlink { 50% { opacity: 0.85; } }
+
+@media (max-width: 640px) {
+  #pg-game.active #gamePageBody #damaStage { padding: 5px 5px 7px; }
+  .dama-setup { gap: 7px; }
+  .dama-ctrls { gap: 6px; }
+  .dama-mini { padding: 6px 11px; font-size: 11.5px; }
+}
+/* شاشات قصيرة جداً (لوحة مفاتيح/هواتف صغيرة) */
+@media (max-height: 660px) {
+  .dama-logo { display: none; }
+  .dama-sub { display: none; }
+  .dama-setup { gap: 5px; }
+  .dama-field { padding: 5px 8px; gap: 4px; }
+  .dama-chip { padding: 5px 4px; font-size: 11px; }
+  .dama-pay { display: none; }
+  .dama-go { padding: 7px 10px; }
+}
+
+/* لاندسكيب / ارتفاع قصير: عناصر مضغوطة واللوحة تأخذ المتاح */
+@media (orientation: landscape) and (max-height: 520px) {
+  #pg-game.active #gamePageBody #damaStage { padding: 4px 6px 6px; }
+  .dama-logo { display: none; }
+  .dama-title { font-size: 1.05rem; }
+  .dama-sub { display: none; }
+  .dama-setup, .dama-play { gap: 5px; }
+  .dama-field { padding: 5px 8px; gap: 4px; }
+  .dama-chip { padding: 5px 4px; font-size: 11px; }
+  .dama-timer { font-size: 11.5px; min-height: 14px; }
+  .dama-status { font-size: 11.5px; min-height: 16px; }
+  .dama-mini { padding: 5px 10px; font-size: 11px; }
+  .dama-boardbox { min-height: 110px; }
+  #damaStage .res { font-size: 0.85rem; margin-top: 3px; }
+}
+
+/* ═══════════ LANDSCAPE FIX — Dama (CSS-only) ═══════════
+   The board is JS-sized to its box (damaFitBoard), so we only need a
+   landscape grid: board fills the right column height, while the
+   spectator bar + seats + info/controls stack in a left side panel.
+   Portrait/base rules are NOT modified. */
+@media (orientation: landscape) {
+  /* حاوية المرحلة (.stage#damaStage) تملأ حاوية اللعبة بلا فراغ — كي تتمدّد
+     شبكة .dama-play لكامل الارتفاع */
+  #pg-game.app-fs #damaStage {
+    height: 100%;
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  /* .dama-wrap يحيط بشاشتي الإعداد/اللعب — يملأ ارتفاع المرحلة كاملاً */
+  #pg-game.app-fs #damaStage .dama-wrap {
+    flex: 1 1 0%;                  /* أساس 0% كي يمتص كل الفراغ المتبقي بعد bets/res */
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  /* [ص2] كانت !important تلغي [hidden] فتظهر اللوحة والأزرار خلف شاشة الإعداد */
+  #pg-game.app-fs #damaStage .dama-wrap .dama-play[hidden] { display: none !important; }
+  #pg-game.app-fs #damaStage .dama-wrap .dama-play {
+    display: grid !important;
+    flex: 1 1 auto;                 /* يملأ عمود .dama-wrap بأكمله */
+    min-height: 0;
+    grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+    /* 7 صفوف 1fr فقط — شريط المتفرجين مطلق (لا يسرق مساراً) كي يمتدّ اللوح لكامل الارتفاع */
+    grid-template-rows: repeat(7, minmax(0, 1fr));
+    gap: 6px 10px;
+    max-width: none;
+    width: 100%;
+    position: relative;
+  }
+  /* شريط المتفرجين الشفاف 100% — مطلق فوق اللوحة بلا تأثير على شبكة الارتفاع */
+  #pg-game.app-fs #damaStage .dama-play > .dama-spectators {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 7;
+    width: 100%;
+    pointer-events: none;
+  }
+  /* اللوحة تملأ عمودها (يمين) وكل الارتفاع المتبقي */
+  #pg-game.app-fs #damaStage .dama-play > .dama-boardbox {
+    grid-column: 2;
+    grid-row: 1 / -1;
+    min-width: 0;
+    min-height: 0;
+    align-self: stretch;        /* يتمدد ليملأ كل ارتفاع العمود */
+    justify-self: stretch;      /* يتمدد ليملأ كل عرض العمود */
+    position: relative;
+  }
+  /* لوحة جانبية (يسار): الرهان/المؤقت/الحالة/الأزرار تتكدّس وتتمدد عمودياً */
+  #pg-game.app-fs #damaStage .dama-play > .dama-stake,
+  #pg-game.app-fs #damaStage .dama-play > .dama-timer,
+  #pg-game.app-fs #damaStage .dama-play > .dama-status,
+  #pg-game.app-fs #damaStage .dama-play > .dama-ctrls,
+  #pg-game.app-fs #damaStage .dama-play > .dama-drawbar {
+    grid-column: 1;
+    align-self: start;
+    width: 100%;
+    min-width: 0;
+  }
+  /* [Owner] شريط الرهان السفلي (مكرر مع .dama-stake) يُخفى في اللاندسكيب
+     لفسح أكبر مساحة عمودية للوحة — الرهان يُعرض أصلاً في .dama-stake أعلى اللوحة */
+  #pg-game.app-fs #damaStage > .bets { display: none; }
+  #pg-game.app-fs #damaStage > .res { margin-top: 0; }
+  /* [Landscape] شاشة الإعداد تملأ مرحلة اللعبة وتتمرّر داخلياً إن طال المحتوى،
+     كي لا يُقصّ زر «ابدأ المباراة» أسفل الشاشة القصيرة */
+  #pg-game.app-fs #damaStage .dama-wrap .dama-setup {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+  /* [Landscape] أيقونات اللاعبين تنقل لليسار اللوحة (عكس البورتريه):
+     - الخصم (⚑) → يسار اللوحة، الثلث العلوي
+     - الأساسي (★) → يسار اللوحة، الثلث السفلي
+     تبقى قابلة للنقر وتظهر مع حلقة ذهبية لمن هو دوره */
+  #pg-game.app-fs #damaStage .dama-boardbox > .dama-seat-top {
+    top: 25%; left: 0; right: auto; bottom: auto;
+    transform: translate(calc(-100% - 10px), -50%);
+  }
+  #pg-game.app-fs #damaStage .dama-boardbox > .dama-seat-bottom {
+    top: 75%; left: 0; right: auto; bottom: auto;
+    transform: translate(calc(-100% - 10px), -50%);
+  }
+}
+
+/* ═══ [Landscape-3] شاشة إعداد الضاما (2026-09-06): كانت عموداً واحداً يفيض
+   (زر «ابدأ» عند 390px في شاشة 360px). الحل: شبكة عمودين تستغل العرض —
+   الصعوبة/اللون جنباً لجنب، المؤقت والرهان بعرض كامل، والزر أسفلها.
+   يبقى التمرير الداخلي احتياطاً للشاشات الأقصر. بورتريه لا يُمس. ═══ */
+@media (orientation: landscape) {
+  #pg-game.app-fs #damaStage .dama-wrap .dama-setup {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+    align-content: start;
+    gap: 6px 10px;
+    max-width: min(720px, 96%);
+    padding: 4px 2px;
+  }
+  #pg-game.app-fs #damaStage .dama-setup::before,
+  #pg-game.app-fs #damaStage .dama-setup::after { display: none; }
+  #pg-game.app-fs #damaStage .dama-setup .dama-logo,
+  #pg-game.app-fs #damaStage .dama-setup .dama-sub { display: none; }
+  #pg-game.app-fs #damaStage .dama-setup .dama-title {
+    grid-column: 1 / -1;
+    font-size: 1rem;
+    margin: 0;
+  }
+  #pg-game.app-fs #damaStage .dama-setup .dama-field { margin: 0; width: 100%; }
+  /* المؤقت (6 خيارات) وخانة الرهان بعرض الصفّين */
+  #pg-game.app-fs #damaStage .dama-setup .dama-field:has(.dama-timer-row),
+  #pg-game.app-fs #damaStage .dama-setup .dama-field:has(.dama-betrow) {
+    grid-column: 1 / -1;
+  }
+  #pg-game.app-fs #damaStage .dama-setup .dama-timer-row { flex-wrap: wrap; }
+  #pg-game.app-fs #damaStage .dama-setup .dama-pay {
+    grid-column: 1 / -1;
+    margin: 0;
+    min-height: 0;
+  }
+  #pg-game.app-fs #damaStage .dama-setup .dama-go {
+    grid-column: 1 / -1;
+    justify-self: center;
+    margin: 0 0 4px;
+    padding: 9px 26px;
+  }
+}
+
+/* ═══ [P-Seats] بورتريه: أيقونتا اللاعبين خارج لوحة الضاما تماماً —
+   كانتا نصف-غاطستين في حافة اللوحة (translate -50%). نبعدهما بالكامل
+   ونحجز هامشاً للوحة كي لا تُقصّا. لاندسكيب له قواعده الخاصة (لا يُمسّ). ═══ */
+@media (orientation: portrait) {
+  .dama-boardbox { margin-top: 34px; margin-bottom: 34px; }
+  .dama-boardbox > .dama-seat-top {
+    top: 0;
+    transform: translate(-50%, calc(-100% - 6px));
+  }
+  .dama-boardbox > .dama-seat-bottom {
+    top: 100%;
+    transform: translate(-50%, 6px);
+  }
+}
