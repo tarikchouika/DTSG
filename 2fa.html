@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <!-- [DTSG-BUILD] وسم النسخة الحية — التحقق من الكونسول: window.DTSG_BUILD -->
+  <script>window.DTSG_BUILD='v2.28.1';</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/2fa.html">
+<meta name="description" content="حماية الحساب — المصادقة الثنائية 2FA في ألعاب الدكاء التقليدية الرقمية (DTSG)">
+<meta name="theme-color" content="#0b1526">
+<title>ألعاب الدكاء التقليدية الرقمية — حماية الحساب</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
+<link rel="stylesheet" href="css/02-base.css?v=dtsg6">
+<link rel="stylesheet" href="css/03-components.css?v=dtsg6">
+<link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
+<link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
+<!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+<script>
+(function () {
+var t = 'dark';
+try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+if (t === 'radiant') {
+document.documentElement.setAttribute('data-theme', 'radiant');
+}
+})();
+</script>
+<script src="js/i18n/auto-lang.js?v=dtsg6"></script>
+<style>
+/* ── Legal content layout (header/footer provided by legal-ui.js) ── */
+.legal-wrap {
+max-width: 860px;
+margin: 0 auto;
+padding: 34px 20px 60px;
+}
+.legal-wrap .legal-icon {
+display: inline-flex;
+align-items: center;
+justify-content: center;
+width: 52px;
+height: 52px;
+border-radius: 14px;
+background: var(--gg);
+color: #0b1526;
+font-size: 1.3rem;
+margin-bottom: 18px;
+}
+.legal-wrap h1 {
+font-family: var(--font2, 'Orbitron'), sans-serif;
+font-weight: 900;
+font-size: 1.55rem;
+margin: 0 0 8px;
+background: var(--gg);
+-webkit-background-clip: text;
+background-clip: text;
+color: transparent;
+}
+.legal-wrap .updated {
+color: var(--t3);
+font-size: 0.78rem;
+margin-bottom: 28px;
+}
+.legal-wrap h2 {
+font-size: 1.05rem;
+font-weight: 800;
+color: var(--gold);
+margin: 26px 0 8px;
+display: flex;
+align-items: center;
+gap: 9px;
+}
+.legal-wrap h2 i {
+color: var(--gold);
+}
+.legal-wrap p, .legal-wrap li {
+color: var(--t2);
+font-size: 0.92rem;
+line-height: 1.85;
+}
+.legal-wrap ul {
+padding-inline-start: 22px;
+margin: 8px 0;
+}
+.legal-wrap .legal-note {
+background: var(--bg2);
+border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28));
+border-radius: 12px;
+padding: 14px 16px;
+margin: 18px 0;
+}
+.legal-wrap .legal-note b {
+color: var(--gold);
+}
+.legal-wrap a {
+color: var(--gold);
+}
+</style>
+</head>
+<body>
+<article class="legal-content">
+<main class="legal-wrap">
+<div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></div>
+<h1 data-k="2fa.title">حماية الحساب — المصادقة الثنائية 2FA</h1>
+<div class="updated" data-k="2fa.updated">آخر تحديث: 14 أغسطس 2026</div>
+
+<p data-k="2fa.intro">نستخدم <strong>المصادقة الثنائية (2FA)</strong> كطبقة حماية إضافية فوق كلمة المرور. حتى لو عرف شخص ما كلمة مرورك، لن يستطيع الدخول إلى حسابك بدون الرمز الثاني الموجود فقط على جهازك.</p>
+
+<div class="legal-note">
+<b data-k="2fa.noteTitle">كيف تعمل 2FA؟</b><br>
+<span data-k="2fa.noteBody">ينشئ الخادم رمزاً زمنياً TOTP يتغير كل 30 ثانية. عند تسجيل الدخول نتحقق من رمزك المحلي + كلمتك السرية. لا يُرسل الرمز عبر الإنترنت أبداً.</span>
+</div>
+
+<h2><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i> <span data-k="2fa.step1Title">1. تفعيل 2FA</span></h2>
+<p data-k="2fa.step1Body">ادخل إلى إعدادات الحساب → الأمان → فعّل المصادقة الثنائية. ستظهر لك شفرة QR يمكنك مسحها بـ Google Authenticator أو أي تطبيق TOTP آخر.</p>
+
+<h2><i class="fa-solid fa-qrcode" aria-hidden="true"></i> <span data-k="2fa.step2Title">2. مسح الشفرة</span></h2>
+<p data-k="2fa.step2Body">افتح تطبيق المصادقة، امسح الشفرة، وأضف الحساب. سيعطيك التطبيق رمزاً مكوناً من 6 أرقام يتغير تلقائياً كل 30 ثانية.</p>
+
+<h2><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> <span data-k="2fa.step3Title">3. تسجيل الدخول</span></h2>
+<p data-k="2fa.step3Body">عند كل دخول، أدخل كلمة المرور + الرمز الزمني المظهر في تطبيقك. إذا كان الرمز خاطئاً أو منتهياً، يُرفض الدخول فوراً.</p>
+
+<h2><i class="fa-solid fa-fingerprint" aria-hidden="true"></i> <span data-k="2fa.techTitle">التقنيات المستخدمة</span></h2>
+<ul>
+<li><code>TOTP</code> <span data-k="2fa.tech1">— رمز زمني مؤقت صالح لـ 30 ثانية</span></li>
+<li><code>HMAC-SHA256</code> <span data-k="2fa.tech2">— خوارزمية التوقيع الرقمي</span></li>
+<li><code>localStorage</code> <span data-k="2fa.tech3">— تخزين سر التشفير محلياً فقط</span></li>
+<li><code>QR secrets</code> <span data-k="2fa.tech4">— نقل السر من الخادم إلى جهازك بشكل آمن</span></li>
+</ul>
+
+<div class="legal-note">
+<b data-k="2fa.securityNoteTitle">معلومة أمنية:</b> <span data-k="2fa.securityNoteBody">الرمز الزمني يُحسب محلياً على جهازك ولا يُرسل أبداً عبر الشبكة. حتى لو اعترض مخترق Traffic، لن يحصل على الرمز الصالح إلا في نافذة 30 ثانية.</span>
+</div>
+
+<div class="legal-note" id="twofaManageCard">
+<b data-k="2fa.manageTitle">إدارة المصادقة الثنائية</b><br>
+<span data-k="2fa.manageBody">من هذه الصفحة يمكنك تفعيل أو تعطيل طبقة الحماية الإضافية على حسابك. اضغط «تفعيل» لفتح نافذة المسح والرمز.</span>
+<div id="twofaStatusLine" class="note" style="margin:12px 0 6px"></div>
+<button class="btn" id="btnEnable2fa"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <span data-k="2fa.enableBtn">تفعيل المصادقة الثنائية 2FA</span></button>
+</div>
+
+<p data-k="2fa.outro">لمزيد من المعلومات حول حماية الحساب، يمكنك زيارة <a href="about.html#security">صفحة الأمان</a> أو <a href="contact.html">التواصل معنا</a>.</p>
+<p><a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="2fa.back">العودة للموقع</span></a></p>
+</main>
+</article>
+
+<!-- ═══════════ 2FA Modal (standalone page) ═══════════ -->
+<div class="mwrap" id="twofaModal" role="dialog" aria-modal="true" aria-labelledby="twofaTitle"
+     onclick="if(event.target.id==='twofaModal') closeTwofaModal()">
+  <div class="modal modal-sm">
+    <div class="mhead">
+      <h3 id="twofaTitle"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <span data-k="2fa.modalTitle">المصادقة الثنائية 2FA</span></h3>
+      <button class="mclose" onclick="closeTwofaModal()" aria-label="إغلاق">✕</button>
+    </div>
+    <div class="mbody">
+      <div id="twofaSetup">
+        <div class="ctext" style="text-align:center;margin-bottom:10px">
+          <img id="twofaQr" alt="2FA QR Code" style="width:180px;height:180px;background:#fff;border-radius:8px" />
+        </div>
+        <label class="aflabel" for="twofaSecret"><i class="fa-solid fa-key" aria-hidden="true"></i> <span data-k="2fa.secretLbl">السر</span></label>
+        <code id="twofaSecret" class="afinput" style="display:block;user-select:all;word-break:break-all"></code>
+        <label class="aflabel" for="twofaCode"><i class="fa-solid fa-hashtag" aria-hidden="true"></i> <span data-k="2fa.codeLbl">الرمز</span></label>
+        <input class="afinput" id="twofaCode" inputmode="numeric" maxlength="6" placeholder="123456">
+        <div id="twofaStatus" class="authmsg" role="alert" aria-live="polite"></div>
+        <button class="btn full" id="twofaVerify"><i class="fa-solid fa-check" aria-hidden="true"></i> <span data-k="2fa.verifyBtn">تأكيد وتفعيل</span></button>
+      </div>
+      <button class="btn full ghost" id="twofaDisable" style="display:none;margin-top:10px"><i class="fa-solid fa-ban" aria-hidden="true"></i> <span data-k="2fa.disableBtn">تعطيل 2FA</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- External JS (same system as index.html: state, audio, utils, TR, legal-ui) -->
+<script src="js/core/state.js?v=dtsg6"></script>
+<script src="js/core/audio.js?v=dtsg6"></script>
+<script src="js/core/utils.js?v=dtsg6"></script>
+<script src="js/i18n/translations.js?v=dtsg6"></script>
+<script src="js/ui/legal-ui.js?v=lu6"></script>
+<script src="js/core/api.js"></script>
+<script src="js/core/auth.js"></script>
+<script>
+/* ── المحتوى (data-k) ── */
+var D = {
+    "2fa.title": {
+        "ar": "حماية الحساب — المصادقة الثنائية 2FA",
+        "da": "حماية الحساب — المصادقة الثنائية 2FA",
+        "fr": "Protection du compte — authentification à deux facteurs 2FA",
+        "en": "Account Protection — Two-Factor Authentication 2FA"
+    },
+    "2fa.updated": {
+        "ar": "آخر تحديث: 14 أغسطس 2026",
+        "da": "آخر تحديث: 14 غشت 2026",
+        "fr": "Dernière mise à jour : 14 août 2026",
+        "en": "Last updated: August 14, 2026"
+    },
+    "2fa.intro": {
+        "ar": "نستخدم <strong>المصادقة الثنائية (2FA)</strong> كطبقة حماية إضافية فوق كلمة المرور. حتى لو عرف شخص ما كلمة مرورك، لن يستطيع الدخول إلى حسابك بدون الرمز الثاني الموجود فقط على جهازك.",
+        "da": "كنستعملو <strong>المصادقة الثنائية (2FA)</strong> كطبقة حماية زايدة فوق المودباس، باش حتى إلا شي حد عرف المودباس ديالك ما يقدرش يدخل بلا الكود اللي عندك فالتيلفون.",
+        "fr": "Nous utilisons <strong>l'authentification à deux facteurs (2FA)</strong> comme couche de protection supplémentaire au-dessus du mot de passe. Même si quelqu'un connaît votre mot de passe, il ne pourra pas accéder à votre compte sans le deuxième code présent uniquement sur votre appareil.",
+        "en": "We use <strong>Two-Factor Authentication (2FA)</strong> as an extra protection layer above the password. Even if someone knows your password, they won't be able to access your account without the second code that exists only on your device."
+    },
+    "2fa.noteTitle": {
+        "ar": "كيف تعمل 2FA؟",
+        "da": "كيفاش كتخدم 2FA؟",
+        "fr": "Comment fonctionne la 2FA ?",
+        "en": "How does 2FA work?"
+    },
+    "2fa.noteBody": {
+        "ar": "ينشئ الخادم رمزاً زمنياً TOTP يتغير كل 30 ثانية. عند تسجيل الدخول نتحقق من رمزك المحلي + كلمتك السرية. لا يُرسل الرمز عبر الإنترنت أبداً.",
+        "da": "السيرفر كينشئ كود زمني TOTP كيتبدل كل 30 ثانية فالتطبيق ديالك. الكود ما كيتصيفطش فالإنترنت.",
+        "fr": "Le serveur génère un code temporel TOTP qui change toutes les 30 secondes. Lors de la connexion, nous vérifions votre code local + votre mot secret. Le code n'est jamais envoyé sur Internet.",
+        "en": "The server generates a TOTP time-based code that changes every 30 seconds. On login we verify your local code + your secret word. The code is never sent over the Internet."
+    },
+    "2fa.step1Title": {
+        "ar": "1. تفعيل 2FA",
+        "da": "1. تفعيل 2FA",
+        "fr": "1. Activer la 2FA",
+        "en": "1. Enable 2FA"
+    },
+    "2fa.step1Body": {
+        "ar": "ادخل إلى إعدادات الحساب → الأمان → فعّل المصادقة الثنائية. ستظهر لك شفرة QR يمكنك مسحها بـ Google Authenticator أو أي تطبيق TOTP آخر.",
+        "da": "ادخل لإعدادات الحساب ← الأمان ← فعل المصادقة الثنائية، وغيطلعلك كود QR تمسحو بـ Google Authenticator.",
+        "fr": "Accédez aux paramètres du compte → Sécurité → activez l'authentification à deux facteurs. Un code QR s'affiche que vous pouvez scanner avec Google Authenticator ou toute autre application TOTP.",
+        "en": "Go to Account Settings → Security → enable two-factor authentication. A QR code will appear that you can scan with Google Authenticator or any other TOTP app."
+    },
+    "2fa.step2Title": {
+        "ar": "2. مسح الشفرة",
+        "da": "2. سكان الكود",
+        "fr": "2. Scanner le code",
+        "en": "2. Scan the code"
+    },
+    "2fa.step2Body": {
+        "ar": "افتح تطبيق المصادقة، امسح الشفرة، وأضف الحساب. سيعطيك التطبيق رمزاً مكوناً من 6 أرقام يتغير تلقائياً كل 30 ثانية.",
+        "da": "افتح تطبيق المصادقة وسكاني الكود، وغيبدا يعطيك كود فيه 6 أرقام كيتبدل كل 30 ثانية.",
+        "fr": "Ouvrez votre application d'authentification, scannez le code et ajoutez le compte. L'application vous fournira un code à 6 chiffres qui change automatiquement toutes les 30 secondes.",
+        "en": "Open your authenticator app, scan the code and add the account. The app will give you a 6-digit code that automatically changes every 30 seconds."
+    },
+    "2fa.step3Title": {
+        "ar": "3. تسجيل الدخول",
+        "da": "3. تسجيل الدخول",
+        "fr": "3. Connexion",
+        "en": "3. Login"
+    },
+    "2fa.step3Body": {
+        "ar": "عند كل دخول، أدخل كلمة المرور + الرمز الزمني الظاهر في تطبيقك. إذا كان الرمز خاطئاً أو منتهياً، يُرفض الدخول فوراً.",
+        "da": "فكل دخول، كدخل المودباس + الكود الظاهر فالتطبيق ديالك.",
+        "fr": "À chaque connexion, saisissez votre mot de passe + le code temporel affiché dans votre application. Si le code est incorrect ou expiré, la connexion est immédiatement refusée.",
+        "en": "At each login, enter your password + the time-based code shown in your app. If the code is wrong or expired, login is rejected immediately."
+    },
+    "2fa.techTitle": {
+        "ar": "التقنيات المستخدمة",
+        "da": "التقنيات المستعملة",
+        "fr": "Technologies utilisées",
+        "en": "Technologies Used"
+    },
+    "2fa.tech1": {
+        "ar": "— رمز زمني مؤقت صالح لـ 30 ثانية",
+        "da": "TOTP — كود زمني صالح لـ 30 ثانية",
+        "fr": "— code temporaire valable 30 secondes",
+        "en": "— time-based code valid for 30 seconds"
+    },
+    "2fa.tech2": {
+        "ar": "— خوارزمية التوقيع الرقمي",
+        "da": "HMAC-SHA256 — خوارزمية التوقيع الرقمي",
+        "fr": "— algorithme de signature numérique",
+        "en": "— digital signature algorithm"
+    },
+    "2fa.tech3": {
+        "ar": "— تخزين سر التشفير محلياً فقط",
+        "da": "localStorage — تخزين السر محلياً فقط",
+        "fr": "— stockage local exclusif du secret de chiffrement",
+        "en": "— encryption secret stored locally only"
+    },
+    "2fa.tech4": {
+        "ar": "— نقل السر من الخادم إلى جهازك بشكل آمن",
+        "da": "QR secrets — نقل السر بشكل مأمن",
+        "fr": "— transfert sécurisé du secret du serveur vers votre appareil",
+        "en": "— secure transfer of the secret from server to your device"
+    },
+    "2fa.securityNoteTitle": {
+        "ar": "معلومة أمنية:",
+        "da": "معلومة أمنية:",
+        "fr": "Information de sécurité :",
+        "en": "Security note:"
+    },
+    "2fa.securityNoteBody": {
+        "ar": "الرمز الزمني يُحسب محلياً على جهازك ولا يُرسل أبداً عبر الشبكة. حتى لو اعترض مخترق حركة المرور، لن يحصل على الرمز الصالح إلا في نافذة 30 ثانية.",
+        "da": "الرمز الزمني يُحسب محلياً على جهازك ولا يُرسل أبداً عبر الشبكة. حتى لو اعترض مخترق حركة المرور، لن يحصل على الرمز الصالح إلا في نافذة 30 ثانية.",
+        "fr": "Le code temporel est calculé localement sur votre appareil et n'est jamais envoyé sur le réseau. Même si un pirate intercepte le trafic, il n'obtiendra le code valable que dans une fenêtre de 30 secondes.",
+        "en": "The time-based code is computed locally on your device and is never sent over the network. Even if a hacker intercepts traffic, they can only get the valid code within a 30-second window."
+    },
+    "2fa.outro": {
+        "ar": "لمزيد من المعلومات حول حماية الحساب، يمكنك زيارة <a href=\"about.html#security\">صفحة الأمان</a> أو <a href=\"contact.html\">التواصل معنا</a>.",
+        "da": "لمزيد من المعلومات حول حماية الحساب، يمكنك زيارة <a href=\"about.html#security\">صفحة الأمان</a> أو <a href=\"contact.html\">التواصل معنا</a>.",
+        "fr": "Pour plus d'informations sur la protection du compte, visitez la <a href=\"about.html#security\">page Sécurité</a> ou <a href=\"contact.html\">Contactez-nous</a>.",
+        "en": "For more information on account protection, visit the <a href=\"about.html#security\">Security page</a> or <a href=\"contact.html\">Contact Us</a>."
+    },
+    "2fa.back": {
+        "ar": "العودة للموقع",
+        "da": "الرجوع للموقع",
+        "fr": "Retour au site",
+        "en": "Back to site"
+    }
+};
+
+    var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || 'ar'; } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      
+      // Update data-k elements
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) {
+          el.innerHTML = D[k][currentLang];
+        }
+      });
+      // Update active state in lang buttons
+      document.querySelectorAll('.lang-drop button[data-lang], .lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      applyLang(currentLang);
+    });
+    applyLang(currentLang);
+
+    if (typeof _origSetLang === 'function') _origSetLang(currentLang);
+
+/* تهيئة الصفحة: حقن الهيدر/الفوتر + ترجمة المحتوى */
+injectLegalUI('2fa');
+applyLang();
+
+/* ── ربط 2FA للصفحة المستقلة: استعادة الجلسة ثم تهيئة الواجهة ── */
+if (typeof authRestore === 'function') {
+  authRestore().then(function () {
+    if (typeof init2fa === 'function') init2fa();
+  }).catch(function () {
+    if (typeof init2fa === 'function') init2fa();
+  });
+} else if (typeof init2fa === 'function') {
+  init2fa();
+}
+</script>
+</body>
+</html>

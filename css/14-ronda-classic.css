@@ -1,0 +1,1505 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   الروندا الكلاسيكية (rd) — الطاولة v2.9 (الهندسة بوحدات الحاوية cq)
+   ───────────────────────────────────────────────────────────────────────
+   • تُفتح داخل صفحة اللعبة وهيدر المنصة ظاهر: «القواعد» من كتاب الهيدر
+     و«الصوت» من زر السماعة في الهيدر — لا زر «؟» على الطاولة ولا مفتاح
+     صوت داخل الإعدادات.
+   • أربع زوايا: العارض أسفل-يسار ولوحته فوق يده المكشوفة، الخصوم
+     العلويان (tl/tr) بصفوف ورق مقلوب ولوحتاهما تحتهما، والخصم أسفل-يمين
+     بصفّه في نفس صف اليد — الدور والاتجاه عكس عقارب الساعة.
+   • 6 أوراق سفلية تتقاسمان عرض الشاشة؛ الأوراق المرمية داخل القاعة
+     الوسطى (بلا سجادة بيضاوية — v2.10) والرزمة أسفل وسطها بظهر موحّد
+     وعداد؛ سجل الأحداث مخفي بمقبض أصفر.
+   • الأوراق إسبانية حقيقية assets/cards/es/؛ لا كشف لأي يد قبل رميها.
+   • كل القيم الكبيرة cqh/cqw نسبة إلى صندوق المسرح فتتلاءم مع أي شاشة.
+   كل القواعد محصورة داخل #rdStage فلا تمسّ بقية المنصة.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+#rdStage {
+  --rd-gold: #e2b857;
+  --rd-gold-hi: #f3d98a;
+  --rd-gold-dim: #9a7b2e;
+  --rd-wood-1: #7a5426;
+  --rd-wood-2: #4c3213;
+  --rd-felt-1: #1e7a55;
+  --rd-felt-2: #115238;
+  --rd-felt-3: #0a3a27;
+  --rd-felt-hi: rgba(255, 255, 255, .045);
+  --rd-cream: #fdf6e3;
+  --rd-ink: #332f26;
+  --rd-t1: #f7ecc9;
+  --rd-t2: #cdbf96;
+  --rd-t3: #9b8d68;
+  --rd-team-a: #e28a5f;
+  --rd-team-b: #7fa8e8;
+  --rd-green: #58c987;
+  --rd-red: #ef6a5a;
+  --rd-amber: #f0a64e;
+
+  /* أحجام الأوراق — v2.7: اليد السفلية تعرض أكبر وتتقاسم عرض الشاشة
+     مع أوراق الخصم السفلي (6 أوراق)؛ ورق الوسط/الرزمة داخل البيضاوية */
+  --cw: 150px;      /* عرض أوراق الطاولة العليا والوسط (المرمية) */
+  --ch: 208px;      /* ارتفاعها */
+  --cwB: calc((100% - 96px) / 6);   /* اليد السفلية وصف الخصم السفلي: 6 أوراق تتقاسم العرض */
+  --chB: calc(var(--cwB) * 1.4);    /* ارتفاع ورقة اليد السفلية */
+  --deckS: 118px;   /* ضلع مربع الرزمة (داخل البيضاوية — أكبر) */
+  --avS: 52px;      /* قطر أيقونة اللاعب */
+  --bdH: 92px;      /* علو لوحة المقعد (أيقونة + إحصائيات) */
+  --railH: calc(var(--chB) + 30px);   /* (توافق) علو الصف السفلي */
+  --deckBot: 10px;                    /* الرزمة داخل البيضاوية أسفل وسطها */
+  --ctTop: 152px;   /* علو بيضاوية اللعب — بلا خصمين علويين */
+  --ctTopUp: calc(var(--ch) + var(--bdH) + 10px);  /* بخصمين علويين */
+  --ctBot: calc(var(--chB) + var(--bdH) + 30px);   /* قعر البيضاوية فوق اللوحتين */
+  --sideIn: 12px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  color: var(--rd-t1);
+  font-family: inherit;
+  box-sizing: border-box;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+#rdStage *,
+#rdStage *::before,
+#rdStage *::after { box-sizing: border-box; }
+#rdStage .rd-hidden { display: none !important; }
+
+/* سطح الطاولة = خلفية المسرح كاملة (جلد أخضر) بإطار ذهبي داخلي رفيع */
+#rdStage {
+  background:
+    radial-gradient(130% 100% at 50% 42%, var(--rd-felt-1) 0%, var(--rd-felt-2) 60%, var(--rd-felt-3) 100%);
+}
+body.app-fs-on #rdStage,
+#pg-game:fullscreen #rdStage,
+#pg-game.active #gamePageBody > .stage#rdStage {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border-width: 0 !important;
+  background: transparent;
+}
+
+/* ============================== الشاشات ============================== */
+#rdStage .rd-screen { display: none; flex-direction: column; flex: 1 1 auto; min-height: 0; position: relative; }
+#rdStage .rd-screen.active { display: flex; }
+
+/* ═══════════════ شاشة القائمة (إعدادات اللعبة فوق خشب) ═══════════════ */
+#rdStage #screen-menu {
+  align-items: center; justify-content: center; padding: 16px;
+  background:
+    radial-gradient(130% 100% at 50% 0%, #3a2312 0%, #241305 55%, #170b03 100%);
+}
+#rdStage .rd-menu-decor {
+  position: absolute; inset: 0; opacity: .4; pointer-events: none;
+  background-image:
+    radial-gradient(circle at 25% 25%, rgba(226,184,87,.07) 0 2px, transparent 2px),
+    conic-gradient(from 45deg at 50% 50%, rgba(226,184,87,.05) 0 45deg, transparent 45deg 90deg);
+  background-size: 52px 52px, 52px 52px;
+}
+#rdStage .rd-menu-card {
+  position: relative; width: min(600px, 100%);
+  max-height: 100%; overflow-y: auto;
+  border: 1px solid rgba(226,184,87,.55);
+  border-radius: 18px; padding: 20px 24px 18px;
+  text-align: center;
+  background:
+    radial-gradient(90% 60% at 50% 0%, rgba(226,184,87,.10), transparent 60%),
+    linear-gradient(165deg, #171310, #241a0e 55%, #1c1409);
+  box-shadow: 0 26px 70px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.07);
+}
+#rdStage .rd-menu-card::before {
+  content: ""; position: absolute; inset: 6px;
+  border: 1px solid rgba(226,184,87,.28); border-radius: 12px; pointer-events: none;
+}
+#rdStage .rd-logo-cards { position: relative; height: 76px; margin-bottom: 2px; }
+#rdStage .rd-logo-card {
+  position: absolute; left: 50%; top: 6px; width: 50px; height: 72px;
+  border-radius: 7px;
+  background-image: url('../assets/cards/back.webp');
+  background-size: cover; background-position: center;
+  border: 1px solid rgba(226,184,87,.7);
+  box-shadow: 0 8px 18px rgba(0,0,0,.5);
+}
+#rdStage .rd-logo-card.rd-lc-1 { transform: translateX(-50%) rotate(-16deg) translateX(-24px); }
+#rdStage .rd-logo-card.rd-lc-2 { transform: translateX(-50%) translateY(-3px); z-index: 2; }
+#rdStage .rd-logo-card.rd-lc-3 { transform: translateX(-50%) rotate(16deg) translateX(24px); }
+#rdStage .rd-game-title {
+  margin: 0; font-size: 2.2rem; font-weight: 900; letter-spacing: 2px;
+  color: var(--rd-gold-hi);
+  text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 10px 26px rgba(226,184,87,.25);
+  font-family: inherit;
+}
+#rdStage .rd-game-subtitle { margin: 2px 0 12px; font-size: .84rem; color: var(--rd-t2); }
+#rdStage .rd-menu-section { margin-bottom: 10px; text-align: start; }
+#rdStage .rd-menu-label {
+  margin: 0 0 6px; font-size: .78rem; font-weight: 800; letter-spacing: 1px;
+  color: var(--rd-gold-hi); display: flex; align-items: center; gap: 8px;
+}
+#rdStage .rd-menu-label::after { content: ""; flex: 1; height: 1px; background: linear-gradient(to left, rgba(226,184,87,.45), transparent); }
+[dir="ltr"] #rdStage .rd-menu-label::after { background: linear-gradient(to right, rgba(226,184,87,.45), transparent); }
+
+#rdStage .rd-mode-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+#rdStage .rd-mode-btn {
+  border: 1px solid rgba(226,184,87,.3); border-radius: 13px; padding: 10px 7px 8px;
+  background: rgba(0,0,0,.22); color: var(--rd-t2); font-family: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  transition: all .18s ease;
+}
+#rdStage .rd-mode-btn:hover { border-color: var(--rd-gold-dim); color: var(--rd-t1); }
+#rdStage .rd-mode-btn.selected {
+  border-color: var(--rd-gold); color: var(--rd-t1);
+  background: linear-gradient(165deg, rgba(226,184,87,.2), rgba(226,184,87,.05));
+  box-shadow: 0 0 0 1px rgba(226,184,87,.4), 0 8px 22px rgba(226,184,87,.12);
+}
+#rdStage .rd-mode-icon { width: 28px; height: 28px; color: var(--rd-gold-hi); }
+#rdStage .rd-mode-icon svg { width: 100%; height: 100%; }
+#rdStage .rd-mode-name { font-weight: 800; font-size: .9rem; }
+#rdStage .rd-mode-desc { font-size: .63rem; opacity: .8; line-height: 1.35; text-align: center; }
+
+#rdStage .rd-menu-row { display: flex; gap: 12px; margin-bottom: 8px; }
+#rdStage .rd-menu-row .rd-menu-half { flex: 1; margin-bottom: 0; min-width: 0; }
+#rdStage .rd-target-options { display: flex; gap: 7px; }
+#rdStage .rd-target-pill {
+  flex: 1; padding: 7px 0; border-radius: 11px; font-size: 1.1rem; font-weight: 800;
+  border: 1px solid rgba(226,184,87,.3); background: rgba(0,0,0,.22); color: var(--rd-t2);
+  font-family: inherit; cursor: pointer; transition: all .18s ease;
+}
+#rdStage .rd-target-pill.selected {
+  border-color: var(--rd-gold); color: #241a05; font-weight: 900;
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold) 60%, #c89a3a);
+  box-shadow: 0 8px 20px rgba(226,184,87,.3);
+}
+/* مربع مبلغ الرهان (إدخال يدوي) */
+#rdStage .rd-bet-box {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid rgba(226,184,87,.4); border-radius: 12px;
+  background: rgba(0,0,0,.24); padding: 6px 10px;
+}
+#rdStage .rd-bet-coin { font-size: 1.1rem; }
+#rdStage .rd-bet-input {
+  flex: 1; min-width: 0; font-family: inherit; font-size: 1.05rem; font-weight: 800;
+  color: var(--rd-gold-hi); background: transparent; border: none; outline: none;
+}
+#rdStage .rd-bet-input::-webkit-outer-spin-button,
+#rdStage .rd-bet-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+#rdStage .rd-menu-toggles { display: flex; flex-direction: column; gap: 8px; }
+#rdStage .rd-toggle-item {
+  width: 100%; display: flex; align-items: center; gap: 12px; text-align: start;
+  border: 1px solid rgba(226,184,87,.22); border-radius: 12px; padding: 8px 12px;
+  background: rgba(0,0,0,.2); color: var(--rd-t2); font-family: inherit; cursor: pointer;
+}
+#rdStage .rd-toggle-item.selected { color: var(--rd-t1); border-color: rgba(226,184,87,.5); }
+#rdStage .rd-toggle-text { font-size: .86rem; line-height: 1.5; }
+#rdStage .rd-toggle-track { width: 40px; height: 22px; border-radius: 20px; background: rgba(255,255,255,.14); position: relative; flex-shrink: 0; transition: background .18s; }
+#rdStage .rd-toggle-knob { position: absolute; top: 3px; inset-inline-end: 3px; width: 16px; height: 16px; border-radius: 50%; background: #cbbb98; transition: all .18s; }
+#rdStage .rd-toggle-item.selected .rd-toggle-track { background: rgba(226,184,87,.8); }
+#rdStage .rd-toggle-item.selected .rd-toggle-knob { background: #fff; transform: translateX(18px); }
+[dir="ltr"] #rdStage .rd-toggle-item.selected .rd-toggle-knob { transform: translateX(-18px); }
+
+/* ── اختيار نمط اللعب: عائلة (كمبيوتر / وجهًا لوجه) ثم شكل (1v1..2v2) ── */
+#rdStage .rd-family-options { display: flex; gap: 8px; margin-bottom: 9px; }
+#rdStage .rd-family-btn {
+  flex: 1; border: 1px solid rgba(226,184,87,.32); border-radius: 12px;
+  padding: 9px 8px; background: rgba(0,0,0,.22); color: var(--rd-t2);
+  font-family: inherit; cursor: pointer; transition: all .18s ease;
+}
+#rdStage .rd-family-btn:hover { border-color: var(--rd-gold-dim); color: var(--rd-t1); }
+#rdStage .rd-family-btn.selected {
+  border-color: var(--rd-gold); color: var(--rd-t1);
+  background: linear-gradient(165deg, rgba(226,184,87,.2), rgba(226,184,87,.05));
+  box-shadow: 0 0 0 1px rgba(226,184,87,.4), 0 8px 20px rgba(226,184,87,.12);
+}
+#rdStage .rd-family-name { font-weight: 800; font-size: .9rem; }
+#rdStage .rd-mode-options { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+#rdStage .rd-mode-name { font-size: 1.08rem; }
+#rdStage .rd-mode-desc { font-size: .6rem; }
+
+/* ── هدف «جولة» ضمن أهداف الفوز ── */
+#rdStage .rd-target-pill {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 2px; line-height: 1.12; padding: 6px 2px;
+}
+#rdStage .rd-target-txt { font-size: 1.02rem; font-weight: 800; }
+#rdStage .rd-target-sub { font-size: .55rem; opacity: .88; font-weight: 600; }
+
+/* ── مؤقّت الدور (30–300 ثانية) ── */
+#rdStage .rd-timer-box {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  border: 1px solid rgba(226,184,87,.4); border-radius: 12px;
+  background: rgba(0,0,0,.24); padding: 7px 12px;
+}
+#rdStage .rd-timer-btn {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid rgba(226,184,87,.45); background: rgba(226,184,87,.12);
+  color: var(--rd-gold-hi); font-size: 1.25rem; font-weight: 800;
+  font-family: inherit; cursor: pointer; line-height: 1; transition: all .15s;
+}
+#rdStage .rd-timer-btn:hover { background: rgba(226,184,87,.3); }
+#rdStage .rd-timer-val {
+  min-width: 52px; text-align: center; font-size: 1.28rem; font-weight: 900;
+  color: var(--rd-gold-hi); font-variant-numeric: tabular-nums;
+}
+#rdStage .rd-timer-unit { color: var(--rd-t2); font-size: .8rem; font-weight: 700; }
+#rdStage .rd-timer-hint { margin: 5px 0 0; font-size: .6rem; color: var(--rd-t2); opacity: .9; }
+
+/* ── سطر الانتقال التلقائي داخل نافذة نتائج الجولة ── */
+#rdStage .rd-round-auto {
+  margin: 12px auto 0; color: var(--rd-gold-hi); font-size: .84rem; font-weight: 700;
+  text-align: center; line-height: 1.4;
+}
+#rdStage .rd-btn-primary[disabled] { opacity: .55; cursor: default; transform: none; }
+
+#rdStage .rd-btn-primary {
+  display: block; width: 100%; margin-top: 8px; padding: 11px; border-radius: 13px;
+  font-size: 1.05rem; font-weight: 800; font-family: inherit; color: #241a05; cursor: pointer;
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold) 55%, #c19538);
+  border: 1px solid #f7e3a4;
+  box-shadow: 0 10px 26px rgba(226,184,87,.3), inset 0 1px 0 rgba(255,255,255,.55);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+#rdStage .rd-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 14px 30px rgba(226,184,87,.4); }
+#rdStage .rd-btn-primary:active { transform: translateY(1px); }
+#rdStage .rd-btn-ghost {
+  display: block; width: 100%; margin-top: 8px; padding: 8px; border-radius: 12px;
+  color: var(--rd-t2); border: 1px solid rgba(226,184,87,.32); background: transparent;
+  font-size: .9rem; font-family: inherit; cursor: pointer; transition: all .15s;
+}
+#rdStage .rd-btn-ghost:hover { color: var(--rd-gold-hi); border-color: var(--rd-gold-dim); }
+
+/* ═══════════════ شاشة اللعب — الطاولة 100% ═══════════════ */
+#rdStage #screen-game { background: transparent; }
+
+/* سطح الجلد مع إطار ذهبي داخلي رفيع يحيط بالطاولة */
+#rdStage .rd-table {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(120% 96% at 50% 42%, var(--rd-felt-1) 0%, var(--rd-felt-2) 58%, var(--rd-felt-3) 100%);
+}
+#rdStage .rd-table::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  box-shadow:
+    inset 0 0 0 3px rgba(122,84,38,.55),
+    inset 0 0 0 4px rgba(226,184,87,.28),
+    inset 0 0 0 8px rgba(10,8,4,.35),
+    inset 0 0 130px rgba(0,0,0,.55);
+}
+
+/* ── زوايا الطاولة (مقاعد اللاعبين) ── */
+#rdStage .rd-corner { position: absolute; z-index: 22; }
+#rdStage .rd-corner-tl { top: 10px; inset-inline-start: 12px; }
+#rdStage .rd-corner-tr { top: 10px; inset-inline-end: 12px; }
+#rdStage .rd-corner-br { bottom: 8px; inset-inline-end: 12px; }
+#rdStage .rd-corner-bl { bottom: 8px; inset-inline-start: 12px; }
+
+/* مقعد اللاعب — أيقونة دائرية (حرفان) + إحصائيات صغيرة
+   [v2.13] بلا حاوية سوداء (طلب المستخدم): الأيقونة والإحصائيات مباشرة على الطاولة.
+   حلقة توهج الدور (rd-active-turn) تبقى لتحديد اللاعب النشط. */
+#rdStage .rd-seat {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 2px 4px;
+  min-width: 0;
+  border-radius: 14px;
+  background: none;
+  border: none;
+  box-shadow: none;
+  text-align: center;
+  transition: border-color .2s, box-shadow .2s;
+}
+#rdStage .rd-seat.rd-active-turn {
+  border-radius: 14px;
+  border: 1px solid var(--rd-gold);
+  box-shadow: 0 0 0 1px rgba(226,184,87,.45), 0 0 26px rgba(226,184,87,.45);
+}
+#rdStage .rd-seat.rd-me-seat .rd-av { background: linear-gradient(160deg, #fbeecb, var(--rd-gold) 62%, #c89a3a); }
+
+/* حلقة ذهبية حول أيقونة صاحب الدور + مؤقت بجانبها */
+#rdStage .rd-av-wrap { position: relative; }
+#rdStage .rd-av {
+  width: var(--avS); height: var(--avS); border-radius: 50%;
+  display: grid; place-items: center;
+  font-weight: 900; font-size: 1.05rem; color: #241a05; letter-spacing: .5px;
+  background: linear-gradient(160deg, #f6e6bd, var(--rd-gold) 70%);
+  border: 2px solid rgba(255,255,255,.5);
+  box-shadow: 0 4px 10px rgba(0,0,0,.45);
+  font-family: inherit;
+}
+#rdStage .rd-seat .rd-av.t0 { background: linear-gradient(160deg, #f6c6a8, var(--rd-team-a) 72%); }
+#rdStage .rd-seat .rd-av.t1 { background: linear-gradient(160deg, #bcd2f2, var(--rd-team-b) 74%); }
+/* حلقة الدور (تلفّ ذهبياً حول أيقونة النشط) */
+#rdStage .rd-seat.rd-active-turn .rd-av {
+  box-shadow: 0 0 0 4px rgba(226,184,87,.28), 0 0 0 7px rgba(226,184,87,.12), 0 6px 16px rgba(0,0,0,.5);
+  animation: rdRingPulse 1.5s ease infinite;
+}
+@keyframes rdRingPulse { 0%,100% { box-shadow: 0 0 0 3px rgba(226,184,87,.4), 0 0 0 6px rgba(226,184,87,.1), 0 6px 16px rgba(0,0,0,.5);} 50% { box-shadow: 0 0 0 5px rgba(226,184,87,.65), 0 0 0 9px rgba(226,184,87,.18), 0 6px 22px rgba(226,184,87,.6);} }
+/* مؤقت الدور — عدّاد تنازلي صغير بجانب الأيقونة */
+#rdStage .rd-turn-timer {
+  position: absolute; top: -8px; inset-inline-end: -14px;
+  display: inline-flex; align-items: center; gap: 2px;
+  min-width: 40px; height: 22px; justify-content: center;
+  border-radius: 999px; padding: 0 7px;
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold));
+  color: #241a05; font-size: .7rem; font-weight: 900; font-variant-numeric: tabular-nums;
+  box-shadow: 0 3px 8px rgba(0,0,0,.45);
+  animation: rdTimerBlink 1s steps(2) infinite;
+}
+@keyframes rdTimerBlink { 50% { opacity: .85; } }
+/* تاج الموزع — شارة ذهبية دائرية صغيرة متوهجة على لوحة صاحب المقعد
+   الموزع (view.dealerSeat)؛ في الجهة المقابلة لمؤقت ⏱ كي لا يتزاحما */
+#rdStage .rd-dealer-crown {
+  position: absolute; top: -7px; inset-inline-start: -9px;
+  width: 20px; height: 20px; display: grid; place-items: center;
+  border-radius: 50%;
+  font-size: .6rem; line-height: 1; letter-spacing: 0;
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold));
+  border: 1.5px solid #fff;
+  box-shadow: 0 0 9px rgba(226,184,87,.85), 0 0 18px rgba(226,184,87,.35), 0 2px 5px rgba(0,0,0,.5);
+  z-index: 4;
+}
+/* إحصائيات المقعد: النقاط + الملتقطة */
+#rdStage .rd-seat-stats {
+  display: flex; gap: 6px; justify-content: center; align-items: center;
+  font-size: .72rem; font-weight: 800; color: var(--rd-t2); white-space: nowrap;
+}
+#rdStage .rd-seat-stats .rd-stat-pts { color: var(--rd-gold-hi); }
+#rdStage .rd-seat-stats .rd-stat-pts b, #rdStage .rd-seat-stats .rd-stat-cap b { color: inherit; font-variant-numeric: tabular-nums; }
+#rdStage .rd-seat-stats .rd-stat-cap { color: var(--rd-green); }
+/* ظهور مصغّرة ليد اللاعب (عدد الأوراق دون كشف) */
+#rdStage .rd-corner { position: absolute; z-index: 22; }
+
+/* الحاويات حسب الزاوية:
+   - العلوية (tl/tr): عمود — صف الورق المقلوب يلتصق بالحافة العلوية واللوحة تحته.
+   - السفلية (br): صف أفقي — اللوحة يميناً وصف الورق المقلوب على يسارها في نفس
+     صف اليد (كل الخصوم). السفلية (bl): لوحة العارض فقط في الزاوية اليسرى.
+   force-direction: يعطي نفس الترتيب الفيزيائي في RTL و LTR */
+/* v2.7: كل لاعب في زاوية؛ اللوحة في الأعلى فوق ورقها (الأسفل) أو تحت ورقها (الأعلى).
+   الترتيب داخل الزاوية: صف الورق أولاً ثم اللوحة — عمود عادي للعلويين
+   (الورق يلتصق بالحافة واللوحة تحته)، وعمود معكوس للسفليين (اللوحة فوق الورق). */
+#rdStage .rd-corner-tl { top: 4px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; }
+#rdStage .rd-corner-tr { top: 4px; right: 10px; display: flex; flex-direction: column; align-items: flex-end; }
+#rdStage .rd-corner-br { bottom: 8px; right: 8px; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 6px; }
+/* لوحة العارض فوق يده (اليسار) لا تحتها */
+#rdStage .rd-corner-bl { left: 10px; bottom: calc(var(--chB) + 16px); display: flex; flex-direction: column; align-items: flex-start; }
+
+/* صف الورق المقلوب — أوراق بحجم كامل بظهر مزخرف موحّد */
+#rdStage .rd-backrow {
+  display: flex; align-items: center; justify-content: flex-start;
+  min-height: calc(var(--ch) * .26);
+  pointer-events: none;
+}
+#rdStage .rd-corner-br .rd-backrow, #rdStage .rd-corner-bl .rd-backrow { align-items: flex-end; }
+#rdStage .rd-back-card {
+  width: var(--cw); height: var(--ch);
+  flex-shrink: 0;
+  border-radius: clamp(6px, .9vw, 11px);
+  background-image: url('../assets/cards/back.webp');
+  background-size: cover; background-position: center;
+  border: 1px solid rgba(226,184,87,.8);
+  box-shadow: 0 4px 10px rgba(0,0,0,.45);
+  margin-inline-start: calc(var(--cw) * -.6);
+}
+/* صف الخصم السفلي-يمين: أصغر من يدي (×0.78) كي لا يغطي أوراقي ولا يزاحمها
+   في نفس الصف — اليد المكشوفة هي العنصر الأكبر دائماً (z-index أعلى أيضاً) */
+#rdStage .rd-corner-br .rd-back-card { width: calc(var(--cwB) * .78); height: calc(var(--chB) * .78); margin-inline-start: 0; border-radius: clamp(5px, .8vw, 9px); }
+#rdStage .rd-corner-br .rd-backrow { gap: clamp(2px, .4vw, 6px); align-items: flex-end; }
+#rdStage .rd-backrow .rd-back-card:first-child { margin-inline-start: 0; }
+/* عند خصمين علويين: تصغير عام لتوفير مساحة للوسط (قاعة اللعب والرزمة) */
+#rdStage.rd-uppers {
+  --ch: 150px;
+  --chB: 180px;
+  --ctTopUp: calc(var(--ch) + var(--bdH) + 10px);
+  --ctBot: calc(var(--chB) + var(--bdH) + 24px);
+}
+#rdStage.rd-uppers .rd-back-card { width: calc(var(--cw) * .82); height: var(--ch); margin-inline-start: calc(var(--cw) * -.52); }
+#rdStage.rd-uppers .rd-corner-br .rd-back-card { width: calc(var(--cwB) * .78); height: calc(var(--chB) * .78); margin-inline-start: 0; }
+#rdStage .rd-back-count {
+  margin-inline-start: 4px; font-size: .62rem; font-weight: 800;
+  color: var(--rd-gold-hi); text-shadow: 0 1px 2px rgba(0,0,0,.8);
+}
+
+/* ═══════════════ اللوحة العلوية الوسطى (مساعدة/عنوان/معلومات) ═══════════════ */
+#rdStage .rd-tophead {
+  position: absolute; inset-inline: 0; top: 6px; z-index: 20;
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: none;
+}
+/* مع خصمين علويين: صفوف الورق ملاصقة للأعلى، فالعمود يبدأ تحت الصف */
+#rdStage.rd-uppers .rd-tophead { top: calc(var(--ch) + 6px); }
+/* العنوان الأصفر العريض — بلا خلفية */
+#rdStage .rd-bigtitle {
+  margin: 2px 0 0; padding: 0;
+  font-size: clamp(1.5rem, 4.2vw, 2.7rem);
+  font-weight: 900; letter-spacing: 3px; line-height: 1.05;
+  color: var(--rd-gold-hi);
+  text-shadow: 0 2px 0 rgba(0,0,0,.55), 0 0 24px rgba(226,184,87,.28), 0 12px 30px rgba(0,0,0,.6);
+  white-space: nowrap;
+  font-family: inherit;
+}
+/* سطر «الجولة» الأصفر العريض — تحت العنوان مباشرة وفي المنتصف */
+#rdStage .rd-roundline {
+  width: 100%; display: flex; justify-content: center; align-items: baseline;
+  margin-top: 0;
+}
+#rdStage .rd-roundline .rd-inf-seg {
+  font-size: clamp(.92rem, 2.1vw, 1.35rem);
+}
+#rdStage .rd-roundline .rd-inf-seg b { font-size: 1.25em; }
+/* سطر المعلومات الأصفر: «التوزيعة n» مركزه ≈31%W و«الهدف n» مركزه ≈71%W (فيزيائياً)
+   — داخل العرض لا على الأطراف، كما في التصميم المرغوب */
+#rdStage .rd-infline {
+  width: 100%; direction: ltr; position: relative;
+  margin-top: 1px; min-height: 1.45em;
+}
+#rdStage .rd-inf-seg {
+  display: inline-flex; align-items: baseline; gap: 6px;
+  white-space: nowrap;
+  font-size: clamp(.78rem, 1.8vw, 1.05rem); font-weight: 800;
+  color: var(--rd-gold-hi);
+  text-shadow: 0 1px 0 rgba(0,0,0,.65), 0 0 14px rgba(0,0,0,.55);
+}
+#rdStage .rd-inf-seg i { font-style: normal; opacity: .92; font-size: .86em; }
+#rdStage .rd-inf-seg b {
+  font-size: 1.18em; font-weight: 900; color: var(--rd-gold-hi);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 rgba(0,0,0,.5), 0 0 16px rgba(226,184,87,.35);
+}
+#rdStage .rd-inf-deal { position: absolute; left: 31%; top: 50%; transform: translate(-50%, -50%); }
+#rdStage .rd-inf-target { position: absolute; left: 71%; top: 50%; transform: translate(-50%, -50%); }
+
+/* ═══════════════ القاعة المركزية (بيضاوية اللعب) ═══════════════ */
+#rdStage .rd-court {
+  position: absolute;
+  top: var(--ctTop, 118px); bottom: var(--ctBot);
+  inset-inline-start: var(--sideIn); inset-inline-end: var(--sideIn);
+  z-index: 5;
+}
+#rdStage.rd-uppers .rd-court { top: var(--ctTopUp); }
+/* v2.10: السجادة البيضاوية الذهبية حُذفت بطلب المستخدم — القاعة تبقى حاضنة
+   ورق الوسط والرزمة بلا أي إطار بيضاوي مرئي في كل الأوضاع */
+#rdStage .rd-court-rug { display: none; }
+#rdStage .rd-table-cards {
+  position: absolute;
+  top: 10px; bottom: calc(var(--deckS) * 1.28 + 8px);
+  inset-inline-start: 16px; inset-inline-end: 16px;
+  z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+  align-content: center;
+  gap: clamp(2px, .7vw, 8px);
+  padding: 4px;
+}
+/* تكبير ورق الوسط المرمي (×1.9 تقريباً عن v2.5) */
+#rdStage .rd-table-cards .rd-card { width: calc(var(--cw) * 1.06); height: calc(var(--ch) * 1.06); border-radius: clamp(6px, .9vw, 10px); }
+
+/* الرزمة — [v2.13] عنصر مستقل على المسرح (خرجت من القاعة): تثبيت في الهامش
+   الأسفل وسط الشاشة فوق الصف السفلي (يد + لوحات) في كل الأوضاع */
+#rdStage .rd-deck {
+  position: absolute; bottom: calc(var(--deckBot) + 2px);
+  left: 50%; transform: translateX(-50%);
+  width: var(--deckS); height: calc(var(--deckS) * .92);
+  z-index: 8;
+  display: flex; align-items: center; justify-content: center;
+}
+#rdStage .rd-deck .rd-dk-card {
+  position: absolute; width: calc(var(--deckS) * .96); height: calc(var(--deckS) * 1.34);
+  border-radius: clamp(6px, .9vw, 10px);
+  background-image: url('../assets/cards/back.webp');
+  background-size: cover; background-position: center;
+  border: 1px solid rgba(226,184,87,.95);
+  box-shadow: 0 6px 14px rgba(0,0,0,.6);
+  top: 50%; left: 50%;
+}
+#rdStage .rd-deck .rd-dk-1 { transform: translate(-50%, -50%) rotate(-6deg); }
+#rdStage .rd-deck .rd-dk-2 { transform: translate(calc(-50% + 2px), calc(-50% + 3px)) rotate(-3deg); }
+#rdStage .rd-deck .rd-dk-3 { transform: translate(calc(-50% + 4px), calc(-50% + 6px)) rotate(0deg); }
+#rdStage .rd-deck-count {
+  position: absolute; top: -10px; right: -10px; z-index: 2;
+  min-width: 36px; height: 36px; display: grid; place-items: center;
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold));
+  color: #241a05; font-size: 1rem; font-weight: 900;
+  border-radius: 18px; padding: 0 8px;
+  box-shadow: 0 4px 10px rgba(0,0,0,.55);
+}
+
+/* وضع المشاهدة/الترقية الوسطية: لا يد — شريط المتفرج مكانها */
+#rdStage.rd-spectating .rd-botrail {
+  left: 0; right: 0;
+  align-items: center; justify-content: center;
+}
+#rdStage.rd-spectating .rd-court { bottom: calc(var(--deckS) + 170px); }
+#rdStage.rd-spectating .rd-hand { display: none !important; }
+
+/* ═══════════════ الصف السفلي — يد اللاعب (يسار، أكبر، مكشوفة بلا حجب) ═══════════════ */
+/* v2.10: z-index 30 فوق الزوايا (22) — يدي المكشوفة يجب أن تبقى قابلة للنقر
+   فوق أي صف ورق خصم يزاحمها (خاصة صف الخصم br في البورتريه واللاندسكيب) */
+#rdStage .rd-botrail {
+  position: absolute; left: 10px; right: 10px; bottom: 6px; z-index: 30;
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  direction: ltr;   /* يدي فيزيائياً يسار الشاشة (لا تنعكس في RTL) */
+  pointer-events: none;
+}
+#rdStage .rd-botrail > * { pointer-events: auto; }
+#rdStage .rd-hand {
+  display: flex; align-items: flex-end; justify-content: flex-start;
+  gap: clamp(3px, .5vw, 8px);
+  min-height: var(--chB);
+  padding: 0 2px;
+  border-radius: 12px;
+}
+/* أوراق يدي بأقصى اليسار بحجم الستة المتقاسم (نفس صف الخصم السفلي-يمين) */
+#rdStage .rd-hand .rd-card { width: var(--cwB); height: var(--chB); border-radius: clamp(6px, .8vw, 10px); }
+
+/* شريط المتفرج (وضع الغرفة) */
+#rdStage .rd-specbar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  justify-content: center; text-align: center;
+  border: 1px solid rgba(226,184,87,.35); border-radius: 16px;
+  background: linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,.34));
+  padding: 10px 16px; color: var(--rd-t2); font-size: .8rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,.32);
+  max-width: min(560px, 94%);
+}
+#rdStage .rd-specbar .rd-spec-eyes { font-size: 1.25rem; }
+#rdStage .rd-specbar .rd-spec-txt { font-weight: 700; color: #fff; }
+#rdStage .rd-specbar .rd-spec-sub { font-size: .68rem; opacity: .8; }
+#rdStage .rd-specbar .rd-spec-btn {
+  border: 1px solid rgba(226,184,87,.6); color: #241a05;
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold));
+  border-radius: 999px; padding: 7px 16px; font-weight: 800; font-size: .76rem;
+  cursor: pointer; transition: filter .15s;
+}
+#rdStage .rd-specbar .rd-spec-btn:hover { filter: brightness(1.1); }
+
+/* طبقة الانتظار (غرفة) */
+#rdStage .rd-wait {
+  position: absolute; inset: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(6, 14, 9, .6); backdrop-filter: blur(2px);
+}
+#rdStage .rd-wait-box {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 22px 30px; border-radius: 18px; text-align: center;
+  background: linear-gradient(180deg, rgba(18,26,20,.96), rgba(6,16,10,.98));
+  border: 1px solid rgba(226,184,87,.4);
+  box-shadow: 0 10px 34px rgba(0,0,0,.55), inset 0 0 0 4px rgba(122,84,38,.28);
+  max-width: min(430px, 86vw);
+}
+#rdStage .rd-wait-spin {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 3px solid rgba(226,184,87,.2); border-top-color: var(--rd-gold);
+  animation: rd-wait-rot 1s linear infinite;
+}
+@keyframes rd-wait-rot { to { transform: rotate(360deg); } }
+#rdStage .rd-wait-txt { font-size: 1rem; font-weight: 800; color: #fff; }
+#rdStage .rd-wait-sub { font-size: .72rem; color: var(--rd-t3); max-width: 320px; }
+#rdStage .rd-wait-sub.rd-wait-err { color: #ff9a8a; }
+
+/* إجراءات نهاية المباراة (الغرفة) */
+#rdStage .rd-match-room {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  margin: 10px 0 4px; padding: 10px 12px; width: min(440px, 92%);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(0,0,0,.18));
+  border: 1px dashed rgba(226,184,87,.4);
+}
+#rdStage .rd-match-room .rd-room-act-txt { font-size: .82rem; font-weight: 700; color: var(--rd-t2); text-align: center; }
+#rdStage .rd-match-room .rd-room-act-voted { color: #9fd98a; }
+#rdStage .rd-match-room .rd-act-btn { margin: 0; min-width: 190px; }
+#rdStage .rd-match-room .rd-btn-ghost { border-color: rgba(255,255,255,.25); }
+
+/* ═══════════════ الأوراق (أصول إسبانية حقيقية) ═══════════════ */
+#rdStage .rd-card {
+  width: var(--cw); height: var(--ch);
+  border-radius: clamp(7px, 1.1vw, 12px);
+  background: #fff;
+  background-size: cover; background-position: center;
+  border: 1px solid rgba(60, 40, 10, .55);
+  box-shadow: 0 5px 12px rgba(0,0,0,.4);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+/* ظهر الورقة المقلوبة — أصل المنصة الموحّد + تدرجات ذهبية وحَدّ (نمط 05-ronda.css) */
+#rdStage .rd-card.rd-back {
+  /* [BackImg] صورة الظهر الجديدة شفافة الخلفية — لا تدرجات داكنة تحتها */
+  background: url('../assets/cards/back.webp') center / cover no-repeat;
+  border: 1.5px solid rgba(226,184,87,.85);
+  box-shadow: inset 0 0 12px rgba(0,0,0,.5), 0 5px 12px rgba(0,0,0,.5), inset 0 0 0 2px rgba(255,255,255,.1);
+}
+#rdStage #hand .rd-card.rd-live { cursor: pointer; }
+#rdStage #hand .rd-card.rd-live:hover { transform: translateY(-10px) scale(1.03); box-shadow: 0 16px 28px rgba(0,0,0,.5), 0 0 0 2px var(--rd-gold); z-index: 30; }
+#rdStage #hand .rd-card.rd-live.rd-can-capture { box-shadow: 0 0 0 2px var(--rd-gold), 0 8px 20px rgba(0,0,0,.35); }
+#rdStage #hand .rd-card.rd-off { filter: brightness(.82) saturate(.7); cursor: default; }
+#rdStage #hand .rd-card.rd-off:hover { transform: none; box-shadow: 0 5px 12px rgba(0,0,0,.4); }
+/* شارة الأسر المحتمل */
+#rdStage .rd-capture-badge {
+  position: absolute; bottom: -8px; left: 50%; transform: translateX(-50%);
+  background: linear-gradient(160deg, var(--rd-gold-hi), var(--rd-gold));
+  color: #241a05; font-size: .7rem; font-weight: 900;
+  min-width: 22px; height: 22px; display: grid; place-items: center;
+  border-radius: 11px; padding: 0 6px; z-index: 5;
+  box-shadow: 0 3px 8px rgba(0,0,0,.4);
+  border: 1px solid #f7e7ae;
+}
+
+/* حركات الأوراق */
+#rdStage .rd-card.rd-dealing { animation: rdDeal .45s ease backwards; }
+@keyframes rdDeal { from { opacity: 0; transform: translateY(-26px) scale(.8) rotate(-4deg); } to { opacity: 1; transform: none; } }
+#rdStage .rd-card.rd-entering { animation: rdEnter .32s ease; }
+@keyframes rdEnter { from { opacity: 0; transform: translateY(20px) scale(.85); } to { opacity: 1; transform: none; } }
+#rdStage .rd-card.rd-capturing { animation: rdGrab .55s ease forwards; }
+@keyframes rdGrab {
+  55% { transform: scale(1.1) rotate(3deg); box-shadow: 0 0 0 3px var(--rd-gold), 0 0 28px rgba(226,184,87,.75); }
+  100% { transform: scale(.3); opacity: 0; }
+}
+#rdStage .rd-fly-card, body > .rd-fly-card { pointer-events: none; margin: 0; z-index: 4000; }
+
+/* ═══════════════ سجل الأحداث — مخفي افتراضياً + مقبض نصف دائري أصفر ═══════════════ */
+/* v2.10.1: المقبض كان بقاع منتصف الشاشة (z 70) فوق أوراق يدي (z 30) فيغطي
+   زاويتها اليمنى فلا تُنقر — رُفع فوق مستوى صف اليد في كل الأوضاع */
+#rdStage .rd-log-panel {
+  position: absolute; z-index: 70;
+  bottom: calc(var(--chB) + 14px); left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center;
+  pointer-events: none;
+}
+#rdStage .rd-log-handle {
+  pointer-events: auto; cursor: pointer;
+  width: clamp(64px, 9vw, 120px); height: clamp(12px, 1.5vh, 17px);
+  padding: 0; flex-shrink: 0;
+  display: block;
+  border: 1px solid #f7e3a4;
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, #fff3cf 0%, var(--rd-gold) 62%, #b98a2f 100%);
+  box-shadow: 0 4px 12px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.6);
+  transition: transform .18s ease;
+}
+#rdStage .rd-log-panel:hover .rd-log-handle { transform: translateY(-2px); }
+#rdStage .rd-log-body { display: none; }
+#rdStage .rd-log-panel.rd-log-open {
+  pointer-events: auto;
+  width: min(300px, 92vw);
+  height: min(330px, 46vh);
+  padding: 8px 10px 5px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(8,19,13,.97), rgba(3,11,7,.98));
+  border: 1px solid rgba(226,184,87,.55);
+  box-shadow: 0 20px 55px rgba(0,0,0,.62);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+}
+#rdStage .rd-log-open .rd-log-handle {
+  order: 2; margin-top: 5px;
+  border-radius: 999px;
+  transform: none;
+}
+#rdStage .rd-log-open .rd-log-body {
+  order: 1; flex: 1; min-height: 0; width: 100%;
+  display: flex; flex-direction: column;
+}
+#rdStage .rd-log-title {
+  flex-shrink: 0; margin: 0 0 6px; padding-bottom: 6px;
+  font-size: .8rem; font-weight: 800; letter-spacing: 1px; text-align: center;
+  color: var(--rd-gold-hi);
+  border-bottom: 1px solid rgba(226,184,87,.25);
+  width: 100%;
+}
+#rdStage .rd-log-list {
+  list-style: none; margin: 0; padding: 0;
+  flex: 1; overflow-y: auto; width: 100%;
+  display: flex; flex-direction: column; gap: 4px;
+}
+#rdStage .rd-log-list li {
+  font-size: .7rem; line-height: 1.5; color: var(--rd-t2); text-align: start;
+  background: rgba(255,255,255,.035);
+  border-inline-start: 2px solid var(--rd-gold-dim); border-radius: 6px;
+  padding: 4px 7px; animation: rdLogIn .25s ease;
+}
+#rdStage .rd-log-list li b { color: var(--rd-gold-hi); }
+#rdStage .rd-log-list li.rd-log-strike { border-color: var(--rd-amber); }
+#rdStage .rd-log-list li.rd-log-rope { border-color: #e07a3c; }
+#rdStage .rd-log-list li.rd-log-double { border-color: var(--rd-red); }
+#rdStage .rd-log-list li.rd-log-mesa { border-color: var(--rd-green); }
+#rdStage .rd-log-list li.rd-log-declare { border-color: #b78be0; }
+#rdStage .rd-log-list li.rd-log-qa3a { border-color: #e8d23c; }
+@keyframes rdLogIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+[dir="ltr"] @keyframes rdLogIn { from { opacity: 0; transform: translateX(8px); } to { opacity: 1; transform: none; } }
+
+/* ═══════════════ البانرات ═══════════════ */
+#rdStage .rd-banner-layer {
+  position: absolute; inset: 0; z-index: 900; pointer-events: none;
+  display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px;
+}
+#rdStage .rd-banner {
+  padding: 12px 38px; border-radius: 16px;
+  font-size: 1.8rem; font-weight: 900; letter-spacing: 1px; text-align: center; color: #fff;
+  background: linear-gradient(160deg, rgba(17,24,19,.96), rgba(6,14,9,.96));
+  border: 2px solid var(--rd-gold);
+  box-shadow: 0 18px 60px rgba(0,0,0,.65), 0 0 40px rgba(226,184,87,.28);
+  animation: rdBanIn .38s cubic-bezier(.2,1.4,.4,1) backwards, rdBanOut .3s ease forwards;
+  animation-delay: 0s, var(--rd-banner-life, 1.1s);
+}
+#rdStage .rd-banner .rd-banner-pts { display: block; font-size: 1.08rem; color: var(--rd-gold-hi); margin-top: 2px; }
+#rdStage .rd-banner.rd-b-strike { border-color: var(--rd-amber); }
+#rdStage .rd-banner.rd-b-rope { border-color: #e07a3c; }
+#rdStage .rd-banner.rd-b-double { border-color: var(--rd-red); font-size: 2rem; }
+#rdStage .rd-banner.rd-b-mesa { border-color: var(--rd-green); }
+#rdStage .rd-banner.rd-b-declare { border-color: #b78be0; }
+#rdStage .rd-banner.rd-b-qa3a { border-color: #e8d23c; }
+@keyframes rdBanIn { from { opacity: 0; transform: scale(.5) translateY(28px); } to { opacity: 1; transform: none; } }
+@keyframes rdBanOut { to { opacity: 0; transform: translateY(-22px) scale(.92); } }
+
+/* ═══════════════ الطبقات العلوية ═══════════════ */
+#rdStage .rd-overlay {
+  position: fixed; inset: 0; z-index: 1200;
+  background: rgba(6, 12, 8, .82);
+  backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+  animation: rdOvIn .22s ease;
+}
+@keyframes rdOvIn { from { opacity: 0; } to { opacity: 1; } }
+#rdStage .rd-modal {
+  position: relative; width: min(620px, 98vw); max-height: 94vh; overflow-y: auto;
+  border: 1px solid rgba(226,184,87,.6); border-radius: 18px; padding: 20px 24px;
+  background:
+    radial-gradient(90% 60% at 50% 0%, rgba(226,184,87,.08), transparent 60%),
+    linear-gradient(165deg, #1b1713, #24190d 55%, #191007);
+  box-shadow: 0 30px 90px rgba(0,0,0,.7);
+  animation: rdModIn .28s cubic-bezier(.2,1.25,.4,1);
+}
+@keyframes rdModIn { from { opacity: 0; transform: scale(.92) translateY(14px); } to { opacity: 1; transform: none; } }
+#rdStage .rd-modal-title { margin: 0 0 12px; text-align: center; font-size: 1.4rem; color: var(--rd-gold-hi); font-weight: 900; }
+#rdStage .rd-modal-close {
+  position: absolute; top: 12px; inset-inline-start: 12px;
+  width: 32px; height: 32px; display: grid; place-items: center;
+  border: 1px solid rgba(226,184,87,.4); border-radius: 9px;
+  background: transparent; color: var(--rd-t2); cursor: pointer; font-family: inherit;
+}
+#rdStage .rd-modal-close:hover { color: var(--rd-red); border-color: var(--rd-red); }
+#rdStage .rd-modal-close svg { width: 16px; height: 16px; }
+
+#rdStage .rd-rules-body { color: var(--rd-t2); font-size: .86rem; line-height: 1.9; text-align: start; }
+#rdStage .rd-rules-body h3 { color: var(--rd-gold-hi); margin: 12px 0 5px; font-size: .92rem; }
+#rdStage .rd-rules-body h3:first-child { margin-top: 0; }
+#rdStage .rd-rules-body ul { margin: 0; padding-inline-start: 18px; }
+#rdStage .rd-rules-body li { margin-bottom: 3px; }
+#rdStage .rd-rules-body .rule-term { color: var(--rd-gold-hi); font-weight: 800; }
+#rdStage .rd-rules-body .rule-pts { color: var(--rd-green); font-weight: 800; }
+
+#rdStage .rd-breakdown-wrap { overflow-x: auto; margin: 8px 0 12px; }
+#rdStage .rd-breakdown { width: 100%; border-collapse: collapse; font-size: .78rem; min-width: 420px; }
+#rdStage .rd-breakdown th, #rdStage .rd-breakdown td { padding: 6px 8px; text-align: center; border-bottom: 1px solid rgba(226,184,87,.16); }
+#rdStage .rd-breakdown th { color: var(--rd-gold-hi); font-size: .68rem; white-space: nowrap; }
+#rdStage .rd-breakdown td { color: var(--rd-t2); }
+#rdStage .rd-breakdown td.rd-row-label { text-align: start; color: var(--rd-t1); white-space: nowrap; }
+#rdStage .rd-breakdown .rd-team-col-head.rd-c0 { color: var(--rd-team-a); }
+#rdStage .rd-breakdown .rd-team-col-head.rd-c1 { color: var(--rd-team-b); }
+#rdStage .rd-breakdown tr.rd-total-row td { color: var(--rd-gold-hi); font-weight: 800; border-top: 1.5px solid rgba(226,184,87,.45); }
+#rdStage .rd-breakdown tr.rd-grand-row td { color: var(--rd-gold); font-weight: 900; font-size: 1rem; }
+
+#rdStage .rd-match-modal { text-align: center; }
+#rdStage .rd-match-kicker { margin: 0; color: var(--rd-gold-hi); letter-spacing: 3px; font-size: .8rem; }
+#rdStage .rd-match-winner { margin: 6px 0 2px; font-size: 2.1rem; color: var(--rd-gold-hi); text-shadow: 0 6px 30px rgba(226,184,87,.45); animation: rdPulse 1.6s ease infinite; }
+@keyframes rdPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+#rdStage .rd-match-score { margin: 0 0 10px; color: var(--rd-t2); }
+#rdStage .rd-match-modal .rd-btn-primary, #rdStage .rd-match-modal .rd-btn-ghost { max-width: 300px; margin-inline: auto; }
+#rdStage .rd-confetti { position: absolute; inset: 0; overflow: hidden; border-radius: 18px; pointer-events: none; }
+#rdStage .rd-confetti span { position: absolute; top: -12px; width: 8px; height: 14px; opacity: .85; animation: rdConfetti linear infinite; }
+@keyframes rdConfetti { to { transform: translateY(120vh) rotate(720deg); } }
+
+/* ═══════════════ v2.7 — الاستجابة (portrait ≤760 / landscape قصير / قصير جداً) ═══════════════ */
+/* الهاتف العمودي والأجهزة الضيقة: 6 أوراق سفلية تتقاسم العرض، وسط مضغوط */
+@media (max-width: 760px) {
+  #rdStage {
+    --cw: clamp(64px, 19vw, 108px);
+    --ch: calc(var(--cw) * 1.34);
+    --cwB: calc((100% - 44px) / 6);
+    --chB: calc(var(--cwB) * 1.42);
+    --deckS: clamp(70px, 19vw, 118px);
+    --avS: 38px;
+    --bdH: 74px;
+    --sideIn: 6px;
+    --ctTop: 108px;
+    --ctTopUp: calc(var(--ch) + var(--bdH) + 4px);
+    --ctBot: calc(var(--chB) + var(--bdH) + 26px);
+  }
+  #rdStage.rd-uppers { --ch: 118px; --chB: 150px; --ctTopUp: calc(var(--ch) + var(--bdH) + 4px); }
+  #rdStage .rd-tophead { top: 4px; }
+  #rdStage.rd-uppers .rd-tophead { top: calc(var(--ch) + 4px); }
+  #rdStage .rd-bigtitle { font-size: clamp(1.1rem, 6vw, 1.7rem); letter-spacing: 1.5px; }
+  #rdStage .rd-roundline .rd-inf-seg { font-size: clamp(.8rem, 3.6vw, 1.1rem); }
+  #rdStage .rd-infline .rd-inf-seg { font-size: clamp(.6rem, 3vw, .85rem); }
+  #rdStage .rd-seat { min-width: 0; padding: 3px 5px; border-radius: 12px; gap: 2px; }
+  #rdStage .rd-seat-stats { font-size: .62rem; gap: 4px; }
+  #rdStage .rd-botrail { bottom: 10px; left: 6px; right: 6px; }
+  #rdStage .rd-hand { gap: 3px; }
+  #rdStage .rd-corner-bl { left: 8px; bottom: calc(var(--chB) + 10px); }
+  #rdStage .rd-corner-br { right: 6px; bottom: 6px; }
+  #rdStage .rd-back-card { border-radius: 5px; }
+  #rdStage .rd-card { border-radius: 6px; }
+  #rdStage .rd-table-cards { top: 8px; inset-inline-start: 12px; inset-inline-end: 12px; }
+  #rdStage .rd-deck-count { min-width: 30px; height: 30px; font-size: .85rem; top: -8px; right: -8px; }
+  #rdStage .rd-log-handle { width: min(120px, 30vw); height: 12px; }
+  #rdStage .rd-log-panel.rd-log-open { width: min(270px, 94vw); height: min(300px, 44vh); }
+  #rdStage.rd-spectating .rd-court { bottom: calc(var(--deckS) + 132px); }
+  #rdStage .rd-snd-hint { font-size: .72rem; }
+}
+
+/* اللاندسكيب القصير: صفوف علوية مدمجة — بيضاوية اللعب تحت اللوحتين مباشرة */
+@media (orientation: landscape) and (max-height: 620px) {
+  #rdStage {
+    --cw: clamp(56px, 14vh, 96px);
+    --ch: calc(var(--cw) * 1.3);
+    --cwB: calc((100% - 60px) / 6);
+    --chB: calc(var(--cwB) * 1.34);
+    --deckS: clamp(56px, 13vh, 92px);
+    --avS: 32px;
+    --bdH: 60px;
+    --sideIn: 8px;
+    --ctTop: 64px;
+    --ctTopUp: calc(var(--ch) + var(--bdH) + 4px);
+    --ctBot: calc(var(--chB) + var(--bdH) + 20px);
+  }
+  #rdStage.rd-uppers { --chB: 132px; --ctTopUp: calc(var(--ch) + var(--bdH) + 2px); }
+  #rdStage .rd-tophead { top: 3px; }
+  #rdStage.rd-uppers .rd-tophead { top: calc(var(--ch) + 3px); }
+  #rdStage .rd-bigtitle { font-size: clamp(.9rem, 4vh, 1.4rem); letter-spacing: 1px; margin: 0; }
+  #rdStage .rd-infline { min-height: 0; }
+  #rdStage .rd-inf-seg { font-size: clamp(.55rem, 1.9vh, .8rem); gap: 3px; }
+  #rdStage .rd-corner-bl { bottom: calc(var(--chB) + 8px); }
+  #rdStage .rd-corner-br { bottom: 4px; right: 6px; }
+  #rdStage .rd-botrail { bottom: 4px; }
+  #rdStage .rd-seat { min-width: 0; padding: 2px 5px; gap: 2px; border-radius: 11px; }
+  #rdStage .rd-seat-stats { font-size: .6rem; gap: 3px; }
+  #rdStage .rd-table-cards { top: 8px; inset-inline-start: 12px; inset-inline-end: 12px; }
+  #rdStage .rd-deck-count { min-width: 28px; height: 28px; font-size: .78rem; top: -7px; right: -7px; }
+  #rdStage .rd-log-handle { width: min(120px, 22vw); height: 11px; }
+  #rdStage .rd-log-panel.rd-log-open { width: min(280px, 82vw); height: min(260px, 52vh); }
+  #rdStage.rd-spectating .rd-court { bottom: calc(var(--deckS) + 120px); }
+  #rdStage .rd-banner { font-size: 1.05rem; padding: 6px 16px; }
+}
+
+/* شاشات قصيرة جداً (لاندسكيب ≤430px) */
+@media (orientation: landscape) and (max-height: 430px) {
+  #rdStage {
+    --cw: clamp(48px, 13vh, 76px);
+    --ch: calc(var(--cw) * 1.26);
+    --cwB: calc((100% - 52px) / 6);
+    --chB: calc(var(--cwB) * 1.3);
+    --deckS: clamp(48px, 12vh, 76px);
+    --avS: 26px;
+    --bdH: 46px;
+    --ctTop: 48px;
+    --ctTopUp: calc(var(--ch) + var(--bdH) + 2px);
+    --ctBot: calc(var(--chB) + var(--bdH) + 16px);
+  }
+  #rdStage .rd-bigtitle { font-size: clamp(.78rem, 3.2vh, 1rem); letter-spacing: .5px; margin: 0; }
+  #rdStage .rd-infline { min-height: 0; }
+  #rdStage .rd-infline .rd-inf-seg { font-size: clamp(.5rem, 1.7vh, .7rem); }
+  #rdStage .rd-tophead { top: 0; pointer-events: none; }
+  #rdStage .rd-corner-br { bottom: 3px; right: 4px; gap: 3px; }
+  #rdStage .rd-corner-bl { bottom: calc(var(--chB) + 6px); left: 6px; }
+  /* هامش سفلي مريح 8px (كان 3-4px — الورق يكاد يلمس الحافة) */
+  #rdStage .rd-botrail { bottom: 8px; left: 6px; right: 6px; }
+  #rdStage .rd-seat-stats { font-size: .54rem; }
+  #rdStage .rd-turn-timer { min-width: 30px; height: 17px; font-size: .58rem; top: -6px; inset-inline-end: -8px; }
+  #rdStage .rd-av { font-size: .8rem; }
+  #rdStage .rd-back-count { display: none; }
+  #rdStage .rd-log-panel.rd-log-open { height: min(200px, 58vh); }
+  #rdStage .rd-log-handle { width: min(100px, 18vw); height: 9px; }
+}
+
+/* تلميح الصوت في القائمة */
+#rdStage .rd-snd-hint {
+  margin: 0; font-size: .78rem; color: var(--rd-t3);
+  text-align: center; padding: 6px 0 0;
+}
+
+/* ═══════════════ v2.9 — الهندسة المعتمدة (وحدات حاوية: تتلاءم مع أي حجم مسرح) ═══════════════
+   الروندا تُفتح داخل صفحة اللعبة وهيدر المنصة ظاهر (زرّ القواعد + زر كتم الصوت)،
+   والمسرح قد يختلف ارتفاعه/عرضه حسب الشاشة والهيدر — لذلك كل المقاسات الكبيرة
+   بوحدات الحاوية cqh/cqw (نسبة إلى صندوق #rdStage نفسه) فتتوسّع وتتقلّص معاً
+   بلا تداخل: 6 أوراق سفلية، وسط فيه الأوراق المرمية والرزمة، زوايا أربع. */
+
+#rdStage {
+  container-type: size;
+  --cw: 14cqh; --ch: 20cqh;            /* أساس أوراق الظهر العلوية */
+  --tcw: 15.2cqh; --tch: 21cqh;        /* ورق الوسط المرمي (نسبة ~5/7) — بلا خصمين علويين */
+  /* v2.10: يد أكبر (25→28cqh) لكن بسقف عرضي كي لا يفيض صف الستة على
+     الأجهزة الوسيطة (لابتوب): 6 أوراق × 20cqh-عرض + فراغات ≈ عرض المسرح */
+  --chB: min(28cqh, 30cqw);
+  --cwB: min(calc(var(--chB) * .72), 15cqw);
+  --deckS: 8.2cqw;                     /* الرزمة داخل القاعة (أصغر كي تتسع 1ضد1) */
+  --deckH: calc(var(--deckS) * .92);
+  --avS: 6.6cqh; --bdH: 11.5cqh; --bdHt: 11.5cqh; --sideIn: 1.2cqw;
+  --ctTop: 18.5cqh;                    /* علو القاعة بلا خصمين علويين */
+  --ctTopUp: calc(var(--ch) + var(--bdHt) + .8cqh);
+  --ctBot: calc(var(--chB) + var(--bdH) + 3cqh);
+}
+/* كل الزوايا فيزيائية (لا تنعكس في RTL) */
+#rdStage .rd-corner-tl, #rdStage .rd-corner-tr,
+#rdStage .rd-corner-br, #rdStage .rd-corner-bl { direction: ltr; }
+
+/* ── مع خصمين علويين: ظهر علوي أقصر + لوحة نحيفة → بيضاوية أطول ── */
+#rdStage.rd-uppers {
+  --cw: 9.6cqh; --ch: 13.5cqh;
+  --tcw: 15.8cqh; --tch: 22cqh;
+  --chB: min(24cqh, 26cqw);
+  --cwB: min(calc(var(--chB) * .72), 13cqw);
+  --deckS: 9.6cqw;
+  --bdHt: 7.8cqh;
+  --ctTopUp: calc(var(--ch) + var(--bdHt) + .8cqh);
+  --ctBot: calc(var(--chB) + var(--bdH) + 2.8cqh);
+}
+#rdStage.rd-uppers .rd-back-card {
+  width: var(--cw); height: var(--ch);
+  margin-inline-start: calc(var(--cw) * -.46);
+  border-radius: clamp(5px, .8vw, 9px);
+}
+#rdStage.rd-uppers .rd-corner-br .rd-back-card { width: calc(var(--cwB) * .78); height: calc(var(--chB) * .78); margin-inline-start: 0; }
+/* اللوحات العلوية النحيفة (فوق الظهر) */
+#rdStage.rd-uppers .rd-corner-tl .rd-seat,
+#rdStage.rd-uppers .rd-corner-tr .rd-seat {
+  padding: 2px 7px; gap: 2px; min-width: 74px; border-radius: 12px;
+}
+#rdStage.rd-uppers .rd-corner-tl .rd-av,
+#rdStage.rd-uppers .rd-corner-tr .rd-av { width: 38px; height: 38px; font-size: .8rem; }
+#rdStage.rd-uppers .rd-corner-tl .rd-seat-stats,
+#rdStage.rd-uppers .rd-corner-tr .rd-seat-stats { font-size: .58rem; gap: 3px; }
+#rdStage.rd-uppers .rd-corner-tl .rd-turn-timer,
+#rdStage.rd-uppers .rd-corner-tr .rd-turn-timer { min-width: 30px; height: 17px; font-size: .56rem; top: -6px; inset-inline-end: -9px; }
+
+/* ورق الوسط المرمي — حجم صريح ثابت النسبة */
+#rdStage .rd-table-cards .rd-card,
+#rdStage .rd-table-cards .rd-fly-card {
+  width: var(--tcw); height: var(--tch);
+  border-radius: clamp(6px, .9vw, 10px);
+}
+#rdStage .rd-table-cards {
+  top: 2cqh;
+  bottom: calc(var(--deckS) * 1.18 + 2.4cqh);
+  inset-inline-start: 1.5cqw; inset-inline-end: 1.5cqw;
+  gap: clamp(3px, .8vw, 10px);
+}
+
+/* الرزمة: ظهرها المرسوم يملأ صندوقها */
+#rdStage .rd-deck .rd-dk-card {
+  width: calc(var(--deckS) * .7); height: var(--deckH);
+  border-radius: clamp(6px, .9vw, 10px);
+}
+#rdStage .rd-deck {
+  bottom: calc(var(--deckBot) + 2cqh);
+  height: var(--deckH);
+}
+#rdStage .rd-deck-count { top: -9px; right: -9px; }
+
+/* ── هاتف عمودي (قاعة أطول → ورق وسط أكبر) ── */
+@media (max-width: 760px) {
+  #rdStage {
+    --cw: 22vw; --ch: 31vw;
+    --tcw: clamp(112px, 31vw, 168px);
+    --tch: calc(var(--tcw) * 1.38);
+    /* v2.10: اليد نسبة لارتفاع الشاشة (لا vw) — حساب الصف السفلي كاملاً:
+       يدي (3 أوراق) + صف الخصم (3×0.78) ≈ 5.3×cwB + فراغات ≤ عرض الهاتف
+       (360px: يدي 195px + خصم 153px = يتجاوران بلا تغطية تقريباً) */
+    --chB: clamp(84px, 12vh, 104px);
+    --cwB: calc(var(--chB) / 1.42);
+    --deckS: clamp(58px, 15.5vw, 86px);
+    --avS: 40px; --bdH: 76px; --bdHt: 76px; --sideIn: 6px;
+    --ctTop: 112px;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + 4px);
+    --ctBot: calc(var(--chB) + var(--bdH) + 22px);
+  }
+  #rdStage.rd-uppers {
+    --ch: 92px; --cw: 66px;
+    --tcw: clamp(82px, 21.5vw, 122px);
+    --tch: calc(var(--tcw) * 1.34);
+    --chB: clamp(84px, 12vh, 104px);
+    --cwB: calc(var(--chB) / 1.42);
+    --deckS: clamp(54px, 14vw, 78px);
+    --bdHt: 54px;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + 3px);
+  }
+}
+
+/* ── لاندسكيب قصير ── v2.11: أوراق ×2 (اليد 42cqh، الوسط أكبر) — العرض
+   وفير في اللاندسكيب فالتكبير يأخذ من العرض لا القاع: كل تبعيات
+   القاعة (ctTop/ctBot) تتبع المتغيرات تلقائياً فلا تداخل ── */
+@media (orientation: landscape) and (max-height: 620px) {
+  #rdStage {
+    --cw: 20cqh; --ch: 28cqh;
+    --tcw: clamp(96px, 15cqw, 150px);
+    --tch: calc(var(--tcw) * 1.36);
+    --chB: 42cqh;
+    --cwB: calc(var(--chB) * .74);
+    --deckS: 10cqw;
+    --avS: 42px; --bdH: 13cqh; --bdHt: 13cqh; --sideIn: 10px;
+    --ctTop: 15cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .6cqh);
+    --ctBot: calc(var(--chB) + var(--bdH) + 2.4cqh);
+  }
+  #rdStage.rd-uppers {
+    --ch: 22cqh; --cw: 15.5cqh;
+    --tcw: clamp(88px, 14cqw, 138px);
+    --tch: calc(var(--tcw) * 1.36);
+    --chB: 38cqh;
+    --cwB: calc(var(--chB) * .74);
+    --deckS: 9.2cqw;
+    --bdHt: 11cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .5cqh);
+  }
+  #rdStage .rd-roundline { display: flex; margin-top: 0; }
+  #rdStage .rd-roundline .rd-inf-seg { font-size: clamp(.72rem, 2.6vh, 1rem); }
+}
+
+/* ── لاندسكيب قصير جداً ── v2.11: ×2 مع سقوف تحمي من التكدس */
+@media (orientation: landscape) and (max-height: 430px) {
+  #rdStage {
+    --cw: 17cqh; --ch: 24cqh;
+    --tcw: clamp(84px, 13cqw, 132px);
+    --tch: calc(var(--tcw) * 1.34);
+    --chB: 38cqh;
+    --cwB: calc(var(--chB) * .75);
+    --deckS: 9cqw;
+    --avS: 36px; --bdH: 11cqh; --bdHt: 11cqh;
+    --ctTop: 13cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .4cqh);
+    --ctBot: calc(var(--chB) + var(--bdH) + 2cqh);
+  }
+  #rdStage.rd-uppers {
+    --ch: 19cqh; --cw: 13.5cqh;
+    --tcw: clamp(76px, 12cqw, 118px);
+    --tch: calc(var(--tcw) * 1.34);
+    --chB: 35cqh;
+    --cwB: calc(var(--chB) * .75);
+    --deckS: 8.4cqw;
+    --bdHt: 9cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .4cqh);
+  }
+  #rdStage .rd-bigtitle { font-size: clamp(.8rem, 3.4vh, 1.05rem); letter-spacing: .5px; margin: 0; }
+  #rdStage .rd-infline { min-height: 0; }
+  #rdStage .rd-infline .rd-inf-seg { font-size: clamp(.5rem, 1.7vh, .72rem); }
+}
+
+/* ═══════════════ v2.10 — اللاندسكيب: اتجاه المقاعد المعكوس ═══════════════
+   في اللاندسكيب يجلس اللاعب الرئيسي أسفل-يمين (br) — cornerForPlayer في
+   rd-renderer.js تعكس الخصوم حول الطاولة — لذلك تنتقل يده المكشوفة إلى
+   يمين الصف السفلي (بورتريه: تبقى يساراً كما هي):
+     • d0 «br» اليد المكشوفة (botrail إلى اليمين)
+     • d1 «tr»، d2 «tl»، d3 «bl» — صفوف الظهر في زواياها الجديدة.
+   الزاوية bl في اللاندسكيب يشغلها خصم بصفّ ظهره في نفس صف اليد (كما br
+   في البورتريه): لوحته فوق صفه والمجموعة مثبتة بقاع الشاشة (column-reverse)،
+   والزاوية br تصير لوحة العارض فوق يده (كما bl في البورتريه). اليد تبقى
+   فوق أي صف خصم في التراكب (z-index 24 > 22 للزوايا). */
+@media (orientation: landscape) {
+  #rdStage .rd-botrail { justify-content: flex-end; z-index: 30; }
+  /* bl في اللاندسكيب = خصم بصف ظهر في نفس صف اليد (كما br بورتريه) */
+  #rdStage .rd-corner-bl {
+    bottom: 8px; left: 10px;
+    display: flex; flex-direction: column-reverse; align-items: flex-start; gap: 6px;
+  }
+  #rdStage .rd-corner-bl .rd-backrow { gap: clamp(2px, .4vw, 6px); align-items: flex-end; }
+  /* v2.10: أوراق صف ظهر خصم bl أصغر (×0.78) كصف br البورتريه — بحجم
+     اليد الكامل تتضخم وتزاحم اليد/القاعة في نفس الصف السفلي */
+  #rdStage .rd-corner-bl .rd-back-card { width: calc(var(--cwB) * .78); height: calc(var(--chB) * .78); margin-inline-start: 0; border-radius: clamp(5px, .8vw, 9px); }
+  /* br في اللاندسكيب = لوحة العارض فوق يده المكشوفة (كما bl بورتريه):
+     مرتفعة فوق الصف السفلي كي لا تختفي تحت قاع القاعة */
+  #rdStage .rd-corner-br {
+    bottom: calc(var(--chB) + 10px);
+    display: flex; flex-direction: column; align-items: flex-end;
+  }
+  /* لا صفّ ظهر في زاوية اليد (br لاندسكيب) — backrowCorner في العارض
+     يضمن ذلك؛ هذه قاعدة حماية إن رسم الصف يبقى خلف اليد */
+  #rdStage .rd-corner-br .rd-backrow { display: none; }
+}
+/* ═══════════════ v2.13 — البورتريه: أوراق الخصم br في نفس خط اليد ═══════════════
+   طلب المستخدم: أوراق اللاعبين في الأسفل مرصوصة في خط أفقي واحد مثل الأعلى.
+   كان v2.10.1 يرفع صف الخصم br فوق مستوى اليد — الآن يعود لنفس الصف.
+   منع التلامس: تصغير أوراق br إلى ×0.62 من حجم اليد (3×59 + 3×37 ≈ 290px من 360) */
+@media (orientation: portrait) and (max-width: 760px) {
+  #rdStage .rd-corner-br { bottom: 10px; inset-inline-end: 8px; gap: 5px; }
+  #rdStage .rd-corner-br .rd-backrow { align-items: flex-end; }
+  #rdStage .rd-corner-br .rd-back-card { width: calc(var(--cwB) * .62); height: calc(var(--chB) * .62); }
+}
+@media (orientation: portrait) and (max-width: 460px) {
+  #rdStage .rd-corner-br .rd-back-card { width: calc(var(--cwB) * .56); height: calc(var(--chB) * .56); }
+}
+/* ═══════════════ v2.11 — ملء الشاشة 100% + دور عكس عقارب الساعة في الوضعين ═══════════════
+   • الطاولة تملأ صفحة اللعبة كاملة (بلا الفراغ الأسود المحيط): مسرح RDC
+     يُستثنى من حواف .stage العامة (خشب 11-game-theme + border-radius) ومن
+     حواف الحاوية (padding 14px) — جلد الطاولة نفسه هو المسرح كله.
+   • اللاندسكيب: الأوراق أكبر (~2×) والزوايا توزّع المساحة كاملة بلا حشو
+     ولا فراغ — كل مقعد في زاويته الفعلية والقاعة تتنفس في الوسط. */
+
+/* ── ملء الشاشة: مسرح الروندا الكلاسيكية يذوب في حاوية اللعبة ── */
+/* إلغاء حواف الحاوية حول #rdStage فقط (بقية الألعاب تُبقي إطارها الخشبي) */
+#pg-game.active:has(#rdStage) { padding: 0 !important; }
+#pg-game.active:has(#rdStage) #gamePageBody {
+  padding: 0 !important;
+  background: transparent !important;
+}
+/* المسرح (#rdStage نفسه يحمل .stage.rd-stage) بلا إطار/حواف/هامش —
+   جدول اللعب (جلد الطاولة) هو كل الشاشة */
+#gamePageBody:has(#rdStage) > .stage#rdStage {
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100%;
+}
+/* لاندسكيب قصير جداً: تاج أصغر يوازن الأيقونات المصغرة (26px) */
+@media (orientation: landscape) and (max-height: 430px) {
+  #rdStage .rd-dealer-crown {
+    width: 16px; height: 16px; top: -5px; inset-inline-start: -6px; font-size: .48rem;
+  }
+}
+
+/* ═══════════════ v2.11 — الأحجام النهائية (آخر تعريف في الملف يغلب الكل) ═══════════════
+   تنظيم طبقات الأحجام المتراكمة (v2.7 px ثم v2.9 cq ثم ميديا متداخلة):
+   هذه الكتلة أخيرة فتفوز عند التساوي. الأرقام من الهندسة الفعلية:
+   لاندسكيب 800×360: المسرح ~274px — اليد 38cqh≈104px (×2 عن v2.10)،
+   ورق الوسط 15cqw≈120px، الرزمة 10cqw≈80px. البورتريه يبقى على قيم
+   v2.10.1 المدروسة (اليد clamp 84-104px) — فقط تنظيف التعارضات. */
+
+/* ── اللاندسكيب (أي ارتفاع ≤620px): الأوراق ×2 ── */
+@media (orientation: landscape) and (max-height: 620px) {
+  #rdStage {
+    --cw: 15cqw; --ch: 21cqw;
+    --tcw: 15cqw;
+    --tch: calc(var(--tcw) * 1.36);
+    --chB: 38cqh;
+    --cwB: calc(var(--chB) * .74);
+    --deckS: 10cqw;
+    --deckH: calc(var(--deckS) * .92);
+    --avS: 13cqh; --bdH: 13cqh; --bdHt: 13cqh; --sideIn: 10px;
+    --ctTop: 15cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .6cqh);
+    --ctBot: calc(var(--chB) + var(--bdH) + 2.4cqh);
+  }
+  #rdStage.rd-uppers {
+    --ch: 33cqh; --cw: 23cqh;
+    --tcw: 14cqw;
+    --tch: calc(var(--tcw) * 1.36);
+    --chB: 40cqh;
+    --cwB: calc(var(--chB) * .74);
+    --deckS: 9.2cqw;
+    --bdHt: 11cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .5cqh);
+  }
+}
+
+/* ── اللاندسكيب القصير جداً (≤430px — هواتف بالعرض): نفس ×2 بسقوف أضيق ── */
+@media (orientation: landscape) and (max-height: 430px) {
+  #rdStage {
+    --cw: 13cqw; --ch: 18cqw;
+    --tcw: 13cqw;
+    --tch: calc(var(--tcw) * 1.34);
+    --chB: 38cqh;
+    --cwB: calc(var(--chB) * .75);
+    --deckS: 9cqw;
+    --avS: 12cqh; --bdH: 11cqh; --bdHt: 11cqh;
+    --ctTop: 13cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .4cqh);
+    --ctBot: calc(var(--chB) + var(--bdH) + 2cqh);
+  }
+  #rdStage.rd-uppers {
+    --ch: 30cqh; --cw: 21cqh;
+    --tcw: 12cqw;
+    --tch: calc(var(--tcw) * 1.34);
+    --chB: 42cqh;
+    --cwB: calc(var(--chB) * .75);
+    --deckS: 8.4cqw;
+    --bdHt: 9cqh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .4cqh);
+  }
+}
+
+/* ═══════════════ v2.12 — طلبات المستخدم (بورتريه + لاندسكيب) ═══════════════ */
+
+/* ── بورتريه 1ضد1: الأوراق المرمية أصغر وأنيقة (كانت متضخمة بصرياً) ── */
+@media (orientation: portrait) {
+  /* 1ضد1: ورق الوسط 80% (طلب: تصغير ~20%) — يظهر واضحاً دون مبالغة */
+  #rdStage.rd-n2 {
+    --tcw: clamp(84px, 24vw, 128px);
+    --tch: calc(var(--tcw) * 1.38);
+  }
+  #rdStage.rd-n2.rd-uppers {
+    --tcw: clamp(66px, 17.5vw, 100px);
+    --tch: calc(var(--tcw) * 1.34);
+  }
+  /* توحيد أحجام أيقونات اللاعبين (كل المقاعد نفس القطر) */
+  #rdStage .rd-av { width: var(--avS); height: var(--avS); }
+  #rdStage.rd-uppers .rd-corner-tl .rd-av,
+  #rdStage.rd-uppers .rd-corner-tr .rd-av { width: var(--avS); height: var(--avS); }
+}
+
+/* ── لاندسكيب: إعادة توزيع كاملة حسب طلب المستخدم ──
+   العناوين (روندا + الجولة) أعلى الشاشة فوق ورق الوسط،
+   الهدف يمين-وسط بجانب ورق الوسط، التوزيعة يسار-وسط بجانب ورق الوسط،
+   ورق الوسط أصغر 20% واليد 15%، وأيقونات متساوية. */
+@media (orientation: landscape) {
+  /* العناوين: عمود مركزي أعلى الشاشة — فوق منطقة ورق الوسط الفارغة */
+  #rdStage .rd-tophead {
+    align-items: center;
+    top: 2px;
+    z-index: 24;
+    pointer-events: none;
+  }
+  #rdStage.rd-uppers .rd-tophead { top: 2px; }
+  #rdStage .rd-bigtitle { font-size: clamp(1rem, 3.2vh, 1.5rem); margin: 0; letter-spacing: 2px; }
+  #rdStage .rd-roundline { margin-top: 0; }
+  #rdStage .rd-roundline .rd-inf-seg { font-size: clamp(.78rem, 2.6vh, 1.05rem); }
+
+  /* سطر المعلومات: جانبيّاً بجانب ورق الوسط — لا فوقه، بحجم مقروء */
+  #rdStage .rd-infline {
+    position: absolute;
+    top: 26cqh;
+    width: 100%;
+    min-height: 0;
+    pointer-events: none;
+    direction: rtl;
+  }
+  #rdStage .rd-inf-seg { font-size: clamp(.72rem, 2.6vh, 1rem); gap: 4px; }
+  /* التوزيعة: يسار-وسط بجانب الورق المرمي (فوق منطقة الفراغ بين الخصوم اليساريين) */
+  #rdStage .rd-inf-deal { left: 13cqw; transform: translate(0, -50%); }
+  /* الهدف: يمين-وسط بجانب الورق المرمي (فوق اليد اليمنى بينها وبين الورق) */
+  #rdStage .rd-inf-target { left: auto; right: 13cqw; transform: translate(0, -50%); }
+
+  /* ورق الوسط: تصغير 20% (كان 15cqw/13cqw → 12cqw/10.4cqw) */
+  #rdStage {
+    --tcw: 12cqw;
+    --tch: calc(var(--tcw) * 1.36);
+  }
+  #rdStage.rd-uppers {
+    --tcw: 11cqw;
+    --tch: calc(var(--tcw) * 1.34);
+  }
+  /* اليد: تصغير 15% (كانت 38cqh → 32.3cqh) */
+  #rdStage { --chB: 32.3cqh; }
+  #rdStage.rd-uppers { --chB: 34cqh; }
+  #rdStage .rd-hand .rd-card { width: calc(var(--chB) * .72); height: var(--chB); }
+
+  /* أيقونات اللاعبين: حجم موحّد للجميع (كانت تختلف بين الزوايا) —
+     قيمة واحدة صريحة تُطبق على كل الأطباق في كل الأوضاع */
+  #rdStage { --avS: 32px; }
+  #rdStage .rd-seat .rd-av { width: 32px; height: 32px; font-size: .8rem; }
+  #rdStage.rd-uppers .rd-corner-tl .rd-av,
+  #rdStage.rd-uppers .rd-corner-tr .rd-av { width: 32px; height: 32px; }
+  /* القياسات الأصلية للبورتريه (40px) تبقى في البورتريه فقط */
+  @media (orientation: portrait) {
+    #rdStage { --avS: 40px; }
+    #rdStage .rd-seat .rd-av { width: 40px; height: 40px; }
+  }
+
+  /* المقاعد: لوحات متساوية العرض */
+  #rdStage .rd-seat { min-width: 0; }
+
+  /* ── نقل أيقونات اللاعبين بجانب أوراقها في المساحات الفارغة ──
+     (طلب المستخدم): اللاندسكيب يجلس اللاعب الرئيسي br (يمين) والخصوم
+     d1 bl، d2 tl، d3 tr — كل لوحة تنتقل للجهة الفارغة بجوار صف ورقها:
+       • اللاعب الرئيسي (br): أيقونته يسار أوراقه (المساحة الفارغة يمين الشاشة فوق اليد)
+       • خصم tr (أعلى-يمين): أيقونته يسار أوراقه
+       • خصم tl (أعلى-يسار): أيقونته يمين أوراقه
+       • خصم bl (أسفل-يسار): أيقونته يمين أوراقه
+     التنفيذ: الصف الأفقي (لوحة + ورق) بترتيب معكوس/عادي حسب الزاوية. */
+  /* خصم أعلى-يمين (tr): الورق يلتصق بالحافة اليمنى، اللوحة على يساره */
+  #rdStage .rd-corner-tr { flex-direction: row-reverse; align-items: center; gap: 8px; }
+  #rdStage .rd-corner-tr .rd-backrow { order: 1; }
+  #rdStage .rd-corner-tr .rd-seat { order: 2; }
+  /* خصم أعلى-يسار (tl): الورق يلتصق بالحافة اليسرى، اللوحة على يمينه */
+  #rdStage .rd-corner-tl { flex-direction: row; align-items: center; gap: 8px; }
+  #rdStage .rd-corner-tl .rd-backrow { order: 1; }
+  #rdStage .rd-corner-tl .rd-seat { order: 2; }
+  /* خصم أسفل-يسار (bl): الورق بالحافة اليسرى واللوحة يمينه */
+  #rdStage .rd-corner-bl { flex-direction: row; align-items: center; gap: 8px; }
+  #rdStage .rd-corner-bl .rd-backrow { order: 1; }
+  #rdStage .rd-corner-bl .rd-seat { order: 2; }
+  /* اللاعب الرئيسي (br): أيقونته في الصف السفلي على يسار أوراق يده —
+     بفجوة قصيرة عن أول ورقة (طلب المستخدم: بجانب أوراقه في المساحة الفارغة) */
+  #rdStage .rd-corner-br {
+    position: absolute;
+    bottom: 10px;
+    inset-inline-end: calc(var(--chB) * .72 * 3 + 46px);   /* عرض 3 أوراق يدي + فجوة 46px */
+    inset-inline-start: auto;
+    display: flex; flex-direction: row; align-items: flex-end; gap: 8px;
+    z-index: 32;
+  }
+  #rdStage .rd-corner-br .rd-seat { order: 1; }
+  #rdStage .rd-corner-br .rd-backrow { display: none; }
+  #rdStage.rd-spectating .rd-botrail { align-items: center; }
+}
+
+/* ═══════════════ v2.13 — لاندسكيب: مقاعد بجانب الأوراق (كتلة أخيرة فتغلب الكل) ═══════════════
+   إصلاحات لقطة 4 لاعبين باللاندسكيب:
+   (أ) توحيد حجم ورق صفوف الظهر: كانت tl/tr بحجم --cw وbl بـ 0.78×cwB
+       فتظهر بأحجام مختلفة — قيمة واحدة من --chB للجميع.
+   (ب) أيقونة كل لاعب بجانب أوراقه أفقياً: اليميني tr أيقونته يسار أوراقه،
+       واليساريان tl/bl أيقونتهما يمين أوراقهما، والرئيسي br أيقونته على
+       نفس خط يده يسار أول ورقة.
+   (ج) صف bl مرفوع فوق مستوى الصف السفلي فلا يزاحم أوراق الرئيسي.
+   (د) مقبض سجل الأحداث أعلى الشاشة فوق عنوان الروندا. */
+@media (orientation: landscape) {
+
+  /* (أ) توحيد حجم ورق الظهر — القاعدة العامة */
+  #rdStage .rd-back-card {
+    width: calc(var(--chB) * 0.62);
+    height: calc(var(--chB) * 0.82);
+    margin-inline-start: calc(var(--chB) * -0.30);
+    border-radius: clamp(5px, .8vw, 9px);
+  }
+  /* تجاوز صريح للمحددات القديمة الأعلى خصوصية (rd-uppers وbl وbr)
+     بنفس القيم — قاعدة واحدة تساوي ثلاثة محددات */
+  #rdStage.rd-uppers .rd-back-card,
+  #rdStage .rd-corner-bl .rd-back-card,
+  #rdStage.rd-uppers .rd-corner-br .rd-back-card {
+    width: calc(var(--chB) * 0.62);
+    height: calc(var(--chB) * 0.82);
+    margin-inline-start: calc(var(--chB) * -0.30);
+  }
+  /* أول ورقة بلا هامش سالب — قاعدة :first-child الموجودة (سطر 418)
+     خصوصيتها أعلى فتسبق هذه الكتلة تلقائياً، لا حاجة لإعادة صياغتها */
+  /* فجوة موحدة بين أوراق الصف (كانت bl/br بفجوة والعلويان بلا) */
+  #rdStage .rd-corner-bl .rd-backrow { gap: 0; }
+
+  /* (ب) المقاعد صفوف أفقية — DOM: backrow أولاً ثم seat، والزوايا ltr
+     فيزيائياً: row يجعل الأوراق يساراً والأيقونة يمينها (tl/bl)،
+     وrow-reverse يجعل الأوراق أقصى اليمين والأيقونة يسارها (tr) */
+  #rdStage .rd-corner-tl,
+  #rdStage .rd-corner-tr,
+  #rdStage .rd-corner-bl {
+    display: flex; flex-direction: row; align-items: center; gap: 8px;
+  }
+  /* خصم tr (يمين الشاشة): الأوراق ملاصقة للحافة اليمنى والأيقونة يسارها */
+  #rdStage .rd-corner-tr { flex-direction: row-reverse; }
+  /* (ج) خصم bl (يسار الشاشة): زاويته أسفل-يسار على نفس صف اليد —
+     [v2.17] فجوة مضغوطة فوق اليد (كانت chB+14 مرتفعة كثيراً فتزاحم
+     القاعة والتوزيعة وتعلق مقعده وسط الشاشة) */
+  #rdStage .rd-corner-bl { bottom: calc(var(--chB) + 6px); left: 8px; flex-direction: row; }
+
+  /* الرئيسي br: لوحة فقط (صف الظهر مخفي). اليد داخل botrail تلتصق
+     بأقصى اليمين (justify-content: flex-end، قاع 4-8px) وأوراقها عرضها
+     chB×0.72 — لذا اخترنا الصف الأفقي على نفس خط اليد بدل العمودي فوقها
+     (العمودي يغطي القاعة). الإزاحة من اليمين = عرض 3 أوراق + 34px:
+     أقصى امتداد فعلي لليد من اليمين = botrail(6-10) + padding(2+2) +
+     فجوتان(3+3 على الهاتف حتى 8+8 على الشاشات العريضة) + 3 أوراق
+     = 2.16chB + 30px — فتجلس الأيقونة بجانب (يسار) أول ورقة بفجوة
+     4px على أقصى عرض، وتبتعد أماناً كلما نقصت أوراق اليد */
+  #rdStage .rd-corner-br {
+    position: absolute;
+    bottom: 10px;
+    inset-inline-end: calc(var(--chB) * .72 * 3 + 34px);
+    inset-inline-start: auto;
+    display: flex; flex-direction: row; align-items: flex-end; gap: 8px;
+    z-index: 32;
+  }
+  #rdStage .rd-corner-br .rd-backrow { display: none; }
+
+  /* (د) مقبض السجل أعلى الشاشة فوق العنوان — لوحة أعلى الوسط */
+  #rdStage .rd-log-panel {
+    top: 0; bottom: auto;
+    left: 50%; transform: translateX(-50%);
+    z-index: 90;
+  }
+  /* عند فتح السجل يبقى أعلى الشاشة متمركزاً أفقياً */
+  #rdStage .rd-log-panel.rd-log-open { top: 2px; bottom: auto; }
+  /* العنوان ينزل قليلاً فيظهر المقبض (9-17px) فوقه تماماً */
+  #rdStage .rd-tophead { top: clamp(16px, 3.4vh, 26px); }
+  #rdStage.rd-uppers .rd-tophead { top: clamp(16px, 3.4vh, 26px); }
+}
+
+/* ═══ [sam-merge-patch] تثبيت قرارات المستخدم فوق كتلة cat (آخر الملف يغلب) ═══
+   لاندسكيب (v2.17 — بلاغ المستخدم):
+   • الرزمة: الهامش الأسفل مباشرة — أقصى أسفل وسط الشاشة (طلب صريح).
+   • مقبض السجل: أعلى الشاشة فوق عنوان «روندا» (قرار cat v2.15 المعاد
+     بطلبه — كانت دمجتُه v2.16 أزاحته للأسفل خطأً). العنوان ينزل قليلاً
+     فيظهر المقبض فوقه تماماً.
+   • خصم bl: زاويته أسفل-يسار ملتفّاً كالباقين (نفس صف اليد) — كان
+     معلقاً بمنتصف الشاشة فوق التوزيعة فيزاحم القاعة والتسميات.
+   • القاعة: نطاق صريح بين صفوف الخصوم العلوية ومنطقة التسميات/الهامش
+     الأسفل — كانت تنهار إلى 0-15px بالحسابات المتقاطعة القديمة.
+   بورتريه: الرزمة فوق مقبض سجل الأحداث (سلوكها المرئوي القديم) بلا
+   تداخل مع أوراق اليد — القاعدة أسفل هذا الملف. */
+@media (orientation: landscape) {
+  /* مقبض السجل: أقصى الهامش الأعلى وسطاً — فوق العنوان */
+  #rdStage .rd-log-panel {
+    top: 0; bottom: auto;
+    left: 50%; transform: translateX(-50%);
+    z-index: 90;
+  }
+  #rdStage .rd-log-panel.rd-log-open { top: 2px; bottom: auto; }
+  /* العنوان ينزل قليلاً فيظهر المقبض (9-17px) فوقه تماماً */
+  #rdStage .rd-tophead { top: clamp(16px, 3.4vh, 26px); }
+  #rdStage.rd-uppers .rd-tophead { top: clamp(16px, 3.4vh, 26px); }
+
+  /* الرزمة: الهامش الأسفل مباشرة — أقصى أسفل وسط الشاشة */
+  #rdStage .rd-deck {
+    position: absolute;
+    bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+    left: 50%; transform: translateX(-50%);
+    z-index: 34;   /* فوق صف اليد (30) — اليد يمين الشاشة والرزمة وسطها */
+  }
+  #rdStage.rd-spectating .rd-deck { bottom: 4px; }
+
+  /* خصم bl: زاوية أسفل-يسار على نفس صف اليد — ملتفّ ككل اللاعبين
+     (أوراقه يسار الحافة وأيقونته يمينها — تخطيط row من كتلة v2.13) */
+  #rdStage .rd-corner-bl { bottom: 8px; left: 8px; }
+
+  /* الهدف/التوزيعة: حجم كبير، منتصف الشاشة في المنطقة الخالية
+     (بجوار ورق الوسط) — فوق مقعد bl الملتف بالزاوية */
+  #rdStage .rd-infline {
+    position: absolute;
+    top: 54cqh;
+    width: 100%;
+    min-height: 0;
+    pointer-events: none;
+    direction: rtl;
+  }
+  #rdStage .rd-infline .rd-inf-seg,
+  #rdStage .rd-inf-seg { font-size: clamp(.95rem, 3.4vh, 1.3rem); gap: 6px; }
+  #rdStage .rd-infline .rd-inf-seg b,
+  #rdStage .rd-inf-seg b { font-size: 1.3em; }
+  #rdStage .rd-inf-deal { left: 16cqw; transform: translate(0, -50%); }
+  #rdStage .rd-inf-target { left: auto; right: 16cqw; transform: translate(0, -50%); }
+
+  /* القاعة: نطاق صريح بين صفوف الخصوم العلوية (~30cqh) ومنطقة التسميات —
+     لا تنهار مهما تغيّرت أحجام اليد/اللوحات (ctTop/ctBot القديمة تقاطعت
+     فصارت 0px). ورق الوسط يتمركز داخلها بجوار التسميات. */
+  #rdStage .rd-court {
+    top: 31cqh;
+    bottom: 37cqh;
+    max-height: none;
+  }
+  #rdStage.rd-uppers .rd-court { top: 31cqh; }
+  #rdStage.rd-spectating .rd-court { bottom: 37cqh; }
+
+  /* صف اليد بالهامش الأسفل */
+  @media (orientation: landscape) and (max-height: 620px) {
+    #rdStage .rd-botrail { bottom: 6px !important; }
+  }
+}
+
+/* ── بورتريه: الرزمة فوق مقبض السجل — ظاهرة بلا تداخل مع أوراق اليد ──
+   القاعدة القديمة (سطر ~507) bottom: deckBot+2cqh ≈ 26px تضعها داخل نطاق
+   صف اليد (botrail قاع 6-10px + ارتفاع chB ≈ 100px) فتُغطى كلياً.
+   المقبض عند chB+14px؛ نرفع الرزمة فوقه: chB + ارتفاع المقبض + 10px. */
+@media (orientation: portrait) {
+  #rdStage .rd-deck {
+    bottom: calc(var(--chB) + 30px);
+    z-index: 8;   /* تحت صف اليد (30) — بورتريه اليد أسفل-يسار والرزمة وسطها فوق المقبض */
+  }
+  /* القاعة تُسند فوق الرزمة (لا تبتلعها) */
+  #rdStage .rd-court { bottom: calc(var(--chB) + var(--deckS) * 1.5 + 30px); }
+  #rdStage.rd-spectating .rd-court { bottom: calc(var(--deckS) + 150px); }
+}

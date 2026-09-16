@@ -1,0 +1,359 @@
+/* ═══════════════════════════════════════════
+   DTSG — Digital Traditional Skills Games — Responsive System
+   Mobile First: 320px → 640px → 1024px → 1440px+
+   ═══════════════════════════════════════════ */
+/* ── شاشات صغيرة جداً (< 380px) ── */
+@media (max-width: 379px) {
+  :root {
+    --sidebar-w: 240px;
+  }
+  .reel {
+    width: 68px;
+    height: 84px;
+    font-size: 2rem;
+  }
+  .ronda-card {
+    width: 58px;
+    height: 84px;
+  }
+  .ronda-nums {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .bets {
+    gap: 6px;
+  }
+  .big {
+    padding: 9px 18px;
+    font-size: 0.84rem;
+  }
+  .kgrid {
+    grid-template-columns: repeat(8, 1fr);
+  }
+  .hero {
+    padding: 20px 16px;
+  }
+  .hero h1 {
+    font-size: 1.4rem;
+  }
+  .content {
+    padding: 14px;
+  }
+  .bjt {
+    border-radius: 60px / 40px;
+    padding: 16px 8px;
+  }
+  .rwrap {
+    width: 180px;
+    height: 180px;
+  }
+  .rbets {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .coin3d {
+    width: 90px;
+    height: 90px;
+  }
+  .goal {
+    width: 220px;
+    height: 120px;
+  }
+  /* توب بار: حشوات ومسافات مضغوطة للشاشات الأصغر من 380px */
+  .topbar {
+    padding: calc(10px + var(--safe-top)) 12px 10px;
+    gap: 8px;
+  }
+  .top-actions {
+    gap: 6px;
+  }
+  .chip {
+    padding: 0 10px;
+    font-size: 0.78rem;
+  }
+  .lang-btn {
+    padding: 0 7px;
+    font-size: 0.72rem;
+  }
+  .uchip {
+    max-width: 150px;
+  }
+}
+/* ── هاتف (380px - 640px) ── */
+@media (min-width: 380px) and (max-width: 640px) {
+  .hero {
+    padding: 22px 16px;
+  }
+  .hero h1 {
+    font-size: 1.5rem;
+  }
+  .content {
+    padding: 16px;
+  }
+  .modal {
+    max-width: 96vw;
+    border-radius: 14px;
+  }
+  .rwrap {
+    width: 200px;
+    height: 200px;
+  }
+  .bjt {
+    padding: 18px 10px;
+  }
+  .g4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .chatpanel {
+    height: 360px;
+  }
+}
+/* ── تابلت (641px - 1024px) ── */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .g4 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  /* [Home] «ألعاب مميزة» 4 بطاقات: 2×2 بلا خانة فارغة */
+  #rowFeatured {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .hero h1 {
+    font-size: 1.7rem;
+  }
+  .rwrap {
+    width: 220px;
+    height: 220px;
+  }
+}
+/* ── ديسكتوب (> 1024px) ── */
+@media (min-width: 1025px) {
+  .burger {
+    display: none;
+  }
+}
+/* ── ديسكتوب عريض (> 1440px) ── */
+@media (min-width: 1440px) {
+  .content {
+    max-width: 1600px;
+  }
+  .rwrap {
+    width: 280px;
+    height: 280px;
+  }
+  .hero h1 {
+    font-size: 2.2rem;
+  }
+}
+/* ── Sidebar للموبايل ── */
+@media (max-width: 1024px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    height: auto;
+    display: none;
+    width: 280px;
+    z-index: 300;
+  }
+  html[dir="rtl"] .sidebar {
+    right: 0;
+    left: auto;
+  }
+  html[dir="ltr"] .sidebar {
+    left: 0;
+    right: auto;
+  }
+  .sidebar.open {
+    display: flex;
+    animation: slideIn 0.3s var(--ease);
+  }
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  html[dir="ltr"] @keyframes slideIn {
+    from {
+      transform: translateX(-100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+  .burger {
+    display: inline-flex;
+  }
+  /* الشعار على الموبايل: أيقونة فقط بدون نص */
+  .brand-name {
+    display: none;
+  }
+  .brand {
+    justify-content: center;
+  }
+  /* [Legal] الجوال: محتوى القائمة أطول من الشاشة — اسمح بالتمرير داخلها
+     مع تثبيت side-foot أسفلها (sticky) كي تبقى أيقونات الأمان الثلاث
+     (2FA / Provably Fair / العدالة والشفافية) مرئية دائماً حتى أثناء التمرير */
+  .sidebar {
+    overflow-y: auto;
+    padding-bottom: 24px;
+  }
+  .side-foot {
+    margin-top: auto;
+    flex-shrink: 0;
+    position: sticky;
+    bottom: 0;
+    background: var(--gc);
+    z-index: 2;
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+}
+/* ── Landscape للهواتف ── */
+@media (max-height: 500px) and (orientation: landscape) {
+  .modal {
+    max-height: 95vh;
+  }
+  .mbody {
+    padding: 12px;
+  }
+  .bjt {
+    padding: 12px 8px;
+  }
+  .ronda-stage {
+    min-height: 400px;
+  }
+  .hero {
+    padding: 16px;
+  }
+  .hero-stats {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+/* ── تحسينات اللمس ── */
+@media (hover: none) and (pointer: coarse) {
+  .tile:hover {
+    transform: none;
+  }
+  .tile:active {
+    transform: scale(0.98);
+  }
+  .btn:hover {
+    transform: none;
+  }
+  .btn:active {
+    transform: scale(0.97);
+  }
+  /* أزرار أكبر للأصابع */
+  .bbtn,
+  .ronda-num-btn,
+  .kc,
+  .fchip {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  /* [ص3] كينو: 44px صلبة × 10 أعمدة تفيض عن الشبكة فتقص الخلايا بعضها —
+     اسمح بالانكماش مع الحفاظ على الدائرة (تنطبق داخل وخارج ملء الشاشة) */
+  .kgrid .kc {
+    min-width: 0;
+    min-height: 0;
+    aspect-ratio: 1;
+  }
+  .ronda-num-btn {
+    padding: 10px 0;
+  }
+  .ronda-modes {
+    grid-template-columns: 1fr;
+  }
+}
+/* ── تقليل الحركة (Accessibility) ── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .ticker-track {
+    animation: none;
+  }
+  .art {
+    animation: none;
+  }
+}
+/* ── هاتف (≤ 640px): توب بار مرن يلتف عند الحاجة + فوتر مضغوط ── */
+@media (max-width: 640px) {
+  .topbar {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: calc(8px + var(--safe-top)) 12px 8px;
+  }
+  .top-actions {
+    order: 3;
+    flex: 0 1 auto;
+    width: auto;
+    min-width: 0;
+    justify-content: flex-start;
+    gap: 6px;
+    margin-inline-start: 0;
+    flex-wrap: wrap;
+  }
+  .top-actions .chip {
+    padding: 0 10px;
+  }
+  .uchip {
+    max-width: 140px;
+    overflow: hidden;
+  }
+  /* فوتر: عمود واحد بمحاذاة مركزية مرتبة */
+  footer .foot-inner {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .foot-badges,
+  .foot-legal,
+  .foot-brand {
+    justify-content: center;
+  }
+}
+/* ── محتوى الصفحات القانونية على الموبايل ── */
+@media (max-width: 640px) {
+  .legal-content {
+    padding: 20px;
+  }
+  .legal-content h1 {
+    font-size: 1.3rem;
+  }
+}
+@media print {
+  .sidebar,
+  .topbar,
+  .ticker,
+  .mwrap,
+  #toasts,
+  #fxCanvas,
+  #flash {
+    display: none !important;
+  }
+  .content {
+    padding: 0;
+  }
+}
+
+/* ── إظهار شريط التنقل السفلي على الشاشات الصغيرة وتوسيع المساحة السفلية ── */
+@media (max-width: 768px) {
+  .mobile-bottom-nav {
+    display: flex;
+  }
+  .content {
+    padding-bottom: 84px !important;
+  }
+  footer.watermark {
+    margin-bottom: 64px;
+  }
+}

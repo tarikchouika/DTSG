@@ -1,0 +1,479 @@
+/* ══════════════════════════════════════════════════════════
+   الشطرنج الدولي — هوية بصرية موحدة مع ألعاب المنصة (نمط ضاما)
+   ══════════════════════════════════════════════════════════ */
+.ch-wrap { max-width: 470px; margin: 0 auto; }
+.ch-logo-em { font-size: 44px; }
+.ch-hint { font-size: 11.5px; opacity: 0.85; line-height: 1.6; }
+.ch-modes { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.ch-online { background: linear-gradient(180deg, #2e8f46, #1d6330); border-color: #3fae59; }
+.ch-online:active { transform: translateY(1px); }
+
+/* ── صندوق اللوحة ── */
+.ch-boardbox {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  position: relative;   /* مرجع تموضع مقاعد اللاعبين */
+}
+/* مقاعد اللاعبين (أعلى/أسفل البورتريه) — مطلقة داخل صندوق اللوحة */
+.ch-boardbox > .ch-seat {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  pointer-events: auto;
+}
+.ch-boardbox > .ch-seat-top { top: 0; }
+.ch-boardbox > .ch-seat-bot { top: 100%; }
+.ch-picon {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(22, 11, 4, 0.85);
+  border: 2px solid rgba(255, 215, 94, 0.55);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  font-size: 18px; line-height: 1;
+  color: #fff;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  position: relative;   /* [Timer-Seat] مرجع تموضع شارة المؤقت الجانبية */
+}
+/* صاحب الدور: حلقة ذهبية محيطة بالأيقونة */
+.ch-picon.on {
+  border-color: #ffd75e;
+  box-shadow: 0 0 0 3px #ffd75e, 0 2px 12px rgba(255,215,94,0.6);
+}
+/* [Timer-Seat] مؤقت الدور بجانب أيقونة اللاعب صاحب الدور (نمط روندا rd-turn-timer):
+   كبسولة ذهبية على حافة الأيقونة — بورتريه ولاندسكيه — لا تحت الأزرار ولا خلف عنصر.
+   عدّاد التشغيل النصي القديم (#chessTimer) يُخفى بصرياً — العنصر يبقى للنص (توافق الاختبارات) */
+#chessTimer { display: none; }
+.ch-ptimer {
+  position: absolute;
+  top: -8px;
+  inset-inline-end: -14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 40px;
+  height: 21px;
+  border-radius: 999px;
+  padding: 0 7px;
+  background: linear-gradient(160deg, #ffd75e, #d9b45c);
+  border: 1.5px solid rgba(255, 255, 255, 0.55);
+  color: #241305;
+  font-size: 11px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.45);
+  animation: chTimerBlink 1s steps(2) infinite;
+  z-index: 7;
+}
+.ch-ptimer.low {
+  background: linear-gradient(160deg, #ff8f6a, #d95f38);
+  color: #2a0d02;
+  border-color: rgba(255, 255, 255, 0.6);
+  animation: chTimerBlink 0.55s steps(2) infinite;
+}
+.ch-ptimer[hidden] { display: none; }
+@keyframes chTimerBlink { 50% { opacity: 0.85; } }
+/* لوحة المعلومات/التحكم مغلّفة في .ch-side — مضغوطة في البورتريه
+   لأقصى مساحة للوحة (الضلعان الأيمن والأيسر يلتقيان مع الحدين الذهبيين) */
+.ch-side {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+.ch-board {
+  width: 100%;
+  max-width: 100%;
+  aspect-ratio: 1/1;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  overflow: hidden;
+  position: relative;   /* مرجع الطبقات */
+  direction: ltr;
+  box-shadow:
+    0 12px 34px rgba(0, 0, 0, 0.55),
+    0 0 0 4px #3a2a12,
+    0 0 0 6px #d9b45c,
+    inset 0 0 0 1px rgba(255, 227, 150, 0.2);
+}
+/* [Logo] اللوغو الرسمي بمنتصف رقعة الشطرنج — علامة مائية فوق المربعات وخلف القطع */
+.ch-board::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: url('../assets/dtsg/dtsg-logo-watermark.png') center / min(44%, 250px) auto no-repeat;
+  opacity: 0.12;
+  pointer-events: none;
+  z-index: 1;
+}
+.ch-sq { position: relative; display: flex; align-items: center; justify-content: center; cursor: default; user-select: none; }
+.ch-sq.light { background: linear-gradient(135deg, #efe0bb, #e2ce9d); }
+.ch-sq.dark { background: linear-gradient(135deg, #8a5a2c, #6b3f1c); }
+.ch-sq.sel { box-shadow: inset 0 0 0 3px #d9b45c, inset 0 0 14px rgba(217, 180, 92, 0.5); }
+.ch-sq.last { box-shadow: inset 0 0 0 2px rgba(217, 180, 92, 0.55); }
+.ch-sq.sel.last { box-shadow: inset 0 0 0 3px #d9b45c, inset 0 0 14px rgba(217, 180, 92, 0.5); }
+.ch-sq.check {
+  animation: chCheckPulse 0.9s ease-in-out infinite;
+}
+@keyframes chCheckPulse {
+  0%, 100% { box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.6), inset 0 0 10px rgba(239, 68, 68, 0.45); }
+  50% { box-shadow: inset 0 0 0 4px rgba(239, 68, 68, 0.95), inset 0 0 22px rgba(239, 68, 68, 0.75); }
+}
+.ch-sq.hint { cursor: pointer; }
+
+/* ── القطع: محارف يونيكود بجسدين (عاجي/فحمي) ── */
+.ch-pc {
+  font-size: clamp(24px, 7.6vw, 40px);
+  line-height: 1;
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+.ch-pc.w {
+  color: #f7efdd;
+  text-shadow:
+    0 0 1px #2a1c0c,
+    0 1px 0 #6b5326,
+    0 2px 3px rgba(0, 0, 0, 0.55),
+    0 0 4px rgba(0, 0, 0, 0.4);
+}
+.ch-pc.b {
+  color: #191512;
+  text-shadow:
+    0 0 1px rgba(255, 235, 190, 0.5),
+    0 1px 0 rgba(255, 235, 190, 0.35),
+    0 2px 3px rgba(0, 0, 0, 0.6);
+}
+.ch-pc.king { font-size: clamp(26px, 8.1vw, 43px); }
+
+/* ── نقاط الحركات ── */
+.ch-dot {
+  position: absolute;
+  width: 26%;
+  height: 26%;
+  border-radius: 50%;
+  background: rgba(217, 180, 92, 0.85);
+  box-shadow: 0 0 9px rgba(255, 215, 94, 0.65);
+  animation: dmPulse 1.1s ease-in-out infinite;
+  z-index: 3;
+  pointer-events: none;
+}
+.ch-dot.cap {
+  width: 62%;
+  height: 62%;
+  background: transparent;
+  border: 3px solid rgba(239, 68, 68, 0.85);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.55);
+}
+
+/* ── إحداثيات الحافة ── */
+.ch-co {
+  position: absolute;
+  font-size: 9.5px;
+  font-weight: 800;
+  color: rgba(30, 18, 6, 0.75);
+  z-index: 1;
+  pointer-events: none;
+}
+.ch-sq.dark .ch-co { color: rgba(245, 230, 195, 0.75); }
+.ch-co.rank { top: 1px; left: 3px; }
+.ch-co.file { bottom: 0; right: 3px; }
+
+/* ── سجل الحركات ── */
+.ch-log {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+  margin: 2px auto 4px;
+  padding: 4px 8px;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(217, 169, 78, 0.28);
+  font-size: 12px;
+  color: #e9dcb8;
+  scrollbar-width: thin;
+  min-height: 24px;
+}
+.ch-log:empty { display: none; }
+.ch-lg-i b { color: #ffd75e; font-weight: 800; margin-left: 2px; }
+
+/* ── صواني الأسرى وفرق المواد ── */
+.ch-cap { display: inline-flex; align-items: center; font-size: 15px; letter-spacing: -2px; }
+.ch-capp { font-size: 15px; line-height: 1; }
+.ch-capp.w { color: #f7efdd; text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6); }
+.ch-capp.b { color: #1c1712; text-shadow: 0 0 1px rgba(255, 235, 190, 0.5); }
+
+/* ── منتقي الترقية ── */
+.ch-promo {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(12, 7, 2, 0.72);
+  border-radius: 12px;
+}
+.ch-promo[hidden] { display: none; }
+.ch-promo-card {
+  background: linear-gradient(180deg, #4a2f1a, #241206);
+  border: 2px solid #d9b45c;
+  border-radius: 14px;
+  padding: 14px 18px;
+  text-align: center;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+}
+.ch-promo-t { color: #ffd75e; font-weight: 900; font-size: 14px; margin-bottom: 10px; }
+.ch-promo-row { display: flex; gap: 10px; justify-content: center; }
+.ch-promo-b {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  border: 2px solid #d9b45c;
+  background: linear-gradient(145deg, #fffef7, #e8dfc8);
+  font-size: 34px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ch-promo-b.w { color: #f7efdd; text-shadow: 0 0 2px #6b5326, 0 2px 2px rgba(0, 0, 0, 0.5); }
+.ch-promo-b.b { color: #191512; text-shadow: 0 0 1px rgba(255, 235, 190, 0.6); }
+.ch-promo-b:active { transform: scale(0.94); }
+
+/* ── استجابة الشاشات الصغيرة ── */
+@media (max-width: 420px) {
+  .ch-pc { font-size: clamp(20px, 8.6vw, 30px); }
+  .ch-pc.king { font-size: clamp(22px, 9.1vw, 32px); }
+  .ch-log { font-size: 11px; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LANDSCAPE FIX — Chess
+   The generic 04-games.css pins .stage to the viewport via
+   position:absolute;inset:0 and turns it into a 2-column grid. Here we
+   cancel that grid and lay the play screen out as:
+     • one column  = the info/controls panel  (.ch-side)
+     • other column = the board, scaled to the FULL available height
+   The board is a square sized from the box height (aspect-ratio), which
+   overrides the 440px inline cap set by chessFitBoard(), so it grows on
+   tablets/desktops instead of "shrinking too much". Controls sit in a
+   compact, scroll-safe side panel — no overlap, nothing clipped.
+   Portrait/base rules above are NOT modified.
+   ════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) {
+  /* cancel the generic stage grid; keep position:absolute;inset:0 from 04-games */
+  #pg-game.app-fs .stage:has(.ch-wrap) {
+    display: block !important;
+    grid-template-columns: none !important;
+    grid-template-rows: none !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    overflow: hidden;
+  }
+  /* result bar (.res) floats pinned to the bottom, out of the play flow */
+  #pg-game.app-fs .stage:has(.ch-wrap) > .res {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9;
+    margin: 0;
+    padding: 3px 0;
+    text-align: center;
+    font-size: 0.92rem;
+    background: rgba(8, 12, 22, 0.82);
+  }
+
+  .ch-wrap {
+    max-width: none;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    display: block;
+  }
+  .ch-wrap .dama-play {
+    display: grid;
+    grid-template-columns: clamp(150px, 22vw, 260px) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    gap: 14px;
+    height: 100%;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 10px 12px 26px;
+    box-sizing: border-box;
+  }
+
+  /* ── Control panel: vertical stack, scrolls only if it ever overflows ── */
+  .ch-wrap .dama-play > .ch-side {
+    grid-column: 1;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 2px;
+  }
+
+  /* ── Board area: full height, square board centered ── */
+  .ch-wrap .dama-play > .ch-boardbox {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
+    margin: 0;
+  }
+  /* square board scaled to the box height; !important beats the JS 440px cap */
+  .ch-wrap .dama-play > .ch-board {
+    height: 100% !important;
+    width: auto !important;
+    aspect-ratio: 1 / 1 !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0;
+  }
+  /* [Landscape] مقاعد اللاعبين تنقل لليمين/اليسار اللوحة (عكس البورتريه) */
+  .ch-wrap .dama-play > .ch-boardbox > .ch-seat-top {
+    top: 25%; left: 0; right: auto; bottom: auto;
+    transform: translate(calc(-100% - 10px), -50%);
+  }
+  .ch-wrap .dama-play > .ch-boardbox > .ch-seat-bot {
+    top: 75%; left: 0; right: auto; bottom: auto;
+    transform: translate(calc(-100% - 10px), -50%);
+  }
+
+  /* ── Compact, non-overlapping controls ── */
+  .ch-side > .dama-hud {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 8px;
+    border-radius: 9px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(217, 169, 78, 0.28);
+    font-size: 12px;
+    color: #e9dcb8;
+  }
+  .ch-side > .dama-hud .dama-side { display: flex; align-items: center; gap: 4px; }
+  .ch-side > .dama-hud .ch-cap { font-size: 14px; letter-spacing: -1px; }
+  .ch-side > .dama-turn { text-align: center; font-weight: 800; color: #ffd75e; font-size: 13px; }
+  .ch-side > .dama-timer { text-align: center; font-weight: 800; color: #ffe9a8; font-size: 13px; }
+  .ch-side > .dama-stake { text-align: center; font-weight: 800; color: #ffd75e; font-size: 12px; }
+  .ch-side > .ch-log {
+    flex: 0 0 auto;
+    max-height: 60px;
+    overflow-x: auto;
+  }
+  .ch-side > .dama-status {
+    text-align: center;
+    font-weight: 800;
+    color: #f0e3c0;
+    font-size: 13px;
+    min-height: 0;
+  }
+  .ch-side > .dama-ctrls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .ch-side > .dama-ctrls .dama-mini { flex: 1 1 auto; min-width: 84px; }
+  .ch-side > .dama-drawbar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .ch-side > .dama-drawbar .dama-mini { flex: 1 1 auto; min-width: 84px; }
+}
+
+/* ── Very short / narrow landscape phones ──
+   Shrink the panel so the square board still fits the available height
+   without being clipped or distorted. */
+@media (orientation: landscape) and (max-height: 420px) {
+  .ch-wrap .dama-play {
+    grid-template-columns: clamp(120px, 30vw, 200px) minmax(0, 1fr);
+    gap: 10px;
+    padding: 8px 10px 24px;
+  }
+  .ch-side > .dama-hud { font-size: 11px; padding: 4px 6px; gap: 4px; }
+  .ch-side > .dama-hud .ch-cap { font-size: 12px; }
+  .ch-side > .dama-turn,
+  .ch-side > .dama-timer,
+  .ch-side > .dama-stake,
+  .ch-side > .dama-status { font-size: 11.5px; }
+  .ch-side > .dama-ctrls .dama-mini { font-size: 11px; padding: 6px 8px; min-width: 70px; }
+}
+
+/* ── [Owner] بورتريه: اللوحة تملأ العرض (تلتقي مع الحدين الذهبيين يمين/يسار)
+   واللوحة تتمدد عمودياً لتملأ المساحة بين HUD والأزرار ── */
+@media (orientation: portrait) {
+  .ch-wrap { max-width: none; width: 100%; }
+  .ch-wrap .dama-play {
+    width: 100%;
+    max-width: none;
+    padding: 6px 0 8px;
+    gap: 5px;
+  }
+  .ch-side {
+    flex: 0 0 auto;
+    gap: 3px;
+    padding: 0 6px;
+  }
+  .ch-side > .dama-hud {
+    padding: 4px 8px;
+    gap: 4px;
+    font-size: 12px;
+  }
+  .ch-side > .dama-hud .ch-cap { font-size: 13px; }
+  .ch-side > .dama-turn { font-size: 12px; }
+  .ch-side > .dama-timer { font-size: 11.5px; }
+  .ch-side > .dama-status { font-size: 12px; }
+  .ch-side > .ch-log { max-height: 36px; font-size: 10.5px; }
+  .ch-side > .dama-ctrls { gap: 6px; }
+  .ch-side > .dama-ctrls .dama-mini { font-size: 11px; padding: 5px 8px; min-width: 64px; }
+  .ch-side > .dama-drawbar { font-size: 11px; }
+  .ch-side > .dama-drawbar .dama-mini { font-size: 11px; padding: 5px 8px; min-width: 64px; }
+  /* اللوحة تتمدد لتملأ الارتفاع المتبقي بين HUD والأزرار */
+  .ch-boardbox {
+    flex: 1 1 auto;
+    padding: 4px 0;
+  }
+}
+
+/* ═══ [P-Seats] بورتريه: أيقونتا اللاعبين خارج رقعة الشطرنج تماماً (كما الضاما) ═══ */
+@media (orientation: portrait) {
+  .ch-boardbox { margin-top: 26px; margin-bottom: 26px; }
+  .ch-boardbox > .ch-seat-top {
+    top: 0;
+    transform: translate(-50%, calc(-100% - 5px));
+  }
+  .ch-boardbox > .ch-seat-bot {
+    top: 100%;
+    transform: translate(-50%, 5px);
+  }
+}

@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <!-- [DTSG-BUILD] وسم النسخة الحية — التحقق من الكونسول: window.DTSG_BUILD -->
+  <script>window.DTSG_BUILD='v2.28.1';</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/about.html">
+<meta name="description" content="من نحن — ألعاب الدكاء التقليدية الرقمية (DTSG): الشحن، السحب، الإحالة، الغرف الجماعية وقواعد الدردشة">
+  <meta name="theme-color" content="#0b1526">
+  <title>ألعاب الدكاء التقليدية الرقمية — من نحن</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
+  <link rel="stylesheet" href="css/02-base.css?v=dtsg6">
+  <link rel="stylesheet" href="css/03-components.css?v=dtsg6">
+  <link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
+  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
+  <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+      if (t === 'radiant') {
+        document.documentElement.setAttribute('data-theme', 'radiant');
+      }
+    })();
+  </script>
+  <script src="js/i18n/auto-lang.js?v=dtsg6"></script>
+  <style>
+    /* ── Legal content layout (header/footer provided by legal-ui.js) ── */
+    .legal-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 34px 20px 60px;
+    }
+    .legal-wrap .legal-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: var(--gg);
+      color: #0b1526;
+      font-size: 1.3rem;
+      margin-bottom: 18px;
+    }
+    .legal-wrap h1 {
+      font-family: var(--font2, 'Orbitron'), sans-serif;
+      font-weight: 900;
+      font-size: 1.55rem;
+      margin: 0 0 8px;
+      background: var(--gg);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .legal-wrap .updated {
+      color: var(--t3);
+      font-size: 0.78rem;
+      margin-bottom: 28px;
+    }
+    .legal-wrap h2 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--gold);
+      margin: 26px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .legal-wrap h2 i {
+      color: var(--gold);
+    }
+    .legal-wrap p,
+    .legal-wrap li {
+      color: var(--t2);
+      font-size: 0.92rem;
+      line-height: 1.85;
+    }
+    .legal-wrap ul {
+      padding-inline-start: 22px;
+      margin: 8px 0;
+    }
+    .legal-wrap .legal-note {
+      background: var(--bg2);
+      border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28));
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+    .legal-wrap .legal-note b {
+      color: var(--gold);
+    }
+    .legal-wrap a {
+      color: var(--gold);
+    }
+    .comm-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 12px 0 6px;
+    }
+    .comm-card {
+      background: var(--bg2);
+      border: 1px solid var(--bd);
+      border-radius: 12px;
+      padding: 14px;
+      text-align: center;
+    }
+    .comm-card .rate {
+      font-family: var(--font2, 'Orbitron'), sans-serif;
+      font-weight: 900;
+      font-size: 1.5rem;
+      background: var(--gg);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .comm-card .desc {
+      color: var(--t2);
+      font-size: 0.8rem;
+      margin-top: 4px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <article class="legal-content">
+    <main class="legal-wrap">
+    <div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-building-columns"></i></div>
+    <h1 data-k="a.title">من نحن</h1>
+    <div class="updated" data-k="a.updated">آخر تحديث: 12 أغسطس 2026</div>
+
+    <p data-k="a.intro">ألعاب الدكاء التقليدية الرقمية (DTSG) — منصة مغربية تجمع بين المتعة والترفيه والربح. يمكنك شحن حسابك بمال حقيقي، ومبادلة الكوينز بحرية بين اللاعبين، وسحب أرباحك بالطريقة التي تناسبك.</p>
+
+    <h2><i class="fa-solid fa-flag" aria-hidden="true"></i> <span data-k="a.missionTitle">ما هي منصتنا</span></h2>
+    <p data-k="a.missionP">منصة ترفيهية مغربية تتيح للاعبين اللعب والتحدي في أجواء آمنة ومنظمة، مع نظام اقتصادي داخلي واضح وشفاف: الكوينز لها قيمة، واللعب له قواعد، والأرباح تُسحب بأمان.</p>
+
+    <h2><i class="fa-solid fa-coins" aria-hidden="true"></i> <span data-k="a.coinTitle">نظام الكوينز</span></h2>
+    <ul>
+      <li data-k="a.coin1">10 كوينز = 1 درهم مغربي.</li>
+      <li data-k="a.coin2">الكوينز تُستخدم في الألعاب والغرف الجماعية والإرسال بين اللاعبين.</li>
+      <li data-k="a.coin3">مبادلة الكوينز بين اللاعبين حرة عبر المنصة وبدون أي رسوم للمنصة.</li>
+    </ul>
+
+    <h2><i class="fa-solid fa-credit-card" aria-hidden="true"></i> <span data-k="a.topupTitle">الشحن</span></h2>
+    <p data-k="a.topupP">يمكن للاعب شحن حسابه بمال حقيقي عبر أحد أدمنز المنصة. يتم التحويل فوراً إلى كوينز وفق المعادلة: 10 كوينز = 1 درهم.</p>
+
+    <h2><i class="fa-solid fa-right-left" aria-hidden="true"></i> <span data-k="a.tradeTitle">مبادلة الكوينز</span></h2>
+    <p data-k="a.tradeP">يمكن للاعبين مبادلة الكوينز فيما بينهم بشكل حر عبر المنصة، بدون أي رسوم تُفرض على عملية المبادلة نفسها.</p>
+
+    <h2><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> <span data-k="a.withdrawTitle">السحب</span></h2>
+    <p data-k="a.withdrawP">يمكن للاعب سحب أرباحه مقابل مال حقيقي بإحدى الطرق الثلاث، والاختيار للاعب حسب رغبته:</p>
+    <ul>
+      <li data-k="a.withdraw1">حوالة بنكية.</li>
+      <li data-k="a.withdraw2">كاش وجه لوجه عن طريق أحد الأدمنز.</li>
+      <li data-k="a.withdraw3">عملات رقمية.</li>
+    </ul>
+
+    <h2><i class="fa-solid fa-user-plus" aria-hidden="true"></i> <span data-k="a.referTitle">الإحالة</span></h2>
+    <div class="legal-note">
+      <b data-k="a.referTitle2">كافأة الإحالة:</b>
+      <span data-k="a.referP">يمكن للاعب إحالة صديق، ويُكافأ بشكل مباشر وأوتوماتيكي بـ 10٪ من قيمة أول عملية شحن للاعب المحال الجديد.</span>
+    </div>
+
+    <h2><i class="fa-solid fa-user-shield" aria-hidden="true"></i> <span data-k="a.adminsTitle">الأدمنز</span></h2>
+    <div class="legal-note"><p data-k="a.adminsIso">جُمعت كل المعلومات الخاصة بنسب وعمولات الأدمنز وتعامل المنصة معهم — الصلاحيات، الشحن، الاستبدال، السحب، الإحالة والانضباط — في صفحة خاصة بالشروط والقوانين المؤطرة للأدمنز.</p>
+    <p><a class="btn ghost small" href="admins.html"><i class="fa-solid fa-user-shield" aria-hidden="true"></i> <span data-k="a.adminsBtn">صفحة شروط وقوانين الأدمنز</span></a></p></div>
+    <h2><i class="fa-solid fa-users" aria-hidden="true"></i> <span data-k="a.roomsTitle">الغرف الجماعية</span></h2>
+    <p data-k="a.roomsP">يمكن للاعبين الرهان وجهاً لوجه في غرف الألعاب الجماعية — الغرف بلا حد زمني وتُفتح مجاناً:</p>
+    <ul>
+      <li data-k="a.rooms1">يحدد الداعي ما إذا كانت الغرفة عمومية أو خاصة، ومبلغ رهان الجولة عند إنشائها.</li>
+      <li data-k="a.rooms2">تُقتطع رهانات اللاعبين عند بدء كل جولة وتُضاف للفائز بعد نهايتها.</li>
+      <li data-k="a.rooms3">رسوم الغرفة: 5٪ من قيمة رهان اللاعب الرابح في كل جولة — بلا أي رسوم على فتح الغرفة.</li>
+    </ul>
+
+    <h2><i class="fa-solid fa-comments" aria-hidden="true"></i> <span data-k="a.chatTitle">قواعد الدردشة</span></h2>
+    <p data-k="a.chatP">في الدردشة داخل الغرف وفي دردشة المنصة يمنع الكلام النابي والعبارات الهجومية والجارحة والخادشة للحياء. يٌحظر المخالف من الدردشة لمدة 24 ساعة قابلة للمضاعفة كلما تكرر الأمر، ويُحظر من يخل بالآداب العامة أو بخصوصية اللاعبين.</p>
+
+    <h2><i class="fa-solid fa-envelope" aria-hidden="true"></i> <span data-k="a.contactTitle">تواصل معنا</span></h2>
+    <p data-k="a.contactP">لأي استفسار حول الشحن أو السحب أو الإحالة أو الغرف، تفضل بزيارة صفحة التواصل معنا.</p>
+    <p><a class="btn ghost small" href="contact.html"><i class="fa-solid fa-headset" aria-hidden="true"></i> <span data-k="a.contactBtn">صفحة تواصل معنا</span></a>
+    <a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="a.back">العودة للموقع</span></a></p>
+  </main>
+    </article>
+
+  <!-- External JS (same system as index.html: state, audio, utils, TR, legal-ui) -->
+  <script src="js/core/state.js?v=dtsg6"></script>
+  <script src="js/core/audio.js?v=dtsg6"></script>
+  <script src="js/core/utils.js?v=dtsg6"></script>
+  <script src="js/i18n/translations.js?v=dtsg6"></script>
+  <script src="js/core/api.js?v=dtsg6"></script>
+<script src="js/core/auth.js?v=dtsg6"></script>
+<script src="js/ui/legal-ui.js?v=lu6"></script>
+  <script>
+    /* ── محتوى الصفحة (data-k — ترجمة محتوى الصفحة) ── */
+    var D = {
+  "a.adminsBtn": {
+    "ar": "صفحة شروط وقوانين الأدمنز",
+    "da": "صفحة شروط وقوانين الأدمنز",
+    "fr": "Page des conditions et règles des admins",
+    "en": "Admin terms & rules page"
+  },
+  "a.adminsIso": {
+    "ar": "جُمعت كل المعلومات الخاصة بنسب وعمولات الأدمنز وتعامل المنصة معهم — الصلاحيات، الشحن، الاستبدال، السحب، الإحالة والانضباط — في صفحة خاصة بالشروط والقوانين المؤطرة للأدمنز.",
+    "da": "كاع المعلومات الخاصة بنسب وعمولات الأدمنز وتعامل المنصة معاهم — الصلاحيات، الشحن، الاستبدال، السحب، الإحالة والانضباط — تجمعات فصفحة خاصة بالشروط والقوانين اللي كتأطر الأدمنز.",
+    "fr": "Toutes les informations relatives aux taux et commissions des admins et à leur relation avec la plateforme — permissions, recharges, échanges, retraits, parrainage et discipline — sont regroupées dans une page dédiée aux conditions et règles encadrant les admins.",
+    "en": "All information about admin rates and commissions and how the platform works with admins — permissions, top-ups, exchanges, withdrawals, referrals and discipline — has been gathered in a dedicated page for the terms and rules governing admins."
+  },
+  "a.adminsTitle": {
+    "ar": "الأدمنز",
+    "da": "الأدمنز",
+    "fr": "Les admins",
+    "en": "Admins"
+  },
+  "a.title": {
+    "ar": "من نحن",
+    "da": "من حنا",
+    "fr": "À propos de nous",
+    "en": "About Us"
+  },
+  "a.updated": {
+    "ar": "آخر تحديث: 12 أغسطس 2026",
+    "da": "آخر تحديث: 12 غشت 2026",
+    "fr": "Dernière mise à jour : 12 août 2026",
+    "en": "Last updated: August 12, 2026"
+  },
+  "a.intro": {
+    "ar": "ألعاب الدكاء التقليدية الرقمية (DTSG) — منصة مغربية تجمع بين المتعة والترفيه والربح. يمكنك شحن حسابك بمال حقيقي، ومبادلة الكوينز بحرية بين اللاعبين، وسحب أرباحك بالطريقة التي تناسبك.",
+    "da": "ألعاب الدكاء التقليدية الرقمية — منصة مغربية كتجمع بين المتعة والنشاط والربح. تقدر تشحن حسابك بالفلوس، تبادل الكوينز بحرية بين اللعابة، وتسحب أرباحك بالطريقة اللي تريحك.",
+    "fr": "Digital Traditional Skills Games — une plateforme marocaine qui allie plaisir, divertissement et gain. Rechargez votre compte avec de l'argent réel, échangez librement des pièces entre joueurs et retirez vos gains comme vous le souhaitez.",
+    "en": "DTSG — Digital Traditional Skills Games: a Moroccan platform combining fun, entertainment and profit. Top up your account with real money, trade coins freely between players, and withdraw your winnings the way you prefer."
+  },
+  "a.missionTitle": {
+    "ar": "ما هي منصتنا",
+    "da": "شنو هي المنصة ديالنا",
+    "fr": "Notre plateforme",
+    "en": "Our platform"
+  },
+  "a.missionP": {
+    "ar": "منصة ترفيهية مغربية تتيح للاعبين اللعب والتحدي في أجواء آمنة ومنظمة، مع نظام اقتصادي داخلي واضح وشفاف: الكوينز لها قيمة، واللعب له قواعد، والأرباح تُسحب بأمان.",
+    "da": "منصة ترفيهية مغربية كتخلي اللعابة يقصروا ويتحدّاو بعضياتهم فجو نقي ومأمن، بنظام اقتصادي واضح وشفاف: الكوينز عندها قيمة، اللعب عندو قواعد، والأرباح كتسحبها بأمان.",
+    "fr": "Une plateforme marocaine de divertissement permettant de jouer et de se défier dans un cadre sûr et organisé, avec un système économique interne clair et transparent : les pièces ont une valeur, le jeu a des règles, et les gains se retirent en toute sécurité.",
+    "en": "A Moroccan entertainment platform that lets players play and challenge each other in a safe, organized environment, with a clear, transparent internal economy: coins have value, games have rules, and winnings are withdrawn safely."
+  },
+  "a.coinTitle": {
+    "ar": "نظام الكوينز",
+    "da": "نظام الكوينز",
+    "fr": "Le système de pièces",
+    "en": "The coin system"
+  },
+  "a.coin1": {
+    "ar": "10 كوينز = 1 درهم مغربي.",
+    "da": "10 كوينز = 1 درهم مغربي.",
+    "fr": "10 pièces = 1 dirham marocain.",
+    "en": "10 coins = 1 Moroccan dirham."
+  },
+  "a.coin2": {
+    "ar": "الكوينز تُستخدم في الألعاب والغرف الجماعية والإرسال بين اللاعبين.",
+    "da": "الكوينز كتستعمل فكاع الألعاب والغرف الجماعية والإرسال بين اللعابة.",
+    "fr": "Les pièces servent aux jeux, aux salles de groupe et aux transferts entre joueurs.",
+    "en": "Coins are used in games, group rooms and transfers between players."
+  },
+  "a.coin3": {
+    "ar": "للاعبين كامل الحرية في تبادل الكوينز فيما بينهم عبر المنصة، سواءً بالمجان، أو مقابل سعر، أو مقابل خدمة، ويتم تدوين وتسجيل جميع العمليات بالكامل وبشكل فوري في السجل الخاص بكل لاعب.",
+    "fr": "Les joueurs ont l'entière liberté d'échanger des pièces entre eux via la plateforme (gratuitement, contre paiement ou en échange d'un service), toutes les opérations étant enregistrées immédiatement dans le journal privé de chaque joueur.",
+    "en": "Players have complete freedom to exchange coins with each other through the platform, whether for free, for a price, or in exchange for a service, with all transactions recorded immediately in each player's private account log.",
+    "da": "اللعابة عندهم كامل الحرية يتبادلو الكوينز بيناتهم فالموقع، سواء فابور، ولا بمقابل مالي، ولا مقابل خدمة، وكاع العمليات كتقيد أوتوماتيكياً فالسجل الخاص بكل لعاب."
+  },
+  "a.topupTitle": {
+    "ar": "الشحن",
+    "da": "الشحن",
+    "fr": "Recharge",
+    "en": "Top-up"
+  },
+  "a.topupP": {
+    "ar": "بالنسبة للاعبين، يتم الشحن والسحب بنفس القيمة الثابتة: 1 درهم = 10 كوينز (10 كوينز = 1 درهم مغربي). يتم الشحن بمال حقيقي عبر أحد أدمنز المنصة ويُحوَّل فوراً إلى رصيد حسابك.",
+    "fr": "Pour les joueurs, les recharges et retraits sont effectués exactement à la même valeur fixe : 1 dirham = 10 pièces (10 pièces = 1 DH). Le compte est rechargé via un admin et crédité instantanément.",
+    "en": "For players, top-ups and withdrawals are processed at the exact same fixed rate: 1 MAD = 10 Coins (10 Coins = 1 Moroccan Dirham). Recharges are made via an admin and credited instantly.",
+    "da": "بالنسبة للعابة، الشحن والسحب كيبقا ديما بنفس القيمة الثابتة: 1 درهم = 10 كوينز (10 كوينز = 1 درهم مغربي). الشحن كيتم عن طريق أدمن المنصة وكيتحول ديك الساع لرصيدك."
+  },
+  "a.tradeTitle": {
+    "ar": "مبادلة الكوينز",
+    "da": "مبادلة الكوينز",
+    "fr": "Échange de pièces",
+    "en": "Coin trading"
+  },
+  "a.tradeP": {
+    "ar": "للاعبين كامل الحرية في تبادل الكوينز فيما بينهم عبر المنصة، سواءً بالمجان، أو مقابل سعر، أو مقابل خدمة، ويتم تدوين وتسجيل جميع العمليات بالكامل وبشكل فوري في السجل الخاص بكل لاعب.",
+    "fr": "Les joueurs ont l'entière liberté d'échanger des pièces entre eux via la plateforme (gratuitement, contre paiement ou en échange d'un service), toutes les opérations étant enregistrées immédiatement dans le journal privé de chaque joueur.",
+    "en": "Players have complete freedom to exchange coins with each other through the platform, whether for free, for a price, or in exchange for a service, with all transactions recorded immediately in each player's private account log.",
+    "da": "اللعابة عندهم كامل الحرية يتبادلو الكوينز بيناتهم فالموقع، سواء فابور، ولا بمقابل مالي، ولا مقابل خدمة، وكاع العمليات كتقيد أوتوماتيكياً فالسجل الخاص بكل لعاب."
+  },
+  "a.withdrawTitle": {
+    "ar": "السحب",
+    "da": "السحب",
+    "fr": "Retrait",
+    "en": "Withdrawal"
+  },
+  "a.withdrawP": {
+    "ar": "يمكن للاعب سحب أرباحه مقابل مال حقيقي بإحدى الطرق الثلاث، والاختيار للاعب حسب رغبته:",
+    "da": "يقدر اللعاب يسحب أرباحو مقابل فلوس حقيقية بواحدة من هاد 3 ديال الطرق، والاختيار كيبقى ليه:",
+    "fr": "Le joueur peut retirer ses gains en argent réel par l'une des trois méthodes, au choix du joueur :",
+    "en": "Players can withdraw their winnings as real money using one of three methods, at the player's choice:"
+  },
+  "a.withdraw1": {
+    "ar": "حوالة بنكية.",
+    "da": "فيرمون بنكي (حوالة بنكية).",
+    "fr": "Virement bancaire.",
+    "en": "Bank transfer."
+  },
+  "a.withdraw2": {
+    "ar": "كاش وجه لوجه عن طريق أحد الأدمنز.",
+    "da": "كاش يد ليد عن طريق أدمن.",
+    "fr": "Espèces en face à face via l'un des admins.",
+    "en": "Face-to-face cash via one of the admins."
+  },
+  "a.withdraw3": {
+    "ar": "عملات رقمية.",
+    "da": "عملات رقمية (USDT).",
+    "fr": "Cryptomonnaies.",
+    "en": "Cryptocurrency."
+  },
+  "a.referTitle": {
+    "ar": "الإحالة",
+    "da": "الإحالة",
+    "fr": "Parrainage",
+    "en": "Referral"
+  },
+  "a.referTitle2": {
+    "ar": "كافأة الإحالة:",
+    "da": "كافأة الإحالة:",
+    "fr": "Bonus de parrainage :",
+    "en": "Referral bonus:"
+  },
+  "a.referP": {
+    "ar": "يمكن للاعب إحالة صديق، ويُكافأ بشكل مباشر وأوتوماتيكي بـ 10٪ من قيمة أول عملية شحن للاعب المحال الجديد.",
+    "da": "يمكن للاعب إحالة صديق، ويُكافأ بشكل مباشر وأوتوماتيكي بـ 10٪ من قيمة أول عملية شحن للاعب المحال الجديد.",
+    "fr": "Un joueur peut parrainer un ami et reçoit automatiquement et directement 10% de la valeur de la première recharge du nouveau joueur parrainé.",
+    "en": "A player can refer a friend and is rewarded automatically and directly with 10% of the value of the new referred player's first top-up."
+  },
+  "a.commTitle": {
+    "ar": "عمولات الأدمنز",
+    "da": "عمولات الأدمنز",
+    "fr": "Commissions des admins",
+    "en": "Admin commissions"
+  },
+  "a.commP": {
+    "ar": "يستفيد الأدمنز بشكل مباشر من عمولة على عمليات الشحن التي يتجاوز سقفها:",
+    "da": "يستفيد الأدمنز بشكل مباشر من عمولة على عمليات الشحن التي يتجاوز سقفها:",
+    "fr": "Les admins bénéficient directement d'une commission sur les recharges dépassant le seuil suivant :",
+    "en": "Admins benefit directly from a commission on top-ups above the following thresholds:"
+  },
+  "a.comm1": {
+    "ar": "من الشحن فوق 1000 درهم = 12500 كوينز",
+    "fr": "sur les recharges au-delà de 1 000 dirhams = 12 500 pièces",
+    "en": "on top-ups above 1,000 dirhams = 12,500 coins",
+    "da": "من الشحن فوق 1000 درهم = 12500 كوينز"
+  },
+  "a.roomsTitle": {
+    "ar": "الغرف الجماعية",
+    "da": "الغرف الجماعية",
+    "fr": "Salles de groupe",
+    "en": "Group rooms"
+  },
+  "a.roomsP": {
+    "ar": "يمكن للاعبين الرهان وجهاً لوجه في غرف الألعاب الجماعية — الغرف بلا حد زمني وتُفتح مجاناً:",
+    "da": "اللعابة يقدرو يراهنوا راس لراس فغرف الألعاب الجماعية — الغرف بلا حد للوقت وكيتحلو فابور:",
+    "fr": "Les joueurs peuvent miser en face à face dans les salles de jeu en groupe — les salles n'ont pas de limite de temps et sont gratuites à l'ouverture :",
+    "en": "Players can bet face-to-face in group game rooms — rooms have no time limit and are free to open:"
+  },
+  "a.rooms1": {
+    "ar": "يحدد الداعي ما إذا كانت الغرفة عمومية أو خاصة، ومبلغ رهان الجولة عند إنشائها.",
+    "da": "صاحب الغرفة كيحدد واش عمومية ولا خاصة، والقداش رهان الجولة فاش كيصاوبها.",
+    "fr": "L'hôte décide si la salle est publique ou privée, ainsi que le montant de la mise par manche lors de sa création.",
+    "en": "The host decides whether the room is public or private, and the round bet amount when creating it."
+  },
+  "a.rooms2": {
+    "ar": "تُقتطع رهانات اللاعبين عند بدء كل جولة وتُضاف للفائز بعد نهايتها.",
+    "da": "رهانات اللعابة كيتقتطعو فاش كتبدا كل جولة وكيتزادو للرابح من بعد ما تسالي.",
+    "fr": "Les mises des joueurs sont déduites au début de chaque manche et versées au gagnant à la fin.",
+    "en": "Players' bets are deducted when each round starts and paid to the winner at its end."
+  },
+  "a.rooms3": {
+    "ar": "رسوم الغرفة: 5٪ من قيمة رهان اللاعب الرابح في كل جولة — بلا أي رسوم على فتح الغرفة.",
+    "da": "رسوم الغرفة: 5٪ من رهان الرابح فكل جولة — بلا حتى رسم على فتح الغرفة.",
+    "fr": "Frais de salle : 5% de la mise du joueur gagnant à chaque manche — sans aucun frais à l'ouverture.",
+    "en": "Room fee: 5% of the winning player's bet each round — no fee at all on opening a room."
+  },
+  "a.chatTitle": {
+    "ar": "قواعد الدردشة",
+    "da": "قواعد الشات",
+    "fr": "Règles du chat",
+    "en": "Chat rules"
+  },
+  "a.chatP": {
+    "ar": "في الدردشة داخل الغرف وفي دردشة المنصة يمنع الكلام النابي والعبارات الهجومية والجارحة والخادشة للحياء. يُحظر المخالف من الدردشة لمدة 24 ساعة قابلة للمضاعفة كلما تكرر الأمر، ويُحظر من يخل بالآداب العامة أو بخصوصية اللاعبين.",
+    "da": "فالشات ديال الغرف ولا شات المنصة ممنوع الهضرة الخايبة والسبان والكلام اللي كيجرح الحياء. اللي خالف القانون كيتوكف 24 ساعة وكتدوبل إلا عاودها.",
+    "fr": "Dans le chat des salles et celui de la plateforme, les propos grossiers, agressifs, blessants ou indécents sont interdits. Le contrevenant est banni du chat pendant 24 heures, durée doublée à chaque récidive, et toute atteinte aux bonnes mœurs ou à la vie privée des joueurs entraîne un bannissement.",
+    "en": "In room chats and the platform chat, abusive, aggressive, offensive or indecent language is forbidden. Violators are banned from chat for 24 hours, doubled on each repeat offense, and anyone violating public decency or player privacy is banned."
+  },
+  "a.contactTitle": {
+    "ar": "تواصل معنا",
+    "da": "تواصل معنا",
+    "fr": "Contactez-nous",
+    "en": "Contact us"
+  },
+  "a.contactP": {
+    "ar": "لأي استفسار حول الشحن أو السحب أو الإحالة أو الغرف، تفضل بزيارة صفحة التواصل معنا.",
+    "da": "لأي سؤال على الشحن، السحب، الإحالة ولا الغرف، دوز لصفحة تواصل معنا.",
+    "fr": "Pour toute question sur la recharge, le retrait, le parrainage ou les salles, visitez notre page de contact.",
+    "en": "For any question about top-ups, withdrawals, referrals or rooms, visit our contact page."
+  },
+  "a.contactBtn": {
+    "ar": "صفحة تواصل معنا",
+    "da": "صفحة تواصل معنا",
+    "fr": "Page de contact",
+    "en": "Contact page"
+  },
+  "a.back": {
+    "ar": "العودة للموقع",
+    "da": "الرجوع للموقع",
+    "fr": "Retour au site",
+    "en": "Back to site"
+  },
+  "a.fb2fa": {
+    "ar": "2FA محمي",
+    "da": "2FA محمي",
+    "fr": "2FA protégé",
+    "en": "2FA protected"
+  },
+  "a.fbSecure": {
+    "ar": "اتصال آمن",
+    "da": "اتصال آمن",
+    "fr": "Connexion sécurisée",
+    "en": "Secure connection"
+  },
+  "a.footer": {
+    "ar": "جميع الحقوق محفوظة",
+    "da": "جميع الحقوق محفوظة",
+    "fr": "Tous droits réservés",
+    "en": "All rights reserved"
+  }
+};
+        var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || (window.detectInitialLang ? window.detectInitialLang() : 'ar'); } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      
+      // Update data-k elements
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) {
+          el.innerHTML = D[k][currentLang];
+        }
+      });
+      // Update active state in lang buttons
+      document.querySelectorAll('.lang-drop button[data-lang], .lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      applyLang(currentLang);
+    });
+    applyLang(currentLang);
+
+    if (typeof _origSetLang === 'function') _origSetLang(currentLang);
+    /* تهيئة الصفحة: حقن الهيدر/الفوتر + ترجمة المحتوى */
+    injectLegalUI('about');
+    applyLang();
+  </script>
+</body>
+</html>

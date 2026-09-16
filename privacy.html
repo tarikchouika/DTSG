@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <!-- [DTSG-BUILD] وسم النسخة الحية — التحقق من الكونسول: window.DTSG_BUILD -->
+  <script>window.DTSG_BUILD='v2.28.1';</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/privacy.html">
+<meta name="description" content="سياسة الخصوصية — ألعاب الدكاء التقليدية الرقمية (DTSG): جمع البيانات، المدفوعات، الأمن وحقوق المستخدم">
+  <meta name="theme-color" content="#0b1526">
+  <title>ألعاب الدكاء التقليدية الرقمية — سياسة الخصوصية</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
+  <link rel="stylesheet" href="css/02-base.css?v=dtsg6">
+  <link rel="stylesheet" href="css/03-components.css?v=dtsg6">
+  <link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
+  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
+  <!-- Language detection (must run before CSS paint) -->
+  <script src="js/i18n/auto-lang.js?v=dtsg6"></script>
+  <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+      if (t === 'radiant') {
+        document.documentElement.setAttribute('data-theme', 'radiant');
+      }
+    })();
+  </script>
+  <style>
+    /* ── Legal content layout (header/footer provided by legal-ui.js) ── */
+    .legal-wrap {
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 34px 20px 60px;
+    }
+    .legal-wrap .legal-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: var(--gg);
+      color: #0b1526;
+      font-size: 1.3rem;
+      margin-bottom: 18px;
+    }
+    .legal-wrap h1 {
+      font-family: var(--font2, 'Orbitron'), sans-serif;
+      font-weight: 900;
+      font-size: 1.55rem;
+      margin: 0 0 8px;
+      background: var(--gg);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .legal-wrap .updated {
+      color: var(--t3);
+      font-size: 0.78rem;
+      margin-bottom: 28px;
+    }
+    .legal-wrap h2 {
+      font-size: 1.05rem;
+      font-weight: 800;
+      color: var(--gold);
+      margin: 26px 0 8px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    .legal-wrap h2 i {
+      color: var(--gold);
+    }
+    .legal-wrap p,
+    .legal-wrap li {
+      color: var(--t2);
+      font-size: 0.92rem;
+      line-height: 1.85;
+    }
+    .legal-wrap ul {
+      padding-inline-start: 22px;
+      margin: 8px 0;
+    }
+    .legal-wrap .legal-note {
+      background: var(--bg2);
+      border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28));
+      border-radius: 12px;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+    .legal-wrap .legal-note b {
+      color: var(--gold);
+    }
+    .legal-wrap a {
+      color: var(--gold);
+    }
+  </style>
+</head>
+<body>
+  <article class="legal-content">
+    <main class="legal-wrap">
+    <div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></div>
+    <h1 data-k="p.title">سياسة الخصوصية</h1>
+    <div class="updated" data-k="p.updated">آخر تحديث: 12 أغسطس 2026</div>
+
+    <p data-k="p.intro">نحترم خصوصيتك في منصة ألعاب الدكاء التقليدية الرقمية. توضح هذه السياسة البيانات التي نجمعها عند استخدام الموقع وكيف نستخدمها ونحميها ونشاركها، بما في ذلك معالجة عمليات الشحن والسحب المالية.</p>
+
+    <h2><i class="fa-solid fa-database" aria-hidden="true"></i> <span data-k="p.collectTitle">جمع البيانات</span></h2>
+    <ul>
+      <li data-k="p.collect1">بيانات الحساب: اسم المستخدم وكلمة المرور (مشفّرة) عند تسجيل حساب.</li>
+      <li data-k="p.collect2">بيانات مالية: سجل عمليات الشحن والسحب ومبادلة الكوينز اللازمة لإدارة حسابك المالي.</li>
+      <li data-k="p.collect3">بيانات اللعب: الرهانات، الرصيد، وسجل الجولات لحفظ تقدمك ومنع الغش.</li>
+      <li data-k="p.collect4">بيانات الدردشة: الرسائل المرسلة داخل الغرف وفي دردشة المنصة لفرض قواعد السلوك.</li>
+      <li data-k="p.collect5">بيانات تقنية: المتصفح، اللغة، والعنوان التقريبي عبر خوادمنا لتحسين الأداء والحماية من الهجمات.</li>
+    </ul>
+
+    <h2><i class="fa-solid fa-gears" aria-hidden="true"></i> <span data-k="p.useTitle">استخدام البيانات</span></h2>
+    <p data-k="p.useP">نستخدم بياناتك لحفظ رصيدك وتقدمك، وتنفيذ عمليات الشحن والسحب، وتقديم مكافآت الإحالة والعمولات، وتحسين تجربة اللعب، ومنع إساءة الاستخدام والغش والهجمات الآلية، ودعم حسابات اللاعبين.</p>
+
+    <h2><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> <span data-k="p.payTitle">معالجة المدفوعات</span></h2>
+    <p data-k="p.payP">تتم عمليات الشحن والسحب عبر أدمنز المنصة بوسائل آمنة: حوالة بنكية، كاش وجه لوجه، أو عملات رقمية حسب اختيار اللاعب. لا نخزن أرقام البطاقات البنكية ولا بياناتها في خوادمنا، ولا تُطلب منك إلا مباشرة عند تنفيذ العملية من قبل وسيلة الدفع نفسها.</p>
+
+    <h2><i class="fa-solid fa-lock" aria-hidden="true"></i> <span data-k="p.secTitle">الأمن</span></h2>
+    <p data-k="p.secP">نحمي بياناتك بتشفير HTTPS، وكلمات مرور مشفّرة، وجلسات آمنة، وأنظمة حماية من البوتات وسكريبتات الأتمتة. لا نبيع بياناتك أبداً لأي طرف ثالث.</p>
+
+    <h2><i class="fa-solid fa-cookie-bite" aria-hidden="true"></i> <span data-k="p.cookieTitle">ملفات الكوكيز والتخزين المحلي</span></h2>
+    <p data-k="p.cookieP">نستخدم التخزين المحلي (localStorage) لحفظ تفضيلاتك (اللغة، الثيم، الرصيد). لا نستخدم كوكيز تتبع إعلانية.</p>
+
+    <h2><i class="fa-solid fa-share-nodes" aria-hidden="true"></i> <span data-k="p.shareTitle">المشاركة مع الآخرين</span></h2>
+    <p data-k="p.shareP">لا نشارك بياناتك إلا مع أدمنز المنصة عند الحاجة فقط لتنفيذ عمليات السحب أو دعم الحساب. لا يتم بيع بياناتك أو مشاركتها مع جهات إعلانية أو تجارية.</p>
+
+    <h2><i class="fa-solid fa-user-check" aria-hidden="true"></i> <span data-k="p.rightsTitle">حقوق المستخدم</span></h2>
+    <p data-k="p.rightsP">يمكنك حذف بيانات حسابك في أي وقت بطلب عبر الدردشة أو صفحة تواصل معنا، ويحق لك معرفة البيانات المحفوظة عنك وتصحيحها.</p>
+
+    <h2><i class="fa-solid fa-clock" aria-hidden="true"></i> <span data-k="p.retTitle">مدة الاحتفاظ بالبيانات</span></h2>
+    <p data-k="p.retP">نحتفظ ببيانات الحساب والمالية طالما كان الحساب نشطاً، أو بالقدر اللازم لفرض الشروط والالتزامات القانونية، ثم نحذفها أو نجعلها مجهولة الهوية.</p>
+
+    <h2><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> <span data-k="p.respTitle">اللعب المسؤول — 18+</span></h2>
+    <p data-k="p.respP">المنصة مخصصة للبالغين (18 عاماً فما فوق). ننصح باللعب بمسؤولية ووعي، ويمكنك طلب تقييد أو تعليق حسابك مؤقتاً عبر الدردشة أو صفحة تواصل معنا.</p>
+
+    <h2><i class="fa-solid fa-envelope" aria-hidden="true"></i> <span data-k="p.contactTitle">الاتصال</span></h2>
+    <p data-k="p.contactP">لأي استفسار عن الخصوصية أو بياناتك، تواصل معنا عبر صفحة تواصل معنا أو الدردشة في الموقع الرئيسي.</p>
+    <p><a class="btn ghost small" href="contact.html"><i class="fa-solid fa-headset" aria-hidden="true"></i> <span data-k="p.contactBtn">تواصل معنا</span></a>
+    <a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="p.back">العودة للموقع</span></a></p>
+  </main>
+  </article>
+
+  <!-- External JS (same system as index.html: state, audio, utils, TR, legal-ui) -->
+  <script src="js/core/state.js?v=dtsg6"></script>
+  <script src="js/core/audio.js?v=dtsg6"></script>
+  <script src="js/core/utils.js?v=dtsg6"></script>
+  <script src="js/i18n/translations.js?v=dtsg6"></script>
+  <script src="js/core/api.js?v=dtsg6"></script>
+<script src="js/core/auth.js?v=dtsg6"></script>
+<script src="js/ui/legal-ui.js?v=lu6"></script>
+  <script>
+    /* ── محتوى الصفحة (data-k — ترجمة محتوى الصفحة) ── */
+    var D = {
+    "p.title": {
+        "ar": "سياسة الخصوصية",
+        "da": "سياسة الخصوصية",
+        "fr": "Politique de confidentialité",
+        "en": "Privacy Policy"
+    },
+    "p.updated": {
+        "ar": "آخر تحديث: 12 أغسطس 2026",
+        "da": "آخر تحديث: 12 غشت 2026",
+        "fr": "Dernière mise à jour : 12 août 2026",
+        "en": "Last updated: August 12, 2026"
+    },
+    "p.intro": {
+        "ar": "نحترم خصوصيتك في منصة ألعاب الدكاء التقليدية الرقمية. توضح هذه السياسة البيانات التي نجمعها عند استخدام الموقع وكيف نستخدمها ونحميها ونشاركها، بما في ذلك معالجة عمليات الشحن والسحب المالية.",
+        "da": "كنحترموا الخصوصية ديالك فمنصة ألعاب الدكاء التقليدية الرقمية. هاد السياسة كتشرح البيانات اللي كنجمعوها وكيفاش كنحميوها.",
+        "fr": "Nous respectons votre vie privée sur la plateforme Digital Traditional Skills Games. Cette politique décrit les données que nous collectons, comment nous les utilisons, les protégeons et les partageons, y compris le traitement des opérations de recharge et de retrait.",
+        "en": "We respect your privacy on the Digital Traditional Skills Games platform. This policy describes the data we collect, how we use, protect and share it, including the processing of top-up and withdrawal transactions."
+    },
+    "p.collectTitle": {
+        "ar": "جمع البيانات",
+        "da": "جمع البيانات",
+        "fr": "Collecte des données",
+        "en": "Data collection"
+    },
+    "p.collect1": {
+        "ar": "بيانات الحساب: اسم المستخدم وكلمة المرور (مشفّرة) عند تسجيل حساب.",
+        "da": "بيانات الحساب: سمية المستخدم والمودباس (مشفر) فاش كتسجل.",
+        "fr": "Données de compte : nom d'utilisateur et mot de passe (chiffré) à l'inscription.",
+        "en": "Account data: username and password (encrypted) when you register."
+    },
+    "p.collect2": {
+        "ar": "بيانات مالية: سجل عمليات الشحن والسحب ومبادلة الكوينز اللازمة لإدارة حسابك المالي.",
+        "da": "بيانات مالية: سجل الشحن، السحب، والكوينز لإدارة حسابك.",
+        "fr": "Données financières : historique des recharges, retraits et échanges de pièces nécessaires à la gestion de votre compte.",
+        "en": "Financial data: records of top-ups, withdrawals and coin trades needed to manage your account."
+    },
+    "p.collect3": {
+        "ar": "بيانات اللعب: الرهانات، الرصيد، وسجل الجولات لحفظ تقدمك ومنع الغش.",
+        "da": "بيانات اللعب: الرهانات، الرصيد، وسجل الجولات باش نمنعو الغش.",
+        "fr": "Données de jeu : mises, solde et historique des parties pour sauvegarder votre progression et prévenir la triche.",
+        "en": "Game data: bets, balance and round history to keep your progress and prevent cheating."
+    },
+    "p.collect4": {
+        "ar": "بيانات الدردشة: الرسائل المرسلة داخل الغرف وفي دردشة المنصة لفرض قواعد السلوك.",
+        "da": "بيانات الشات: الرسائل المرسلة فالغرف لفرض الاحترام.",
+        "fr": "Données de chat : messages envoyés dans les salles et sur la plateforme pour faire respecter les règles de conduite.",
+        "en": "Chat data: messages sent in rooms and on the platform to enforce conduct rules."
+    },
+    "p.collect5": {
+        "ar": "بيانات تقنية: المتصفح، اللغة، والعنوان التقريبي عبر خوادرنا لتحسين الأداء والحماية من الهجمات.",
+        "da": "بيانات تقنية: المتصفح واللغة لتحسين السرعة والحماية من الهجمات.",
+        "fr": "Données techniques : navigateur, langue et adresse approximative via nos serveurs pour améliorer les performances et se protéger des attaques.",
+        "en": "Technical data: browser, language and approximate address through our servers to improve performance and protect against attacks."
+    },
+    "p.useTitle": {
+        "ar": "استخدام البيانات",
+        "da": "استعمال البيانات",
+        "fr": "Utilisation des données",
+        "en": "Use of data"
+    },
+    "p.useP": {
+        "ar": "نستخدم بياناتك لحفظ رصيدك وتقدمك، وتنفيذ عمليات الشحن والسحب، وتقديم مكافآت الإحالة والعمولات، وتحسين تجربة اللعب، ومنع إساءة الاستخدام والغش والهجمات الآلية، ودعم حسابات اللاعبين.",
+        "da": "كنستعملو البيانات لحفظ رصيدك، تنفيذ الشحن والسحب، مكافآت الإحالة، ومنع الغش ودعم اللعابة.",
+        "fr": "Nous utilisons vos données pour sauvegarder votre solde et votre progression, exécuter les recharges et retraits, verser les récompenses de parrainage et commissions, améliorer l'expérience, prévenir les abus, la triche et les attaques automatisées, et assister les comptes des joueurs.",
+        "en": "We use your data to save your balance and progress, execute top-ups and withdrawals, pay referral rewards and commissions, improve the gaming experience, prevent abuse, cheating and automated attacks, and support player accounts."
+    },
+    "p.payTitle": {
+        "ar": "معالجة المدفوعات",
+        "da": "معالجة المدفوعات",
+        "fr": "Traitement des paiements",
+        "en": "Payment processing"
+    },
+    "p.payP": {
+        "ar": "تتم عمليات الشحن والسحب عبر أدمنز المنصة بوسائل آمنة: حوالة بنكية، كاش وجه لوجه، أو عملات رقمية حسب اختيار اللاعب. لا نخزن أرقام البطاقات البنكية ولا بياناتها في خوادرنا، ولا تُطلب منك إلا مباشرة عند تنفيذ العملية من قبل وسيلة الدفع نفسها.",
+        "da": "الشحن والسحب كيتم عبر أدمنز بطرق مأمنة: حوالة بنكية، كاش، ولا كريبتو. ما كنخبيوش معلومات البطاقات البنكية فسيرفوراتنا.",
+        "fr": "Les recharges et retraits se font via les admins par des moyens sécurisés : virement bancaire, espèces en face à face ou cryptomonnaies au choix du joueur. Nous ne stockons ni numéros ni données de cartes bancaires sur nos serveurs ; ils ne sont demandés que directement lors de l'exécution de l'opération par le moyen de paiement lui-même.",
+        "en": "Top-ups and withdrawals are handled by platform admins through secure methods: bank transfer, face-to-face cash or cryptocurrency at the player's choice. We never store bank card numbers or details on our servers; they are only requested directly by the payment method itself when executing the operation."
+    },
+    "p.secTitle": {
+        "ar": "الأمن",
+        "da": "الأمان",
+        "fr": "Sécurité",
+        "en": "Security"
+    },
+    "p.secP": {
+        "ar": "نحمي بياناتك بتشفير HTTPS، وكلمات مرور مشفّرة، وجلسات آمنة، وأنظمة حماية من البوتات وسكريبتات الأتمتة. لا نبيع بياناتك أبداً لأي طرف ثالث.",
+        "da": "كنحميو بياناتك بتشفير HTTPS وجلسات مأمنة. وما كنبيعوش بياناتك بتاتاً لأي جهة.",
+        "fr": "Nous protégeons vos données avec le chiffrement HTTPS, des mots de passe chiffrés, des sessions sécurisées et des protections contre les bots et scripts d'automatisation. Nous ne vendons jamais vos données à des tiers.",
+        "en": "We protect your data with HTTPS encryption, encrypted passwords, secure sessions and protections against bots and automation scripts. We never sell your data to third parties."
+    },
+    "p.cookieTitle": {
+        "ar": "ملفات الكوكيز والتخزين المحلي",
+        "da": "ملفات الكوكيز والتخزين المحلي",
+        "fr": "Cookies et stockage local",
+        "en": "Cookies and local storage"
+    },
+    "p.cookieP": {
+        "ar": "نستخدم التخزين المحلي (localStorage) لحفظ تفضيلاتك (اللغة، الثيم، الرصيد). لا نستخدم كوكيز تتبع إعلانية.",
+        "da": "نستخدم التخزين المحلي (localStorage) لحفظ تفضيلاتك (اللغة، الثيم، الرصيد). لا نستخدم كوكيز تتبع إعلانية.",
+        "fr": "Nous utilisons le stockage local (localStorage) pour enregistrer vos préférences (langue, thème, solde). Pas de cookies publicitaires.",
+        "en": "We use local storage (localStorage) to save your preferences (language, theme, balance). No advertising tracking cookies."
+    },
+    "p.shareTitle": {
+        "ar": "المشاركة مع الآخرين",
+        "da": "المشاركة مع الغير",
+        "fr": "Partage avec des tiers",
+        "en": "Sharing with others"
+    },
+    "p.shareP": {
+        "ar": "لا نشارك بياناتك إلا مع أدمنز المنصة عند الحاجة فقط لتنفيذ عمليات السحب أو دعم الحساب. لا يتم بيع بياناتك أو مشاركتها مع جهات إعلانية أو تجارية.",
+        "da": "ما كنشاركوش بياناتك إلا مع الأدمنز عند الحاجة لتنفيذ السحب أو الدعم فقط.",
+        "fr": "Nous ne partageons vos données qu'avec les admins de la plateforme uniquement en cas de besoin pour exécuter les retraits ou assister le compte. Vos données ne sont ni vendues ni partagées avec des entités publicitaires ou commerciales.",
+        "en": "We only share your data with platform admins when strictly needed to execute withdrawals or support your account. Your data is never sold or shared with advertising or commercial entities."
+    },
+    "p.rightsTitle": {
+        "ar": "حقوق المستخدم",
+        "da": "حقوق المستخدم",
+        "fr": "Droits des utilisateurs",
+        "en": "User rights"
+    },
+    "p.rightsP": {
+        "ar": "يمكنك حذف بيانات حسابك في أي وقت بطلب عبر الدردشة أو صفحة تواصل معنا، ويحق لك معرفة البيانات المحفوظة عنك وتصحيحها.",
+        "da": "تقدر تطلب مسح حسابك بأي وقت عبر الشات ولا صفحة تواصل معنا.",
+        "fr": "Vous pouvez supprimer vos données de compte à tout moment via le chat ou la page de contact, et connaître ou corriger les données enregistrées.",
+        "en": "You can delete your account data at any time via the chat or the contact page, and you may access or correct the data stored about you."
+    },
+    "p.retTitle": {
+        "ar": "مدة الاحتفاظ بالبيانات",
+        "da": "مدة الاحتفاظ بالبيانات",
+        "fr": "Conservation des données",
+        "en": "Data retention"
+    },
+    "p.retP": {
+        "ar": "نحتفظ ببيانات الحساب والمالية طالما كان الحساب نشطاً، أو بالقدر اللازم لفرض الشروط والالتزامات القانونية، ثم نحذفها أو نجعلها مجهولة الهوية.",
+        "da": "نحتفظ ببيانات الحساب والمالية طالما كان الحساب نشطاً، أو بالقدر اللازم لفرض الشروط والالتزامات القانونية، ثم نحذفها أو نجعلها مجهولة الهوية.",
+        "fr": "Nous conservons les données de compte et financières tant que le compte est actif, ou dans la mesure nécessaire pour appliquer les conditions et obligations légales, puis nous les supprimons ou les anonymisons.",
+        "en": "We keep account and financial data while the account is active, or as needed to enforce the terms and legal obligations, then we delete or anonymize it."
+    },
+    "p.respTitle": {
+        "ar": "اللعب المسؤول — 18+",
+        "da": "اللعب بمسؤولية — 18+",
+        "fr": "Jeu responsable — 18+",
+        "en": "Responsible gaming — 18+"
+    },
+    "p.respP": {
+        "ar": "المنصة مخصصة للبالغين (18 عاماً فما فوق). ننصح باللعب بمسؤولية ووعي، ويمكنك طلب تقييد أو تعليق حسابك مؤقتاً عبر الدردشة أو صفحة تواصل معنا.",
+        "da": "المنصة للبالغين (+18). كنصحو باللعب بوعي وتقدر تطلب توقيف مؤقت لحسابك إذا بغيتي.",
+        "fr": "La plateforme est réservée aux adultes (18 ans et plus). Nous recommandons de jouer de manière responsable et consciente. Vous pouvez demander une restriction ou une suspension temporaire de votre compte via le chat ou la page de contact.",
+        "en": "The platform is for adults (18+). We recommend playing responsibly and consciously. You can request a restriction or temporary suspension of your account via the chat or the contact page."
+    },
+    "p.contactTitle": {
+        "ar": "الاتصال",
+        "da": "الاتصال",
+        "fr": "Contact",
+        "en": "Contact"
+    },
+    "p.contactP": {
+        "ar": "لأي استفسار عن الخصوصية أو بياناتك، تواصل معنا عبر صفحة تواصل معنا أو الدردشة في الموقع الرئيسي.",
+        "da": "لأي سؤال على الخصوصية تواصل معنا فالشات ولا صفحة تواصل معنا.",
+        "fr": "Pour toute question sur la confidentialité ou vos données, contactez-nous via notre page de contact ou le chat du site principal.",
+        "en": "For any privacy question or about your data, contact us through our contact page or the chat on the main site."
+    },
+    "p.contactBtn": {
+        "ar": "تواصل معنا",
+        "da": "تواصل معنا",
+        "fr": "Contactez-nous",
+        "en": "Contact us"
+    },
+    "p.back": {
+        "ar": "العودة للموقع",
+        "da": "الرجوع للموقع",
+        "fr": "Retour au site",
+        "en": "Back to site"
+    },
+    "p.fb2fa": {
+        "ar": "2FA محمي",
+        "da": "2FA محمي",
+        "fr": "2FA protégé",
+        "en": "2FA protected"
+    },
+    "p.fbSecure": {
+        "ar": "اتصال آمن",
+        "da": "اتصال آمن",
+        "fr": "Connexion sécurisée",
+        "en": "Secure connection"
+    },
+    "p.footer": {
+        "ar": "جميع الحقوق محفوظة",
+        "da": "جميع الحقوق محفوظة",
+        "fr": "Tous droits réservés",
+        "en": "All rights reserved"
+    }
+};
+        var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || (window.detectInitialLang ? window.detectInitialLang() : 'ar'); } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      
+      // Update data-k elements
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) {
+          el.innerHTML = D[k][currentLang];
+        }
+      });
+      // Update active state in lang buttons
+      document.querySelectorAll('.lang-drop button[data-lang], .lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+
+    // Call on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      applyLang(currentLang);
+    });
+    applyLang(currentLang);
+
+    if (typeof _origSetLang === 'function') _origSetLang(currentLang);
+    /* تهيئة الصفحة: حقن الهيدر/الفوتر + ترجمة المحتوى */
+    injectLegalUI('privacy');
+    applyLang();
+  </script>
+</body>
+</html>

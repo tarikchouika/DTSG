@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <!-- [DTSG-BUILD] وسم النسخة الحية — التحقق من الكونسول: window.DTSG_BUILD -->
+  <script>window.DTSG_BUILD='v2.28.1';</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/admins.html">
+<meta name="description" content="شروط والقوانين المؤطرة للأدمنز — ألعاب الدكاء التقليدية الرقمية (DTSG): الصلاحيات، العمولات، السحب، الإحالة والانضباط">
+  <meta name="theme-color" content="#0b1526">
+  <title>ألعاب الدكاء التقليدية الرقمية — شروط وقوانين الأدمنز</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
+  <link rel="stylesheet" href="css/02-base.css?v=dtsg6">
+  <link rel="stylesheet" href="css/03-components.css?v=dtsg6">
+  <link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
+  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
+  <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+  <script>
+    (function () {
+      var t = 'dark';
+      try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+      if (t === 'radiant') document.documentElement.setAttribute('data-theme', 'radiant');
+    })();
+  </script>
+  <script src="js/i18n/auto-lang.js?v=dtsg6"></script>
+  <style>
+    /* ── نفس هوية الصفحات القانونية (about/terms) ── */
+    .legal-wrap { max-width: 860px; margin: 0 auto; padding: 34px 20px 60px; }
+    .legal-wrap .legal-icon {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 52px; height: 52px; border-radius: 14px;
+      background: var(--gg); color: #0b1526; font-size: 1.3rem; margin-bottom: 18px;
+    }
+    .legal-wrap h1 {
+      font-family: var(--font2, 'Orbitron'), sans-serif; font-weight: 900; font-size: 1.55rem;
+      margin: 0 0 8px; background: var(--gg);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .legal-wrap .updated { color: var(--t3); font-size: 0.78rem; margin-bottom: 28px; }
+    .legal-wrap h2 {
+      font-size: 1.05rem; font-weight: 800; color: var(--gold);
+      margin: 26px 0 8px; display: flex; align-items: center; gap: 9px;
+    }
+    .legal-wrap h2 i { color: var(--gold); }
+    .legal-wrap p, .legal-wrap li { color: var(--t2); font-size: 0.92rem; line-height: 1.85; }
+    .legal-wrap ul { padding-inline-start: 22px; margin: 8px 0; }
+    .legal-wrap .legal-note {
+      background: var(--bg2); border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28));
+      border-radius: 12px; padding: 14px 16px; margin: 18px 0;
+    }
+    .legal-wrap .legal-note b { color: var(--gold); }
+    .legal-wrap a { color: var(--gold); }
+    .comm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 12px 0 6px; }
+    .comm-card { background: var(--bg2); border: 1px solid var(--bd); border-radius: 12px; padding: 14px; text-align: center; }
+    .comm-card .rate {
+      font-family: var(--font2, 'Orbitron'), sans-serif; font-weight: 900; font-size: 1.5rem;
+      background: var(--gg); -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .comm-card .desc { color: var(--t2); font-size: 0.8rem; margin-top: 4px; line-height: 1.6; }
+    /* شريط اللغات أعلى الصفحة */
+  </style>
+</head>
+<body>
+  <article class="legal-content">
+    <main class="legal-wrap">
+    <div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></div>
+    <h1 data-k="ad.title">شروط والقوانين المؤطرة للأدمنز</h1>
+    <div class="updated" data-k="ad.updated">آخر تحديث: 1 شتنبر 2026</div>
+
+    <p data-k="ad.intro">هذه الصفحة تجمع كل المعلومات الخاصة بتعامل المنصة مع الأدمنز: الأدوار والصلاحيات، عمولات الشحن، قواعد استبدال الكوينز، سحب الأموال، رموز الإحالة، وقواعد الانضباط.</p>
+
+    <h2><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> <span data-k="ad.complaintTitle">التظلم والشكايات</span></h2>
+    <p data-k="ad.complaintP">يمكن لأي مستخدم في المنصة تقديم شكاية مباشرة للسوبر أدمن عبر الشات الخاص أو عبر قنوات التواصل الخاصة والموضحة في المنصة، بخصوص تظلم أو بخصوص قرار جائر أو ظالم اتُّخذ في حق المستخدم من طرف أحد الأدمنز. تُدرس كل شكاية وتُتخذ الإجراءات اللازمة حسب قواعد المنصة.</p>
+
+    <h2><i class="fa-solid fa-user-tie" aria-hidden="true"></i> <span data-k="ad.adminTitle">صلاحيات الأدمنز</span></h2>
+    <p data-k="ad.adminIntro">الأدمن هو وسيط المنصة المعتمد أمام العملاء: يسجلهم، يشحن حساباتهم، يستبدل كوينزهم بمال حقيقي، ويسهر على احترام قوانين المنصة. صلاحياته محددة بدقة فيما يلي:</p>
+    <ul>
+      <li data-k="ad.admin1"><b>إضافة حساب:</b> يمكنه تسجيل عميل جديد في المنصة. عند التسجيل يُدخل اسم المستخدم وكلمة المرور، ويسأل العميل الجديد عن رمز الإحالة إن وُجد ويُدخله في نموذج التسجيل حتى يستفيد صاحب الإحالة من هديته.</li>
+      <li data-k="ad.admin2"><b>شحن حساب:</b> يمكنه شحن حساب أي عميل مسجل في المنصة، سواء سُجّل من طرفه أو من طرف أدمن آخر. يستلم الأدمن المال الحقيقي من العميل (10 كوينز = 1 درهم) ثم يحوّل الكوينز لحسابه — ويشترط أن يكون رصيد الأدمن نفسه كافياً، إذ يُخصم مبلغ الشحن من رصيده فور التنفيذ ويُضاف فوراً لرصيد العميل.</li>
+      <li data-k="ad.admin3"><b>استبدال الكوينز بمال حقيقي:</b> لا يمكن للأدمن سحب الكوينز مباشرة من حساب العميل بأي حال. عندما يريد العميل استبدال كوينزه، يرسلها بنفسه للأدمن عبر خاصية «إرسال الكوينز» من حسابه الخاص، ثم يسلّمه الأدمن المال الحقيقي بالطريقة المتفق عليها (حوالة بنكية، كاش وجهاً لوجه، أو عملات رقمية). الأدمن ملزم بالحفاظ على دليل أو وصل لإرسال الأموال لكل عملية، وهذا الدليل هو المرجع المعتمد عند أي نزاع.</li>
+      <li data-k="ad.admin4"><b>الانضباط:</b> يمكنه توقيف أي لاعب عن التعليق الصوتي وعن المراسلة لمدة 24 ساعة أو أكثر إذا خالف قوانين المنصة (كلام نابٍ، عبارات هجومية أو جارحة، إخلال بالآداب العامة أو بخصوصية اللاعبين)، حسب قواعد المنصة. المدة قابلة للمضاعفة عند التكرار، ولا يملك الأدمن رفع التوقيف قبل انقضاء مدته — رفع التوقيف من اختصاص السوبر أدمن وحده.</li>
+    </ul>
+
+    <h2><i class="fa-solid fa-gift" aria-hidden="true"></i> <span data-k="ad.refTitle">رمز الإحالة المميز</span></h2>
+    <p data-k="ad.refP">لكل مسجل في المنصة رمز إحالة مميز خاص به يظهر في صفحة حسابه. عند دعوة شخص جديد للمنصة، يسلّم المحيل رمزه للمحال الجديد، ويقدمه هذا الأخير للأدمن الذي سيسجله قبل التسجيل. بذلك يستفيد صاحب الإحالة تلقائياً من هدية الإحالة: 10٪ من قيمة أول عملية شحن للمحال الجديد، حسب قواعد المنصة.</p>
+    <div class="legal-note"><b data-k="ad.refNoteT">واجب الأدمن:</b> <span data-k="ad.refNote">على الأدمن أن يسأل كل عميل جديد عن رمز الإحالة قبل تسجيله ويُدخله في نموذج التسجيل، حتى لا يضيع حق صاحب الإحالة في هديته.</span></div>
+
+    <h2><i class="fa-solid fa-hand-holding-dollar" aria-hidden="true"></i> <span data-k="ad.commTitle">عمولات الأدمنز</span></h2>
+    <p data-k="ad.commP">يستفيد الأدمنز بشكل مباشر من عمولة على عمليات الشحن التي يتجاوز سقفها:</p>
+    <div class="comm-grid">
+      <div class="comm-card"><div class="rate">25%</div><div class="desc" data-k="ad.comm1">من الشحن فوق 1000 درهم = 12500 كوينز</div></div>
+      <div class="comm-card"><div class="rate">30%</div><div class="desc" data-k="ad.comm2">من الشحن فوق 10000 درهم = 130000 كوينز</div></div>
+      <div class="comm-card"><div class="rate">35%</div><div class="desc" data-k="ad.comm3">من الشحن فوق 100000 درهم = 1350000 كوينز</div></div>
+      <div class="comm-card"><div class="rate">40%</div><div class="desc" data-k="ad.comm4">من الشحن فوق 1000000 درهم = 14000000 كوينز</div></div>
+    </div>
+
+    <h2><i class="fa-solid fa-money-bill-transfer" aria-hidden="true"></i> <span data-k="ad.wdTitle">سحب الأموال للأدمنز</span></h2>
+    <div class="legal-note"><p data-k="ad.wdP">يتم سحب الأموال بالنسبة للأدمنز باحتساب سعر الكوينز حسب السعر والشريحة التي تم بها الإيداع.</p></div>
+
+    <h2><i class="fa-solid fa-receipt" aria-hidden="true"></i> <span data-k="ad.proofTitle">الوصولات والأدلة</span></h2>
+    <p data-k="ad.proofP">في كل عملية استبدال كوينز بمال حقيقي، الأدمن ملزم بالاحتفاظ بوصل أو دليل إرسال الأموال للعميل (تحويل بنكي، وصل كاش موقّع، أو ما يعادلهما). عند أي نزاع، الدليل المحفوظ هو المرجع المعتمد لدى إدارة المنصة.</p>
+
+    <h2><i class="fa-solid fa-gavel" aria-hidden="true"></i> <span data-k="ad.discTitle">الانضباط وقواعد المنصة</span></h2>
+    <ul>
+      <li data-k="ad.disc1">يلتزم الأدمن بقوانين المنصة وشروطها العامة في جميع تعاملاته.</li>
+      <li data-k="ad.disc2">توقيف اللاعبين عن التعليق الصوتي والمراسلة يكون لمدة 24 ساعة على الأقل، قابلة للمضاعفة عند التكرار، حسب قواعد المنصة.</li>
+      <li data-k="ad.disc3">أي إخلال بهذه الشروط يعرّض الأدمن لسحب صلاحياته من طرف السوبر أدمن.</li>
+    </ul>
+
+    <p style="margin-top:26px">
+      <a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="ad.back">العودة للموقع</span></a>
+      <a class="btn ghost small" href="terms.html"><i class="fa-solid fa-file-contract" aria-hidden="true"></i> <span data-k="ad.terms">الشروط العامة</span></a>
+      <a class="btn ghost small" href="about.html"><i class="fa-solid fa-building-columns" aria-hidden="true"></i> <span data-k="ad.about">من نحن</span></a>
+    </p>
+    </main>
+  </article>
+
+  <script src="js/core/state.js?v=260902v197"></script>
+  <script src="js/core/api.js?v=dtsg6"></script>
+  <script src="js/core/audio.js?v=260902v197"></script>
+  <script src="js/core/utils.js?v=260902v197"></script>
+  <script src="js/i18n/translations.js?v=dtsg6"></script>
+  <script src="js/core/auth.js?v=dtsg6"></script>
+  <script src="js/ui/legal-ui.js?v=lu6"></script>
+  <script>
+    /* ── ترجمة المحتوى (AR / DA / FR / EN) — الدارجة عربية وتُعرض RTL ── */
+    var D = {
+      "ad.title": {
+        "ar": "شروط والقوانين المؤطرة للأدمنز",
+        "da": "الشروط والقوانين اللي كتأطر الأدمنز",
+        "fr": "Conditions et règles encadrant les admins",
+        "en": "Terms & Rules Governing Admins"
+      },
+      "ad.updated": {
+        "ar": "آخر تحديث: 1 شتنبر 2026",
+        "da": "آخر تحديث: 1 شتنبر 2026",
+        "fr": "Dernière mise à jour : 1er septembre 2026",
+        "en": "Last updated: September 1, 2026"
+      },
+      "ad.intro": {
+        "ar": "هذه الصفحة تجمع كل المعلومات الخاصة بتعامل المنصة مع الأدمنز: الأدوار والصلاحيات، عمولات الشحن، قواعد استبدال الكوينز، سحب الأموال، رموز الإحالة، وقواعد الانضباط.",
+        "da": "هاد الصفحة كتجمع كاع المعلومات الخاصة بتعامل المنصة مع الأدمنز: الأدوار والصلاحيات، عمولات الشحن، قواعد استبدال الكوينز، سحب الفلوس، أكواد الإحالة، وقواعد الانضباط.",
+        "fr": "Cette page regroupe toutes les informations relatives aux admins : rôles et permissions, commissions de recharge, règles d'échange des pièces, retraits, codes de parrainage et règles de discipline.",
+        "en": "This page gathers all information about how the platform works with admins: roles and permissions, top-up commissions, coin exchange rules, withdrawals, referral codes and discipline rules."
+      },
+      "ad.complaintTitle": {
+        "ar": "التظلم والشكايات",
+        "da": "التظلم والشكايات",
+        "fr": "Recours et plaintes",
+        "en": "Grievances and complaints"
+      },
+      "ad.complaintP": {
+        "ar": "يمكن لأي مستخدم في المنصة تقديم شكاية مباشرة للسوبر أدمن عبر الشات الخاص أو عبر قنوات التواصل الخاصة والموضحة في المنصة، بخصوص تظلم أو بخصوص قرار جائر أو ظالم اتُّخذ في حق المستخدم من طرف أحد الأدمنز. تُدرس كل شكاية وتُتخذ الإجراءات اللازمة حسب قواعد المنصة.",
+        "da": "أي مستخدم فالمنصة يقدر يقدم شكاية نيشان للسوبر أدمن عبر الشات الخاص ولا عبر قنوات التواصل الخاصة الموضحة فالمنصة، بخصوص تظلم ولا قرار جائر ولا ظالم تاخد فحقو من طرف شي أدمن. كل شكاية كتدرس وكتاخد الإجراءات اللازمة على حساب قواعد المنصة.",
+        "fr": "Tout utilisateur de la plateforme peut adresser une plainte directement au super admin via le chat privé ou via les canaux de contact dédiés indiqués sur la plateforme, concernant un recours ou une décision injuste ou abusive prise à son encontre par l'un des admins. Chaque plainte est examinée et les mesures nécessaires sont prises conformément aux règles de la plateforme.",
+        "en": "Any user of the platform can submit a complaint directly to the super admin via private chat or through the dedicated contact channels indicated on the platform, regarding a grievance or an unfair or unjust decision taken against them by one of the admins. Every complaint is reviewed and the necessary measures are taken per the platform rules."
+      },
+      "ad.adminTitle": {
+        "ar": "صلاحيات الأدمنز",
+        "da": "صلاحيات الأدمنز",
+        "fr": "Permissions des admins",
+        "en": "Admin permissions"
+      },
+      "ad.adminIntro": {
+        "ar": "الأدمن هو وسيط المنصة المعتمد أمام العملاء: يسجلهم، يشحن حساباتهم، يستبدل كوينزهم بمال حقيقي، ويسهر على احترام قوانين المنصة. صلاحياته محددة بدقة فيما يلي:",
+        "da": "الأدمن هو الوسيط المعتمد ديال المنصة قدام العملاء: كيسجلهم، كيشحن ليهم الحسابات، كيبدل ليهم الكوينز بالفلوس، وكيسهر على احترام قوانين المنصة. الصلاحيات ديالو محددة بالتفصيل هنا:",
+        "fr": "L'admin est l'intermédiaire agréé de la plateforme auprès des clients : il les enregistre, recharge leurs comptes, échange leurs pièces contre de l'argent réel et veille au respect des règles de la plateforme. Ses permissions sont précisément définies ci-dessous :",
+        "en": "The admin is the platform's accredited intermediary with clients: he registers them, tops up their accounts, exchanges their coins for real money, and ensures the platform rules are respected. His permissions are precisely defined below:"
+      },
+      "ad.admin1": {
+        "ar": "<b>إضافة حساب:</b> يمكنه تسجيل عميل جديد في المنصة. عند التسجيل يُدخل اسم المستخدم وكلمة المرور، ويسأل العميل الجديد عن رمز الإحالة إن وُجد ويُدخله في نموذج التسجيل حتى يستفيد صاحب الإحالة من هديته.",
+        "da": "<b>زيادة حساب:</b> يقدر يسجل عميل جديد فالمنصة. فالتسجيل كيدخل السمية والمودباس، وكيسول العميل الجديد على كود الإحالة إلا كان عندو وكيدخلو فنموذج التسجيل باش مول الإحالة ياخد الهدية ديالو.",
+        "fr": "<b>Ajout de compte :</b> il peut enregistrer un nouveau client sur la plateforme. Lors de l'inscription, il saisit le nom d'utilisateur et le mot de passe, demande au nouveau client son code de parrainage s'il en a un et le saisit dans le formulaire afin que le parrain reçoive son cadeau.",
+        "en": "<b>Add account:</b> he can register a new client on the platform. At registration he enters the username and password, asks the new client for a referral code if any, and enters it in the form so the referrer receives their gift."
+      },
+      "ad.admin2": {
+        "ar": "<b>شحن حساب:</b> يمكنه شحن حساب أي عميل مسجل في المنصة، سواء سُجّل من طرفه أو من طرف أدمن آخر. يستلم الأدمن المال الحقيقي من العميل (10 كوينز = 1 درهم) ثم يحوّل الكوينز لحسابه — ويشترط أن يكون رصيد الأدمن نفسه كافياً، إذ يُخصم مبلغ الشحن من رصيده فور التنفيذ ويُضاف فوراً لرصيد العميل.",
+        "da": "<b>شحن حساب:</b> يقدر يشحن حساب أي عميل مسجل فالمنصة، سواء تسجل من عندو ولا من عند أدمن آخر. الأدمن كياخد الفلوس الحقيقية من العميل (10 كوينز = 1 درهم) وكيحول ليه الكوينز — بشرط يكون الرصيد ديال الأدمن كافي، حيت مبلغ الشحن كيتخصم من رصيدو ديك الساع وكيتزاد فرصيد العميل ديك الساع.",
+        "fr": "<b>Recharge de compte :</b> il peut recharger le compte de tout client inscrit sur la plateforme, qu'il ait été enregistré par lui ou par un autre admin. L'admin reçoit l'argent réel du client (10 pièces = 1 dirham) puis lui transfère les pièces — à condition que son propre solde soit suffisant : le montant est déduit de son solde à l'exécution et crédité immédiatement sur le compte du client.",
+        "en": "<b>Account top-up:</b> he can top up the account of any client registered on the platform, whether registered by him or by another admin. The admin receives the real money from the client (10 coins = 1 dirham) then transfers the coins to their account — provided his own balance is sufficient: the amount is deducted from his balance upon execution and instantly credited to the client's account."
+      },
+      "ad.admin3": {
+        "ar": "<b>استبدال الكوينز بمال حقيقي:</b> لا يمكن للأدمن سحب الكوينز مباشرة من حساب العميل بأي حال. عندما يريد العميل استبدال كوينزه، يرسلها بنفسه للأدمن عبر خاصية «إرسال الكوينز» من حسابه الخاص، ثم يسلّمه الأدمن المال الحقيقي بالطريقة المتفق عليها (حوالة بنكية، كاش وجهاً لوجه، أو عملات رقمية). الأدمن ملزم بالحفاظ على دليل أو وصل لإرسال الأموال لكل عملية، وهذا الدليل هو المرجع المعتمد عند أي نزاع.",
+        "da": "<b>استبدال الكوينز بالفلوس:</b> الأدمن ما يقدرش يسحب الكوينز نيشان من حساب العميل بأي حال. ملي العميل بغا يبدل الكوينز ديالو، كيصيفطها هو بنفسو للأدمن بخاصية «إرسال الكوينز» من الحساب ديالو، ومن بعد الأدمن كيسلمو الفلوس الحقيقية بالطريقة اللي اتفقو عليها (حوالة بنكية، كاش وجه لوجه، ولا عملات رقمية). الأدمن ملزم يحتافظ بوصل ولا دليل ديال إرسال الفلوس فكل عملية، وهاد الدليل هو المرجع المعتمد فأي نزاع.",
+        "fr": "<b>Échange des pièces contre argent réel :</b> l'admin ne peut en aucun cas retirer les pièces directement du compte du client. Lorsque le client veut échanger ses pièces, il les envoie lui-même à l'admin via la fonction « Envoyer des pièces » depuis son propre compte, puis l'admin lui remet l'argent réel par le moyen convenu (virement bancaire, cash en personne, ou cryptomonnaies). L'admin est tenu de conserver une preuve ou un reçu de l'envoi des fonds pour chaque opération ; cette preuve fait foi en cas de litige.",
+        "en": "<b>Exchanging coins for real money:</b> the admin can never withdraw coins directly from the client's account. When the client wants to exchange their coins, they send them themselves to the admin via the \"Send Coins\" feature from their own account, then the admin hands over the real money by the agreed method (bank transfer, face-to-face cash, or crypto). The admin must keep a proof or receipt of the money transfer for every operation; this proof is the authoritative reference in any dispute."
+      },
+      "ad.admin4": {
+        "ar": "<b>الانضباط:</b> يمكنه توقيف أي لاعب عن التعليق الصوتي وعن المراسلة لمدة 24 ساعة أو أكثر إذا خالف قوانين المنصة (كلام نابٍ، عبارات هجومية أو جارحة، إخلال بالآداب العامة أو بخصوصية اللاعبين)، حسب قواعد المنصة. المدة قابلة للمضاعفة عند التكرار، ولا يملك الأدمن رفع التوقيف قبل انقضاء مدته — رفع التوقيف من اختصاص السوبر أدمن وحده.",
+        "da": "<b>الانضباط:</b> يقدر يوقف أي لعاب على التعليق الصوتي والمراسلة 24 ساعة ولا كثر إلا خالف قوانين المنصة (كلام قبيح، عبارات هجومية ولا جارحة، إخلال بالآداب العامة ولا بخصوصية اللعابة)، على حساب قواعد المنصة. المدة كتضاعف مع التكرار، والأدمن ما يقدرش يحيد التوقيف قبل ما تسالي المدة — رفع التوقيف من اختصاص السوبر أدمن بوحدو.",
+        "fr": "<b>Discipline :</b> il peut suspendre tout joueur du commentaire vocal et de la messagerie pendant 24 heures ou plus s'il enfreint les règles de la plateforme (propos grossiers, expressions agressives ou blessantes, atteinte aux bonnes mœurs ou à la vie privée des joueurs), conformément aux règles de la plateforme. La durée est doublée en cas de récidive, et l'admin ne peut pas lever la suspension avant son échéance — seule le super admin peut la lever.",
+        "en": "<b>Discipline:</b> he can suspend any player from voice comments and messaging for 24 hours or more if they violate the platform rules (foul language, aggressive or hurtful expressions, breach of public decency or player privacy), per the platform rules. The duration doubles upon repetition, and the admin cannot lift the suspension before it expires — only the super admin can lift it."
+      },
+      "ad.refTitle": { "ar": "رمز الإحالة المميز", "da": "كود الإحالة المميز", "fr": "Le code de parrainage unique", "en": "The unique referral code" },
+      "ad.refP": {
+        "ar": "لكل مسجل في المنصة رمز إحالة مميز خاص به يظهر في صفحة حسابه. عند دعوة شخص جديد للمنصة، يسلّم المحيل رمزه للمحال الجديد، ويقدمه هذا الأخير للأدمن الذي سيسجله قبل التسجيل. بذلك يستفيد صاحب الإحالة تلقائياً من هدية الإحالة: 10٪ من قيمة أول عملية شحن للمحال الجديد، حسب قواعد المنصة.",
+        "da": "كل واحد مسجل فالمنصة عندو كود إحالة مميز ديالو كيبان فصفحة الحساب ديالو. ملي كيدعي شي واحد جديد للمنصة، كيعطيه الكود ديالو، وهاد الجديد كيقدمو للأدمن اللي غادي يسجلو قبل التسجيل. هكاك مول الإحالة كياخد أوتوماتيكياً هدية الإحالة: 10٪ من قيمة أول شحن ديال المحال الجديد، على حساب قواعد المنصة.",
+        "fr": "Chaque inscrit sur la plateforme possède un code de parrainage unique visible sur la page de son compte. Lorsqu'il invite une nouvelle personne, le parrain lui remet son code, et celle-ci le présente à l'admin qui l'enregistrera, avant l'inscription. Le parrain bénéficie ainsi automatiquement du cadeau de parrainage : 10 % de la valeur de la première recharge du nouveau filleul, selon les règles de la plateforme.",
+        "en": "Every registered member of the platform has a unique referral code shown on their account page. When inviting someone new, the referrer hands them their code, and the newcomer gives it to the admin who will register them, before registration. The referrer thus automatically receives the referral gift: 10% of the value of the new referee's first top-up, per the platform rules."
+      },
+      "ad.refNoteT": { "ar": "واجب الأدمن:", "da": "الواجب ديال الأدمن:", "fr": "Devoir de l'admin :", "en": "Admin's duty:" },
+      "ad.refNote": {
+        "ar": "على الأدمن أن يسأل كل عميل جديد عن رمز الإحالة قبل تسجيله ويُدخله في نموذج التسجيل، حتى لا يضيع حق صاحب الإحالة في هديته.",
+        "da": "خاص الأدمن يسول كل عميل جديد على كود الإحالة قبل ما يسجلو ويدخلو فنموذج التسجيل، باش ما يضيعش الحق ديال مول الإحالة فالهدية ديالو.",
+        "fr": "L'admin doit demander à chaque nouveau client son code de parrainage avant de l'enregistrer et le saisir dans le formulaire d'inscription, afin que le parrain ne perde pas son droit au cadeau.",
+        "en": "The admin must ask every new client for a referral code before registering them and enter it in the registration form, so the referrer does not lose their right to the gift."
+      },
+      "ad.commTitle": { "ar": "عمولات الأدمنز", "da": "عمولات الأدمنز", "fr": "Commissions des admins", "en": "Admin commissions" },
+      "ad.commP": {
+        "ar": "يستفيد الأدمنز بشكل مباشر من عمولة على عمليات الشحن التي يتجاوز سقفها:",
+        "da": "الأدمنز كيستافدو نيشان من عمولة على عمليات الشحن اللي كيتجاوز سقفها:",
+        "fr": "Les admins bénéficient directement d'une commission sur les recharges dépassant le seuil suivant :",
+        "en": "Admins benefit directly from a commission on top-ups above the following thresholds:"
+      },
+      "ad.comm1": { "ar": "من الشحن فوق 1000 درهم = 12500 كوينز", "da": "من الشحن فوق 1000 درهم = 12500 كوينز", "fr": "sur les recharges au-delà de 1 000 DH = 12 500 pièces", "en": "on top-ups above 1,000 MAD = 12,500 coins" },
+      "ad.comm2": { "ar": "من الشحن فوق 10000 درهم = 130000 كوينز", "da": "من الشحن فوق 10000 درهم = 130000 كوينز", "fr": "sur les recharges au-delà de 10 000 DH = 130 000 pièces", "en": "on top-ups above 10,000 MAD = 130,000 coins" },
+      "ad.comm3": { "ar": "من الشحن فوق 100000 درهم = 1350000 كوينز", "da": "من الشحن فوق 100000 درهم = 1350000 كوينز", "fr": "sur les recharges au-delà de 100 000 DH = 1 350 000 pièces", "en": "on top-ups above 100,000 MAD = 1,350,000 coins" },
+      "ad.comm4": { "ar": "من الشحن فوق 1000000 درهم = 14000000 كوينز", "da": "من الشحن فوق 1000000 درهم = 14000000 كوينز", "fr": "sur les recharges au-delà de 1 000 000 DH = 14 000 000 pièces", "en": "on top-ups above 1,000,000 MAD = 14,000,000 coins" },
+      "ad.wdTitle": { "ar": "سحب الأموال للأدمنز", "da": "سحب الفلوس للأدمنز", "fr": "Retrait des fonds pour les admins", "en": "Fund withdrawals for admins" },
+      "ad.wdP": {
+        "ar": "يتم سحب الأموال بالنسبة للأدمنز باحتساب سعر الكوينز حسب السعر والشريحة التي تم بها الإيداع.",
+        "da": "بالنسبة للأدمنز، سحب الفلوس كيتم باحتساب تمن الكوينز على حساب الشريحة اللي تدار بيها الإيداع.",
+        "fr": "Pour les administrateurs, le retrait des fonds est calculé sur la base du taux et du palier de pièces auquel le dépôt a été effectué.",
+        "en": "For admins, fund withdrawals are calculated based on the coin conversion rate and tier at which the deposit was made."
+      },
+      "ad.proofTitle": { "ar": "الوصولات والأدلة", "da": "الوصولات والأدلة", "fr": "Reçus et preuves", "en": "Receipts and proofs" },
+      "ad.proofP": {
+        "ar": "في كل عملية استبدال كوينز بمال حقيقي، الأدمن ملزم بالاحتفاظ بوصل أو دليل إرسال الأموال للعميل (تحويل بنكي، وصل كاش موقّع، أو ما يعادلهما). عند أي نزاع، الدليل المحفوظ هو المرجع المعتمد لدى إدارة المنصة.",
+        "da": "فكل عملية استبدال كوينز بالفلوس، الأدمن ملزم يحتافظ بوصل ولا دليل ديال إرسال الفلوس للعميل (تحويل بنكي، وصل كاش موقع، ولا اللي كيعادلهم). فأي نزاع، الدليل المحفوظ هو المرجع المعتمد عند إدارة المنصة.",
+        "fr": "Pour chaque échange de pièces contre de l'argent réel, l'admin est tenu de conserver un reçu ou une preuve de l'envoi des fonds au client (virement bancaire, reçu cash signé, ou équivalent). En cas de litige, la preuve conservée fait foi auprès de l'administration de la plateforme.",
+        "en": "For every exchange of coins for real money, the admin must keep a receipt or proof of the money sent to the client (bank transfer, signed cash receipt, or equivalent). In any dispute, the kept proof is the authoritative reference for the platform administration."
+      },
+      "ad.discTitle": { "ar": "الانضباط وقواعد المنصة", "da": "الانضباط وقواعد المنصة", "fr": "Discipline et règles de la plateforme", "en": "Discipline and platform rules" },
+      "ad.disc1": {
+        "ar": "يلتزم الأدمن بقوانين المنصة وشروطها العامة في جميع تعاملاته.",
+        "da": "الأدمن ملزم بقوانين المنصة والشروط العامة ديالها فكاع التعاملات ديالو.",
+        "fr": "L'admin respecte les règles de la plateforme et ses conditions générales dans toutes ses opérations.",
+        "en": "The admin abides by the platform rules and general terms in all his dealings."
+      },
+      "ad.disc2": {
+        "ar": "توقيف اللاعبين عن التعليق الصوتي والمراسلة يكون لمدة 24 ساعة على الأقل، قابلة للمضاعفة عند التكرار، حسب قواعد المنصة.",
+        "da": "توقيف اللعابة على التعليق الصوتي والمراسلة كيكون 24 ساعة على الأقل، وكيتضاعف مع التكرار، على حساب قواعد المنصة.",
+        "fr": "La suspension des joueurs du commentaire vocal et de la messagerie est d'au moins 24 heures, doublée en cas de récidive, selon les règles de la plateforme.",
+        "en": "Player suspension from voice comments and messaging lasts at least 24 hours, doubled upon repetition, per the platform rules."
+      },
+      "ad.disc3": {
+        "ar": "أي إخلال بهذه الشروط يعرّض الأدمن لسحب صلاحياته من طرف السوبر أدمن.",
+        "da": "أي إخلال بهاد الشروط كيعرض الأدمن لسحب الصلاحيات ديالو من طرف السوبر أدمن.",
+        "fr": "Tout manquement à ces conditions expose l'admin au retrait de ses permissions par le super admin.",
+        "en": "Any breach of these terms exposes the admin to having his permissions revoked by the super admin."
+      },
+      "ad.back": { "ar": "العودة للموقع", "da": "الرجوع للموقع", "fr": "Retour au site", "en": "Back to site" },
+      "ad.terms": { "ar": "الشروط العامة", "da": "الشروط العامة", "fr": "Conditions générales", "en": "General terms" },
+      "ad.about": { "ar": "من نحن", "da": "من حنا", "fr": "À propos", "en": "About us" }
+    };
+
+    var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || 'ar'; } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      /* الدارجة المغربية عربية: تُكتب من اليمين إلى اليسار مثل الفصحى */
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) el.innerHTML = D[k][currentLang];
+      });
+      document.querySelectorAll('.lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+    /* تهيئة الصفحة: حقن الهيدر/الفوتر الموحد ثم ترجمة المحتوى */
+    if (typeof injectLegalUI === 'function') injectLegalUI('admins');
+    applyLang(currentLang);
+  </script>
+</body>
+</html>
