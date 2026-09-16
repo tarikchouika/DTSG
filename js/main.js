@@ -3,6 +3,10 @@
    Initialization, Rendering, Navigation
    ═══════════════════════════════════════════ */
 "use strict";
+/* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
+   يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
+window.DTSG_BUILD = 'v2.28.1';
+try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
 const GAME_IMG = {
@@ -36,7 +40,7 @@ function tileHTML(g) {
         /* [TileImg 2026-09-13] eager (بلا lazy): إعادة بناء innerHTML في filterG/renderGames
            كانت تستبدل البطاقات قبل بدء تحميل lazy (خارج viewport/صفحة مخفية) فتُفقد
            الصور نهائياً — البطاقات صغيرة (4-9KB) فالتحميل الفوري أرخص وأضمن */
-        '<img src="assets/games/' + img + '/icon.webp" alt="" ' +
+        '<img src="assets/games/' + img + '/icon.webp?v=228" alt="" ' +
         'onerror="var p=this.parentNode;this.remove();if(p)p.classList.remove(\'hasimg\');">' +
       '</div>'
     : '<div class="art ' + g.art + '" aria-hidden="true">' + g.em + '</div>';
