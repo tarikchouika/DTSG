@@ -62,8 +62,7 @@
     },
 
     _toast(msg, kind) {
-      const p = this._platform();
-      if (p.toast) { try { root.toast(msg, kind); return; } catch (e) {} }
+      /* [v2.28] توست محلي داخل المسرح دائماً — توست المنصة كان يتكدس فوق الطاولة */
       const t = document.getElementById('dmToast');
       if (t) {
         t.textContent = msg;
@@ -451,6 +450,27 @@
         passBtn.hidden = !(humanTurn && !this.game.hasAnyMove(view.turn) &&
           (view.boneyardCount === 0 || !view.cfg.drawUntilPlayable));
       }
+
+      /* [v2.28 Self-Heal] شبكة أمان ضد التجمد:
+         1) busy علقت أكثر من 4ث (استثناء/سباق غير متوقع) → تُفك.
+         2) الدور للبوت ولم يُجدول (فات نداء kickAI/flow في مسار ما) → يُجدول مرة. */
+      const shState = this.game && this.game.state;
+      if (shState && shState.phase === 'play') {
+        if (this.busy) {
+          if (!this._busyAt) this._busyAt = Date.now();
+          else if (Date.now() - this._busyAt > 4000) { this.busy = false; this._busyAt = 0; }
+        } else this._busyAt = 0;
+        const botDrive = (!this.room && this.config.mode === 'ai') || (this.room && this.room.on && this.room.oppBot);
+        if (botDrive && shState.turn === 1 && !this.busy && !this._kickPend) {
+          this._kickPend = true;
+          this.later(() => {
+            this._kickPend = false;
+            if (!this.game || !this.game.state || this.game.state.phase !== 'play' || this.game.state.turn !== 1) return;
+            if (this.room && this.room.on && root.DOMINO_ROOM) root.DOMINO_ROOM.flow();
+            else this.kickAI();
+          }, 900);
+        }
+      }
     },
 
     /* ═══════════ تفاعل اللاعب 1 (أسفل) ═══════════ */
@@ -727,6 +747,8 @@
             root.recordRound(!!(iWon && payout > 0), payout, T(iWon ? 'dm.won' : 'dm.lost'), this.betPlaced, 'do');
           }
         } catch (e) {}
+        /* [BotsLedger v2.28] مؤشر المنصة: +الرهان عند خسارة بشري، الرهان−المدفوع عند فوزه */
+        try { if (root.BotsLedger) root.BotsLedger.record('do', iWon ? this.betPlaced - payout : this.betPlaced); } catch (e) {}
       }
       this.$('dmMatchAmt').innerHTML = (isAI && payout)
         ? '<span class="plus">+' + payout + '</span> <i class="fa-solid fa-coins" aria-hidden="true"></i>'
