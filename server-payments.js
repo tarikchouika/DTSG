@@ -51,6 +51,7 @@ function initPaymentsTables(db) {
       since TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  try { db.exec('ALTER TABLE users ADD COLUMN telegram_id TEXT'); } catch (e) { /* موجود */ }
   const vAlters = [
     "ALTER TABLE pay_vouchers ADD COLUMN kind TEXT DEFAULT 'std'",
     'ALTER TABLE pay_vouchers ADD COLUMN coins INTEGER DEFAULT 0',
@@ -78,6 +79,12 @@ function d1shim(db) {
 let CTX = null; /* { db, users, sessions, shim } */
 function setContext(db, users, sessions) {
   CTX = { db: db, users: users, sessions: sessions || {}, shim: d1shim(db) };
+}
+function creditGoldLocal(userId, coins) {
+  const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
+  if (!u || !(coins > 0)) return;
+  u.gold = (u.gold || 0) + Math.round(coins);
+  try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
 }
 /* دور الجلسة الحالية (لكوبونات لوحة السوبر أدمن) */
 function roleOfRequest(req) {
@@ -113,14 +120,52 @@ function buildEnv(req) {
     CIH_ACCOUNT: e.CIH_ACCOUNT || '6904085211014200',
     CIH_RIB: e.CIH_RIB || '230 815 6904085211014200 24',
     CIH_IBAN: e.CIH_IBAN || 'MA64 2308 1569 0408 5211 0142 0024',
+    BINANCE_TRC20: e.BINANCE_TRC20 || 'TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ',
     CIH_SWIFT: e.CIH_SWIFT || 'CIHMMAMC',
-    /* [Codes] شحن كوينز مباشر (أكواد التعبئة بالبونص) */
-    __creditGold: function (userId, coins) {
-      const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
-      if (!u || !(coins > 0)) return;
-      u.gold = (u.gold || 0) + Math.round(coins);
-      try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
+    /* [Schema-bridge] خطافات مخطط المنصة (users: gold بلا balance_usd) */
+    __rate: function () { return Number(process.env.USD_GOLD_RATE || 100); },
+    __findUserRow: function (id) {
+      try { return CTX.db.prepare('SELECT id, username, gold, telegram_id FROM users WHERE id = ?').get(Number(id)) || null; } catch (e) { return null; }
     },
+    __setTelegram: function (id, chat) {
+      try { CTX.db.prepare('UPDATE users SET telegram_id = ? WHERE id = ?').run(String(chat), Number(id)); } catch (e) {}
+      const u = CTX.users[Number(id)]; if (u) u.telegram_id = String(chat);
+    },
+    __getTelegram: function (id) {
+      const u = CTX.users[Number(id)];
+      if (u && u.telegram_id) return u.telegram_id;
+      try { const row = CTX.db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(Number(id)); return row ? row.telegram_id : null; } catch (e) { return null; }
+    },
+    __findByTelegram: function (chat) {
+      try {
+        const row = CTX.db.prepare('SELECT id, username, gold FROM users WHERE telegram_id = ?').get(String(chat));
+        if (!row) return null;
+        const rate = Number(process.env.USD_GOLD_RATE || 100);
+        return { id: String(row.id), usd: Math.round((row.gold / rate) * 100) / 100, coins: row.gold };
+      } catch (e) { return null; }
+    },
+    __balance: function (id) {
+      const u = CTX.users[Number(id)];
+      const gold = u ? (u.gold || 0) : 0;
+      if (!u) return null;
+      const rate = Number(process.env.USD_GOLD_RATE || 100);
+      return { usd: Math.round((gold / rate) * 100) / 100, coins: gold };
+    },
+    __creditUsd: function (id, usd) {
+      const rate = Number(process.env.USD_GOLD_RATE || 100);
+      creditGoldLocal(id, Math.round(Number(usd) * rate));
+    },
+    __debitUsd: function (id, usd) {
+      const rate = Number(process.env.USD_GOLD_RATE || 100);
+      const coins = Math.round(Number(usd) * rate);
+      const u = CTX.users[Number(id)];
+      if (!u || (u.gold || 0) < coins) return false;
+      u.gold -= coins;
+      try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+      return true;
+    },
+    /* [Codes] شحن كوينز مباشر (أكواد التعبئة بالبونص) */
+    __creditGold: function (userId, coins) { creditGoldLocal(userId, coins); },
     __authRole: function (req) { return roleOfRequest(req); },
     /* شحن الذهب مباشرة في نفس القاعدة عند اكتمال إيداع */
     __platformCredit: function (userId, usd) {

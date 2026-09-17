@@ -2173,3 +2173,142 @@ box-shadow: 0 0 22px rgba(217, 180, 92, 0.45);
 .setup-screen.gsetup-card .ctext, #pg-game .gsetup-card .ctext { color: #cbbfa4; font-weight: 700; }
 .setup-screen.gsetup-card .pr-mode-desc, #pg-game .gsetup-card .pr-mode-desc { color: #b7a68c; }
 
+
+/* ════════════════════════════════════════════════════════════════
+   [GSet-Unify v2.38] توحيد احترافي لخانات نوافذ إعدادات الألعاب
+   (فلات دوغ، الروندا، الرامي، البارتشي، الشطرنج، الضاما، البلياردو×5،
+    الدومينو، الطاولة) — هوية ذهبية/كحلية واحدة مع بقاء خصوصية كل لعبة.
+   ════════════════════════════════════════════════════════════════ */
+.dama-setup select, .setup-screen select, .rd-menu-card select,
+.rami-setup-modal select, .bl-look select,
+select.rami-custom-select, select#blCloth, select#blRailSel {
+  appearance: none; -webkit-appearance: none;
+  background: linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--ctl-bd);
+  color: #eef2f9; border-radius: 12px;
+  min-height: 42px; padding: 8px 14px;
+  font: inherit; font-size: .95rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+  transition: border-color .18s, box-shadow .18s;
+}
+.dama-setup select:focus, .setup-screen select:focus, .rd-menu-card select:focus,
+.rami-setup-modal select:focus, select.rami-custom-select:focus {
+  outline: none; border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(217,180,92,.18);
+}
+/* الخانات الرقمية (رهان/مؤقت) — موحّدة الشكل وإن أخفيت */
+.dama-setup input[type=number], .setup-screen input[type=number],
+.rd-menu-card input[type=number], .rami-setup-modal input[type=number],
+.rd-bet-input, .dm-betinput, .bw-betinput, .rami-bet-input, .bet-input {
+  background: linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--ctl-bd);
+  color: var(--gold2, #f2d489); border-radius: 12px;
+  min-height: 42px; padding: 8px 12px; text-align: center;
+  font: inherit; font-weight: 700; font-size: 1rem;
+  transition: border-color .18s, box-shadow .18s;
+}
+.dama-setup input[type=number]:focus, .setup-screen input[type=number]:focus,
+.rd-menu-card input[type=number]:focus, .rami-setup-modal input[type=number]:focus {
+  outline: none; border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(217,180,92,.18);
+}
+/* أزرار الشرائح/القطع (chips/segments) — قرص ذهبي موحّد */
+.dama-chip, .dm-segbtn, .bw-segbtn, .pr-chip, .rd-timer-btn, .bbtn,
+.dm-betbtn, .bw-betbtn {
+  background: linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 1px solid var(--ctl-bd); color: #dfe6f2;
+  border-radius: 999px; min-height: 38px; padding: 7px 14px;
+  font: inherit; font-size: .9rem; cursor: pointer;
+  transition: all .18s;
+}
+.dama-chip:hover, .dm-segbtn:hover, .bw-segbtn:hover, .pr-chip:hover,
+.rd-timer-btn:hover, .bbtn:hover, .dm-betbtn:hover, .bw-betbtn:hover {
+  border-color: var(--gold); color: var(--gold2, #f2d489);
+}
+.dama-chip.on, .dm-segbtn.selected, .bw-segbtn.selected, .pr-chip.on, .rd-timer-btn.on {
+  background: linear-gradient(180deg, var(--gold2, #f2d489), var(--gold));
+  border-color: var(--gold); color: #20180a; font-weight: 800;
+  box-shadow: 0 2px 10px rgba(217,180,92,.35);
+}
+/* عناوين الحقول موحّدة */
+.dama-flab, .dm-flabel, .bw-flabel, .rami-field-label, .rd-menu-label, .ctext {
+  color: var(--gold, #d9b45c); font-size: .82rem; letter-spacing: .3px;
+}
+/* تلميح «تدريب مجاني» */
+.gset-free {
+  color: #9fb1cc; font-size: .82rem; line-height: 1.6;
+  background: rgba(217,180,92,.07);
+  border: 1px dashed rgba(217,180,92,.35);
+  border-radius: 12px; padding: 8px 12px; text-align: center;
+}
+.gset-free.inline { padding: 4px 10px; display: inline-block; }
+.gset-free-row { justify-content: center; }
+.fd-free-side {
+  color: #9fb1cc; font-size: .78rem; text-align: center;
+  border: 1px dashed rgba(217,180,92,.35); border-radius: 10px;
+  padding: 6px 8px; background: rgba(217,180,92,.07);
+}
+/* راحة بصرية: بورتريه ولاندسكيب */
+@media (max-width: 480px) {
+  .dama-setup, .setup-screen, .rd-menu-card, .rami-setup-modal { padding: 14px 12px; }
+  .dama-chip, .dm-segbtn, .bw-segbtn { min-height: 36px; padding: 6px 12px; }
+}
+@media (orientation: landscape) and (max-height: 480px) {
+  .dama-setup, .setup-screen, .rd-menu-card, .rami-setup-modal {
+    max-height: 92vh; overflow-y: auto; padding: 10px 14px;
+  }
+  .dama-setup select, .setup-screen select,
+  .dama-setup input[type=number], .setup-screen input[type=number] { min-height: 36px; }
+  .dama-title { font-size: 1.05rem; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   [GSet-Ref v2.39] توحيد خانات نوافذ الإعدادات بأسلوب بطاقة روندا
+   الكلاسيكية: بطاقة حقل بحد ذهبي رفيع + عنوان ذهبي صغير بخط فاصل،
+   مع الحفاظ على خلفية/خصوصية كل لعبة (لبدة دومينو، جوز الطاولة…).
+   ════════════════════════════════════════════════════════════════ */
+.dama-setup, .setup-screen, .rami-setup-modal { position: relative; }
+.dama-setup::before, .setup-screen::before, .rami-setup-modal::before {
+  content: ""; position: absolute; inset: 6px;
+  border: 1px solid rgba(226,184,87,.25); border-radius: 12px;
+  pointer-events: none;
+}
+.dama-field, .dm-field, .bw-field, .rami-field,
+#parchisiSetup .bets, .rd-menu-section {
+  background: rgba(11,21,38,.45);
+  border: 1px solid rgba(226,184,87,.35);
+  border-radius: 14px;
+  padding: 10px 12px; margin-bottom: 10px;
+  text-align: start;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.dama-flab, .dm-flabel, .bw-flabel, .rami-field-label, .rd-menu-label {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 6px; font-size: .78rem; font-weight: 800; letter-spacing: 1px;
+}
+.dama-flab::after, .dm-flabel::after, .bw-flabel::after,
+.rami-field-label::after, .rd-menu-label::after {
+  content: ""; flex: 1; height: 1px;
+  background: linear-gradient(to left, rgba(226,184,87,.45), transparent);
+}
+[dir="ltr"] .dama-flab::after, [dir="ltr"] .dm-flabel::after,
+[dir="ltr"] .bw-flabel::after, [dir="ltr"] .rami-field-label::after,
+[dir="ltr"] .rd-menu-label::after {
+  background: linear-gradient(to right, rgba(226,184,87,.45), transparent);
+}
+/* أزرار البدء الرئيسية — تدرج ذهبي موحد كزر روندا */
+.dama-go, .dm-go, .bw-go, .rami-start-btn, #parchisiSetup .big, .rd-btn-primary {
+  background: linear-gradient(180deg, var(--gold2, #f2d489), var(--gold, #d9b45c));
+  border: 1px solid var(--gold, #d9b45c);
+  color: #20180a; font-weight: 900; border-radius: 12px;
+  min-height: 46px; width: 100%;
+  box-shadow: 0 4px 18px rgba(217,180,92,.35), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.dama-go:hover, .dm-go:hover, .bw-go:hover, .rami-start-btn:hover,
+#parchisiSetup .big:hover, .rd-btn-primary:hover { filter: brightness(1.06); }
+/* زر الغرف أونلاين يبقى مميزاً لكن متناسقاً */
+.ch-online {
+  background: linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 1px solid rgba(226,184,87,.5); color: var(--gold2, #f2d489);
+  border-radius: 12px; min-height: 46px; width: 100%; font-weight: 800;
+}

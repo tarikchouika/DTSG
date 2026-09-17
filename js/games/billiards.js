@@ -70,9 +70,10 @@ function eBilliards(g) {
         '<div class="dama-field"><div class="dama-flab">⏱ ' + T('bl.turnTimer') + '</div>' +
           '<div class="dama-pick" id="blTimerPick"></div>' +
         '</div>' +
-        '<div class="dama-field"><div class="dama-flab">' + T('chess.roomBet') + '</div>' +
+        '<div class="dama-field" id="blBetField" hidden><div class="dama-flab">' + T('chess.roomBet') + '</div>' +
           '<div class="dama-pick" id="blBet">' + betChips + '</div>' +
         '</div>' +
+        '<div class="dama-pay ch-hint">🎓 ' + (T('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط') + '</div>' +
         '<div class="dama-field"><div class="dama-flab">' + T('bl.appearance') + '</div>' +
           '<div class="bl-look">' +
             '<select id="blCloth" onchange="billiardsLook()">' + clothOpts + '</select>' +

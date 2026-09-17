@@ -64,7 +64,7 @@ window.DMN_HTML = (function () {
           '</div>' +
         '</div>' +
 
-        '<div class="dm-field" id="dmBetField">' +
+        '<div class="dm-field" id="dmBetField" hidden>' +
           '<div class="dm-flabel" data-i18n="dm.bet">الرهان</div>' +
           '<div class="dm-betrow">' +
             '<button type="button" class="dm-betbtn" data-betstep="-10" aria-label="−">−</button>' +
@@ -74,6 +74,7 @@ window.DMN_HTML = (function () {
           '</div>' +
           '<div class="dm-bethint" id="dmBetHint" data-i18n="dm.bet.hint"></div>' +
         '</div>' +
+        '<div class="dm-field"><div class="gset-free" data-i18n="ui.trainingFree">🎓 تدريب مجاني بدون رهان — يُحدَّد الرهان في إعدادات الغرف أونلاين</div></div>' +
 
         '<button type="button" class="dm-go" id="dmStartBtn"><i class="fa-solid fa-trophy" aria-hidden="true"></i> <span data-i18n="dm.start">ابدأ المباراة</span></button>' +
         '<button type="button" class="dm-resume" id="dmResumeBtn" hidden><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-i18n="dm.resume">استئناف المباراة</span></button>' +

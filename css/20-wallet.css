@@ -2,7 +2,7 @@
    DTSG — المحفظة: شحن / سحب / كوبونات / سجل  [Payments 2026-09-16]
    ════════════════════════════════════════════════════════════════ */
 #walletOverlay {
-  position: fixed; inset: 0; z-index: 96;
+  position: fixed; inset: 0; z-index: 1200; /* [Mobile-fix] فوق الهيدر (200) كي يظهر زر الإغلاق */
   background: rgba(4, 10, 18, .62); backdrop-filter: blur(6px);
   display: flex; align-items: flex-end; justify-content: center;
 }

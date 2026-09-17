@@ -15,11 +15,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" ref="no-referrer">
-<link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
-<link rel="stylesheet" href="css/02-base.css?v=dtsg6">
-<link rel="stylesheet" href="css/03-components.css?v=dtsg6">
-<link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
-<link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
+<link rel="stylesheet" href="css/01-variables.css?v=dtsg7">
+<link rel="stylesheet" href="css/02-base.css?v=dtsg7">
+<link rel="stylesheet" href="css/03-components.css?v=dtsg7">
+<link rel="stylesheet" href="css/07-responsive.css?v=dtsg7">
+<link rel="stylesheet" href="css/09-chrome.css?v=dtsg7">
 <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
 <script>
 (function () {
@@ -28,7 +28,7 @@ try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
 if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radiant'); }
 })();
 </script>
-<script src="js/i18n/auto-lang.js?v=dtsg6"></script>
+<script src="js/i18n/auto-lang.js?v=dtsg7"></script>
 <style>
 /* ── Legal content layout (header/footer provided by legal-ui.js) ── */
 .legal-wrap { max-width: 860px; margin: 0 auto; padding: 34px 20px 60px; }
@@ -48,6 +48,8 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 .legal-wrap .pay-steps { background: var(--bg2); border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28)); border-radius: 12px; padding: 12px 16px; margin: 10px 0; }
 .legal-wrap .pay-steps h3 { margin: 4px 0 6px; color: var(--t1, #eaf2ff); font-size: .98rem; }
 .legal-wrap .st { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: var(--gg); color: #0b1526; font-weight: 800; font-size: .75rem; margin-inline-end: 6px; }
+.legal-wrap .qr-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.legal-wrap .qr-row img { width: 132px; height: 132px; border-radius: 14px; border: 1px solid rgba(217,180,92,.5); background: #f2d489; padding: 6px; }
 </style>
 </head>
 <body>
@@ -62,60 +64,93 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 <h2><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> <span data-k="refund.depTitle">طرق شحن الرصيد</span></h2>
 
 <div class="pay-steps">
-<h3>🪙 1) الكريبتو — تلقائي 100% (عبر Cryptomus)</h3>
+<h3 data-k="refund.c1t">🪙 1) الكريبتو — تلقائي 100% (عبر Cryptomus)</h3>
 <ol>
-<li><span class="st">1</span> افتح المحفظة ← «شحن» ← اختر «كريبتو».</li>
-<li><span class="st">2</span> أدخل المبلغ بالدولار ← تظهر لك عنوان الدفع وصفحة Cryptomus الرسمية.</li>
-<li><span class="st">3</span> حوِّل المبلغ (USDT/BTC…)؛ يُشحن رصيدك <b>تلقائياً</b> فور تأكيد الشبكة، ويصلك إشعار.</li>
+<li><span class="st">1</span> <span data-k="refund.c1s1">افتح المحفظة ← «شحن» ← اختر «كريبتو».</span></li>
+<li><span class="st">2</span> <span data-k="refund.c1s2">أدخل المبلغ بالدولار ← تظهر لك عنوان الدفع وصفحة Cryptomus الرسمية.</span></li>
+<li><span class="st">3</span> <span data-k="refund.c1s3">حوِّل المبلغ (USDT/BTC…)؛ يُشحن رصيدك <b>تلقائياً</b> فور تأكيد الشبكة، ويصلك إشعار.</span></li>
 </ol>
 </div>
 
 <div class="pay-steps">
-<h3>💵 2) Cash Plus — تحويل محلي بالمغرب (مراجعة يدوية سريعة)</h3>
+<h3 data-k="refund.c2t">💵 2) Cash Plus — تحويل محلي بالمغرب (مراجعة يدوية سريعة)</h3>
 <ol>
-<li><span class="st">1</span> افتح المحفظة ← «شحن» ← «Cash Plus»: يظهر لك اسم ورقم حساب الاستلام Resmiement داخل المنصة.</li>
-<li><span class="st">2</span> حوِّل المبلغ عبر وكالة Cash Plus أو تطبيقها واحتفظ بكود/مرجع التحويل.</li>
-<li><span class="st">3</span> أدخل المبلغ وكود التحويل في المحفظة ← حالتها «قيد المراجعة».</li>
-<li><span class="st">4</span> يراجع الأدمن الوصل (عبر بوت التلغرام الرسمي) ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.</li>
+<li><span class="st">1</span> <span data-k="refund.c2s1">افتح المحفظة ← «شحن» ← «Cash Plus»: يظهر لك اسم ورقم حساب الاستلام داخل المنصة.</span></li>
+<li><span class="st">2</span> <span data-k="refund.c2s2">حوِّل المبلغ عبر وكالة Cash Plus أو تطبيقها واحتفظ بكود/مرجع التحويل.</span></li>
+<li><span class="st">3</span> <span data-k="refund.c2s3">أدخل المبلغ وكود التحويل في المحفظة ← حالتها «قيد المراجعة».</span></li>
+<li><span class="st">4</span> <span data-k="refund.c2s4">يراجع الأدمن الوصل (عبر بوت التلغرام الرسمي) ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.</span></li>
 </ol>
-<p><b>قريباً:</b> CIH Express و Orange Money بنفس الآلية.</p>
 </div>
 
 <div class="pay-steps">
-<h3>🎟️ 3) كوبونات التعبئة — فوري</h3>
+<h3 data-k="refund.c4t">🏦 3) تحويل بنكي CIH / CIH Express — مراجعة سريعة</h3>
+<div class="qr-row">
+  <img src="assets/qr/cih-bank.png" alt="QR — IBAN CIH">
+  <ul style="margin:0;padding-inline-start:18px;line-height:1.9">
+    <li><b data-k="refund.labName">الاسم:</b> MONSIEUR TARIK CHOUIKA</li>
+    <li><b data-k="refund.labAcc">رقم الحساب:</b> 6904085211014200</li>
+    <li><b>RIB:</b> 230 815 6904085211014200 24</li>
+    <li><b>IBAN:</b> MA64 2308 1569 0408 5211 0142 0024</li>
+    <li><b>SWIFT:</b> CIHMMAMC</li>
+  </ul>
+</div>
 <ol>
-<li><span class="st">1</span> أدخل كود الكوبون (شكل DTSG-XXXX-XXXX) في المحفظة ← «تفعيل الكوبون».</li>
-<li><span class="st">2</span> يُضاف المبلغ فوراً؛ الكوبون يُستعمل مرة واحدة فقط.</li>
+<li><span class="st">1</span> <span data-k="refund.c4s1">امسح الرمز أو حوِّل عبر تطبيق CIH Bank / CIH Express إلى الحساب أعلاه.</span></li>
+<li><span class="st">2</span> <span data-k="refund.c4s2">افتح المحفظة ← «شحن» ← «CIH» وأدخل المبلغ ومرجع التحويل وارفع صورة الوصل.</span></li>
+<li><span class="st">3</span> <span data-k="refund.c4s3">يراجع الأدمن ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.</span></li>
+</ol>
+</div>
+
+<div class="pay-steps">
+<h3 data-k="refund.c5t">🟡 4) Binance (بايننس) — شبكة TRC20</h3>
+<div class="qr-row">
+  <img src="assets/qr/binance-trc20.png" alt="QR — Binance TRC20">
+  <p style="margin:0;line-height:1.9"><b data-k="refund.labAddr">عنوان USDT (TRC20):</b><br><code style="word-break:break-all">TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ</code></p>
+</div>
+<ol>
+<li><span class="st">1</span> <span data-k="refund.c5s1">امسح الرمز من تطبيق Binance واختر شبكة <b>TRON (TRC20)</b> حصراً.</span></li>
+<li><span class="st">2</span> <span data-k="refund.c5s2">حوِّل مبلغ USDT ثم افتح المحفظة ← «شحن» وأدخل المبلغ ومعامل العملية (TXID).</span></li>
+<li><span class="st">3</span> <span data-k="refund.c5s3">بعد تأكيد الشبكة يُشحن رصيدك — أي شبكة أخرى غير مدعومة.</span></li>
+</ol>
+</div>
+
+<div class="pay-steps">
+<h3 data-k="refund.c3t">🎟️ 5) كوبونات التعبئة — فوري</h3>
+<ol>
+<li><span class="st">1</span> <span data-k="refund.c3s1">أدخل كود الكوبون (شكل DTSG-XXXX-XXXX) في المحفظة ← «تفعيل الكوبون».</span></li>
+<li><span class="st">2</span> <span data-k="refund.c3s2">يُضاف المبلغ فوراً؛ الكوبون يُستعمل مرة واحدة فقط.</span></li>
 </ol>
 </div>
 
 <h2><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> <span data-k="refund.wdTitle">سحب الرصيد</span></h2>
 <ol>
-<li>افتح المحفظة ← «سحب» ← اختر الوسيلة (كريبتو بعنوان محفظتك، أو Cash Plus برقم هاتفك).</li>
-<li>أدخل المبلغ ← يُخصم فوراً من رصيدك ويصبح الطلب «قيد المراجعة».</li>
-<li>ينفّذ الأدمن التحويل بعد التحقق ويصلك إشعار «مكتمل». مدة التنفيذ حتى 24 ساعة.</li>
-<li>إن رُفض الطلب (بيانات خاطئة مثلاً) <b>يُعاد المبلغ كاملاً لرصيدك تلقائياً</b>.</li>
+<li data-k="refund.wd1">افتح المحفظة ← «سحب» ← اختر الوسيلة (كريبتو بعنوان محفظتك، Cash Plus برقم هاتفك، تحويل CIH بحسابك البنكي، أو Binance بعنوان TRC20).</li>
+<li data-k="refund.wd2">أدخل المبلغ ← يُخصم فوراً من رصيدك ويصبح الطلب «قيد المراجعة».</li>
+<li data-k="refund.wd3">ينفّذ الأدمن التحويل بعد التحقق ويصلك إشعار «مكتمل». مدة التنفيذ حتى 24 ساعة.</li>
+<li data-k="refund.wd4">إن رُفض الطلب (بيانات خاطئة مثلاً) <b>يُعاد المبلغ كاملاً لرصيدك تلقائياً</b>.</li>
 </ol>
 
 <h2><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-k="refund.policyTitle">سياسة الاسترداد</span></h2>
 <ul>
-<li><b>إيداع مرفوض أو فاشل:</b> لا يُخصم منك أي مبلغ — لا شيء يُسترد لأنه لا شيء أُخذ.</li>
-<li><b>سحب مرفوض:</b> يُرد المبلغ كاملاً وبشكل آلي إلى رصيد المحفظة فور قرار الرفض.</li>
-<li><b>خصم مزدوج أو خطأ تقني مثبّت:</b> يُسترد المبلغ كاملاً إلى رصيدك بعد التحقق، وخلال 72 ساعة كحد أقصى.</li>
-<li><b>الكوبونات:</b> غير قابلة للاسترداد نقداً؛ تُستبدل بالرصيد فقط، ومرة واحدة.</li>
-<li><b>اللعب:</b> الرهانات الحقيقية تتم في الغرف أونلاين فقط وخسائرها جزء من اللعب ولا تُسترد؛ أما التدريب فهو مجاني دائماً ولا يتضمن أي رصيد.</li>
-<li><b>الاحتيال أو مخالفة الشروط:</b> يُجمَّد الرصيد وفق شروط الاستخدام ولا يشمل حق الاسترداد إلا بعد التدقيق.</li>
+<li data-k="refund.p1"><b>إيداع مرفوض أو فاشل:</b> لا يُخصم منك أي مبلغ — لا شيء يُسترد لأنه لا شيء أُخذ.</li>
+<li data-k="refund.p2"><b>سحب مرفوض:</b> يُرد المبلغ كاملاً وبشكل آلي إلى رصيد المحفظة فور قرار الرفض.</li>
+<li data-k="refund.p3"><b>خصم مزدوج أو خطأ تقني مثبّت:</b> يُسترد المبلغ كاملاً إلى رصيدك بعد التحقق، وخلال 72 ساعة كحد أقصى.</li>
+<li data-k="refund.p4"><b>الكوبونات:</b> غير قابلة للاسترداد نقداً؛ تُستبدل بالرصيد فقط، ومرة واحدة.</li>
+<li data-k="refund.p5"><b>اللعب:</b> الرهانات الحقيقية تتم في الغرف أونلاين فقط وخسائرها جزء من اللعب ولا تُسترد؛ أما التدريب فهو مجاني دائماً ولا يتضمن أي رصيد.</li>
+<li data-k="refund.p6"><b>الاحتيال أو مخالفة الشروط:</b> يُجمَّد الرصيد وفق شروط الاستخدام ولا يشمل حق الاسترداد إلا بعد التدقيق.</li>
 </ul>
 
 <h2><i class="fa-solid fa-table" aria-hidden="true"></i> <span data-k="refund.tableTitle">ملخص الحالات</span></h2>
 <table>
-<tr><th>الحالة</th><th>النتيجة</th><th>المدة</th></tr>
-<tr><td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td></tr>
-<tr><td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td></tr>
-<tr><td>إيداع مرفوض</td><td>لا خصم أصلاً</td><td>—</td></tr>
-<tr><td>سحب مقبول</td><td>تحويل للوسيلة المختارة</td><td>≤ 24 س</td></tr>
-<tr><td>سحب مرفوض</td><td>رد آلي كامل للرصيد</td><td>فوري</td></tr>
-<tr><td>خطأ تقني مثبّت</td><td>استرداد كامل</td><td>≤ 72 س</td></tr>
+<tr><th data-k="refund.th1">الحالة</th><th data-k="refund.th2">النتيجة</th><th data-k="refund.th3">المدة</th></tr>
+<tr data-k="refund.r1"><td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td></tr>
+<tr data-k="refund.r2"><td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td></tr>
+<tr data-k="refund.r3"><td>تحويل بنكي CIH / CIH Express</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td></tr>
+<tr data-k="refund.r4"><td>Binance (TRC20)</td><td>تأكيد الشبكة ثم شحن</td><td>حسب الشبكة</td></tr>
+<tr data-k="refund.r5"><td>إيداع مرفوض</td><td>لا خصم أصلاً</td><td>—</td></tr>
+<tr data-k="refund.r6"><td>سحب مقبول</td><td>تحويل للوسيلة المختارة</td><td>≤ 24 س</td></tr>
+<tr data-k="refund.r7"><td>سحب مرفوض</td><td>رد آلي كامل للرصيد</td><td>فوري</td></tr>
+<tr data-k="refund.r8"><td>خطأ تقني مثبّت</td><td>استرداد كامل</td><td>≤ 72 س</td></tr>
 </table>
 
 <div class="legal-note">
@@ -125,23 +160,67 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 <p><a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="refund.back">العودة للموقع</span></a></p>
 </main>
 </article>
-<script src="js/core/state.js?v=dtsg6"></script>
-<script src="js/core/audio.js?v=dtsg6"></script>
-<script src="js/core/utils.js?v=dtsg6"></script>
-<script src="js/i18n/translations.js?v=dtsg6"></script>
-<script src="js/core/api.js?v=dtsg6"></script>
-<script src="js/core/auth.js?v=dtsg6"></script>
-<script src="js/ui/legal-ui.js?v=lu5"></script>
+<script src="js/core/state.js?v=dtsg7"></script>
+<script src="js/core/audio.js?v=dtsg7"></script>
+<script src="js/core/utils.js?v=dtsg7"></script>
+<script src="js/i18n/translations.js?v=dtsg7"></script>
+<script src="js/core/api.js?v=dtsg7"></script>
+<script src="js/core/auth.js?v=dtsg7"></script>
+<script src="js/ui/legal-ui.js?v=lu6"></script>
 <script>
-/* ── محتوى الصفحة (data-k — ترجمة محتوى الصفحة) ── */
+/* ── [i18n-full v2.39] محتوى الصفحة بأربع لغات (ar/fr/en/da) ── */
 var D = {
   "refund.title": { "ar": "سياسة الاسترداد وطرق الدفع", "da": "سياسة الاسترداد وطرق الدفع", "fr": "Politique de remboursement et moyens de paiement", "en": "Refund Policy & Payment Methods" },
   "refund.updated": { "ar": "آخر تحديث: 16 شتنبر 2026", "da": "آخر تحديث: 16 شتنبر 2026", "fr": "Dernière mise à jour : 16 septembre 2026", "en": "Last updated: September 16, 2026" },
-  "refund.intro": { "ar": "تشرح هذه الصفحة بشكل صريح ومبسط كيف تشحن رصيدك، كيف تسحبه، ومتى يحق لك الاسترداد. كل العمليات تمر عبر محفظة حسابك (زر المحفظة في الشاشة الرئيسية) وتُسجل في سجل المعاملات.", "da": "هاد الصفحة كتشرح بالواضح كيفاش تشحن الرصيد، كيفاش تسحبو، وإمتى عندك الحق فاسترداد. كلشي كيدوز من المحفظة ديالك.", "fr": "Cette page explique clairement comment recharger votre solde, le retirer, et quand vous avez droit à un remboursement. Toutes les opérations passent par votre portefeuille et sont journalisées.", "en": "This page clearly explains how to top up your balance, withdraw it, and when you are entitled to a refund. All operations go through your wallet and are logged." },
+  "refund.intro": { "ar": "تشرح هذه الصفحة بشكل صريح ومبسط كيف تشحن رصيدك، كيف تسحبه، ومتى يحق لك الاسترداد. كل العمليات تمر عبر محفظة حسابك (زر المحفظة في الشاشة الرئيسية) وتُسجل في سجل المعاملات.", "da": "هاد الصفحة كتشرح بالواضح كيفاش تشحن الرصيد، كيفاش تسحبو، وإمتى عندك الحق فاسترداد. كلشي كيدوز من المحفظة ديالك وكيتسجل فالسجل.", "fr": "Cette page explique clairement comment recharger votre solde, le retirer, et quand vous avez droit à un remboursement. Toutes les opérations passent par votre portefeuille et sont journalisées.", "en": "This page clearly explains how to top up your balance, withdraw it, and when you are entitled to a refund. All operations go through your wallet and are logged." },
   "refund.depTitle": { "ar": "طرق شحن الرصيد", "da": "طرق شحن الرصيد", "fr": "Moyens de recharge", "en": "Deposit methods" },
+  "refund.c1t": { "ar": "🪙 1) الكريبتو — تلقائي 100% (عبر Cryptomus)", "da": "🪙 1) كريبتو — تلقائي 100% (عبر Cryptomus)", "fr": "🪙 1) Crypto — 100 % automatique (via Cryptomus)", "en": "🪙 1) Crypto — 100% automatic (via Cryptomus)" },
+  "refund.c1s1": { "ar": "افتح المحفظة ← «شحن» ← اختر «كريبتو».", "da": "حل المحفظة ← «شحن» ← اختار «كريبتو».", "fr": "Ouvrez le portefeuille ← « Recharger » ← choisissez « Crypto ».", "en": "Open the wallet ← “Top up” ← choose “Crypto”." },
+  "refund.c1s2": { "ar": "أدخل المبلغ بالدولار ← تظهر لك عنوان الدفع وصفحة Cryptomus الرسمية.", "da": "دخل المبلغ بالدولار ← غادي يبان ليك عنوان الدفع وصفحة Cryptomus الرسمية.", "fr": "Saisissez le montant en dollars ← l'adresse de paiement et la page officielle Cryptomus s'affichent.", "en": "Enter the amount in USD ← the pay address and the official Cryptomus page appear." },
+  "refund.c1s3": { "ar": "حوِّل المبلغ (USDT/BTC…)؛ يُشحن رصيدك <b>تلقائياً</b> فور تأكيد الشبكة، ويصلك إشعار.", "da": "حوّل المبلغ (USDT/BTC…)؛ الرصيد كيتشحن <b>تلقائياً</b> ملي تأكد الشبكة، ويوصلك إشعار.", "fr": "Transférez (USDT/BTC…) ; votre solde est crédité <b>automatiquement</b> dès confirmation réseau, avec notification.", "en": "Transfer (USDT/BTC…); your balance is credited <b>automatically</b> upon network confirmation, with a notice." },
+  "refund.c2t": { "ar": "💵 2) Cash Plus — تحويل محلي بالمغرب (مراجعة يدوية سريعة)", "da": "💵 2) Cash Plus — تحويل محلي فالمغرب (مراجعة سريعة)", "fr": "💵 2) Cash Plus — transfert local au Maroc (vérification manuelle rapide)", "en": "💵 2) Cash Plus — local transfer in Morocco (fast manual review)" },
+  "refund.c2s1": { "ar": "افتح المحفظة ← «شحن» ← «Cash Plus»: يظهر لك اسم ورقم حساب الاستلام داخل المنصة.", "da": "حل المحفظة ← «شحن» ← «Cash Plus»: كيبان ليك الاسم ورقم الحساب فالمنصة.", "fr": "Ouvrez le portefeuille ← « Recharger » ← « Cash Plus » : le nom et le numéro de compte s'affichent.", "en": "Open the wallet ← “Top up” ← “Cash Plus”: the receiver name and account number are shown in-app." },
+  "refund.c2s2": { "ar": "حوِّل المبلغ عبر وكالة Cash Plus أو تطبيقها واحتفظ بكود/مرجع التحويل.", "da": "حوّل الفلوس عبر وكالة Cash Plus ولا التطبيق ديالها وحتفظ بالكود.", "fr": "Transférez via une agence Cash Plus ou son appli et gardez le code/référence.", "en": "Transfer via a Cash Plus agency or its app and keep the transfer code/reference." },
+  "refund.c2s3": { "ar": "أدخل المبلغ وكود التحويل في المحفظة ← حالتها «قيد المراجعة».", "da": "دخل المبلغ والكود فالمحفظة ← الحالة «قيد المراجعة».", "fr": "Saisissez montant et code dans le portefeuille ← statut « en vérification ».", "en": "Enter amount and code in the wallet ← status becomes “under review”." },
+  "refund.c2s4": { "ar": "يراجع الأدمن الوصل (عبر بوت التلغرام الرسمي) ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.", "da": "الأدمن كيراجع الوصل (عبر البوت الرسمي) وكيشحن رصيدك — عادة دقائق وحتى 24 ساعة.", "fr": "L'admin vérifie le reçu (via le bot Telegram officiel) et crédite — généralement en quelques minutes, max 24 h.", "en": "The admin reviews the receipt (via the official Telegram bot) and credits you — usually minutes, up to 24 h." },
+  "refund.c4t": { "ar": "🏦 3) تحويل بنكي CIH / CIH Express — مراجعة سريعة", "da": "🏦 3) تحويل بنكي CIH / CIH Express — مراجعة سريعة", "fr": "🏦 3) Virement bancaire CIH / CIH Express — vérification rapide", "en": "🏦 3) CIH / CIH Express bank transfer — fast review" },
+  "refund.labName": { "ar": "الاسم:", "da": "السمية:", "fr": "Nom :", "en": "Name:" },
+  "refund.labAcc": { "ar": "رقم الحساب:", "da": "نمرة الحساب:", "fr": "N° de compte :", "en": "Account number:" },
+  "refund.labAddr": { "ar": "عنوان USDT (TRC20):", "da": "عنوان USDT (TRC20):", "fr": "Adresse USDT (TRC20) :", "en": "USDT (TRC20) address:" },
+  "refund.c4s1": { "ar": "امسح الرمز أو حوِّل عبر تطبيق CIH Bank / CIH Express إلى الحساب أعلاه.", "da": "سكاني الكود ولا حوّل عبر تطبيق CIH Bank / CIH Express للحساب اللي الفوق.", "fr": "Scannez le QR ou virez via l'appli CIH Bank / CIH Express vers le compte ci-dessus.", "en": "Scan the QR or transfer via the CIH Bank / CIH Express app to the account above." },
+  "refund.c4s2": { "ar": "افتح المحفظة ← «شحن» ← «CIH» وأدخل المبلغ ومرجع التحويل وارفع صورة الوصل.", "da": "حل المحفظة ← «شحن» ← «CIH» دخل المبلغ والمرجع وهز صورة الوصل.", "fr": "Ouvrez le portefeuille ← « Recharger » ← « CIH », saisissez montant et référence, joignez le reçu.", "en": "Open the wallet ← “Top up” ← “CIH”, enter amount and reference, upload the receipt." },
+  "refund.c4s3": { "ar": "يراجع الأدمن ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.", "da": "الأدمن كيراجع وكيشحن رصيدك — دقائق وحتى 24 ساعة.", "fr": "L'admin vérifie et crédite — généralement en minutes, max 24 h.", "en": "The admin reviews and credits you — usually minutes, up to 24 h." },
+  "refund.c5t": { "ar": "🟡 4) Binance (بايننس) — شبكة TRC20", "da": "🟡 4) Binance (بايننس) — شبكة TRC20", "fr": "🟡 4) Binance — réseau TRC20", "en": "🟡 4) Binance — TRC20 network" },
+  "refund.c5s1": { "ar": "امسح الرمز من تطبيق Binance واختر شبكة <b>TRON (TRC20)</b> حصراً.", "da": "سكاني الكود من تطبيق Binance واختار شبكة <b>TRON (TRC20)</b> غير هي.", "fr": "Scannez le QR depuis l'appli Binance et choisissez <b>uniquement</b> le réseau TRON (TRC20).", "en": "Scan the QR in the Binance app and select the TRON (TRC20) network <b>only</b>." },
+  "refund.c5s2": { "ar": "حوِّل مبلغ USDT ثم افتح المحفظة ← «شحن» وأدخل المبلغ ومعامل العملية (TXID).", "da": "حوّل USDT ومن بعد حل المحفظة ← «شحن» دخل المبلغ وTXID.", "fr": "Transférez l'USDT puis ouvrez le portefeuille ← « Recharger », saisissez montant et TXID.", "en": "Transfer USDT, then open the wallet ← “Top up”, enter the amount and transaction ID (TXID)." },
+  "refund.c5s3": { "ar": "بعد تأكيد الشبكة يُشحن رصيدك — أي شبكة أخرى غير مدعومة.", "da": "من بعد تأكيد الشبكة كيتشحن رصيدك — أي شبكة أخرى ما مدعوماش.", "fr": "Crédit après confirmation réseau — tout autre réseau n'est pas pris en charge.", "en": "Credited after network confirmation — any other network is not supported." },
+  "refund.c3t": { "ar": "🎟️ 5) كوبونات التعبئة — فوري", "da": "🎟️ 5) كوبونات التعبئة — فوري", "fr": "🎟️ 5) Coupons de recharge — instantané", "en": "🎟️ 5) Top-up coupons — instant" },
+  "refund.c3s1": { "ar": "أدخل كود الكوبون (شكل DTSG-XXXX-XXXX) في المحفظة ← «تفعيل الكوبون».", "da": "دخل كود الكوبون (DTSG-XXXX-XXXX) فالمحفظة ← «تفعيل الكوبون».", "fr": "Saisissez le code (format DTSG-XXXX-XXXX) dans le portefeuille ← « Activer le coupon ».", "en": "Enter the coupon code (DTSG-XXXX-XXXX) in the wallet ← “Redeem coupon”." },
+  "refund.c3s2": { "ar": "يُضاف المبلغ فوراً؛ الكوبون يُستعمل مرة واحدة فقط.", "da": "المبلغ كيزاد فوراً؛ الكوبون كيستعمل مرة وحدة برك.", "fr": "Crédit immédiat ; coupon à usage unique.", "en": "Instant credit; each coupon works once." },
   "refund.wdTitle": { "ar": "سحب الرصيد", "da": "سحب الرصيد", "fr": "Retrait du solde", "en": "Withdrawing your balance" },
+  "refund.wd1": { "ar": "افتح المحفظة ← «سحب» ← اختر الوسيلة (كريبتو بعنوان محفظتك، Cash Plus برقم هاتفك، تحويل CIH بحسابك البنكي، أو Binance بعنوان TRC20).", "da": "حل المحفظة ← «سحب» ← اختار الوسيلة (كريبتو بالعنوان ديالك، Cash Plus بنمرة تيليفونك، CIH بالحساب البنكي، ولا Binance بعنوان TRC20).", "fr": "Ouvrez le portefeuille ← « Retirer » ← choisissez le moyen (crypto avec votre adresse, Cash Plus avec votre téléphone, CIH avec votre compte, ou Binance en TRC20).", "en": "Open the wallet ← “Withdraw” ← pick the method (crypto with your address, Cash Plus with your phone, CIH with your bank account, or Binance TRC20)." },
+  "refund.wd2": { "ar": "أدخل المبلغ ← يُخصم فوراً من رصيدك ويصبح الطلب «قيد المراجعة».", "da": "دخل المبلغ ← كيتخصم فوراً والطلب كيبقى «قيد المراجعة».", "fr": "Saisissez le montant ← déduit aussitôt, demande « en vérification ».", "en": "Enter the amount ← deducted at once, request becomes “under review”." },
+  "refund.wd3": { "ar": "ينفّذ الأدمن التحويل بعد التحقق ويصلك إشعار «مكتمل». مدة التنفيذ حتى 24 ساعة.", "da": "الأدمن كينفذ التحويل من بعد التحقق ويوصلك إشعار «مكتمل» — حتى 24 ساعة.", "fr": "L'admin exécute après vérification, notification « terminé ». Délai max 24 h.", "en": "The admin executes after verification; you get a “completed” notice. Up to 24 h." },
+  "refund.wd4": { "ar": "إن رُفض الطلب (بيانات خاطئة مثلاً) <b>يُعاد المبلغ كاملاً لرصيدك تلقائياً</b>.", "da": "إلا ترفض الطلب (معلومات غالطة مثلاً) <b>كيرجع المبلغ كامل لرصيدك تلقائياً</b>.", "fr": "Si refusé (données erronées p. ex.), <b>le montant revient intégralement et automatiquement</b>.", "en": "If refused (wrong details, e.g.), <b>the full amount is automatically returned</b> to your balance." },
   "refund.policyTitle": { "ar": "سياسة الاسترداد", "da": "سياسة الاسترداد", "fr": "Politique de remboursement", "en": "Refund policy" },
+  "refund.p1": { "ar": "<b>إيداع مرفوض أو فاشل:</b> لا يُخصم منك أي مبلغ — لا شيء يُسترد لأنه لا شيء أُخذ.", "da": "<b>إيداع مرفوض ولا فاشل:</b> ما كيتخصم والو — ما كاين استرداد حيت ما خد والو.", "fr": "<b>Dépôt refusé ou échoué :</b> rien n'est prélevé — rien à rembourser.", "en": "<b>Refused/failed deposit:</b> nothing is charged — nothing to refund." },
+  "refund.p2": { "ar": "<b>سحب مرفوض:</b> يُرد المبلغ كاملاً وبشكل آلي إلى رصيد المحفظة فور قرار الرفض.", "da": "<b>سحب مرفوض:</b> كيرجع المبلغ كامل وبشكل آلي للرصيد فور الرفض.", "fr": "<b>Retrait refusé :</b> remboursement intégral et automatique dès le refus.", "en": "<b>Refused withdrawal:</b> full automatic refund to your wallet upon refusal." },
+  "refund.p3": { "ar": "<b>خصم مزدوج أو خطأ تقني مثبّت:</b> يُسترد المبلغ كاملاً إلى رصيدك بعد التحقق، وخلال 72 ساعة كحد أقصى.", "da": "<b>خصم مزدوج ولا خطأ تقني مثبت:</b> كيرجع المبلغ كامل من بعد التحقق، فـ72 ساعة كأقصى حد.", "fr": "<b>Double prélèvement ou bug technique prouvé :</b> remboursement intégral après vérification, sous 72 h max.", "en": "<b>Double charge or proven technical error:</b> full refund after verification, within 72 h max." },
+  "refund.p4": { "ar": "<b>الكوبونات:</b> غير قابلة للاسترداد نقداً؛ تُستبدل بالرصيد فقط، ومرة واحدة.", "da": "<b>الكوبونات:</b> ما كتردش فلوس؛ كتبدل بالرصيد برك، ومرة وحدة.", "fr": "<b>Coupons :</b> non remboursables en espèces ; échangeables en solde, une fois.", "en": "<b>Coupons:</b> not cash-refundable; redeemed for balance only, once." },
+  "refund.p5": { "ar": "<b>اللعب:</b> الرهانات الحقيقية تتم في الغرف أونلاين فقط وخسائرها جزء من اللعب ولا تُسترد؛ أما التدريب فهو مجاني دائماً ولا يتضمن أي رصيد.", "da": "<b>اللعب:</b> الرهانات الحقيقية فالغرف أونلاين برك وخسائرها جزء من اللعب؛ التدريب ديما فابور بلا رصيد.", "fr": "<b>Jeu :</b> les mises réelles existent seulement en salles en ligne et font partie du jeu ; l'entraînement est toujours gratuit.", "en": "<b>Play:</b> real stakes exist only in online rooms and losses are part of the game; training is always free." },
+  "refund.p6": { "ar": "<b>الاحتيال أو مخالفة الشروط:</b> يُجمَّد الرصيد وفق شروط الاستخدام ولا يشمل حق الاسترداد إلا بعد التدقيق.", "da": "<b>الاحتيال ولا مخالفة الشروط:</b> كيتجمد الرصيد حسب الشروط والاسترداد غير من بعد التدقيق.", "fr": "<b>Fraude ou violation des conditions :</b> solde gelé ; remboursement seulement après audit.", "en": "<b>Fraud or terms violation:</b> balance frozen; refunds only after audit." },
   "refund.tableTitle": { "ar": "ملخص الحالات", "da": "ملخص الحالات", "fr": "Résumé des cas", "en": "Case summary" },
+  "refund.th1": { "ar": "الحالة", "da": "الحالة", "fr": "Cas", "en": "Case" },
+  "refund.th2": { "ar": "النتيجة", "da": "النتيجة", "fr": "Résultat", "en": "Result" },
+  "refund.th3": { "ar": "المدة", "da": "المدة", "fr": "Délai", "en": "Time" },
+  "refund.r1": { "ar": "<td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td>", "da": "<td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td>", "fr": "<td>Dépôt crypto confirmé</td><td>Crédit auto immédiat</td><td>Selon réseau</td>", "en": "<td>Confirmed crypto deposit</td><td>Instant auto credit</td><td>Per network</td>" },
+  "refund.r2": { "ar": "<td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "da": "<td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "fr": "<td>Dépôt local (Cash Plus)</td><td>Vérification puis crédit</td><td>Minutes – 24 h</td>", "en": "<td>Local deposit (Cash Plus)</td><td>Review then credit</td><td>Minutes – 24 h</td>" },
+  "refund.r3": { "ar": "<td>تحويل بنكي CIH / CIH Express</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "da": "<td>تحويل بنكي CIH / CIH Express</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "fr": "<td>Virement CIH / CIH Express</td><td>Vérification puis crédit</td><td>Minutes – 24 h</td>", "en": "<td>CIH / CIH Express transfer</td><td>Review then credit</td><td>Minutes – 24 h</td>" },
+  "refund.r4": { "ar": "<td>Binance (TRC20)</td><td>تأكيد الشبكة ثم شحن</td><td>حسب الشبكة</td>", "da": "<td>Binance (TRC20)</td><td>تأكيد الشبكة ثم شحن</td><td>حسب الشبكة</td>", "fr": "<td>Binance (TRC20)</td><td>Confirmation puis crédit</td><td>Selon réseau</td>", "en": "<td>Binance (TRC20)</td><td>Confirmation then credit</td><td>Per network</td>" },
+  "refund.r5": { "ar": "<td>إيداع مرفوض</td><td>لا خصم أصلاً</td><td>—</td>", "da": "<td>إيداع مرفوض</td><td>لا خصم أصلاً</td><td>—</td>", "fr": "<td>Dépôt refusé</td><td>Aucun prélèvement</td><td>—</td>", "en": "<td>Refused deposit</td><td>No charge at all</td><td>—</td>" },
+  "refund.r6": { "ar": "<td>سحب مقبول</td><td>تحويل للوسيلة المختارة</td><td>≤ 24 س</td>", "da": "<td>سحب مقبول</td><td>تحويل للوسيلة المختارة</td><td>≤ 24 س</td>", "fr": "<td>Retrait accepté</td><td>Transfert au moyen choisi</td><td>≤ 24 h</td>", "en": "<td>Approved withdrawal</td><td>Transfer to chosen method</td><td>≤ 24 h</td>" },
+  "refund.r7": { "ar": "<td>سحب مرفوض</td><td>رد آلي كامل للرصيد</td><td>فوري</td>", "da": "<td>سحب مرفوض</td><td>رد آلي كامل للرصيد</td><td>فوري</td>", "fr": "<td>Retrait refusé</td><td>Retour auto intégral</td><td>Immédiat</td>", "en": "<td>Refused withdrawal</td><td>Full auto refund</td><td>Instant</td>" },
+  "refund.r8": { "ar": "<td>خطأ تقني مثبّت</td><td>استرداد كامل</td><td>≤ 72 س</td>", "da": "<td>خطأ تقني مثبت</td><td>استرداد كامل</td><td>≤ 72 س</td>", "fr": "<td>Bug technique prouvé</td><td>Remboursement intégral</td><td>≤ 72 h</td>", "en": "<td>Proven technical error</td><td>Full refund</td><td>≤ 72 h</td>" },
   "refund.noteB": { "ar": "ملاحظة:", "da": "ملاحظة:", "fr": "Remarque :", "en": "Note:" },
   "refund.note": { "ar": "أسئلة حول معاملة معينة؟ راسل الدعم عبر واتساب أو بوت التلغرام الرسمي مع ذكر رقم المعاملة من «السجل» في محفظتك. هذه الصفحة جزء من شروط الاستخدام.", "da": "عندك سؤال على معاملة؟ راسل الدعم مع رقم المعاملة من السجل. هاد الصفحة جزء من شروط الاستعمال.", "fr": "Des questions sur une transaction ? Contactez le support via WhatsApp ou le bot Telegram officiel en indiquant le numéro de transaction. Cette page fait partie des conditions d'utilisation.", "en": "Questions about a transaction? Contact support via WhatsApp or the official Telegram bot with your transaction ID. This page is part of the Terms of Use." },
   "refund.back": { "ar": "العودة للموقع", "da": "الرجوع للموقع", "fr": "Retour au site", "en": "Back to site" }
@@ -156,6 +235,7 @@ var D = {
       try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
       document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
       document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      document.title = D['refund.title'][currentLang] + ' — DTSG';
       document.querySelectorAll('[data-k]').forEach(function (el) {
         var k = el.getAttribute('data-k');
         if (D[k] && D[k][currentLang]) { el.innerHTML = D[k][currentLang]; }

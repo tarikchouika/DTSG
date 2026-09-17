@@ -256,6 +256,23 @@ function req(method, url, body, headers) {
   r = await H('POST', 'https://w/api/vouchers/create', { kind: 'admin', tier: 100, currency: 'usd' });
   ok('بدون سر/جلسة = 403', r.status === 403);
 
+  /* 12) مسار مخطط المنصة (gold عبر الهوكس) — ربط تيليغرام وشحن */
+  const plat = { 42: { id: 42, gold: 5000 } };
+  env.__setTelegram = (id, chat) => { if (plat[id]) plat[id].tg = String(chat); };
+  env.__getTelegram = (id) => (plat[id] && plat[id].tg) || null;
+  env.__findByTelegram = (chat) => { for (const k in plat) if (plat[k].tg === String(chat)) return { id: k, usd: plat[k].gold / 100, coins: plat[k].gold }; return null; };
+  env.__balance = (id) => plat[id] ? { usd: plat[id].gold / 100, coins: plat[id].gold } : null;
+  env.__creditUsd = (id, usd) => { plat[id].gold += Math.round(Number(usd) * 100); };
+  env.__debitUsd = (id, usd) => { const c = Math.round(Number(usd) * 100); if (!plat[id] || plat[id].gold < c) return false; plat[id].gold -= c; return true; };
+  r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 888 }, text: '/start plt_42' } });
+  ok('ربط /start plt_42 يثبت telegram_id', plat[42].tg === '888' && (await r.json()).ok === true);
+  const t1 = captured.tg.length;
+  r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 888 }, text: '/balance' } });
+  ok('/balance للمربوط يعرض الكوينز', captured.tg.slice(t1).some(t => t.body.chat_id === '888' && /كوين/.test(t.body.text) && /50 USD/.test(t.body.text)));
+  await D1.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status) VALUES ('tx-bridge','42','deposit',5,'sellix','pending')").bind().run();
+  await core.completeDeposit(env, D1, 'tx-bridge', 7);
+  ok('completeDeposit يشحن gold عبر __creditUsd', plat[42].gold === 5700);
+
   console.log('\nالنتيجة: ' + pass + ' نجح / ' + fail + ' فشل');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

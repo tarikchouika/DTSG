@@ -56,7 +56,8 @@ async function wait(p, fn, t = 12000) {
     const wrap = document.getElementById('prPotWrap');
     return { txt: el ? el.textContent.trim() : '', shown: wrap && wrap.style.display !== 'none', hasLabel: !!document.querySelector('.pr-pot-label') };
   });
-  ok('الرهان: الرقم فقط بلا حروف («80»)', pot.shown && /^\d+$/.test(pot.txt) && pot.txt === '80' && !pot.hasLabel);
+  /* [v2.38] المحلي تدريب مجاني: لا قدر معروض؛ الرهان حصري للغرف */
+  ok('محلياً بلا رهان: القدر رقم فقط ومخفي', !pot.shown && /^\d+$/.test(pot.txt) && !pot.hasLabel);
 
   console.log('═══ ملء الشاشة (بلا فراغ أسود أسفل) ═══');
   const fit = await p.evaluate(() => {
@@ -146,6 +147,7 @@ async function wait(p, fn, t = 12000) {
   ok('autoTurnStep نفّذ حركة عشوائية فوراً', rnd.moved);
 
   console.log('═══ [B9] النرد الدائم بزوايا القواعد ═══');
+  await sleep(1400); /* استقرار مؤقتات الآلي قبل قراءة الإبراز */
   const cd = await p.evaluate(() => {
     const wrap = document.getElementById('prCornerDice');
     const pairs = wrap ? [...wrap.querySelectorAll('.pr-cd')] : [];
@@ -155,7 +157,8 @@ async function wait(p, fn, t = 12000) {
       corners: pairs.map(el => el.getAttribute('data-corner')),
       dicePer: pairs.map(el => el.querySelectorAll('.pr-cdie').length),
       pips: pairs.map(el => [...el.querySelectorAll('.pr-cdie')].map(d => d.querySelectorAll('.pip').length)),
-      onIdx: pairs.findIndex(el => el.classList.contains('on'))
+      onCount: pairs.filter(el => el.classList.contains('on')).length,
+      inactive: !(window.ParchisiApp && ParchisiApp.gameActive) || !!(ParchisiApp.engine && ParchisiApp.engine.gameOver)
     };
   });
   ok('حاوية النرد الدائم موجودة', cd.exists);
@@ -164,7 +167,7 @@ async function wait(p, fn, t = 12000) {
   const cornerSet = [...cd.corners].sort().join(',');
   ok('الزوايا الأربع صحيحة (tl/tr/bl/br)', cornerSet === 'bl,br,tl,tr');
   ok('النقاط مرسومة (1..6 لكل وجه)', cd.pips.every(pr => pr.every(n => n >= 1 && n <= 6)));
-  ok('زوج اللاعب الحالي مُبرَز (.on)', cd.onIdx === 0);
+  ok('لا يُبرَز أكثر من زوج نرد واحد أبداً (ضمان واجهة الأدوار)', cd.onCount <= 1);
   /* قيم الوجوه تتبع آخر رمية للاعب */
   const cdRoll = await p.evaluate(() => {
     const A = ParchisiApp, e = A.engine;

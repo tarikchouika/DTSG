@@ -127,6 +127,43 @@ async function creditUser(db, id, usd) {
   await ensureUser(db, id);
   await db.prepare('UPDATE users SET balance_usd = balance_usd + ?2 WHERE id = ?1').bind(String(id), usd).run();
 }
+/* ── [Schema-bridge 2026-09-17] جدول users في المنصة (server.js/SQLite محلية) أعمدته
+   مختلفة عن جدول الووركر المستقل (email/balance_usd/telegram_id).
+   عند توفر خطافات البيئة (خادم المنصة) نمر عبرها وإلا فالجدول المحلي (اختبارات). ── */
+async function uEnsure(db, env, id, email) {
+  if (typeof env.__creditUsd === 'function') return; /* مستخدمو المنصة موجودون سلفاً */
+  await ensureUser(db, id, email);
+}
+async function uCreditUsd(db, env, id, usd) {
+  if (typeof env.__creditUsd === 'function') return env.__creditUsd(id, usd);
+  await creditUser(db, id, usd);
+}
+async function uDebitUsd(db, env, id, usd) {
+  if (typeof env.__debitUsd === 'function') return !!(await env.__debitUsd(id, usd));
+  const up = await db.prepare('UPDATE users SET balance_usd = balance_usd - ?2 WHERE id = ?1 AND balance_usd >= ?2').bind(String(id), usd).run();
+  const ch = up && (up.meta ? up.meta.changes : up.changes);
+  return ch === 1;
+}
+async function uBalance(db, env, id) {
+  if (typeof env.__balance === 'function') return await env.__balance(id);
+  const r = await db.prepare('SELECT balance_usd FROM users WHERE id = ?1').bind(String(id)).first();
+  return r ? { usd: Number(r.balance_usd), coins: null } : null;
+}
+async function uSetTelegram(db, env, id, chatId) {
+  if (typeof env.__setTelegram === 'function') return env.__setTelegram(id, chatId);
+  await ensureUser(db, id);
+  await db.prepare('UPDATE users SET telegram_id = ?2 WHERE id = ?1').bind(String(id), chatId).run();
+}
+async function uGetTelegram(db, env, id) {
+  if (typeof env.__getTelegram === 'function') return env.__getTelegram(id);
+  const r = await db.prepare('SELECT telegram_id FROM users WHERE id = ?1').bind(String(id)).first();
+  return r ? r.telegram_id : null;
+}
+async function uFindByTelegram(db, env, chatId) {
+  if (typeof env.__findByTelegram === 'function') return env.__findByTelegram(chatId);
+  const r = await db.prepare('SELECT id, balance_usd FROM users WHERE telegram_id = ?1').bind(chatId).first();
+  return r ? { id: String(r.id), usd: Number(r.balance_usd), coins: null } : null;
+}
 /* إشعار المنصة لشحن الذهب المقابل عند اكتمال الإيداع:
    - إن وُجد env.__platformCredit (تشغيل محلي داخل server.js بنفس القاعدة) يُستدعى مباشرة؛
    - وإلا نداء HTTP اختياري إن ضُبط PLATFORM_URL + PAYMENTS_SHARED_SECRET. */
@@ -148,10 +185,10 @@ async function completeDeposit(env, db, txId, paidUsd) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx || tx.status !== 'pending' || tx.type !== 'deposit') return { ok: false, reason: 'not-pending' };
   await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1").bind(txId, paidUsd || tx.amount_usd).run();
-  await creditUser(db, tx.user_id, paidUsd || Number(tx.amount_usd));
+  await uCreditUsd(db, env, tx.user_id, paidUsd || Number(tx.amount_usd));
   await platformCredit(env, tx.user_id, paidUsd || Number(tx.amount_usd), txId);
-  const u = await db.prepare('SELECT telegram_id FROM users WHERE id = ?1').bind(tx.user_id).first();
-  if (u && u.telegram_id) await tg(env, 'sendMessage', { chat_id: u.telegram_id, text: '✅ تم شحن رصيدك بنجاح: +' + (paidUsd || tx.amount_usd) + ' USD' });
+  const tgId = await uGetTelegram(db, env, tx.user_id);
+  if (tgId) await tg(env, 'sendMessage', { chat_id: tgId, text: '✅ تم شحن رصيدك بنجاح: +' + (paidUsd || tx.amount_usd) + ' USD' });
   return { ok: true };
 }
 
@@ -226,6 +263,8 @@ async function handleFetch(request, env) {
         account: { name: env.CASH_PLUS_NAME || 'Tarik chouika', number: env.CASH_PLUS_ACCOUNT || '' } },
       { id: 'cih', label: 'CIH Bank / CIH Express', status: 'live',
         account: { name: env.CIH_NAME || 'MONSIEUR TARIK CHOUIKA', number: env.CIH_ACCOUNT || '', rib: env.CIH_RIB || '', iban: env.CIH_IBAN || '', swift: env.CIH_SWIFT || '' } },
+      { id: 'binance', label: 'Binance (TRC20)', status: 'live',
+        account: { network: 'TRON (TRC20)', address: env.BINANCE_TRC20 || '' } },
       { id: 'orange_money', label: 'Orange Money', status: 'soon' },
       { id: 'voucher', label: 'كوبون تعبئة', status: 'live' }
     ] });
@@ -237,7 +276,7 @@ async function handleFetch(request, env) {
     const amt = Number(b.amount_usd);
     if (!b.user_id || !(amt >= 1)) return json({ ok: false, error: 'bad-input' }, 400);
     if (!env.CRYPTOMUS_MERCHANT_ID || !env.CRYPTOMUS_PAYMENT_KEY) return json({ ok: false, error: 'crypto-not-configured' }, 503);
-    await ensureUser(db, b.user_id, b.email);
+    await uEnsure(db, env, b.user_id, b.email);
     const orderId = uid('dtsg');
     const inv = await cryptomusCreateInvoice(env, orderId, amt);
     if (!inv || inv.error || !inv.address) return json({ ok: false, error: 'invoice-failed', detail: inv }, 502);
@@ -284,7 +323,7 @@ async function handleFetch(request, env) {
     const amt = Number(b.amount_usd);
     const methods = ['cash_plus', 'cih', 'orange_money'];
     if (!b.user_id || !(amt >= 1) || methods.indexOf(b.method) < 0 || !b.proof_details) return json({ ok: false, error: 'bad-input' }, 400);
-    await ensureUser(db, b.user_id, b.email);
+    await uEnsure(db, env, b.user_id, b.email);
     const txId = uid('p2p');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,?4,\'pending\',?5)')
       .bind(txId, String(b.user_id), amt, b.method, String(b.proof_details).slice(0, 2000)).run();
@@ -299,7 +338,7 @@ async function handleFetch(request, env) {
     const b = await request.json();
     const code = String(b.code || '').trim().toUpperCase();
     if (!b.user_id || !code) return json({ ok: false, error: 'bad-input' }, 400);
-    await ensureUser(db, b.user_id, b.email);
+    await uEnsure(db, env, b.user_id, b.email);
     /* UPDATE واحد بشرط is_used=0 = معاملة ذرية على D1 */
     const up = await db.prepare('UPDATE vouchers SET is_used = 1, used_by_user_id = ?2 WHERE code = ?1 AND is_used = 0').bind(code, String(b.user_id)).run();
     const changed = up && up.meta ? up.meta.changes : 0;
@@ -314,7 +353,7 @@ async function handleFetch(request, env) {
         return json({ ok: true, coins: Number(v.coins), kind: v.kind });
       }
       const amt = Number(v.amount_usd);
-      await creditUser(db, b.user_id, amt);
+      await uCreditUsd(db, env, b.user_id, amt);
       const txId = uid('vch');
       await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,\'voucher\',\'completed\',?4)')
         .bind(txId, String(b.user_id), amt, code).run();
@@ -348,11 +387,10 @@ async function handleFetch(request, env) {
     const b = await request.json();
     const amt = Number(b.amount_usd);
     if (!b.user_id || !(amt >= 1) || !b.method) return json({ ok: false, error: 'bad-input' }, 400);
-    await ensureUser(db, b.user_id, b.email);
+    await uEnsure(db, env, b.user_id, b.email);
     /* خصم احتياطي ذري: لا يخصم إن لم يكفِ الرصيد */
-    const up = await db.prepare('UPDATE users SET balance_usd = balance_usd - ?2 WHERE id = ?1 AND balance_usd >= ?2').bind(String(b.user_id), amt).run();
-    const changed = up && up.meta ? up.meta.changes : 0;
-    if (changed !== 1) return json({ ok: false, error: 'insufficient-balance' }, 402);
+    const upOk = await uDebitUsd(db, env, b.user_id, amt);
+    if (!upOk) return json({ ok: false, error: 'insufficient-balance' }, 402);
     const txId = uid('wd');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'withdrawal\',?3,?4,\'pending\',?5)')
       .bind(txId, String(b.user_id), amt, b.method, String(b.details || '').slice(0, 2000)).run();
@@ -366,10 +404,10 @@ async function handleFetch(request, env) {
   if (p === '/api/wallet/balance' && request.method === 'GET') {
     const u = url.searchParams.get('user_id');
     if (!u) return json({ ok: false, error: 'bad-input' }, 400);
-    const bal = await getBalance(db, u);
-    if (bal === null) return json({ ok: true, balance_usd: 0, transactions: [] });
+    const bal = await uBalance(db, env, u);
+    if (!bal) return json({ ok: true, balance_usd: 0, coins: 0, transactions: [] });
     const rows = await db.prepare('SELECT id, type, amount_usd, method, status, created_at FROM transactions WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 30').bind(String(u)).all();
-    return json({ ok: true, balance_usd: bal, transactions: (rows.results || []) });
+    return json({ ok: true, balance_usd: bal.usd, coins: bal.coins, transactions: (rows.results || []) });
   }
 
   /* ── Webhook بوت تيليغرام ── */
@@ -392,19 +430,19 @@ async function handleFetch(request, env) {
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: r.ok ? '✅ تم تأكيد الإيداع وشحن الرصيد.' : '⚠️ تعذر التأكيد.' });
       } else if (act === 'drej') {
         await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
-        const u = await db.prepare('SELECT telegram_id FROM users WHERE id = ?1').bind(tx.user_id).first();
-        if (u && u.telegram_id) await tg(env, 'sendMessage', { chat_id: u.telegram_id, text: '❌ تم رفض عملية الإيداع (' + tx.amount_usd + ' USD). تواصل مع الدعم.' });
+        const tg1 = await uGetTelegram(db, env, tx.user_id);
+        if (tg1) await tg(env, 'sendMessage', { chat_id: tg1, text: '❌ تم رفض عملية الإيداع (' + tx.amount_usd + ' USD). تواصل مع الدعم.' });
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '❌ تم رفض الإيداع.' });
       } else if (act === 'wapp') {
         await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
-        const u = await db.prepare('SELECT telegram_id FROM users WHERE id = ?1').bind(tx.user_id).first();
-        if (u && u.telegram_id) await tg(env, 'sendMessage', { chat_id: u.telegram_id, text: '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD' });
+        const tg2 = await uGetTelegram(db, env, tx.user_id);
+        if (tg2) await tg(env, 'sendMessage', { chat_id: tg2, text: '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD' });
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '✅ تم تأكيد السحب.' });
       } else if (act === 'wrej') {
         await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
-        await creditUser(db, tx.user_id, Number(tx.amount_usd)); /* إعادة الرصيد */
-        const u = await db.prepare('SELECT telegram_id FROM users WHERE id = ?1').bind(tx.user_id).first();
-        if (u && u.telegram_id) await tg(env, 'sendMessage', { chat_id: u.telegram_id, text: '❌ رُفض طلب السحب وأُعيد المبلغ لرصيدك.' });
+        await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd)); /* إعادة الرصيد */
+        const tg3 = await uGetTelegram(db, env, tx.user_id);
+        if (tg3) await tg(env, 'sendMessage', { chat_id: tg3, text: '❌ رُفض طلب السحب وأُعيد المبلغ لرصيدك.' });
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '❌ تم رفض السحب وإعادة الرصيد.' });
       }
       return json({ ok: true });
@@ -416,8 +454,7 @@ async function handleFetch(request, env) {
       const text = String(msg.text || '').trim();
       const link = text.match(/^\/start\s+plt_(\w+)/);
       if (link) {
-        await ensureUser(db, link[1]);
-        await db.prepare('UPDATE users SET telegram_id = ?2 WHERE id = ?1').bind(String(link[1]), chatId).run();
+        await uSetTelegram(db, env, link[1], chatId);
         await tg(env, 'sendMessage', { chat_id: chatId, text: '🔗 تم ربط حسابك بالمنصة بنجاح. أرسل /help لعرض الأوامر.' });
         return json({ ok: true });
       }
@@ -482,13 +519,13 @@ async function handleFetch(request, env) {
         return json({ ok: true });
       }
       if (text === '/balance') {
-        const u = await db.prepare('SELECT balance_usd FROM users WHERE telegram_id = ?1').bind(chatId).first();
-        await tg(env, 'sendMessage', { chat_id: chatId, text: u ? '💰 رصيدك: ' + u.balance_usd + ' USD' : '⚠️ اربط حسابك أولاً بأمر /start plt_<معرفك>' });
+        const ub = await uFindByTelegram(db, env, chatId);
+        await tg(env, 'sendMessage', { chat_id: chatId, text: ub ? ('💰 رصيدك: ' + (ub.coins != null ? ub.coins.toLocaleString('ar-MA') + ' كوين (' + ub.usd + ' USD)' : ub.usd + ' USD')) : '⚠️ اربط حسابك أولاً بأمر /start plt_<معرفك>' });
         return json({ ok: true });
       }
       const dep = text.match(/^\/deposit\s+(\d+(?:\.\d+)?)/);
       if (dep) {
-        const u = await db.prepare('SELECT id FROM users WHERE telegram_id = ?1').bind(chatId).first();
+        const u = await uFindByTelegram(db, env, chatId);
         if (!u) { await tg(env, 'sendMessage', { chat_id: chatId, text: '⚠️ اربط حسابك أولاً بأمر /start plt_<معرفك>' }); return json({ ok: true }); }
         const amt = Number(dep[1]);
         const txId = uid('p2p');
@@ -503,7 +540,7 @@ async function handleFetch(request, env) {
       /* صورة وصل أو كود تحويل من عميل لديه معاملة معلقة */
       const pend = env.__pendingProof && env.__pendingProof[chatId];
       if (pend || msg.photo) {
-        const u = await db.prepare('SELECT id FROM users WHERE telegram_id = ?1').bind(chatId).first();
+        const u = await uFindByTelegram(db, env, chatId);
         if (u) {
           let txId = pend;
           if (!txId) {

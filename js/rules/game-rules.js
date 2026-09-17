@@ -400,34 +400,37 @@ rn: {
     },
     steps: {
       ar: [
-        'حدد مبلغ الرهان ثم اختر وضع اللعب: رقم فقط (×2) أو رقم + رمز (×3)',
-        'اختر رقماً من الأوراق المغاربية (1-7، 10-12) ثم أكّد',
+        'اختر وضع التخمين: رقم فقط أو رقم + رمز',
+        'اختر رقماً من الأوراق المغربية (1-7، 10-12) ثم أكّد اختيارك',
         'في وضع الرمز، اختر أيضاً الرمز: ◆ ذهب، ♥ كؤوس، ♠ سيوف، ♣ صولجان',
-        'يتم سحب البطاقات بالتناوب بينك وبين الموزع (40 ورقة مغاربية)',
-        'إذا ظهرت بطاقتك المختارة أولاً، تفوز وتتبادل الأدوار',
-        'عند الخسارة يخصم الرهان من رصيدك — راقب رصيدك جيداً'
+        'تُسحب الأوراق بالتناوب بينك وبين الموزع من رزمة 40 ورقة مغربية',
+        'إذا ظهرت بطاقتك المختارة أولاً تفوز بالجولة وتتبادل الأدوار مع الموزع',
+        'الفوز ضد الآلي أو وجهاً لوجه يبادل الأدوار؛ اللعب المحلي تدريب مجاني بلا رهان',
+        'الرهان يُحدَّد حصرياً من طرف فاتح الغرفة في إعدادات الغرف أونلاين'
       ],
       fr: [
-        'Choisissez votre mise puis le mode : numéro seul (×2) ou numéro + symbole (×3)',
+        'Choisissez le mode de devinette : numéro seul ou numéro + symbole',
         'Choisissez un numéro (1-7, 10-12) puis confirmez',
         'En mode symbole, choisissez aussi : ◆ Or, ♥ Coupes, ♠ Épées, ♣ Bâtons',
         'Les cartes sont tirées alternativement (jeu de 40 cartes marocaines)',
         'Si votre carte apparaît en premier, vous gagnez et les rôles s\'inversent',
-        'En cas de défaite, la mise est déduite de votre solde'
+        'Le jeu local (IA / face à face) est un entraînement gratuit sans mise',
+        'La mise est fixée uniquement par le créateur de la salle en ligne'
       ],
       en: [
-        'Set your bet, then choose game mode: number only (×2) or number + suit (×3)',
+        'Choose the guess mode: number only or number + suit',
         'Pick a number (1-7, 10-12) and confirm',
         'In suit mode, also pick: ◆ Gold, ♥ Cups, ♠ Swords, ♣ Clubs',
         'Cards are drawn alternately between you and the dealer (40 Moroccan cards)',
         'If your card appears first, you win and roles swap',
-        'On a loss, the bet is deducted from your balance'
+        'Local play (vs AI / face to face) is free training without stakes',
+        'The stake is set only by the room creator in online room settings'
       ]
     },
     payouts: {
-      ar: '<tr><td>رقم فقط</td><td>×2</td></tr><tr><td>رقم + رمز</td><td>×3</td></tr>',
-      fr: '<tr><td>Numéro seul</td><td>×2</td></tr><tr><td>Numéro + Symbole</td><td>×3</td></tr>',
-      en: '<tr><td>Number only</td><td>×2</td></tr><tr><td>Number + Symbol</td><td>×3</td></tr>'
+      ar: '<tr><td>رقم فقط</td><td>تخمّن رقم الورقة (1-7، 10-12)</td></tr><tr><td>رقم + رمز</td><td>تخمّن الرقم والرمز معاً — تحدٍّ أدق</td></tr><tr><td>الرهان</td><td>يُحدَّد من فاتح الغرفة في إعدادات الغرف أونلاين</td></tr>',
+      fr: '<tr><td>Numéro seul</td><td>Devinez le numéro (1-7, 10-12)</td></tr><tr><td>Numéro + Symbole</td><td>Devinez numéro et symbole — plus précis</td></tr><tr><td>Mise</td><td>Fixée par le créateur de la salle en ligne</td></tr>',
+      en: '<tr><td>Number only</td><td>Guess the card number (1-7, 10-12)</td></tr><tr><td>Number + Symbol</td><td>Guess number and suit — sharper challenge</td></tr><tr><td>Stake</td><td>Set by the room creator in online rooms</td></tr>'
     },
   },
   /* ═══ Crash ═══ */

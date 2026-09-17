@@ -1,0 +1,28 @@
+const { chromium } = require('playwright');
+(async () => {
+  const b = await chromium.launch();
+  const page = await (await b.newContext({ viewport: { width: 390, height: 844 }, locale: 'ar-MA' })).newPage();
+  await page.goto('http://localhost:3000/index.html', { waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(1800);
+  await page.evaluate(() => { AUTH.user = { id: 3, username: 'player', role: 'user', gold: 5000 }; openGame('pr'); });
+  await page.waitForTimeout(800);
+  await page.screenshot({ path: '/tmp/u_pr.png' });
+  await b.close();
+  const b2 = await chromium.launch();
+  const p2 = await (await b2.newContext({ viewport: { width: 390, height: 844 }, locale: 'ar-MA' })).newPage();
+  await p2.goto('http://localhost:3000/index.html', { waitUntil: 'domcontentloaded' });
+  await p2.waitForTimeout(1800);
+  await p2.evaluate(() => { AUTH.user = { id: 3, username: 'player', role: 'user', gold: 5000 }; openGame('do'); });
+  await p2.waitForTimeout(900);
+  await p2.screenshot({ path: '/tmp/u_do.png' });
+  await b2.close();
+  const b3 = await chromium.launch();
+  const p3 = await (await b3.newContext({ viewport: { width: 390, height: 844 }, locale: 'ar-MA' })).newPage();
+  await p3.goto('http://localhost:3000/index.html', { waitUntil: 'domcontentloaded' });
+  await p3.waitForTimeout(1800);
+  await p3.evaluate(() => { AUTH.user = { id: 3, username: 'player', role: 'user', gold: 5000 }; openGame('bl8'); });
+  await p3.waitForTimeout(900);
+  await p3.screenshot({ path: '/tmp/u_bl.png' });
+  await b3.close();
+  console.log('shots done');
+})();

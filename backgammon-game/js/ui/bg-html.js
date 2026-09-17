@@ -51,7 +51,7 @@ window.BWG_HTML = (function () {
           '</div>' +
         '</div>' +
 
-        '<div class="bw-field" id="bwBetField">' +
+        '<div class="bw-field" id="bwBetField" hidden>' +
           '<div class="bw-flabel" data-i18n="bg.bet">الرهان</div>' +
           '<div class="bw-betrow">' +
             '<button type="button" class="bw-betbtn" data-betstep="-10" aria-label="−">−</button>' +
@@ -61,6 +61,7 @@ window.BWG_HTML = (function () {
           '</div>' +
           '<div class="bw-bethint" id="bwBetHint" data-i18n="bg.bet.hint"></div>' +
         '</div>' +
+        '<div class="bw-field"><div class="gset-free" data-i18n="ui.trainingFree">🎓 تدريب مجاني بدون رهان — يُحدَّد الرهان في إعدادات الغرف أونلاين</div></div>' +
 
         '<button type="button" class="bw-go" id="bwStartBtn"><i class="fa-solid fa-trophy" aria-hidden="true"></i> <span data-i18n="bg.start">ابدأ المباراة</span></button>' +
         '<button type="button" class="bw-resume" id="bwResumeBtn" hidden><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-i18n="bg.resume">استئناف المباراة</span></button>' +

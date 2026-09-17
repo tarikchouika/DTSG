@@ -43,50 +43,52 @@ window.PWAL = window.PWAL || {};
       '    <button class="wl-x" onclick="closeWallet()" aria-label="إغلاق">✕</button></div>' +
       '  <div class="wl-bal"><div><div class="usd" id="wlUsd">0.00 USD</div>' +
       '    <div class="gold" id="wlGold"></div></div>' +
-      '    <button class="wl-copy" id="wlTgLink" type="button">🔗 ربط تيليغرام</button></div>' +
+      '    <button class="wl-copy" id="wlTgLink" type="button" data-i18n="wl.tgLink">🔗 ربط تيليغرام</button></div>' +
       '  <div class="wl-tabs">' +
-      '    <button id="wlTabDep" class="on" type="button">⬇️ شحن</button>' +
-      '    <button id="wlTabWd" type="button">⬆️ سحب</button>' +
-      '    <button id="wlTabHis" type="button">🧾 السجل</button>' +
+      '    <button id="wlTabDep" class="on" type="button" data-i18n="wl.dep">⬇️ شحن</button>' +
+      '    <button id="wlTabWd" type="button" data-i18n="wl.wd">⬆️ سحب</button>' +
+      '    <button id="wlTabHis" type="button" data-i18n="wl.his">🧾 السجل</button>' +
       '  </div>' +
       /* ── شحن ── */
       '  <div class="wl-pane" id="wlPaneDep">' +
       '    <div id="wlMethods"></div>' +
       '    <div id="wlDepForm" hidden>' +
       '      <div id="wlAcctBox"></div>' +
-      '      <div class="wl-row"><label>المبلغ (USD)</label><input id="wlAmt" type="number" min="1" step="1" value="10"></div>' +
-      '      <div class="wl-row" id="wlProofRow" hidden><label>كود/مرجع التحويل</label><input id="wlProof" type="text" placeholder="مثال: 734545-CP-001234"></div>' +
-      '      <button class="wl-cta" id="wlDepGo" type="button">تأكيد العملية</button>' +
+      '      <div class="wl-row"><label data-i18n="wl.amount">المبلغ (USD)</label><input id="wlAmt" type="number" min="1" step="1" value="10"></div>' +
+      '      <div class="wl-row" id="wlProofRow" hidden><label data-i18n="wl.proof">كود/مرجع التحويل</label><input id="wlProof" type="text" placeholder="مثال: 734545-CP-001234" data-i18n-placeholder="wl.proofPh"></div>' +
+      '      <button class="wl-cta" id="wlDepGo" type="button" data-i18n="wl.confirm">تأكيد العملية</button>' +
       '    </div>' +
-      '    <div class="wl-row" id="wlVoucherRow" hidden><label>كود كوبون التعبئة</label><input id="wlVCode" type="text" placeholder="DTSG-XXXX-XXXX"></div>' +
-      '    <button class="wl-cta" id="wlVGo" type="button" hidden>تفعيل الكوبون</button>' +
+      '    <div class="wl-row" id="wlVoucherRow" hidden><label data-i18n="wl.voucher">كود كوبون التعبئة</label><input id="wlVCode" type="text" placeholder="DTSG-XXXX-XXXX"></div>' +
+      '    <button class="wl-cta" id="wlVGo" type="button" hidden data-i18n="wl.vGo">تفعيل الكوبون</button>' +
       '    <div class="wl-msg" id="wlDepMsg"></div>' +
-      '    <div class="wl-note"><b>💡 طرق الشحن ببساطة:</b><br>' +
-      '      🪙 <b>كريبتو (Cryptomus)</b>: مبلغ ← عنوان دفع ← يُشحن تلقائياً بعد تأكيد الشبكة.<br>' +
-      '      💵 <b>Cash Plus</b>: حوِّل للحساب الظاهر أعلاه ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.<br>' +
-      '      🎟️ <b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).<br>' +
-      '      <b>⬆️ السحب:</b> طلب من تبويب «سحب» يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد المبلغ تلقائياً.<br>' +
-      '      📄 <a href="refund-policy.html" target="_blank" rel="noopener">سياسة الاسترداد وطرق الدفع بالتفصيل</a></div>' +
+      '    <div class="wl-note"><b data-i18n="wl.noteTitle">💡 طرق الشحن ببساطة:</b><br>' +
+      '      🪙 <span data-i18n="wl.noteCrypto"><b>كريبتو (Cryptomus)</b>: مبلغ ← عنوان دفع ← يُشحن تلقائياً بعد تأكيد الشبكة.</span><br>' +
+      '      💵 <span data-i18n="wl.noteCash"><b>Cash Plus</b>: حوِّل للحساب الظاهر أعلاه ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.</span><br>' +
+      '      🎟️ <span data-i18n="wl.noteVoucher"><b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).</span><br>' +
+      '      <span data-i18n="wl.noteWd"><b>⬆️ السحب:</b> طلب من تبويب «سحب» يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد المبلغ تلقائياً.</span><br>' +
+      '      📄 <a href="refund-policy.html" target="_blank" rel="noopener" data-i18n="wl.policyLink">سياسة الاسترداد وطرق الدفع بالتفصيل</a></div>' +
       '  </div>' +
       /* ── سحب ─ */
       '  <div class="wl-pane" id="wlPaneWd" hidden>' +
-      '    <div class="wl-row"><label>الوسيلة</label><select id="wlWdMethod">' +
-      '      <option value="cryptomus">كريبتو (عنوان USDT/TRC20)</option>' +
+      '    <div class="wl-row"><label data-i18n="wl.method">الوسيلة</label><select id="wlWdMethod">' +
+      '      <option value="cryptomus" data-i18n="wl.mCrypto">كريبتو (عنوان USDT/TRC20)</option>' +
       '      <option value="cash_plus">Cash Plus</option>' +
-      '      <option value="cih">CIH Express (قريباً)</option>' +
-      '      <option value="orange_money">Orange Money (قريباً)</option>' +
+      '      <option value="cih" data-i18n="wl.mCih">CIH Express (قريباً)</option>' +
+      '      <option value="orange_money" data-i18n="wl.mOm">Orange Money (قريباً)</option>' +
       '    </select></div>' +
-      '    <div class="wl-row"><label>تفاصيل الاستلام (عنوان المحفظة / رقم الهاتف)</label><input id="wlWdDetails" type="text"></div>' +
-      '    <div class="wl-row"><label>المبلغ (USD)</label><input id="wlWdAmt" type="number" min="1" step="1" value="10"></div>' +
-      '    <button class="wl-cta" id="wlWdGo" type="button">طلب السحب</button>' +
+      '    <div class="wl-row"><label data-i18n="wl.details">تفاصيل الاستلام (عنوان المحفظة / رقم الهاتف)</label><input id="wlWdDetails" type="text"></div>' +
+      '    <div class="wl-row"><label data-i18n="wl.amount">المبلغ (USD)</label><input id="wlWdAmt" type="number" min="1" step="1" value="10"></div>' +
+      '    <button class="wl-cta" id="wlWdGo" type="button" data-i18n="wl.wdGo">طلب السحب</button>' +
       '    <div class="wl-msg" id="wlWdMsg"></div>' +
-      '    <div class="wl-note">يُخصم المبلغ فور الطلب ويحوَّل بعد موافقة الأدمن — تصلك الحالة إشعاراً.</div>' +
+      '    <div class="wl-note" data-i18n="wl.wdNote">يُخصم المبلغ فور الطلب ويحوَّل بعد موافقة الأدمن — تصلك الحالة إشعاراً.</div>' +
       '  </div>' +
       /* ── سجل ─ */
       '  <div class="wl-pane" id="wlPaneHis" hidden><div id="wlTxList"></div></div>' +
       '</div>';
     document.body.appendChild(overlay);
     overlay.addEventListener('click', function (e) { if (e.target === overlay) closeWallet(); });
+    /* [i18n v2.39] تُرجم النوافذ المبنية ديناميكياً فور إنشائها */
+    if (typeof translateStatic === 'function') translateStatic();
 
     overlay.querySelector('#wlTabDep').onclick = function () { tab('Dep'); };
     overlay.querySelector('#wlTabWd').onclick = function () { tab('Wd'); wlRefresh(); };
@@ -113,11 +115,17 @@ window.PWAL = window.PWAL || {};
   function renderMethods() {
     var box = overlay.querySelector('#wlMethods');
     if (!METHODS) { box.innerHTML = '<div class="wl-note">⏳ نظام الدفع غير موصول بعد — يضبط المشرف عنوان الووركر في payments-url.json.</div>'; return; }
-    var icons = { cryptomus: '🪙', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️' };
+    var icons = { cryptomus: '🪙', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️', binance: '🟡' };
+    /* [i18n v2.39] أسماء الوسائل تُترجم محلياً بدل نص الخادم العربي */
+    var lab = function (m) {
+      var k = { cryptomus: 'wl.mCrypto', cih: 'wl.mCihLive', binance: 'wl.mBnb', voucher: 'wl.voucher', orange_money: 'wl.mOm' }[m.id];
+      if (k && typeof T === 'function' && T(k) !== k) return T(k);
+      return m.label;
+    };
     box.innerHTML = METHODS.map(function (m) {
       return '<button class="wl-method" type="button" data-m="' + m.id + '" ' + (m.status !== 'live' ? 'disabled' : '') + '>' +
-        '<span class="ic">' + (icons[m.id] || '💳') + '</span><span>' + esc(m.label) + '</span>' +
-        (m.status !== 'live' ? '<span class="soon">قريباً</span>' : '') + '</button>';
+        '<span class="ic">' + (icons[m.id] || '💳') + '</span><span>' + esc(lab(m)) + '</span>' +
+        (m.status !== 'live' ? '<span class="soon">' + (typeof T === 'function' ? T('wl.soon') : 'قريباً') + '</span>' : '') + '</button>';
     }).join('');
     box.querySelectorAll('.wl-method').forEach(function (b) {
       b.onclick = function () { pickMethod(b.getAttribute('data-m')); };

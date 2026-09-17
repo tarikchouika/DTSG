@@ -769,11 +769,7 @@ class RondaRenderer {
         /* شريط أيقونات سفلي ذهبي شفاف */
         '<div class="fd-bottombar">' +
           (mp ? '' :
-          '<div class="fd-bb-left">' +
-            '<button class="fd-ic-btn" id="rnBetMinus" onclick="RN_changeBet(-10)" aria-label="−" title="−10">➖</button>' +
-            '<div class="fd-bet-amt" id="rnBetAmt">10</div>' +
-            '<button class="fd-ic-btn" id="rnBetPlus" onclick="RN_changeBet(10)" aria-label="+" title="+10">➕</button>' +
-          '</div>') +
+          '<div class="fd-bb-left"><span class="gset-free inline" data-i18n="ui.freeShort">🎓 تدريب مجاني</span></div>') +
           '<div class="fd-bb-center">' +
             '<button class="fd-ic-btn ghost" id="rnAccept" style="display:none">✔</button>' +
             '<button class="fd-ic-btn ghost" id="rnRefuse" style="display:none">✖</button>' +
@@ -850,12 +846,7 @@ class RondaRenderer {
           '<aside class="fd-side">' +
             '<div class="fd-mode-info" id="fdModeInfo"></div>' +
             (mp ? '<div class="fd-rotation" id="rnRotation"></div>' :
-              '<div class="fd-betbar">' +
-                '<span class="fd-bet-label">🪙 ' + RL('bet') + '</span>' +
-                '<button class="fd-bet-btn" id="rnBetMinus" onclick="RN_changeBet(-10)" aria-label="−10">−</button>' +
-                '<div class="fd-bet-amt" id="rnBetAmt">10</div>' +
-                '<button class="fd-bet-btn" id="rnBetPlus" onclick="RN_changeBet(10)" aria-label="+10">+</button>' +
-              '</div>') +
+              '<div class="fd-free-side" data-i18n="ui.freeSide">🎓 تدريب مجاني — الرهان في الغرف</div>') +
           '</aside>' +
         '</div>' +
         '<div class="fd-sheet" id="rnSelectionPanel"></div>' +
@@ -877,13 +868,11 @@ class RondaRenderer {
           '<span class="fd-mode-em">🎯</span>' +
           '<span class="fd-mode-name">' + RL('mode num') + '</span>' +
           '<span class="fd-mode-desc">' + RL('mode numDesc') + '</span>' +
-          '<span class="fd-mode-mult">×2</span>' +
         '</button>' +
         '<button class="fd-mode-btn" onclick="RN_chooseMode(\'number_symbol\')">' +
           '<span class="fd-mode-em">♦️♠️</span>' +
           '<span class="fd-mode-name">' + RL('mode sym') + '</span>' +
           '<span class="fd-mode-desc">' + RL('mode symDesc') + '</span>' +
-          '<span class="fd-mode-mult">×3</span>' +
         '</button>' +
       '</div>'
     );

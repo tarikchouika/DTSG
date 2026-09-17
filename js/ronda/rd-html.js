@@ -88,11 +88,9 @@ window.RD_HTML = (function () {
         '</div>' +
         '<div class="rd-menu-row">' +
           '<div class="rd-menu-section rd-menu-half">' +
-            '<h2 class="rd-menu-label" data-i18n="rdc.betLabel">مبلغ الرهان</h2>' +
-            '<div class="rd-bet-box">' +
-              '<span class="rd-bet-coin" aria-hidden="true">🪙</span>' +
-              '<input type="number" class="rd-bet-input" id="bet-input" min="0" step="10" value="10" inputmode="numeric" aria-label="مبلغ الرهان">' +
-            '</div>' +
+            '<h2 class="rd-menu-label" data-i18n="rdc.betLabel">الرهان</h2>' +
+            '<div class="gset-free" data-i18n="ui.trainingFree">🎓 تدريب مجاني بدون رهان — يُحدَّد الرهان في إعدادات الغرف أونلاين</div>' +
+            '<input type="number" class="rd-bet-input" id="bet-input" min="0" step="10" value="10" inputmode="numeric" aria-label="مبلغ الرهان" hidden>' +
           '</div>' +
         '<div class="rd-menu-section rd-menu-half rd-menu-toggles">' +
           '<p class="rd-snd-hint" data-i18n="rdc.tgl.soundHint">🔊 الصوت من زر السماعة في رأس اللعبة</p>' +

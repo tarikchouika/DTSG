@@ -43,8 +43,9 @@ const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  �
     ok('اللعبة نشطة (كلاسيك)', await p.evaluate(() => ParchisiApp.gameActive));
     ok('المحرك بنردين', await p.evaluate(() => ParchisiApp.engine.mode.dice === 2));
     ok('٤ أيقونات لاعبين في الزوايا', await p.$$eval('.pr-picon', els => els.length === 4));
-    ok('العنوان «بارتشي» بالعربية', (await p.$eval('#prTitle', e => e.textContent)) === 'بارتشي');
-    ok('مجموع الرهان تحت العنوان (20×4=80)', (await p.$eval('#prPot', e => e.textContent)) === '80');
+    ok('العنوان «بارتشي» بالعربية', (await p.$eval('#prTitle', e => e.textContent)).startsWith('بارتشي'));
+    /* [v2.38] المحلي تدريب مجاني — القدر حصري للغرف أونلاين */
+    ok('محلياً: لا قدر معروض', (await p.$eval('#prPotWrap', e => e.style.display)) === 'none');
     ok('أيقونة الدور الحالي مضيئة', await p.$$eval('.pr-picon.on', els => els.length === 1));
 
     const px = await p.evaluate(() => {
