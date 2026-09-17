@@ -82,6 +82,36 @@
 
 ---
 
+## v2.40 (بطاقات الألعاب الرسمية + رموز QR الحقيقية + إثبات ملكية Cryptomus)
+
+- **بطاقة الضومنة والطاولة**: صورة المستخدم الرسمية (`game-card-dominoes.png` /
+  `game-card-backgammon.png`) صارت داخل `assets/games/dominoes/icon.webp` و
+  `assets/games/backgammon/icon.webp` (512×512) + خلفيات المسرح
+  (`background.webp` 1376×768 معتمة هادئة).
+  إصلاح جانبي: `js/main.js` كان يطلب `icon.png` للعبتين — والملف غير موجود ⇒
+  **طلب 404 على كل زيارة** ثم السقوط إلى webp. الآن webp أولاً (بلا 404) مع إبقاء png احتياطاً.
+- **رموز QR حقيقية**: `assets/qr/binance-trc20.png` (رمز تطبيق Binance لعنوان
+  USDT-TRC20 الفعلي) و`assets/qr/cashplus.png` (رمز تطبيق Cash Plus للرقم 0766672027).
+  رمز CIH الحالي أُبقي (فُكّ وأُكِّد أنه يحمل IBAN الصحيح `MA64230815690408521101420024`).
+- **صفحة الاسترداد**: قسم Cash Plus صار يعرض الرمز + بيانات الحساب؛ الرموز الثلاثة
+  (Cash Plus/CIH/Binance) تُقرأ فعلياً بالكاميرا.
+- **المحفظة**: اختيار أي وسيلة دفع محلية (Cash Plus / CIH / Binance) يعرض الآن
+  **رمز QR مباشر** + بيانات الحساب كاملة (RIB/IBAN/SWIFT/الشبكة) داخل نافذة الشحن،
+  بلا مغادرة المنصة — ومترجم بأربع لغات (`wl.scanQr`, `wl.transferTo`, `wl.network`, `wl.copy`).
+- **إثبات ملكية Cryptomus**: `cryptomus_5bf79cae.html` في جذر الموقع
+  (يُخدَم على `https://dtsg.pages.dev/cryptomus_5bf79cae.html` للتحقق الآلي).
+- **إصلاح نشر مهم**: `refund-policy.html` كانت **غائبة عن `scripts/deploy-pages.sh`**
+  رغم أنها مرتبطة من المحفظة والقوائم — أُضيفت، مع `payments-url.json` وملف Cryptomus.
+- **`payments-url.json`** صار يشير إلى الووركر الوسيط `casino-phone.dmgames-api.workers.dev`
+  (نفس مصدر الحقيقة للـAPI) بدل قيمة فارغة كانت تجعل المحفظة تطلب من Pages
+  فتحصل على 404. + قاعدة بلا كاش في `_headers`.
+- **ملف واجهة جديد**: `js/games/catalog.js` بلا تغيير؛ التعديلات: `js/main.js`،
+  `js/wallet.js`، `js/i18n/translations.js`، `css/20-wallet.css`، `_headers`،
+  `refund-policy.html`، `scripts/deploy-pages.sh` + أصول جديدة. رموز كاش: `pay2` / `dtsg8`.
+- **اختبار جديد**: `tests/_verify_v240.js` — 17 فحصاً (البطاقتان تُحمَّلان فعلياً 512×512 ·
+  الرموز الثلاثة تُخدَم وتُعرض في الصفحة والمحفظة · ملف Cryptomus 200 ويحوي المفتاح · صفر أخطاء JS).
+- `package.json` → 2.40.0 · بصمة البناء في `js/main.js` → `v2.40.0`.
+
 ## ملاحظات التشغيل (إلزامية للإنتاج)
 
 1. **الخادم الخلفي يجب أن يُحدَّث إلى v2.37**: الموقع المنشور يمرر `/api/*` إلى نسخة `server.js` قديمة؛ حدّثوها من مستودع `tarikchouika/DTSG` (git pull بعد تشغيل الناقل) وأعيدوا التشغيل بمتغيرات البيئة:

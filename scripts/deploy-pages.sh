@@ -49,7 +49,8 @@ cp -r js css assets ronda-game backgammon-game dominoes-game "$OUT/"
 
 for f in index.html admins.html about.html contact.html 2fa.html \
          provably-fair.html fairness.html privacy.html terms.html \
-         _headers _redirects api-url2.json tunnel-live.json; do
+         refund-policy.html cryptomus_5bf79cae.html \
+         _headers _redirects api-url2.json payments-url.json tunnel-live.json; do
   [ -e "$f" ] && cp "$f" "$OUT/"
 done
 
@@ -60,6 +61,8 @@ for g in favicon*.png *.webp favicon.ico manifest.json robots.txt sitemap.xml; d
   done
 done
 
+# [v2.40] صفحة الاسترداد + ملف إثبات ملكية Cryptomus + payments-url.json
+# (كانت refund-policy.html غائبة عن النشر رغم أنها مرتبطة من المحفظة والقوائم)
 # لا اختبارات ولا وثائق ولا قواعد بيانات ولا configs في النشر
 rm -rf "$OUT"/data 2>/dev/null || true
 rm -rf "$OUT"/ronda-game/tests "$OUT"/ronda-game/README.md 2>/dev/null || true

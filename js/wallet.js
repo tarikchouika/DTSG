@@ -9,16 +9,52 @@ window.PWAL = window.PWAL || {};
 (function () {
   var BASE = null;         /* عنوان الووركر — يحل مرة واحدة */
   var METHODS = null;
+  var PROBED = null;       /* نتيجة الفحص الأولى (توفير طلب مكرر) */
   var overlay = null;
 
   function base() { return (BASE || '').replace(/\/$/, ''); }
+  /* [PayRoute v2.40] حلّ عنوان المدفوعات بذكاء:
+     1) ما في /payments-url.json (الووركر الوسيط — الإنتاج)
+     2) نفس الأصل (خادم المنصة نفسه: تطوير محلي / هاتف / ووركر يمرّر كل شيء)
+     3) عنوان الـ API المعروف (API_BASE_URL) كاحتياط أخير
+     يُختار أول مرشّح يردّ فعلاً بقائمة وسائل صالحة، فلا تتعطل المحفظة إن كان
+     أحد المسارات منشوراً بلا مسارات المدفوعات. */
+  async function probe(url) {
+    var ctl = (typeof AbortController === 'function') ? new AbortController() : null;
+    var t = ctl ? setTimeout(function () { ctl.abort(); }, 4000) : null;
+    try {
+      const r = await fetch(url.replace(/\/$/, '') + '/api/payments/methods', { cache: 'no-store', signal: ctl ? ctl.signal : undefined });
+      const j = await r.json();
+      if (j && j.ok && Array.isArray(j.methods)) { if (t) clearTimeout(t); return j.methods; }
+    } catch (e) { /* مرشّح غير متاح أو انتهت المهلة */ }
+    if (t) clearTimeout(t);
+    return null;
+  }
   async function resolveBase() {
     if (BASE !== null) return BASE;
+    var fileUrl = '';
     try {
       const r = await fetch('/payments-url.json', { cache: 'no-store' });
       const j = await r.json();
-      BASE = (j && j.url) ? String(j.url) : '';
-    } catch (e) { BASE = ''; }
+      fileUrl = (j && j.url) ? String(j.url) : '';
+    } catch (e) { fileUrl = ''; }
+    var cands = [];
+    if (fileUrl) cands.push(fileUrl);
+    if (typeof location !== 'undefined' && location.origin) cands.push(location.origin);
+    try {
+      var ab = (typeof window !== 'undefined') ? (window.API_BASE_URL || window.API_BASE_PROMISE) : null;
+      if (ab && typeof ab.then === 'function') ab = await ab;
+      if (ab && typeof ab === 'string') cands.push(ab);
+    } catch (e) { /* بلا API base */ }
+    var seen = {};
+    for (var i = 0; i < cands.length; i++) {
+      var c = String(cands[i]).replace(/\/$/, '');
+      if (!c || seen[c]) continue;
+      seen[c] = 1;
+      var m = await probe(c);
+      if (m) { BASE = c; PROBED = m; return BASE; }
+    }
+    BASE = (fileUrl || cands[0] || '');   /* لا مرشّح متاح — تُعرض رسالة «غير موصول» */
     return BASE;
   }
   async function api(path, body) {
@@ -145,10 +181,21 @@ window.PWAL = window.PWAL || {};
       return;
     }
     form.hidden = false;
-    if (id === 'cash_plus' || id === 'cih' || id === 'orange_money') {
+    /* [QR v2.40] رمز QR الرسمي لكل وسيلة (نفس أصول صفحة الاسترداد) — يُعرض داخل المحفظة
+       ليُمسح مباشرة من التطبيق البنكي/المحفظة بلا مغادرة المنصة. */
+    var QR = { cash_plus: 'assets/qr/cashplus.png', cih: 'assets/qr/cih-bank.png', binance: 'assets/qr/binance-trc20.png' };
+    var qrImg = QR[id] ? '<div class="wl-qr"><img src="' + QR[id] + '" alt="QR" loading="lazy">' +
+      '<span>' + (typeof T === 'function' ? T('wl.scanQr') : 'امسح الرمز بتطبيق الدفع') + '</span></div>' : '';
+    if (id === 'cash_plus' || id === 'cih' || id === 'orange_money' || id === 'binance') {
       var acc = (m && m.account) || {};
-      acct.innerHTML = '<div class="wl-acct">حوِّل المبلغ إلى:<br><b>' + esc(acc.name || '') + '</b> — <b>' + esc(acc.number || '') + '</b>' +
-        (acc.number ? ' <button class="wl-copy" type="button" onclick="navigator.clipboard.writeText(\'' + esc(acc.number) + '\').catch(function(){})">نسخ</button>' : '') + '</div>';
+      var mainNum = acc.number || acc.address || '';
+      acct.innerHTML = qrImg + '<div class="wl-acct">' + (typeof T === 'function' ? T('wl.transferTo') : 'حوِّل المبلغ إلى:') + '<br><b>' + esc(acc.name || 'TARIK CHOUIKA') + '</b>' +
+        (mainNum ? ' — <b>' + esc(mainNum) + '</b>' : '') +
+        (acc.rib ? '<br>RIB: <b>' + esc(acc.rib) + '</b>' : '') +
+        (acc.iban ? '<br>IBAN: <b>' + esc(acc.iban) + '</b>' : '') +
+        (acc.swift ? '<br>SWIFT: <b>' + esc(acc.swift) + '</b>' : '') +
+        (acc.network ? '<br>' + (typeof T === 'function' ? T('wl.network') : 'الشبكة') + ': <b>' + esc(acc.network) + '</b>' : '') +
+        (mainNum ? ' <button class="wl-copy" type="button" onclick="navigator.clipboard.writeText(\'' + esc(mainNum) + '\').catch(function(){})">' + (typeof T === 'function' ? T('wl.copy') : 'نسخ') + '</button>' : '') + '</div>';
       acct.hidden = false; proof.hidden = false;
     } else {
       acct.hidden = true; proof.hidden = true;
@@ -228,10 +275,13 @@ window.PWAL = window.PWAL || {};
     buildOverlay();
     overlay.hidden = false;
     await resolveBase();
-    try {
-      const r = await api('/api/payments/methods');
-      METHODS = (r && r.ok) ? r.methods : null;
-    } catch (e) { METHODS = null; }
+    if (PROBED) { METHODS = PROBED; }
+    else {
+      try {
+        const r = await api('/api/payments/methods');
+        METHODS = (r && r.ok) ? r.methods : null;
+      } catch (e) { METHODS = null; }
+    }
     selMethod = null;
     renderMethods();
     overlay.querySelector('#wlDepForm').hidden = true;

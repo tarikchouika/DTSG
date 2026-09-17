@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.28.1';
+window.DTSG_BUILD = 'v2.40.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -34,10 +34,11 @@ const GAME_IMG = {
 function tileHTML(g) {
   const tagClass = { HOT: 'hot', NEW: 'new', LIVE: 'live' }[g.tag] || 'hot';
   const img = GAME_IMG[g.id];
-  /* [Brand 2026-09-16] بطاقات الهوية الرسمية PNG تُجرَّب أولاً للطاولة والضومنة،
-     مع رجوع تلقائي لـ webp القديمة إن غابت — بلا كسر للواجهة */
-  const ext = (g.id === 'do' || g.id === 'bg') ? 'png' : 'webp';
-  const altExt = ext === 'png' ? 'webp' : 'png';
+  /* [Brand v2.40] بطاقات الهوية الرسمية للطاولة (bg) والضومنة (do) صارت داخل icon.webp
+     نفسه (كان PNG مُجرَّباً أولاً ولا وجود له في المستودع ⇒ طلب 404 ثم سقوط للـwebp).
+     الآن webp أولاً (بلا 404) مع إبقاء png كاحتياط لو أُضيف لاحقاً. */
+  const ext = 'webp';
+  const altExt = (g.id === 'do' || g.id === 'bg') ? 'png' : 'webp';
   const art = img
     ? '<div class="art ' + g.art + ' hasimg" aria-hidden="true">' +
         '<span class="art-emoji">' + (g.em || '') + '</span>' +

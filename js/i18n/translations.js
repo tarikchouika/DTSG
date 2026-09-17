@@ -162,6 +162,11 @@ const TR = {
   'wl.mOm': [ 'Orange Money (قريباً)', 'Orange Money (bientôt)', 'Orange Money (soon)', 'Orange Money (قريباً)' ],
   'wl.mCihLive': [ 'CIH Bank / CIH Express', 'CIH Bank / CIH Express', 'CIH Bank / CIH Express', 'CIH Bank / CIH Express' ],
   'wl.mBnb': [ 'Binance (TRC20)', 'Binance (TRC20)', 'Binance (TRC20)', 'Binance (TRC20)' ],
+  /* [QR v2.40] مفاتيح عرض الرمز وبيانات التحويل داخل المحفظة */
+  'wl.scanQr': [ 'امسح الرمز بتطبيق الدفع أو المحفظة', 'Scannez le QR avec l’appli de paiement', 'Scan the QR with your payment app', 'سكاني الكود بتطبيق الأداء' ],
+  'wl.transferTo': [ 'حوِّل المبلغ إلى:', 'Transférez le montant à :', 'Transfer the amount to:', 'حوّل المبلغ لـ:' ],
+  'wl.network': [ 'الشبكة', 'Réseau', 'Network', 'الشبكة' ],
+  'wl.copy': [ 'نسخ', 'Copier', 'Copy', 'نسخ' ],
   'wl.details': [ 'تفاصيل الاستلام (عنوان المحفظة / رقم الهاتف)', 'Détails de réception (adresse / téléphone)', 'Payout details (wallet address / phone)', 'تفاصيل الاستلام' ],
   'wl.wdGo': [ 'طلب السحب', 'Demander le retrait', 'Request withdrawal', 'طلب السحب' ],
   'wl.wdNote': [ 'يُخصم المبلغ فور الطلب ويحوَّل بعد موافقة الأدمن — تصلك الحالة إشعاراً.', 'Déduit à la demande, transféré après validation — notification de statut.', 'Deducted at request, transferred after admin approval — you get a status notice.', 'يُخصم فور الطلب ويُحوَّل بعد الموافقة — إشعار بالحالة.' ],

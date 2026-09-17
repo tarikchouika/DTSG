@@ -69,3 +69,8 @@
 .wl-tx .st-pending { color: #fbbf24; } .wl-tx .st-completed { color: #34d399; } .wl-tx .st-rejected { color: #f87171; }
 .wl-msg { min-height: 1.2em; font-size: .82rem; margin-top: 8px; }
 .wl-msg.ok { color: #34d399; } .wl-msg.err { color: #f87171; }
+/* [QR v2.40] رمز الدفع داخل المحفظة — قابل للمسح المباشر من تطبيق البنك/المحفظة */
+.wl-qr { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 4px 0 10px; }
+.wl-qr img { width: 180px; height: 180px; max-width: 62vw; max-height: 62vw; border-radius: 14px; background: #fff; padding: 8px; border: 1px solid rgba(34, 211, 238, .45); }
+.wl-qr span { font-size: .76rem; color: var(--t3, #94a3b8); }
+@media (max-width: 420px) { .wl-qr img { width: 148px; height: 148px; } }

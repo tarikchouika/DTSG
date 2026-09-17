@@ -74,6 +74,13 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 
 <div class="pay-steps">
 <h3 data-k="refund.c2t">💵 2) Cash Plus — تحويل محلي بالمغرب (مراجعة يدوية سريعة)</h3>
+<div class="qr-row">
+  <img src="assets/qr/cashplus.png" alt="QR — Cash Plus 0766672027">
+  <ul style="margin:0;padding-inline-start:18px;line-height:1.9">
+    <li><b data-k="refund.labCashName">الاسم:</b> TARIK CHOUIKA</li>
+    <li><b data-k="refund.labCashNo">رقم Cash Plus:</b> <code>0766672027</code></li>
+  </ul>
+</div>
 <ol>
 <li><span class="st">1</span> <span data-k="refund.c2s1">افتح المحفظة ← «شحن» ← «Cash Plus»: يظهر لك اسم ورقم حساب الاستلام داخل المنصة.</span></li>
 <li><span class="st">2</span> <span data-k="refund.c2s2">حوِّل المبلغ عبر وكالة Cash Plus أو تطبيقها واحتفظ بكود/مرجع التحويل.</span></li>
@@ -163,7 +170,7 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 <script src="js/core/state.js?v=dtsg7"></script>
 <script src="js/core/audio.js?v=dtsg7"></script>
 <script src="js/core/utils.js?v=dtsg7"></script>
-<script src="js/i18n/translations.js?v=dtsg7"></script>
+<script src="js/i18n/translations.js?v=dtsg8"></script>
 <script src="js/core/api.js?v=dtsg7"></script>
 <script src="js/core/auth.js?v=dtsg7"></script>
 <script src="js/ui/legal-ui.js?v=lu6"></script>
@@ -185,6 +192,8 @@ var D = {
   "refund.c2s4": { "ar": "يراجع الأدمن الوصل (عبر بوت التلغرام الرسمي) ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.", "da": "الأدمن كيراجع الوصل (عبر البوت الرسمي) وكيشحن رصيدك — عادة دقائق وحتى 24 ساعة.", "fr": "L'admin vérifie le reçu (via le bot Telegram officiel) et crédite — généralement en quelques minutes, max 24 h.", "en": "The admin reviews the receipt (via the official Telegram bot) and credits you — usually minutes, up to 24 h." },
   "refund.c4t": { "ar": "🏦 3) تحويل بنكي CIH / CIH Express — مراجعة سريعة", "da": "🏦 3) تحويل بنكي CIH / CIH Express — مراجعة سريعة", "fr": "🏦 3) Virement bancaire CIH / CIH Express — vérification rapide", "en": "🏦 3) CIH / CIH Express bank transfer — fast review" },
   "refund.labName": { "ar": "الاسم:", "da": "السمية:", "fr": "Nom :", "en": "Name:" },
+  "refund.labCashName": { "ar": "الاسم:", "da": "السمية:", "fr": "Nom :", "en": "Name:" },
+  "refund.labCashNo": { "ar": "رقم Cash Plus:", "da": "نمرة Cash Plus:", "fr": "N° Cash Plus :", "en": "Cash Plus number:" },
   "refund.labAcc": { "ar": "رقم الحساب:", "da": "نمرة الحساب:", "fr": "N° de compte :", "en": "Account number:" },
   "refund.labAddr": { "ar": "عنوان USDT (TRC20):", "da": "عنوان USDT (TRC20):", "fr": "Adresse USDT (TRC20) :", "en": "USDT (TRC20) address:" },
   "refund.c4s1": { "ar": "امسح الرمز أو حوِّل عبر تطبيق CIH Bank / CIH Express إلى الحساب أعلاه.", "da": "سكاني الكود ولا حوّل عبر تطبيق CIH Bank / CIH Express للحساب اللي الفوق.", "fr": "Scannez le QR ou virez via l'appli CIH Bank / CIH Express vers le compte ci-dessus.", "en": "Scan the QR or transfer via the CIH Bank / CIH Express app to the account above." },
