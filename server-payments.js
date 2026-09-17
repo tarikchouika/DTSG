@@ -30,7 +30,7 @@ function initPaymentsTables(db) {
       user_id TEXT NOT NULL,
       type TEXT CHECK(type IN ('deposit', 'withdrawal')),
       amount_usd REAL NOT NULL,
-      method TEXT CHECK(method IN ('sellix', 'cryptomus', 'cih', 'orange_money', 'cash_plus', 'voucher')),
+      method TEXT CHECK(method IN ('sellix', 'cryptomus', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
       status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
       proof_details TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -52,6 +52,38 @@ function initPaymentsTables(db) {
     );
   `);
   try { db.exec('ALTER TABLE users ADD COLUMN telegram_id TEXT'); } catch (e) { /* موجود */ }
+
+  /* [v2.40] ترحيل: عمود method في pay_transactions كان يرفض 'binance'
+     (المحفظة تعرض Binance كوسيلة سحب/إيداع حيّة منذ v2.38) — SQLite لا يعدّل
+     CHECK على جدول قائم، فنعيد بناء الجدول مع نقل كل الصفوف كما هي. */
+  try {
+    const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pay_transactions'").get();
+    if (ddl && ddl.sql && ddl.sql.indexOf('binance') === -1) {
+      const cols = db.prepare('PRAGMA table_info(pay_transactions)').all().map(function (c) { return c.name; }).join(', ');
+      db.exec('BEGIN');
+      db.exec(`
+        CREATE TABLE pay_transactions__mig (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          type TEXT CHECK(type IN ('deposit', 'withdrawal')),
+          amount_usd REAL NOT NULL,
+          method TEXT CHECK(method IN ('sellix', 'cryptomus', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
+          status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
+          proof_details TEXT,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY(user_id) REFERENCES users(id)
+        );
+        INSERT INTO pay_transactions__mig (${cols}) SELECT ${cols} FROM pay_transactions;
+        DROP TABLE pay_transactions;
+        ALTER TABLE pay_transactions__mig RENAME TO pay_transactions;
+        CREATE INDEX IF NOT EXISTS idx_pay_tx_user   ON pay_transactions(user_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_pay_tx_status ON pay_transactions(status);
+      `);
+      db.exec('COMMIT');
+      console.log('[payments] migrated pay_transactions.method → +binance');
+    }
+  } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) {} console.log('[payments] migration skipped:', e.message); }
+
   const vAlters = [
     "ALTER TABLE pay_vouchers ADD COLUMN kind TEXT DEFAULT 'std'",
     'ALTER TABLE pay_vouchers ADD COLUMN coins INTEGER DEFAULT 0',

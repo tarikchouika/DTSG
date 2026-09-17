@@ -321,7 +321,8 @@ async function handleFetch(request, env) {
   if (p === '/api/payments/p2p' && request.method === 'POST') {
     const b = await request.json();
     const amt = Number(b.amount_usd);
-    const methods = ['cash_plus', 'cih', 'orange_money'];
+    /* [v2.40] binance: تحويل USDT يدوي إلى عنواننا — نفس مسار المراجعة اليدوية */
+    const methods = ['cash_plus', 'cih', 'orange_money', 'binance'];
     if (!b.user_id || !(amt >= 1) || methods.indexOf(b.method) < 0 || !b.proof_details) return json({ ok: false, error: 'bad-input' }, 400);
     await uEnsure(db, env, b.user_id, b.email);
     const txId = uid('p2p');
