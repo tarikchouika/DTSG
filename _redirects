@@ -1,3 +1,4 @@
-# [v2.40] ملف إثبات ملكية Cryptomus: يُخدَم على مساره الحرفي بـ 200 بلا تحويل
-# (Cloudflare Pages يحوّل foo.html ← /foo بـ 308 افتراضياً، وبعض أدوات التحقق لا تتبع التحويلات)
+# [v2.40] ملفات إثبات ملكية Cryptomus — تُخدَم على مسارها الحرفي بـ 200 بلا أي تحويل
+# (Cloudflare Pages يحوّل foo.html ← /foo بـ 308 افتراضياً، وفحص Cryptomus لا يتبع التحويلات)
+/cryptomus_696df86d.html  /cryptomus_696df86d  200
 /cryptomus_5bf79cae.html  /cryptomus_5bf79cae  200
