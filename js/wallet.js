@@ -109,7 +109,8 @@ window.PWAL = window.PWAL || {};
       '    <div class="wl-row"><label data-i18n="wl.method">الوسيلة</label><select id="wlWdMethod">' +
       '      <option value="cryptomus" data-i18n="wl.mCrypto">كريبتو (عنوان USDT/TRC20)</option>' +
       '      <option value="cash_plus">Cash Plus</option>' +
-      '      <option value="cih" data-i18n="wl.mCih">CIH Express (قريباً)</option>' +
+      '      <option value="cih" data-i18n="wl.mCihLive">CIH Bank / CIH Express</option>' +
+      '      <option value="binance" data-i18n="wl.mBnb">Binance (TRC20)</option>' +
       '      <option value="orange_money" data-i18n="wl.mOm">Orange Money (قريباً)</option>' +
       '    </select></div>' +
       '    <div class="wl-row"><label data-i18n="wl.details">تفاصيل الاستلام (عنوان المحفظة / رقم الهاتف)</label><input id="wlWdDetails" type="text"></div>' +
