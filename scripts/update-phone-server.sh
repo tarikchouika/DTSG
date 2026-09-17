@@ -1,47 +1,110 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-#  DTSG — تحديث خادم الهاتف إلى v2.40 (يُشغَّل على الهاتف نفسه)
+#  DTSG — تحديث خادم الهاتف إلى v2.40.4 (يُشغَّل على الهاتف نفسه)
 #
-#  لماذا؟ الواجهة الحيّة (dtsg.pages.dev) صحيحة 100%، لكن خادم الهاتف ما زال
-#  يعمل بشيفرة قديمة (بلا مسارات المدفوعات): /api/payments/methods يردّ 404،
-#  لذلك تظهر المحفظة «نظام الدفع غير موصول».
+#  لماذا؟ الواجهة الحيّة (dtsg.pages.dev) صحيحة 100%، لكن خادم الهاتف قد يعمل
+#  بشجرة قديمة (بلا طبقة المدفوعات): /api/payments/methods يردّ 404 فتظهر
+#  المحفظة «نظام الدفع غير موصول».
 #
-#  هذا السكربت: يجلب آخر شيفرة من GitHub، يثبّت المتغيرات، يعيد تشغيل الخادم،
-#  ثم يتحقق فعلياً من كل شيء.
+#  [v2.40.4] أهم ما أُضيف بعد فشل جولة 17/09 22:4x:
+#    1) يكتشف تلقائياً المجلد الذي يشغّله pm2 فعلاً (pm_cwd) — لأن التحديث كان
+#       يُطبَّق على /root/dmgames-arena بينما العملية تخدم شجرة أخرى فتضيع التغييرات.
+#    2) يتحقق من وجود الملفات الحاسمة بعد الجلب (server-payments.js, js/wallet.js,
+#       payments-url.json, cryptomus_*.html) ويفشل بصوت عالٍ إن كانت ناقصة.
+#    3) يتحقق بعد إعادة التشغيل أن النسخة المشغَّلة فعلًا هي الجديدة (/api/health
+#       يعيد build) محلياً وعبر الرابط العام — لا «نجاح شكلي».
+#    4) فحص أمني: قاعدة البيانات وملفات الخادم يجب أن تردّ 404 عمومياً.
 #
 #  الاستعمال (على الهاتف، داخل Ubuntu/Termux حيث يشغّل pm2):
-#      bash update-phone-server.sh
+#      bash scripts/update-phone-server.sh
+#  خيارات: DTSG_DIR=...  DTSG_PM2=...  DTSG_PUBLIC=https://...  SKIP_PULL=1
 #  ═══════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
 APP_DIR="${DTSG_DIR:-/root/dmgames-arena}"     # شجرة العمل على الهاتف
 PM2_NAME="${DTSG_PM2:-casino-server}"          # اسم العملية في pm2
 REPO="${DTSG_REPO:-https://github.com/tarikchouika/DTSG.git}"
-LOCAL_PORT=3000
+LOCAL_PORT="${DTSG_PORT:-3000}"
+PUBLIC="${DTSG_PUBLIC:-https://casino-phone.dmgames-api.workers.dev}"
+EXPECT_FILES=(server.js server-payments.js cf-worker/payments-core.js js/wallet.js payments-url.json)
 
 say() { printf '\n\033[1;36m── %s\033[0m\n' "$*"; }
+ok()  { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }
+bad() { printf '   \033[1;31m✗\033[0m %s\n' "$*"; }
 die() { printf '\n\033[1;31m✗ %s\033[0m\n' "$*"; exit 1; }
+have() { command -v "$1" >/dev/null 2>&1; }
+jget() { curl -s -m 10 "$1" 2>/dev/null; }
+code() { curl -s -m 10 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 
 say "0) فحص البيئة"
-command -v node >/dev/null || die "node غير مثبّت"
+have node || die "node غير مثبّت"
 node -v
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 [ "$NODE_MAJOR" -ge 24 ] || echo "⚠  Node $NODE_MAJOR — يُنصح بـ Node ≥ 24 (node:sqlite يدعم ?1/?2). سأكمل على أي حال."
-[ -d "$APP_DIR" ] || die "المجلد غير موجود: $APP_DIR  (اضبط DTSG_DIR=...)"
 
-say "1) جلب آخر شيفرة (v2.40) من GitHub"
-cd "$APP_DIR"
-if [ -d .git ]; then
-  git fetch origin --prune && git stash push -u -m "pre-v240" 2>/dev/null || true
-  git reset --hard origin/main || die "فشل التحديث"
-  git log -1 --format='%h %s'
+say "0.b) اكتشاف المجلد الذي يشغّله pm2 فعلاً  ⬅ الأهم"
+PM2_DIR=""
+if have pm2; then
+  PM2_DIR="$(pm2 jlist 2>/dev/null | node -e '
+    let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+      let a=[];try{a=JSON.parse(s||"[]")}catch(e){}
+      const want=process.env.DTSG_PM2||"casino-server";
+      const hit=a.find(x=>(x.name===want))||a.find(x=>String((x.pm2_env||{}).pm_cwd||"").includes("dmgames"));
+      if(hit)process.stdout.write(String((hit.pm2_env||{}).pm_cwd||""));
+    });' 2>/dev/null)"
+  if [ -n "$PM2_DIR" ] && [ -d "$PM2_DIR" ]; then
+    if [ "$PM2_DIR" != "$APP_DIR" ]; then
+      echo "   ⚠ pm2 يشغّل: $PM2_DIR"
+      echo "     وأنت تحدّث: $APP_DIR"
+      echo "     ⇒ سأحدّث المجلد الذي يشغّله pm2 فعلاً (هذا سبب ضياع التحديث السابق)."
+      echo "     (لتثبيت مجلد آخر: DTSG_DIR=... DTSG_FORCE_DIR=1)"
+      [ "${DTSG_FORCE_DIR:-0}" = "1" ] || APP_DIR="$PM2_DIR"
+    else
+      ok "pm2 يشغّل نفس المجلد: $APP_DIR"
+    fi
+  else
+    echo "   (لم أستطع قراءة pm_cwd من pm2 — سأكمل على $APP_DIR)"
+  fi
 else
-  say "تحذير: لا مستودع git هنا — سأنسخ من مكان آخر إن وُجد DTSG_SRC"
-  [ -n "${DTSG_SRC:-}" ] && rsync -a --delete "$DTSG_SRC"/ "$APP_DIR"/ || die "لا مصدر للتحديث"
+  echo "   ⚠ pm2 غير مثبّت في هذه البيئة"
+fi
+[ -d "$APP_DIR" ] || die "المجلد غير موجود: $APP_DIR  (اضبط DTSG_DIR=...)"
+echo "   المجلد المعتمد: $APP_DIR"
+
+say "0.c) نسخة احتياطية كاملة للشجرة قبل أي تعديل  ⬅ شبكة أمان"
+BK="/root/dtsg-tree-backup-$(date +%Y%m%d-%H%M).tgz"
+if tar czf "$BK" --exclude=node_modules --exclude=.git --exclude='*.db-wal' --exclude='*.db-shm' -C "$APP_DIR" . 2>/dev/null; then
+  ok "نسخة احتياطية: $BK ($(du -h "$BK" | cut -f1))"
+else
+  warn "فشل إنشاء النسخة الاحتياطية (سأكمل — لكن انتبه)"
+fi
+echo "   قاعدة البيانات تُنسخ أيضاً في الخطوة 4."
+
+say "1) جلب آخر شيفرة (v2.40.4) من GitHub"
+cd "$APP_DIR" || die "لا يمكن الدخول إلى $APP_DIR"
+if [ "${SKIP_PULL:-0}" != "1" ]; then
+  if [ -d .git ]; then
+    git fetch origin --prune || die "فشل git fetch (شبكة/توثيق)"
+    git stash push -u -m "pre-v240-update" 2>/dev/null || true
+    git reset --hard origin/main || die "فشل git reset --hard origin/main"
+    git log -1 --format='%h %s'
+  else
+    say "تحذير: لا مستودع git هنا — أنسخ من DTSG_SRC"
+    if [ -n "${DTSG_SRC:-}" ]; then rsync -a --delete "$DTSG_SRC"/ "$APP_DIR"/ || die "فشل النسخ"; else die "لا مصدر للتحديث (DTSG_SRC غير مضبوط)"; fi
+  fi
 fi
 
-say "2) متغيرات البيئة المطلوبة (تُمرَّر إلى pm2)"
-# عدّل القيم أدناه أو صدّرها قبل تشغيل السكربت.
+say "1.b) التحقق من وجود ملفات المدفوعات  ⬅ كان يفشل بصمت سابقاً"
+MISS=0
+for f in "${EXPECT_FILES[@]}"; do
+  if [ -f "$f" ]; then ok "$f"; else bad "مفقود: $f"; MISS=1; fi
+done
+ls cryptomus_*.html >/dev/null 2>&1 && ok "ملف إثبات Cryptomus موجود" || bad "لا ملف cryptomus_*.html"
+[ "$MISS" = "0" ] || die "الشجرة غير مكتملة بعد الجلب — التحديث لم يُطبَّق على المجلد الصحيح. أوقف هنا ولا تعِد التشغيل."
+echo "   إصدار package.json: $(node -p "require('./package.json').version" 2>/dev/null)"
+echo "   (المتوقع ≥ 2.40.4)"
+
+say "2) متغيرات البيئة (تُمرَّر إلى pm2)"
 export CRYPTOMUS_MERCHANT_ID="${CRYPTOMUS_MERCHANT_ID:-}"
 export CRYPTOMUS_PAYMENT_KEY="${CRYPTOMUS_PAYMENT_KEY:-}"
 export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
@@ -60,54 +123,69 @@ export CIH_SWIFT="${CIH_SWIFT:-CIHMMAMC}"
 export BINANCE_TRC20="${BINANCE_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ}"
 export CRYPTO_USDT_TRC20="${CRYPTO_USDT_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ}"
 echo "   CRYPTOMUS: $([ -n "$CRYPTOMUS_MERCHANT_ID" ] && echo مضبوط || echo 'فارغ (وسيلة الكريبتو ستبقى soon)')"
-echo "   TELEGRAM_ADMIN_CHAT_ID: $TELEGRAM_ADMIN_CHAT_ID"
-echo "   USD_GOLD_RATE: $USD_GOLD_RATE"
+echo "   TELEGRAM_ADMIN_CHAT_ID: $TELEGRAM_ADMIN_CHAT_ID · USD_GOLD_RATE: $USD_GOLD_RATE"
 
 say "3) فحص الشيفرة قبل التشغيل"
 node --check server.js || die "server.js فيه خطأ صياغة"
 node --check server-payments.js || die "server-payments.js فيه خطأ صياغة"
 node --check cf-worker/payments-core.js || die "payments-core.js فيه خطأ صياغة"
-echo "✓ الشيفرة سليمة"
-grep -q "binance" server-payments.js && echo "✓ إصلاح Binance موجود (ترحيل pay_transactions)"
+json_ok() { node -e "const fs=require('fs');JSON.parse(fs.readFileSync('$1','utf8'))" 2>/dev/null; }
+for j in payments-url.json api-url2.json package.json; do [ -f "$j" ] && { json_ok "$j" && ok "$j صالح" || die "$j JSON تالف"; }; done
+ok "الشيفرة سليمة"
+grep -q "binance" server-payments.js && ok "إصلاح Binance موجود (ترحيل pay_transactions)"
+grep -q "isDeniedStatic" server.js && ok "حماية ملفات الخادم/القاعدة موجودة (v2.40.4)"
 
 say "4) نسخة احتياطية لقاعدة البيانات"
-[ -d data ] && [ -f data/royalcoin.db ] && cp -v data/royalcoin.db "data/royalcoin.db.bak-$(date +%Y%m%d-%H%M)" || echo "   (لا قاعدة بعد — ستُنشأ)"
+[ -f data/royalcoin.db ] && cp -v data/royalcoin.db "data/royalcoin.db.bak-$(date +%Y%m%d-%H%M)" || echo "   (لا قاعدة بعد — ستُنشأ)"
 
 say "5) إعادة تشغيل الخادم"
-if command -v pm2 >/dev/null && pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
+if have pm2 && pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
   pm2 restart "$PM2_NAME" --update-env
-  sleep 4
-  pm2 logs "$PM2_NAME" --lines 25 --nostream | grep -iE "payments|migrat|running at" || true
-else
-  echo "⚠ pm2 غير متاح أو العملية $PM2_NAME غير موجودة — سأشغّل يدوياً للفحص ثم أوقف"
-  node --experimental-sqlite server.js > /tmp/dtsg-check.log 2>&1 &
-  SRV_PID=$!
   sleep 5
+  pm2 logs "$PM2_NAME" --lines 30 --nostream 2>/dev/null | grep -iE "payments|migrat|running at" || true
+  echo "   حالة pm2: $(pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let a=[];try{a=JSON.parse(s||"[]")}catch(e){};const w=process.env.DTSG_PM2||"casino-server";const h=a.find(x=>x.name===w);process.stdout.write(h?((h.pm2_env.status||"?")+" · إعادات="+(h.pm2_env.restart_time||0)):"غير موجودة")})')"
+else
+  echo "   ⚠ pm2 غير متاح أو العملية $PM2_NAME غير موجودة — تشغيل يدوي للفحص فقط"
+  node server.js > /tmp/dtsg-check.log 2>&1 &
+  SRV_PID=$!; sleep 6
   grep -iE "payments|migrat|running at" /tmp/dtsg-check.log || true
 fi
 
-say "6) التحقق الفعلي من المسارات (محلياً)"
+say "6) التحقق من النسخة المشغَّلة فعلاً (محلياً)"
 H="http://127.0.0.1:$LOCAL_PORT"
-check() { printf '   %-42s ' "$1"; curl -s -m 8 "$H$1" | head -c 90; echo; }
-check /api/health
-check /api/payments/methods
-echo -n "   POST /api/payments/p2p (binance)              "
-curl -s -m 8 -X POST "$H/api/payments/p2p" -H 'content-type: application/json' \
-  -d '{"user_id":1,"username":"check","method":"binance","amount_usd":10,"proof_details":"SELFTEST"}' | head -c 90; echo
+BUILD_LOCAL="$(jget "$H/api/health" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).build||""))}catch(e){}})')"
+echo "   /api/health build = ${BUILD_LOCAL:-<فارغ>}   (v2.40.4 تعني الخادم الجديد)"
+[ -n "$BUILD_LOCAL" ] || bad "الخادم لا يعيد بصمة build — ما زال يشغّل الشيفرة القديمة"
+printf '   %-34s ' "/api/payments/methods"; M="$(jget "$H/api/payments/methods")"; echo "${M:0:110}"
+echo "$M" | grep -q '"methods"' && ok "طبقة المدفوعات تعمل محلياً" || bad "المدفوعات ما زالت معطّلة محلياً"
+printf '   %-34s ' "/api/deploy/manifest"; echo "$(jget "$H/api/deploy/manifest" | head -c 90)"
 
-[ -n "${SRV_PID:-}" ] && kill "$SRV_PID" 2>/dev/null
+say "6.b) فحص أمني (يجب أن تردّ 404)"
+for f in /data/royalcoin.db /server.js /package.json; do
+  c="$(code "$H$f")"
+  [ "$c" = "404" ] && ok "$f → 404" || bad "$f → $c (مكشوف! شغّل شيفرة v2.40.4)"
+done
 
-cat <<'EOF'
+[ -n "${SRV_PID:-}" ] && { kill "$SRV_PID" 2>/dev/null; wait "$SRV_PID" 2>/dev/null; }
 
-═══════════════════════════════════════════════════════════════════════════
-بعد نجاح ما فوق، تحقّق من الخارج (من أي جهاز فيه إنترنت):
+say "7) التحقق من الخارج عبر الرابط العام"
+printf '   %-46s ' "$PUBLIC/api/health"; PH="$(jget "$PUBLIC/api/health")"; echo "${PH:0:110}"
+BUILD_PUB="$(printf '%s' "$PH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).build||""))}catch(e){}})')"
+printf '   %-46s ' "$PUBLIC/api/payments/methods"; PM="$(jget "$PUBLIC/api/payments/methods")"; echo "${PM:0:110}"
+printf '   %-46s ' "$PUBLIC/data/royalcoin.db (يجب 404)"; echo "$(code "$PUBLIC/data/royalcoin.db")"
 
-  curl -s https://casino-phone.dmgames-api.workers.dev/api/payments/methods
+RC=0
+echo "$PM" | grep -q '"methods"' || { bad "المدفوعات لا تعمل عبر الرابط العام"; RC=1; }
+[ "$BUILD_PUB" = "$(node -p "require('./package.json').version" 2>/dev/null)" ] || { bad "نسخة الرابط العام ($BUILD_PUB) لا تطابق الشجرة ($(node -p "require('./package.json').version"))"; RC=1; }
+[ "$(code "$PUBLIC/data/royalcoin.db")" = "404" ] || { bad "قاعدة البيانات ما زالت مكشوفة عمومياً"; RC=1; }
 
-يجب أن يعيد {"ok":true,"methods":[...]} بدل not_found — وعندها تعمل المحفظة
-على https://dtsg.pages.dev كاملة (رموز QR + رفع الوصل + طلبات السحب).
-
-إن أردت webhook تيليغرام (أزرار قبول/رفض في الشات):
-  curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://casino-phone.dmgames-api.workers.dev/api/telegram/webhook"
-═══════════════════════════════════════════════════════════════════════════
-EOF
+printf '\n═══════════════════════════════════════════════════════════════════════════\n'
+if [ "$RC" = "0" ]; then
+  printf '\033[1;32m✅ نجح التحديث: المدفوعات تعمل والأمن مغلق. المحفظة على dtsg.pages.dev شغّالة الآن.\033[0m\n'
+else
+  printf '\033[1;31m✗ فشل التحقق — أرسل مخرجات هذا السكربت كما هي.\033[0m\n'
+  printf '   تشخيص سريع: bash scripts/phone-doctor.sh\n'
+fi
+printf '   webhook تيليغرام (اختياري):\n     curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook?url=%s/api/telegram/webhook"\n' "$PUBLIC"
+printf '═══════════════════════════════════════════════════════════════════════════\n'
+exit "$RC"

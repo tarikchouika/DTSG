@@ -5,6 +5,25 @@ const url = require('url');
 const crypto = require('crypto');
 
 const PORT = parseInt(process.env.PORT, 10) || 3000;   /* [Render] المنفذ من البيئة */
+
+/* [v2.40.4] بصمة الإصدار — تظهر في /api/health للتحقق عن بُعد من الشجرة المشغَّلة فعلاً */
+const BUILD_VERSION = (function () {
+  try { return String(require('./package.json').version || 'unknown'); } catch (e) { return 'unknown'; }
+})();
+/* [v2.40.4 · أمن] ملفات لا يجوز خدمتها عبر الويب إطلاقاً:
+   كان data/royalcoin.db (قاعدة المستخدمين) و server.js و package.json متاحة للتنزيل
+   من الإنترنت عبر النفق/الووركر. تُعاد لها 404 كأنها غير موجودة. */
+const STATIC_DENY = [
+  /^\/?(server[^\/]*\.js|package(-lock)?\.json|tunnel-live\.json|\.env[^\/]*)/i,
+  /^\/?(data|cf-worker|scripts|tests|node_modules|logs|backup|backups|tmp)(\/|$)/i,
+  /(^|\/)\.(env|git|gitignore|htaccess|npmrc)/i,
+  /(\.db|\.db-wal|\.db-shm|\.sqlite3?|\/dump\.sql)(\?|$)/i
+];
+function isDeniedStatic(pathname) {
+  var p = String(pathname || '');
+  try { p = decodeURIComponent(p); } catch (e) {}
+  return STATIC_DENY.some(function (re) { return re.test(p); });
+}
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -845,7 +864,8 @@ const server = http.createServer((req, res) => {
   if (pathname === '/api/health') {
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.writeHead(200);
-    res.end(JSON.stringify({ ok: true, service: 'dmgames-arena', ts: Date.now() }));
+    /* [v2.40.4] build + payments: للتحقق عن بُعد أن الشجرة المشغَّلة هي v2.40+ فعلاً */
+    res.end(JSON.stringify({ ok: true, service: 'dmgames-arena', build: BUILD_VERSION, payments: true, ts: Date.now() }));
     return;
   }
   if (pathname.startsWith('/api/')) {
@@ -2227,6 +2247,12 @@ const server = http.createServer((req, res) => {
   }
 
   /* ═══════ الملفات الثابتة ═══════ */
+  /* [v2.40.4 · أمن] منع خدمة ملفات الخادم/البيانات/الأسرار عبر الويب العمومي */
+  if (isDeniedStatic(pathname)) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('404 Not Found: ' + pathname);
+    return;
+  }
   let filePath = pathname === '/' ? '/index.html' : pathname;
   filePath = path.join(__dirname, filePath.replace(/^\//, ''));
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
