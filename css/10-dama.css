@@ -311,31 +311,42 @@
 @keyframes dmPulse { 0%, 100% { transform: scale(0.82); opacity: 0.7; } 50% { transform: scale(1.08); opacity: 1; } }
 
 /* ── Pieces ── */
-.dm-pc { width: 74%; height: 74%; border-radius: 50%; position: relative; }
+/* [UI-Pro 2026-09-16] أحجار ضاما بملامح قطعة حقيقية: أخاديد دائرية + حافة مطلية */
+.dm-pc { width: 76%; height: 76%; border-radius: 50%; position: relative; }
 .dm-pc.just { animation: dmDrop 0.22s ease; }
 .dm-pc.w {
-  background: radial-gradient(circle at 34% 28%, #ffffff, #efe2c6 55%, #bda277);
-  border: 1.5px solid #9a8048;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4), inset 0 -3px 6px rgba(120, 90, 40, 0.35);
+  background: radial-gradient(circle at 34% 28%, #ffffff, #f3e7cb 48%, #cdb07c 82%, #a9885a);
+  border: 1px solid #8a6f3d;
+  box-shadow:
+    0 3px 7px rgba(0, 0, 0, 0.45),
+    inset 0 0 0 2px rgba(255, 252, 240, 0.85),
+    inset 0 0 0 4px rgba(160, 128, 70, 0.35),
+    inset 0 0 0 6px rgba(255, 252, 240, 0.55),
+    inset 0 -4px 7px rgba(120, 90, 40, 0.4);
 }
 .dm-pc.b {
-  background: radial-gradient(circle at 34% 28%, #5b5b5b, #2c2c2c 55%, #0c0c0c);
-  border: 1.5px solid #000;
-  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.5), inset 0 -3px 6px rgba(0, 0, 0, 0.5);
+  background: radial-gradient(circle at 34% 28%, #6a6a6e, #303034 48%, #141416 82%, #050506);
+  border: 1px solid #000;
+  box-shadow:
+    0 3px 7px rgba(0, 0, 0, 0.55),
+    inset 0 0 0 2px rgba(120, 120, 128, 0.5),
+    inset 0 0 0 4px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 6px rgba(120, 120, 128, 0.28),
+    inset 0 -4px 7px rgba(0, 0, 0, 0.6);
 }
 .dm-pc.king::after {
-  content: '♛';
+  content: '★';
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 54%;
+  font-size: 52%;
   line-height: 1;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
 }
-.dm-pc.w.king::after { color: #b8892f; }
-.dm-pc.b.king::after { color: #d9b45c; }
+.dm-pc.w.king::after { color: #a9781f; }
+.dm-pc.b.king::after { color: #e6c877; }
 @keyframes dmDrop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
 /* ── [B9] الترقية المؤجلة: هالة ذهبية نابضة + تاج مؤقت فوق القطعة المتوقفة ── */

@@ -76,12 +76,22 @@
     if (listEl) listEl.addEventListener('click', onListClick);
   }
 
-  /* تحميل قائمة الأصدقاء من الخادم */
+  /* تحميل قائمة الأصدقاء من الخادم.
+     [إصلاح 2026-09-16] الخادم يعيد ثلاث مصفوفات (friends/incoming/outgoing) —
+     كان العميل يقرأ المقبولة فقط فتختفي الطلبات المرسلة والواردة («خلل إضافة صديق»). */
   function loadFriends() {
     API.get('/api/friends').then(function (r) {
-      var list = (r.ok && r.data)
-        ? (r.data.friends || (Array.isArray(r.data) ? r.data : []))
-        : [];
+      var list = [];
+      if (r.ok && r.data) {
+        if (Array.isArray(r.data)) { list = r.data; }
+        else {
+          var seen = {};
+          (r.data.friends || []).forEach(function (f) { seen[f.id] = { id: f.id, username: f.username, status: 'accepted', online: !!f.online }; });
+          (r.data.incoming || []).forEach(function (f) { if (!seen[f.id]) seen[f.id] = { id: f.id, username: f.username, status: 'incoming', online: !!f.online }; });
+          (r.data.outgoing || []).forEach(function (f) { if (!seen[f.id]) seen[f.id] = { id: f.id, username: f.username, status: 'outgoing', online: !!f.online }; });
+          list = Object.keys(seen).map(function (k) { return seen[k]; });
+        }
+      }
       _friends = list;
       renderFriends();
     }).catch(function () { renderFriends(); });

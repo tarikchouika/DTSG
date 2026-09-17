@@ -27,8 +27,14 @@
     return base;
   }
   /* الووركر الوسيط (casino-phone) = عبور SSE إلى الهاتف — بلا Durable Objects/WS */
-  var isSSEMode = false;
-  basePromise.then(function (b) { isSSEMode = /casino-phone\.|trycloudflare\.com$|\.lhr\.life$|\.loca\.lt$/.test(b); });
+  /* [إصلاح 2026-09-16] الخادم المحلي (localhost/127.0.0.1/0.0.0.0) لا يدعم WebSocket —
+     يُبقى على EventSource/SSE كما في وضع الووركر الوسيط، وإلا تعطلت أحداث الغرف محلياً.
+     يُحسم محلياً بشكل متزامن: أول EventSource يُفتح أثناء الإقلاع قبل حسم الوعد،
+     فكان يقع في مسار WS المعطوب. */
+  var isSSEMode = (typeof location !== 'undefined') && /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(location.hostname);
+  basePromise.then(function (b) {
+    if (/casino-phone\.|trycloudflare\.com$|\.lhr\.life$|\.loca\.lt$/.test(b || '')) isSSEMode = true;
+  });
   function getUid() {
     /* [PR-Sync] const AUTH لا يظهر على window — يقرأ كرابطة عالمية مباشرة.
        كان uid يصل '0' فلا يتعرف الخادم على اللاعب ولا يرسل room:replay (لوحة مجمدة). */

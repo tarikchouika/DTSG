@@ -239,20 +239,37 @@ DamaEngine.prototype.legalMovesForPiece = function (s, r, c) {
   return mine;
 };
 
-/* [Souffler] الحجر «الأكبر مسؤولية» على الأكل للاعب الحالي:
-   الأولوية: الضائمة (الملك) ← متعدّد فرص الأكل ← البيدق.
+/* أطول سلسلة أكل متاحة لقطعة عند مربع معيّن (قفزة أولى + أقصى استمرارية). */
+DamaEngine.prototype.maxChainAt = function (grid, r, c) {
+  var caps = this.capturesAt(grid, r, c);
+  var m = 0;
+  for (var i = 0; i < caps.length; i++) {
+    var h = this.hopPotential(grid, caps[i]);
+    if (h > m) m = h;
+  }
+  return m;
+};
+
+/* [Souffler — توضيح المالك 2026-09-16] الحجر «الأكبر إلزاماً» بالأكل للاعب الحالي:
+   ١) الضائم (الملك الذي وصل منطقة الخصم) أُلزم بالأكل من البيدق العادي؛
+   ٢) صاحب سلسلة الأكل الأكبر يُلزم قبل صاحب السلسلة الأقصر؛
+   ٣) يبقى البيدق ملزماً بإتمام سلسلة الأكل وإلا نُفخ.
    تُستعمل لاختيار الحجر الذي يُنفخ إن لم يأكل اللاعب. تُعاد [r,c] أو null. */
 DamaEngine.prototype.obligationPiece = function (s) {
   var player = s.turn;
-  var best = null, bestKey = -1;
+  var best = null, bestKing = -1, bestChain = -1, bestCnt = -1;
   for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
     var p = s.grid[r][c];
     if (!p || p.owner !== player) continue;
     var caps = this.capturesAt(s.grid, r, c);
     if (!caps.length) continue;
-    /* ضاملة = +1000 ؛ كثرة فرص الأكل = فرص إضافية (إشارة لتعدّد الأكل) */
-    var key = (p.king ? 1000 : 0) + caps.length;
-    if (key > bestKey) { bestKey = key; best = [r, c]; }
+    var k = p.king ? 1 : 0;
+    var chain = this.maxChainAt(s.grid, r, c);
+    if (k > bestKing || (k === bestKing && chain > bestChain) ||
+        (k === bestKing && chain === bestChain && caps.length > bestCnt)) {
+      bestKing = k; bestChain = chain; bestCnt = caps.length;
+      best = [r, c];
+    }
   }
   return best;
 };
@@ -271,15 +288,19 @@ DamaEngine.prototype.applyMove = function (s, mv) {
   if (mv.cap && !s.cont && s.chainNeed == null) {
     s.chainNeed = mv.potential != null ? mv.potential : (this.hopPotential(s.grid, mv) || 1);
   }
-  /* [Souffler] عند بداية الدور نُسجّل الحجر المُلزَم بالأكل (الأكبر أولوية) بهويّته */
+  /* [Souffler] عند بداية الدور نُسجّل الحجر المُلزَم بالأكل (الأكبر أولوية) بهويّته
+     وطول سلسلة الأكل المطلوبة منه (توضيح المالك: السلسلة الأكبر إلزاماً وإتمامها واجب) */
   if (!s.cont) {
     var ob = (this.rules.souffler) ? this.obligationPiece(s) : null;
     s.obligedId = ob ? s.grid[ob[0]][ob[1]].id : null;
+    s.obligedNeed = ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0;
+    s.turnCaptures = 0;
     s.obligedFulfilled = false;
   }
   if (mv.cap) {
     /* الأكل بالمُلزَم نفسه يُبرّئ الالتزام؛ الأكل بقطعة أخرى لا يُبرّئه (الأولوية للمُلزَم) */
     if (s.obligedId != null && piece && piece.id === s.obligedId) s.obligedFulfilled = true;
+    s.turnCaptures = (s.turnCaptures || 0) + mv.captured.length;
     for (var i = 0; i < mv.captured.length; i++) {
       var cr = mv.captured[i][0], cc = mv.captured[i][1];
       var en = s.grid[cr][cc];
@@ -314,9 +335,11 @@ DamaEngine.prototype.applyMove = function (s, mv) {
     var more = this.capturesAt(s.grid, tr, tc);
     if (more.length) { s.cont = [tr, tc]; info.continued = true; return info; }
   }
-  /* [Souffler] نهاية الدور: إن لم يأكل بالمُلزَم تحديداً يُنفخ هو (حتى لو أكل بقطعة أخرى).
-     الأولوية: الضائمة ← متعدّد الأكل ← البيدق. */
-  if (this.rules.souffler && s.obligedId != null && !s.obligedFulfilled) {
+  /* [Souffler] نهاية الدور: إن لم يأكل بالمُلزَم تحديداً يُنفخ هو (حتى لو أكل بقطعة أخرى)،
+     وإن أكل بالمُلزَم لكن لم يُتمّ سلسلة الأكل الكاملة المطلوبة منه يُنفخ كذلك
+     (توضيح المالك 2026-09-16: إتمام السلسلة واجب وإلا نفخ). */
+  var chainIncomplete = s.obligedFulfilled && (s.obligedNeed || 0) > 0 && (s.turnCaptures || 0) < s.obligedNeed;
+  if (this.rules.souffler && s.obligedId != null && (!s.obligedFulfilled || chainIncomplete)) {
     for (var r = 0; r < 8 && !info.souffled; r++) {
       for (var c = 0; c < 8; c++) {
         var pp = s.grid[r][c];
@@ -324,7 +347,7 @@ DamaEngine.prototype.applyMove = function (s, mv) {
       }
     }
   }
-  s.obligedId = null; s.obligedFulfilled = false;
+  s.obligedId = null; s.obligedFulfilled = false; s.obligedNeed = 0; s.turnCaptures = 0;
   s.cont = null; s.chainNeed = null;
   s.turn = this.opponent(s.turn);
   /* [B9] الترقية المؤجلة: تُحسم بعد مرور الدور — يُتوَّج الآن ما استحق من صاحب الدور الجديد */
@@ -496,10 +519,10 @@ DamaEngine.prototype.aiPick = function (s, ai, maxDepth, budgetMs) {
 var DAMA = null;   /* { eng, state, human, ai, depth, budget, sel, legal, busy, lastFrom, lastTo, bet, mult } */
 
 var DAMA_LEVELS = [
-  /* [AI-MAX] مهلة تفكير أطول ضمن حدود مؤقت الدور (أدناه 30ث) — تعميق تكراري بميزانية زمنية */
-  { key: 'med', name: 'متوسط', depth: 6,  budget: 1200, mult: 2.0 },
-  { key: 'pro', name: 'محترف', depth: 10, budget: 2800, mult: 2.5 },
-  { key: 'exp', name: 'خبير',  depth: 16, budget: 5000, mult: 3.0 }
+  /* [AI 2026-09-16] مستويات أقوى: تعميق تكراري بميزانية زمنية أطول */
+  { key: 'med', name: 'متوسط', depth: 8,  budget: 1800, mult: 2.0 },
+  { key: 'pro', name: 'محترف', depth: 12, budget: 3500, mult: 2.5 },
+  { key: 'exp', name: 'خبير',  depth: 18, budget: 6000, mult: 3.0 }
 ];
 
 function eDama(g) {
@@ -533,8 +556,10 @@ function eDama(g) {
             '<button class="dama-chip" data-t="300" onclick="damaSetTimer(300)">300 ' + T('dama.seconds') + '</button>' +
           '</div>' +
         '</div>' +
+        /* [Training 2026-09-16] مباراة الآلي تدريبية مجانية — الرهان حصري للغرف */
         '<div class="dama-field"><div class="dama-flab">' + T('dama.yourBet') + '</div>' +
-          '<div class="dama-betrow">' + betRow() + '</div>' +   /* [B10] خانة الرهان في الإعدادات فقط */
+          '<div class="dama-betrow" hidden>' + betRow() + '</div>' +
+          '<div class="dama-pay" style="text-align:center;color:var(--t3);font-size:.8rem">🎓 ' + (T('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط') + '</div>' +
         '</div>' +
         '<div class="dama-pay" id="damaPay"></div>' +
         '<button class="big dama-go" id="damaGo" onclick="damaStart()"><i class="fa-solid fa-trophy" aria-hidden="true"></i> ' + T('dama.startMatch') + '</button>' +
@@ -734,6 +759,9 @@ function damaOnline() {
 
 function damaStart() {
   damaStopTimer();
+  /* [Training 2026-09-16] مباراة الآلي تدريبية مجانية بلا رهان ولا تسجيل */
+  window.TRAINING = window.TRAINING || { on: false };
+  window.TRAINING.on = true;
   if (!take()) return;
   if (typeof SND !== 'undefined' && SND.click) SND.click();
   var human = damaSelColor();
@@ -924,7 +952,9 @@ function damaUpdateStake() {
   var el = document.getElementById('damaStake');
   if (!el || !DAMA || !DAMA.state) return;
   if (DAMA.state.over || document.getElementById('damaPlay').hidden) { el.hidden = true; return; }
-  var txt = (DAMA.mode === 'room') ? T('dama.friendly') : (T('dama.stakeLabel') + ' ' + GB + ' 🪙');
+  var txt = (DAMA.mode === 'room')
+    ? T('dama.friendly')
+    : ((window.TRAINING && window.TRAINING.on) ? (T('ui.trainingFree') || 'تدريب مجاني بدون رهان') : (T('dama.stakeLabel') + ' ' + GB + ' 🪙'));
   el.textContent = txt;
   el.hidden = false;
 }

@@ -25,8 +25,10 @@ async function setup(ctx, username, gold) {
   const results = [];
   const ok = (n, c) => { results.push([n, !!c]); console.log((c ? '  ✓ ' : '  ✗ ') + n); };
   const tag = Date.now() % 100000;
+  /* [إصلاح 2026-09-16] single-process يتشارك الكوكيز بين السياقات — متصفح مستقل لكل لاعب */
+  const browser2 = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
   const A = await setup(await browser.newContext(), 'rnbo_' + tag, 5000);
-  const B = await setup(await browser.newContext(), 'rnbg_' + tag, 5000);
+  const B = await setup(await browser2.newContext(), 'rnbg_' + tag, 5000);
   for (const p of [A, B]) await p.evaluate(() => openGame('rn'));
   for (const p of [A, B]) await wait(p, () => !!(typeof RN_ADAPTER !== 'undefined' && RN_ADAPTER), 10000);
 
@@ -72,7 +74,7 @@ async function setup(ctx, username, gold) {
   ok('round 1 started after bet confirmed', !!r1);
 
   ok('no page errors (A=' + A._errs.length + ' B=' + B._errs.length + ')', A._errs.length === 0 && B._errs.length === 0);
-  await browser.close();
+  await browser.close(); await browser2.close();
   const failed = results.filter(r => !r[1]).length;
   console.log('\n═══ FLAT DOG MP bet negotiation: ' + (results.length - failed) + '/' + results.length + ' passed ═══');
   process.exit(failed ? 1 : 0);

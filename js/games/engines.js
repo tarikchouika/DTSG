@@ -45,7 +45,10 @@ function chB(d) {
   GB = Math.max(0.01, Math.round(Math.min(ST.gold || 100, GB + d) * 100) / 100);
   _setGBd(GB);
 }
+function _training() { return !!(window.TRAINING && window.TRAINING.on); }
 function take() {
+  /* [Training 2026-09-16] الجولات التدريبية (بوت/وجه لوجه محلي) مجانية بلا خصم */
+  if (_training()) return true;
   if (ST.gold < GB) {
     toast(T('ts.noc'), 'err');
     SND.lose();
@@ -57,6 +60,8 @@ function take() {
   return true;
 }
 function give(w) {
+  /* [Training 2026-09-16] لا تُضاف أرباح الجولات التدريبية للرصيد */
+  if (_training()) return;
   ST.gold += w;
   wallet();
   save();

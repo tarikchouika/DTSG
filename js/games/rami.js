@@ -2913,8 +2913,8 @@ class RamiUIAdapter {
           '</div>' +
         '</div>' +
 
-        /* الرهان: إدخال رقم يدوي ضمن الرصيد المتاح */
-        '<div class="rami-field">' +
+        /* [Training 2026-09-16] المحلي تدريب مجاني — الرهان حصري للغرف */
+        '<div class="rami-field" id="ramiBetField" hidden>' +
           '<label class="rami-field-label">🪙 ' + (_ramiT('g.bet') || 'الرهان') + ' <span class="rami-bal-hint">(' + balTxt + ')</span></label>' +
           '<div class="rami-bet-row">' +
             '<button type="button" class="bbtn" onclick="ramiChangeBet(-10)" aria-label="تقليل">−</button>' +
@@ -2923,6 +2923,7 @@ class RamiUIAdapter {
             '<button type="button" class="bbtn small" onclick="ramiSetMaxBet()" title="' + T('g.max') + '">' + T('g.max') + '</button>' +
           '</div>' +
         '</div>' +
+        '<div class="rami-note" style="text-align:center;color:var(--t3);font-size:.8rem">🎓 ' + (_ramiT('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط') + '</div>' +
 
         '<button class="big rami-start-btn" onclick="ramiStartGame()">🚀 ' + (_ramiT('g.start') || 'ابدأ اللعب') + '</button>' +
       '</div>';
@@ -4119,12 +4120,17 @@ class RamiUIAdapter {
       const pot = bet * this.game.playerCount;
       const winner = result.winners && result.winners.length ? result.winners[0] : null;
       if (winner && !winner.isBot) {
-        if (typeof ST !== 'undefined' && typeof ST.gold === 'number') {
-          ST.gold += pot;
-          if (typeof wallet === 'function') { try { wallet(); } catch (e) {} }
-          if (typeof save === 'function') { try { save(); } catch (e) {} }
+        /* [Training 2026-09-16] لا أرباح رصيد في التدريب */
+        if (!(window.TRAINING && window.TRAINING.on)) {
+          if (typeof ST !== 'undefined' && typeof ST.gold === 'number') {
+            ST.gold += pot;
+            if (typeof wallet === 'function') { try { wallet(); } catch (e) {} }
+            if (typeof save === 'function') { try { save(); } catch (e) {} }
+          }
+          _ramiToast('🏆 ربحت الجولة — تم إضافة ' + pot + ' 🪙 إلى حسابك!', 'ok');
+        } else {
+          _ramiToast('🏆 ' + (_ramiT('dama.youWin') || 'ربحت الجولة') + ' — 🎓 ' + (_ramiT('ui.trainingFree') || 'تدريب مجاني'), 'ok');
         }
-        _ramiToast('🏆 ربحت الجولة — تم إضافة ' + pot + ' 🪙 إلى حسابك!', 'ok');
       }
       /* [BotsLedger v2.28] فردي فقط: دلتا المنصة = الرهان − الوعاء عند فوز بشري، +الرهان عند فوز بوت */
       if (!this.multiplayer && typeof window !== 'undefined' && window.BotsLedger) {
@@ -4768,6 +4774,10 @@ if (typeof window !== 'undefined') {
 
 /* ═══════════ Actions and Event Handlers ═══════════ */
 function ramiStartGame() {
+  /* [Training 2026-09-16] رامي المحلي (ضد البوتات) تدريب مجاني بلا تسجيل؛
+     غرفة الرهان الجارية وحدها تُسجَّل */
+  window.TRAINING = window.TRAINING || { on: false };
+  window.TRAINING.on = !(typeof Rooms !== 'undefined' && Rooms && Rooms.state && Rooms.state.game_id === 'rm' && Rooms.state.status === 'playing');
   /* [Persist] جولة محفوظة غير منتهية → استئنافها: بلا خصم رهان جديد
      (الرهان خُصم عند بدئها) — يكمل اللاعب من حيث توقف (بلاغ المالك:
      يجب أن يستطيع إتمام جولته مهما أغلق/حدّث/خرج وعاد).
@@ -4852,15 +4862,18 @@ function ramiStartGame() {
   RAMI_BET = currentBet;
   window.RAMI_BET = currentBet;
 
-  if (typeof ST !== 'undefined' && typeof ST.gold === 'number') {
-    if (ST.gold < currentBet) {
-      _ramiToast((_ramiT('ts.noc') || 'رصيدك غير كافٍ للرهان') + ' (' + (typeof fmt === 'function' ? fmt(currentBet) : currentBet) + ' 🪙)', 'err');
-      if (typeof SND !== 'undefined' && SND.lose) SND.lose();
-      return;
+  /* [Training 2026-09-16] التدريب بلا خصم */
+  if (!(window.TRAINING && window.TRAINING.on)) {
+    if (typeof ST !== 'undefined' && typeof ST.gold === 'number') {
+      if (ST.gold < currentBet) {
+        _ramiToast((_ramiT('ts.noc') || 'رصيدك غير كافٍ للرهان') + ' (' + (typeof fmt === 'function' ? fmt(currentBet) : currentBet) + ' 🪙)', 'err');
+        if (typeof SND !== 'undefined' && SND.lose) SND.lose();
+        return;
+      }
+      ST.gold -= currentBet;
+      if (typeof wallet === 'function') wallet();
+      if (typeof save === 'function') save();
     }
-    ST.gold -= currentBet;
-    if (typeof wallet === 'function') wallet();
-    if (typeof save === 'function') save();
   }
 
   const seed = Math.floor(Math.random() * 0xFFFFFFFF);

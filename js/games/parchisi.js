@@ -1172,6 +1172,9 @@ const ParchisiApp = {
   start() {
     const roomMode = this.inRoomMode();
     this.roomMode = roomMode;
+    /* [Training 2026-09-16] المحلي تدريب مجاني بلا تسجيل؛ غرفة الرهان وحدها تُسجَّل */
+    window.TRAINING = window.TRAINING || { on: false };
+    window.TRAINING.on = !roomMode;
     let modeKey = 'classic', teams = false;
     this._roomTypes = null;
     this._roomSeats = null;
@@ -1215,16 +1218,13 @@ const ParchisiApp = {
         }
       }
     } else {
+      /* [Training 2026-09-16] المحلي = تدريب مجاني: لا خصم رصيد ولا وعاء */
+      window.TRAINING = window.TRAINING || { on: false };
+      window.TRAINING.on = true;
+      this.bet = 0;
       this.updateSetup();
       modeKey = this.mode;
       teams = this.teams && this.playerCount === 4;
-      if (ST.gold < this.bet) {
-        toast(T('ts.noc'), 'err');
-        return;
-      }
-      ST.gold -= this.bet;
-      save();
-      wallet();
     }
     SND.click();
     document.getElementById('parchisiSetup').style.display = 'none';

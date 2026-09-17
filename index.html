@@ -88,6 +88,7 @@
   <!-- [BGDO] الطاولة + الضومنة: هوية المشروعين المستقلين (بادئات bw-/dm-) -->
   <link rel="stylesheet" href="backgammon-game/css/backgammon.css?v=bgdo4">
   <link rel="stylesheet" href="dominoes-game/css/dominoes.css?v=bgdo4">
+  <link rel="stylesheet" href="css/20-wallet.css?v=pay1">
   <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
   <script>
     (function () {
@@ -178,6 +179,10 @@
         <div class="dock-left">
           <!-- الحساب -->
           <div id="authChip" class="authchip"></div>
+          <!-- [Payments 2026-09-16] زر المحفظة: شحن/سحب -->
+          <button class="dock-ic" id="walletBtn" onclick="openWallet()" aria-label="المحفظة" title="المحفظة / الشحن والسحب">
+            <i class="fa-solid fa-wallet" aria-hidden="true"></i>
+          </button>
           <!-- اللغة -->
           <div class="lang-drop">
             <button class="lang-btn dock-ic" id="langBtn" onclick="toggleLangMenu()" aria-haspopup="menu" aria-expanded="false" aria-label="اختيار اللغة">
@@ -453,6 +458,7 @@
             <a href="provably-fair.html" data-i18n="legal.pf.link">Provably Fair</a>
             <a href="2fa.html" data-i18n="legal.2fa.link">حماية الحساب (2FA)</a>
             <a href="contact.html" data-i18n="legal.contact.link">تواصل معنا</a>
+            <a href="refund-policy.html" data-i18n="legal.refund.link">سياسة الاسترداد وطرق الدفع</a>
           </div>
           <div class="foot-brand">
             <span class="foot-name"><b>DTSG</b></span>
@@ -790,6 +796,7 @@
   <script src="js/core/fair.js?v=dtsg6"></script>
   <script src="js/games/group.js?v=dtsg6"></script>
   <script src="js/friends.js?v=dtsg6"></script>
+  <script src="js/wallet.js?v=pay1"></script>
 
   <!-- ═══════════ Mobile Bottom Navigation Bar ═══════════ -->
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="التنقل السفلي">

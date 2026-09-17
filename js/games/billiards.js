@@ -288,6 +288,9 @@ function billiardsStart(mode) {
   var RS = BilliardsRules.RULESETS[BILLIARDS.variant];
   if (!RS || !RS.ready) { toast(T('bl.soon'), 'warn'); return; }
   BILLIARDS.mode = mode || 'local';
+  /* [Training 2026-09-16] المحلي/الآلي تدريب بلا تسجيل؛ الغرف وحدها تُسجَّل */
+  window.TRAINING = window.TRAINING || { on: false };
+  window.TRAINING.on = (BILLIARDS.mode !== 'room');
   BILLIARDS.G = RS.create(BILLIARDS.variant === 'carom'
     ? { firstPlayer: 0, discipline: BILLIARDS.caromDisc, target: BILLIARDS.caromTarget }
     : BILLIARDS.variant === 'golvazor'

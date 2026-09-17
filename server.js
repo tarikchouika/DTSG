@@ -227,6 +227,10 @@ const users = {};               // userId -> {id, username, passHash, passSalt, 
 const sessions = {};            // sid -> userId
 const rooms = {};               // roomId -> room object
 let nextRoomId = 1;
+/* [Payments 2026-09-16] المحفظة/الدفع/السحب فوق SQLite المحلية — بلا D1 (تصحيح المالك) */
+const pay = require('./server-payments.js');
+pay.initPaymentsTables(db);
+pay.setContext(db, users);
 /* رسم الرهان على المنصة: نسبة تُقتطع من الرهان عند تسوية الجولة بين لاعبَين */
 const BET_FEE_RATE = 0.05;      /* 5% رسوم المنصة على الرهان */
 /* [B-rooms] غرف الساعة: رسم افتتاح ثابت يُقتطع من المضيف + مدة صلاحية الغرفة */
@@ -855,6 +859,29 @@ const server = http.createServer((req, res) => {
 
       function json(obj, status) { res.writeHead(status || 200); res.end(JSON.stringify(obj)); }
 
+      /* ── [Payments] مسارات المحفظة تُدار بمنطق payments-core فوق القاعدة المحلية ── */
+      if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body); return; }
+
+      /* ── [Deploy] manifest مُجزأ لصفحة الرفع — DEPLOY_MANIFEST=1 ── */
+      if (pathname === '/api/deploy/manifest') { pay.serveManifest(req, res, parsedUrl); return; }
+
+      /* ── [Payments 2026-09-16] شحن ذهب داخلي يستدعيه ووركر المدفوعات (dstg.pages.dev)
+         عند اكتمال إيداع — محمي بسر مشترك من env فقط، لا جلسة ولا كوكيز. ── */
+      if (pathname === '/api/internal/wallet-credit') {
+        const sec = process.env.PAYMENTS_SHARED_SECRET;
+        if (!sec || req.headers['x-pay-secret'] !== sec) { json({ ok: false, error: 'forbidden' }, 403); return; }
+        const uidv = String(data.user_id || '');
+        const usd = Number(data.usd);
+        const rate = Number(process.env.USD_GOLD_RATE || 100);
+        const u = users[uidv] || Object.values(users).find(function (x) { return String(x.id) === uidv; });
+        if (!u || !(usd > 0)) { json({ ok: false, error: 'bad-input' }, 400); return; }
+        const gold = Math.round(usd * rate);
+        u.gold = (u.gold || 0) + gold;
+        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+        json({ ok: true, gold_added: gold, new_gold: u.gold });
+        return;
+      }
+
       /* ── المصادقة ── */
       if (pathname === '/api/me') {
         /* [أزيلت نهائياً] لا حقول مكافأة بعد الآن — عجلة الحظ محذوفة من المنصة */
@@ -1087,10 +1114,20 @@ const server = http.createServer((req, res) => {
       /* ── [Friends] الأصدقاء والرسائل الخاصة ── */
       if (pathname === '/api/friends/add' && req.method === 'POST') {
         if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        const target = Object.values(users).find(function (u) { return u.username === (data.username || ''); });
+        const uname0 = String(data.username || '').trim();
+        const target = Object.values(users).find(function (u) { return u.username === uname0 || String(u.id) === uname0; });
         if (!target) { json({ ok: false, message: 'المستخدم غير موجود' }, 404); return; }
         if (target.id === me.id) { json({ ok: false, message: 'لا يمكنك إضافة نفسك' }, 400); return; }
-        try { db.prepare('INSERT OR REPLACE INTO friends (user_id, friend_id, status, created_at) VALUES (?,?,?,?)').run(me.id, target.id, 'pending', Date.now()); } catch (e) {}
+        try {
+          /* [إصلاح 2026-09-16] إن كان الطرف الآخر طلبني مسبقاً (pending عكسي) → قبول متبادل فوري */
+          const reverse = db.prepare('SELECT user_id FROM friends WHERE user_id = ? AND friend_id = ? AND status = ?').get(target.id, me.id, 'pending');
+          if (reverse) {
+            db.prepare("UPDATE friends SET status='accepted' WHERE user_id = ? AND friend_id = ?").run(target.id, me.id);
+            db.prepare('INSERT OR REPLACE INTO friends (user_id, friend_id, status, created_at) VALUES (?,?,?,?)').run(me.id, target.id, 'accepted', Date.now());
+          } else {
+            db.prepare('INSERT OR REPLACE INTO friends (user_id, friend_id, status, created_at) VALUES (?,?,?,?)').run(me.id, target.id, 'pending', Date.now());
+          }
+        } catch (e) {}
         json({ ok: true });
         return;
       }
@@ -1099,8 +1136,11 @@ const server = http.createServer((req, res) => {
         const fid = Number(data.friendUserId);
         if (isNaN(fid)) { json({ ok: false, message: 'معرّف غير صالح' }, 400); return; }
         try {
-          db.prepare("UPDATE friends SET status='accepted' WHERE user_id = ? AND friend_id = ?").run(me.id, fid);
+          /* [إصلاح 2026-09-16] صف الطلب يوجد باتجاه واحد (المرسل→المستقبل)؛
+             القبول يحدّثه ويُنشئ الصف العكسي accepted ليظهر الصديق لدى الطرفين */
           db.prepare("UPDATE friends SET status='accepted' WHERE user_id = ? AND friend_id = ?").run(fid, me.id);
+          db.prepare("UPDATE friends SET status='accepted' WHERE user_id = ? AND friend_id = ?").run(me.id, fid);
+          db.prepare('INSERT OR IGNORE INTO friends (user_id, friend_id, status, created_at) VALUES (?,?,?,?)').run(me.id, fid, 'accepted', Date.now());
         } catch (e) {}
         json({ ok: true });
         return;
@@ -2029,32 +2069,10 @@ const server = http.createServer((req, res) => {
         json({ ok: true, room: room ? serializeRoom(room) : null });
         return;
       }
-      if (pathname === '/api/rooms/addBot') {
-        const room = rooms[data.room_id];
-        const isHost = room && me && room.owner_id === me.id && room.status === 'waiting';
-        if (isHost) {
-          const nonspec = room.players.filter(function (p) { return !p.spectate; });
-          if (nonspec.length < room.max_players) {
-            const botNum = nonspec.filter(function (p) { return p.isBot; }).length + 1;
-            const botId = 'bot:' + room.id + ':' + botNum;
-            if (!room.players.some(function (p) { return p.id === botId; })) {
-              room.players.push({ id: botId, username: 'AI ' + botNum, ready: true, spectate: false, seat: nonspec.length, isBot: true });
-              updateRoom(room);
-            }
-          }
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
-        return;
-      }
-      /* [MP-AI] المضيف يحذف لاعباً آلياً */
-      if (pathname === '/api/rooms/removeBot') {
-        const room = rooms[data.room_id];
-        const isHost = room && me && room.owner_id === me.id && room.status === 'waiting';
-        if (isHost && data.botId) {
-          const idx = room.players.findIndex(function (p) { return p.id === data.botId && p.isBot; });
-          if (idx !== -1) { room.players.splice(idx, 1); updateRoom(room); }
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+      /* [Policy 2026-09-16] أُزيل الآليون من الغرف: الغرف حصرية للرهان واللعب
+         وجه لوجه بين البشر؛ التدريب ضد الآلي مجاني خارج الغرف وبلا تسجيل. */
+      if (pathname === '/api/rooms/addBot' || pathname === '/api/rooms/removeBot') {
+        json({ ok: false, message: 'الغرف حصرية للاعبين البشر — التدريب ضد الآلي من شاشة اللعبة' }, 403);
         return;
       }
       if (pathname === '/api/rooms/rematch/start') {

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/refund-policy.html">
+<meta name="description" content="سياسة الاسترداد وطرق شحن وسحب الرصيد — ألعاب الدكاء التقليدية الرقمية (DTSG)">
+<meta name="theme-color" content="#0b1526">
+<title>ألعاب الدكاء التقليدية الرقمية — سياسة الاسترداد وطرق الدفع</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="assets/dtsg/favicon/dtsg-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="assets/dtsg/favicon/dtsg-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" ref="no-referrer">
+<link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
+<link rel="stylesheet" href="css/02-base.css?v=dtsg6">
+<link rel="stylesheet" href="css/03-components.css?v=dtsg6">
+<link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
+<link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
+<!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
+<script>
+(function () {
+var t = 'dark';
+try { t = localStorage.getItem('rc_theme') || 'dark'; } catch (e) {}
+if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radiant'); }
+})();
+</script>
+<script src="js/i18n/auto-lang.js?v=dtsg6"></script>
+<style>
+/* ── Legal content layout (header/footer provided by legal-ui.js) ── */
+.legal-wrap { max-width: 860px; margin: 0 auto; padding: 34px 20px 60px; }
+.legal-wrap .legal-icon { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 14px; background: var(--gg); color: #0b1526; font-size: 1.3rem; margin-bottom: 18px; }
+.legal-wrap h1 { font-family: var(--font2, 'Orbitron'), sans-serif; font-weight: 900; font-size: 1.55rem; margin: 0 0 8px; background: var(--gg); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.legal-wrap .updated { color: var(--t3); font-size: 0.78rem; margin-bottom: 28px; }
+.legal-wrap h2 { font-size: 1.05rem; font-weight: 800; color: var(--gold); margin: 26px 0 8px; display: flex; align-items: center; gap: 9px; }
+.legal-wrap h2 i { color: var(--gold); }
+.legal-wrap p, .legal-wrap li { color: var(--t2); font-size: 0.92rem; line-height: 1.85; }
+.legal-wrap ul, .legal-wrap ol { padding-inline-start: 22px; margin: 8px 0; }
+.legal-wrap .legal-note { background: var(--bg2); border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28)); border-radius: 12px; padding: 14px 16px; margin: 18px 0; }
+.legal-wrap .legal-note b { color: var(--gold); }
+.legal-wrap a { color: var(--gold); }
+.legal-wrap table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: .88rem; }
+.legal-wrap th, .legal-wrap td { border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28)); padding: 8px 10px; color: var(--t2); text-align: start; }
+.legal-wrap th { color: var(--gold); background: var(--bg2); }
+.legal-wrap .pay-steps { background: var(--bg2); border: 1px solid var(--ctl-bd, rgba(217, 180, 92, 0.28)); border-radius: 12px; padding: 12px 16px; margin: 10px 0; }
+.legal-wrap .pay-steps h3 { margin: 4px 0 6px; color: var(--t1, #eaf2ff); font-size: .98rem; }
+.legal-wrap .st { display: inline-block; min-width: 20px; height: 20px; line-height: 20px; text-align: center; border-radius: 50%; background: var(--gg); color: #0b1526; font-weight: 800; font-size: .75rem; margin-inline-end: 6px; }
+</style>
+</head>
+<body>
+<article class="legal-content">
+<main class="legal-wrap">
+<div class="legal-icon" aria-hidden="true"><i class="fa-solid fa-rotate-left"></i></div>
+<h1 data-k="refund.title">سياسة الاسترداد وطرق الدفع</h1>
+<div class="updated" data-k="refund.updated">آخر تحديث: 16 شتنبر 2026</div>
+
+<p data-k="refund.intro">تشرح هذه الصفحة بشكل صريح ومبسط كيف تشحن رصيدك، كيف تسحبه، ومتى يحق لك الاسترداد. كل العمليات تمر عبر محفظة حسابك (زر المحفظة في الشاشة الرئيسية) وتُسجل في سجل المعاملات.</p>
+
+<h2><i class="fa-solid fa-arrow-down" aria-hidden="true"></i> <span data-k="refund.depTitle">طرق شحن الرصيد</span></h2>
+
+<div class="pay-steps">
+<h3>🪙 1) الكريبتو — تلقائي 100% (عبر Cryptomus)</h3>
+<ol>
+<li><span class="st">1</span> افتح المحفظة ← «شحن» ← اختر «كريبتو».</li>
+<li><span class="st">2</span> أدخل المبلغ بالدولار ← تظهر لك عنوان الدفع وصفحة Cryptomus الرسمية.</li>
+<li><span class="st">3</span> حوِّل المبلغ (USDT/BTC…)؛ يُشحن رصيدك <b>تلقائياً</b> فور تأكيد الشبكة، ويصلك إشعار.</li>
+</ol>
+</div>
+
+<div class="pay-steps">
+<h3>💵 2) Cash Plus — تحويل محلي بالمغرب (مراجعة يدوية سريعة)</h3>
+<ol>
+<li><span class="st">1</span> افتح المحفظة ← «شحن» ← «Cash Plus»: يظهر لك اسم ورقم حساب الاستلام Resmiement داخل المنصة.</li>
+<li><span class="st">2</span> حوِّل المبلغ عبر وكالة Cash Plus أو تطبيقها واحتفظ بكود/مرجع التحويل.</li>
+<li><span class="st">3</span> أدخل المبلغ وكود التحويل في المحفظة ← حالتها «قيد المراجعة».</li>
+<li><span class="st">4</span> يراجع الأدمن الوصل (عبر بوت التلغرام الرسمي) ويشحن رصيدك — عادة خلال دقائق وحتى 24 ساعة.</li>
+</ol>
+<p><b>قريباً:</b> CIH Express و Orange Money بنفس الآلية.</p>
+</div>
+
+<div class="pay-steps">
+<h3>🎟️ 3) كوبونات التعبئة — فوري</h3>
+<ol>
+<li><span class="st">1</span> أدخل كود الكوبون (شكل DTSG-XXXX-XXXX) في المحفظة ← «تفعيل الكوبون».</li>
+<li><span class="st">2</span> يُضاف المبلغ فوراً؛ الكوبون يُستعمل مرة واحدة فقط.</li>
+</ol>
+</div>
+
+<h2><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> <span data-k="refund.wdTitle">سحب الرصيد</span></h2>
+<ol>
+<li>افتح المحفظة ← «سحب» ← اختر الوسيلة (كريبتو بعنوان محفظتك، أو Cash Plus برقم هاتفك).</li>
+<li>أدخل المبلغ ← يُخصم فوراً من رصيدك ويصبح الطلب «قيد المراجعة».</li>
+<li>ينفّذ الأدمن التحويل بعد التحقق ويصلك إشعار «مكتمل». مدة التنفيذ حتى 24 ساعة.</li>
+<li>إن رُفض الطلب (بيانات خاطئة مثلاً) <b>يُعاد المبلغ كاملاً لرصيدك تلقائياً</b>.</li>
+</ol>
+
+<h2><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-k="refund.policyTitle">سياسة الاسترداد</span></h2>
+<ul>
+<li><b>إيداع مرفوض أو فاشل:</b> لا يُخصم منك أي مبلغ — لا شيء يُسترد لأنه لا شيء أُخذ.</li>
+<li><b>سحب مرفوض:</b> يُرد المبلغ كاملاً وبشكل آلي إلى رصيد المحفظة فور قرار الرفض.</li>
+<li><b>خصم مزدوج أو خطأ تقني مثبّت:</b> يُسترد المبلغ كاملاً إلى رصيدك بعد التحقق، وخلال 72 ساعة كحد أقصى.</li>
+<li><b>الكوبونات:</b> غير قابلة للاسترداد نقداً؛ تُستبدل بالرصيد فقط، ومرة واحدة.</li>
+<li><b>اللعب:</b> الرهانات الحقيقية تتم في الغرف أونلاين فقط وخسائرها جزء من اللعب ولا تُسترد؛ أما التدريب فهو مجاني دائماً ولا يتضمن أي رصيد.</li>
+<li><b>الاحتيال أو مخالفة الشروط:</b> يُجمَّد الرصيد وفق شروط الاستخدام ولا يشمل حق الاسترداد إلا بعد التدقيق.</li>
+</ul>
+
+<h2><i class="fa-solid fa-table" aria-hidden="true"></i> <span data-k="refund.tableTitle">ملخص الحالات</span></h2>
+<table>
+<tr><th>الحالة</th><th>النتيجة</th><th>المدة</th></tr>
+<tr><td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td></tr>
+<tr><td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td></tr>
+<tr><td>إيداع مرفوض</td><td>لا خصم أصلاً</td><td>—</td></tr>
+<tr><td>سحب مقبول</td><td>تحويل للوسيلة المختارة</td><td>≤ 24 س</td></tr>
+<tr><td>سحب مرفوض</td><td>رد آلي كامل للرصيد</td><td>فوري</td></tr>
+<tr><td>خطأ تقني مثبّت</td><td>استرداد كامل</td><td>≤ 72 س</td></tr>
+</table>
+
+<div class="legal-note">
+<b data-k="refund.noteB">ملاحظة:</b> <span data-k="refund.note">أسئلة حول معاملة معينة؟ راسل الدعم عبر واتساب أو بوت التلغرام الرسمي مع ذكر رقم المعاملة من «السجل» في محفظتك. هذه الصفحة جزء من شروط الاستخدام.</span>
+</div>
+
+<p><a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="refund.back">العودة للموقع</span></a></p>
+</main>
+</article>
+<script src="js/core/state.js?v=dtsg6"></script>
+<script src="js/core/audio.js?v=dtsg6"></script>
+<script src="js/core/utils.js?v=dtsg6"></script>
+<script src="js/i18n/translations.js?v=dtsg6"></script>
+<script src="js/core/api.js?v=dtsg6"></script>
+<script src="js/core/auth.js?v=dtsg6"></script>
+<script src="js/ui/legal-ui.js?v=lu5"></script>
+<script>
+/* ── محتوى الصفحة (data-k — ترجمة محتوى الصفحة) ── */
+var D = {
+  "refund.title": { "ar": "سياسة الاسترداد وطرق الدفع", "da": "سياسة الاسترداد وطرق الدفع", "fr": "Politique de remboursement et moyens de paiement", "en": "Refund Policy & Payment Methods" },
+  "refund.updated": { "ar": "آخر تحديث: 16 شتنبر 2026", "da": "آخر تحديث: 16 شتنبر 2026", "fr": "Dernière mise à jour : 16 septembre 2026", "en": "Last updated: September 16, 2026" },
+  "refund.intro": { "ar": "تشرح هذه الصفحة بشكل صريح ومبسط كيف تشحن رصيدك، كيف تسحبه، ومتى يحق لك الاسترداد. كل العمليات تمر عبر محفظة حسابك (زر المحفظة في الشاشة الرئيسية) وتُسجل في سجل المعاملات.", "da": "هاد الصفحة كتشرح بالواضح كيفاش تشحن الرصيد، كيفاش تسحبو، وإمتى عندك الحق فاسترداد. كلشي كيدوز من المحفظة ديالك.", "fr": "Cette page explique clairement comment recharger votre solde, le retirer, et quand vous avez droit à un remboursement. Toutes les opérations passent par votre portefeuille et sont journalisées.", "en": "This page clearly explains how to top up your balance, withdraw it, and when you are entitled to a refund. All operations go through your wallet and are logged." },
+  "refund.depTitle": { "ar": "طرق شحن الرصيد", "da": "طرق شحن الرصيد", "fr": "Moyens de recharge", "en": "Deposit methods" },
+  "refund.wdTitle": { "ar": "سحب الرصيد", "da": "سحب الرصيد", "fr": "Retrait du solde", "en": "Withdrawing your balance" },
+  "refund.policyTitle": { "ar": "سياسة الاسترداد", "da": "سياسة الاسترداد", "fr": "Politique de remboursement", "en": "Refund policy" },
+  "refund.tableTitle": { "ar": "ملخص الحالات", "da": "ملخص الحالات", "fr": "Résumé des cas", "en": "Case summary" },
+  "refund.noteB": { "ar": "ملاحظة:", "da": "ملاحظة:", "fr": "Remarque :", "en": "Note:" },
+  "refund.note": { "ar": "أسئلة حول معاملة معينة؟ راسل الدعم عبر واتساب أو بوت التلغرام الرسمي مع ذكر رقم المعاملة من «السجل» في محفظتك. هذه الصفحة جزء من شروط الاستخدام.", "da": "عندك سؤال على معاملة؟ راسل الدعم مع رقم المعاملة من السجل. هاد الصفحة جزء من شروط الاستعمال.", "fr": "Des questions sur une transaction ? Contactez le support via WhatsApp ou le bot Telegram officiel en indiquant le numéro de transaction. Cette page fait partie des conditions d'utilisation.", "en": "Questions about a transaction? Contact support via WhatsApp or the official Telegram bot with your transaction ID. This page is part of the Terms of Use." },
+  "refund.back": { "ar": "العودة للموقع", "da": "الرجوع للموقع", "fr": "Retour au site", "en": "Back to site" }
+};
+    var currentLang = 'ar';
+    try { currentLang = localStorage.getItem('rc_lang') || 'ar'; } catch (e) {}
+    if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+
+    function applyLang(l) {
+      if (l) currentLang = l;
+      if (currentLang !== 'fr' && currentLang !== 'en' && currentLang !== 'da') currentLang = 'ar';
+      try { localStorage.setItem('rc_lang', currentLang); } catch (e) {}
+      document.documentElement.setAttribute('lang', currentLang === 'da' ? 'ar-MA' : currentLang);
+      document.documentElement.setAttribute('dir', (currentLang === 'ar' || currentLang === 'da') ? 'rtl' : 'ltr');
+      document.querySelectorAll('[data-k]').forEach(function (el) {
+        var k = el.getAttribute('data-k');
+        if (D[k] && D[k][currentLang]) { el.innerHTML = D[k][currentLang]; }
+      });
+      document.querySelectorAll('.lang-drop button[data-lang], .lang-opt[data-lang]').forEach(function (b) {
+        b.classList.toggle('active', b.getAttribute('data-lang') === currentLang);
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function() { applyLang(currentLang); });
+    applyLang(currentLang);
+    if (typeof _origSetLang === 'function') _origSetLang(currentLang);
+/* تهيئة الصفحة: حقن الهيدر/الفوتر + ترجمة المحتوى */
+injectLegalUI('refund');
+applyLang();
+</script>
+</body>
+</html>

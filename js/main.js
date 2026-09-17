@@ -34,14 +34,19 @@ const GAME_IMG = {
 function tileHTML(g) {
   const tagClass = { HOT: 'hot', NEW: 'new', LIVE: 'live' }[g.tag] || 'hot';
   const img = GAME_IMG[g.id];
+  /* [Brand 2026-09-16] بطاقات الهوية الرسمية PNG تُجرَّب أولاً للطاولة والضومنة،
+     مع رجوع تلقائي لـ webp القديمة إن غابت — بلا كسر للواجهة */
+  const ext = (g.id === 'do' || g.id === 'bg') ? 'png' : 'webp';
+  const altExt = ext === 'png' ? 'webp' : 'png';
   const art = img
     ? '<div class="art ' + g.art + ' hasimg" aria-hidden="true">' +
         '<span class="art-emoji">' + (g.em || '') + '</span>' +
         /* [TileImg 2026-09-13] eager (بلا lazy): إعادة بناء innerHTML في filterG/renderGames
            كانت تستبدل البطاقات قبل بدء تحميل lazy (خارج viewport/صفحة مخفية) فتُفقد
            الصور نهائياً — البطاقات صغيرة (4-9KB) فالتحميل الفوري أرخص وأضمن */
-        '<img src="assets/games/' + img + '/icon.webp?v=228" alt="" ' +
-        'onerror="var p=this.parentNode;this.remove();if(p)p.classList.remove(\'hasimg\');">' +
+        '<img src="assets/games/' + img + '/icon.' + ext + '?v=230" alt="" ' +
+        'data-alt="assets/games/' + img + '/icon.' + altExt + '?v=230" ' +
+        'onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=\'\';}else{var p=this.parentNode;this.remove();if(p)p.classList.remove(\'hasimg\');}">' +
       '</div>'
     : '<div class="art ' + g.art + '" aria-hidden="true">' + g.em + '</div>';
   const networkIndicator = [ 'rp', 'pn', 'pr', 'rn', 'rm', 'bg', 'do' ].includes(g.id) ? '<span class="net-indicator net-enabled">🔌 ' + (T('g.multi') || 'P2P') + '</span>' : '';
@@ -256,9 +261,10 @@ function joinRoomByCode() {
 function openTcModal() {
   if (!AUTH.user) { toast(T('auth.sessionExpired'), 'warn'); return; }
   const sel = document.getElementById('tcGame');
-  if (sel && !sel.options.length) {
+  if (sel) {
+    /* [Policy 2026-09-16] تُعاد التعبئة عند كل فتح — المعطلة تختفي */
     const allowed = ['rn', 'rp', 'pn', 'pr', 'ke', 'av', 'rl', 'bj', 'bc'];
-    sel.innerHTML = GAMES.filter(function (g) { return allowed.indexOf(g.id) >= 0; })
+    sel.innerHTML = GAMES.filter(function (g) { return allowed.indexOf(g.id) >= 0 && !DISABLED[g.id]; })
       .map(function (g) { return '<option value="' + g.id + '">' + g.em + ' ' + esc(gname(g)) + '</option>'; })
       .join('');
   }
@@ -579,6 +585,9 @@ function openGame(id) {
      وإلا صُفّر scene ثلاثي الأبعاد أثناء await التهيئة فيكسر لعبة Crash */
   closeModal();
   window._currentGameId = id;
+  /* [Training 2026-09-16] كل لعبة تبدأ غير تدريبية؛ أوضاع البوت/المحلي فقط تفعّلها */
+  window.TRAINING = window.TRAINING || { on: false };
+  window.TRAINING.on = false;
   /* فحص جلسة سابقة: إن انتهت جولتها أثناء الغياب → إشعار */
   if (typeof window.SessionResume !== 'undefined') {
     try { window.SessionResume.onGameOpen(id); } catch (e) {}
@@ -962,6 +971,14 @@ let _localRounds = [];
 let _serverRounds = [];
 /* تسجيل جولة محلية (وإرسالها للخادم إن كان المستخدم مسجلاً) */
 function recordRound(won, payout, txt, betOverride, gidOverride) {
+  /* [Training 2026-09-16] جولات التدريب (بوت / وجه لوجه بنفس الجهاز) لا تُسجَّل
+     في قاعدة البيانات ولا التذاكر ولا سجل المستخدم */
+  if (window.TRAINING && window.TRAINING.on) {
+    if (typeof window.SessionResume !== 'undefined') {
+      try { window.SessionResume.onResolve(); } catch (e) {}
+    }
+    return;
+  }
   /* [Persist] gidOverride: تسجيل تذكرة جولة جماعية حتى لو كان اللاعب في صفحة أخرى */
   const gid = gidOverride || window._currentGameId;
   if (!gid) return;

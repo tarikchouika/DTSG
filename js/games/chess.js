@@ -1235,6 +1235,30 @@ var CHESS_BETS = [0, 25, 50, 100, 250];
 var CHESS_TIMERS = [0, 60, 120, 300];
 var CHESS_GLYPH = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' };
 
+/* [UI-Pro 2026-09-16] طقم قطع SVG احترافي (ظلال موحّدة + تدرّج عاجي/فحمي
+   بحواف ذهبية) بدل المحارف المسطّحة — يُحقن defs واحد للوثيقة ثم تُرسم القطع. */
+var CHESS_SVG_PATHS = {
+  P: '<circle cx="22.5" cy="13.5" r="5"/><path d="M17.5 21h10l-1.6 11.5h-6.8L17.5 21z"/><path d="M13.5 36.5h18l2.5 4.5H11l2.5-4.5z"/>',
+  R: '<path d="M13 39.5h19v-3.5h-2.5V25.5l2.5-4.5v-7h-3.5v3h-3.5v-3h-5v3h-3.5v-3H13v7l2.5 4.5V36H13v3.5z"/>',
+  N: '<path d="M14.5 39.5h17v-2.5c0-5.5-2.2-8.8-5.2-11.8 3.8 1 7-.2 8-3.2 1.2-3.8-.8-7.8-3.8-10.8l-2.2 2.2-2.8-4.4c-6.5 2.2-10.5 7.5-10.5 13.5 0 2.8.9 5 2.2 6.8-1.6 3-2.7 6.2-2.7 8.7v1.5z"/><circle class="ch-cut" cx="24.5" cy="14.5" r="1.1"/>',
+  B: '<circle cx="22.5" cy="8" r="2.6"/><path d="M22.5 12c4.5 4.2 7.5 8.5 7.5 12.5 0 3-1.6 5.6-4.2 7.2h-6.6c-2.6-1.6-4.2-4.2-4.2-7.2 0-4 3-8.3 7.5-12.5z"/><path d="M22.5 15.5v8" class="ch-cut"/><path d="M17.5 33.5h10l1.6 4H15.9l1.6-4z"/><path d="M14.5 39.5h16v2h-16z"/>',
+  Q: '<circle cx="10.5" cy="15.5" r="2"/><circle cx="16.5" cy="12.5" r="2"/><circle cx="22.5" cy="10.5" r="2"/><circle cx="28.5" cy="12.5" r="2"/><circle cx="34.5" cy="15.5" r="2"/><path d="M10.5 17.5l2 16h20l2-16-5.5 4.5-3.5-7-3 7.5-3-7.5-3.5 7-5.5-4.5z"/><path d="M11.5 36.5h21l1.5 3.5H10l1.5-3.5z"/>',
+  K: '<path d="M22.5 4.5v7M19 8h7" class="ch-cut"/><path d="M22.5 12.5c5 0 9 3.4 9 7.8 0 2.8-1.4 5-3.8 6.4 3.6.8 6.8 3 6.8 6.8 0 2.8-1.9 4.9-4.5 6H15c-2.6-1.1-4.5-3.2-4.5-6 0-3.8 3.2-6 6.8-6.8-2.4-1.4-3.8-3.6-3.8-6.4 0-4.4 4-7.8 9-7.8z"/>'
+};
+function chessPieceSVG(t, side) {
+  return '<svg class="ch-svg ' + side + '" viewBox="0 0 45 45" aria-hidden="true">' + (CHESS_SVG_PATHS[t] || '') + '</svg>';
+}
+function chessInjectDefs() {
+  if (document.getElementById('chSvgDefs')) return;
+  var d = document.createElement('div');
+  d.style.display = 'none';
+  d.innerHTML = '<svg id="chSvgDefs" xmlns="http://www.w3.org/2000/svg"><defs>' +
+    '<linearGradient id="chGradW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbee"/><stop offset="0.55" stop-color="#f0e2c0"/><stop offset="1" stop-color="#c9a86a"/></linearGradient>' +
+    '<linearGradient id="chGradB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4a52"/><stop offset="0.5" stop-color="#232327"/><stop offset="1" stop-color="#0c0c0e"/></linearGradient>' +
+    '</defs></svg>';
+  document.body.appendChild(d);
+}
+
 function chessLevelName() { return T('chess.trainingBot'); }
 
 function eChess(g) {
@@ -1256,9 +1280,11 @@ function eChess(g) {
         '<div class="dama-field"><div class="dama-flab">' + T('dama.timer') + ' (' + T('chess.localOnly') + ')</div>' +
           '<div class="dama-timer-row" id="chessTimerRow">' + timerChips + '</div>' +
         '</div>' +
-        /* [v2.28] صف رهان الوضع الفردي + زر ضد البوت (كانا ساقطين من الدمج) */
+        /* [Training 2026-09-16] اللعب ضد الآلي وجه لوجه تدريبي مجاني بلا رهان —
+           الرهان حصري للغرف أونلاين (سياسة المنصة) */
         '<div class="dama-field"><div class="dama-flab">' + T('dama.stakeLabel') + '</div>' +
-          '<div class="dama-timer-row" id="chessBet">' + betChips + '</div>' +
+          '<div class="dama-timer-row" id="chessBet" hidden>' + betChips + '</div>' +
+          '<div class="dama-pay ch-hint">🎓 ' + (T('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط') + '</div>' +
         '</div>' +
         '<div class="ch-modes">' +
           '<button class="big dama-go" onclick="chessStartSolo()"><i class="fa-solid fa-robot" aria-hidden="true"></i> ' + chessLevelName() + '</button>' +
@@ -1328,11 +1354,12 @@ function initChess() {
 window.initChess = initChess;
 window.eChess = eChess;
 
-/* [v2.28] فردي ضد البوت: نفس مسار غرف البوت (oppBot) مع رهان اختياري يخصم محلياً */
+/* [Training 2026-09-16] فردي ضد البوت: تدريب مجاني بلا رهان ولا تسجيل */
 function chessStartSolo() {
   if (!CHESS) initChess();
-  var bet = CHESS.bet || 0;
-  chessStartRoom('w', true, false, bet);
+  window.TRAINING = window.TRAINING || { on: false };
+  window.TRAINING.on = true;
+  chessStartRoom('w', true, false, 0);
 }
 
 function chessSetBet(b) {
@@ -1380,6 +1407,8 @@ function chessStartLocal() {
   CHESS.sel = null; CHESS.legal = []; CHESS.flipped = false;
   CHESS.lastFrom = null; CHESS.lastTo = null; CHESS.drawBanUntil = 0;
   CHESS.isSpectator = false; CHESS.oppBot = false;
+  window.TRAINING = window.TRAINING || { on: false };
+  window.TRAINING.on = true;   /* [Training] وجه لوجه على نفس الجهاز: بلا رهان ولا تسجيل */
   document.getElementById('chessSetup').hidden = true;
   document.getElementById('chessOver').hidden = true;
   document.getElementById('chessPlay').hidden = false;
@@ -1394,6 +1423,7 @@ function chessStartLocal() {
 /* ── عرض اللوحة ── */
 function chessRender() {
   if (!CHESS || !CHESS.state) return;
+  chessInjectDefs();
   var board = document.getElementById('chessBoard');
   if (!board) return;
   var s = CHESS.state;
@@ -1428,7 +1458,7 @@ function chessRender() {
       if (p) {
         var t = chessType(p);
         var side = chessIsWhite(p) ? 'w' : 'b';
-        html += '<span class="ch-pc ' + side + (t === 'K' ? ' king' : '') + '">' + CHESS_GLYPH[t] + '</span>';
+        html += '<span class="ch-pc ' + side + (t === 'K' ? ' king' : '') + '">' + chessPieceSVG(t, side) + '</span>';
       }
       if (hint) html += '<span class="ch-dot' + (hint.capture || hint.ep ? ' cap' : '') + '"></span>';
       html += '</div>';
@@ -1461,13 +1491,13 @@ function chessUpdateHUD() {
     var pc = cap.w[i];
     var t = chessType(pc);
     wPts += val[t];
-    trayW += '<span class="ch-capp b">' + CHESS_GLYPH[t] + '</span>';
+    trayW += '<span class="ch-capp b">' + chessPieceSVG(t, 'b') + '</span>';
   }
   for (var j = 0; j < cap.b.length; j++) {
     var pb = cap.b[j];
     var tb = chessType(pb);
     bPts += val[tb];
-    trayB += '<span class="ch-capp w">' + CHESS_GLYPH[tb] + '</span>';
+    trayB += '<span class="ch-capp w">' + chessPieceSVG(tb, 'w') + '</span>';
   }
   /* الشاشة: الأسود أعلى، الأبيض أسفل (أو معكوسة حسب وجهة نظري) */
   var iAmWhiteView = !CHESS.flipped;   /* الأبيض أسفل ما لم تكن اللوحة مقلوبة */
@@ -1560,7 +1590,7 @@ function chessOpenPromo(promos) {
   var order = ['q', 'r', 'b', 'n'];
   for (var i = 0; i < order.length; i++) {
     var mv = promos.find(function (m) { return m.promo === order[i]; });
-    if (mv) html += '<button class="ch-promo-b ' + side + '" onclick="chessPickPromo(\'' + order[i] + '\')">' + CHESS_GLYPH[order[i].toUpperCase()] + '</button>';
+    if (mv) html += '<button class="ch-promo-b ' + side + '" onclick="chessPickPromo(\'' + order[i] + '\')">' + chessPieceSVG(order[i].toUpperCase(), side) + '</button>';
   }
   if (row) row.innerHTML = html;
   var ov = document.getElementById('chessPromo');
@@ -1628,10 +1658,10 @@ function chessSound(mv, info) {
 function chessBotTurn() {
   if (!CHESS || !CHESS.state || CHESS.state.over) { if (CHESS) CHESS.busy = false; return; }
   if (CHESS.state.turn === CHESS.myColor) { CHESS.busy = false; return; }
-  /* [v19-Master] بوت خبير لا يُهزم: نواة بحث سريعة (make/unmake + TT + سكون)
-     تصل فعلياً لعمق 8-11 بالتعميق التدريجي ضمن ميزانية 2.5ث لكل حركة
+  /* [AI 2026-09-16] بوت خبير: نواة بحث سريعة (make/unmake + TT + سكون)
+     تصل فعلياً لعمق 9-12 بالتعميق التدريجي ضمن ميزانية 3.5ث لكل حركة
      (كان: عمق فعلي ≤3 بسبب استنساخ الحالة في كل عقدة) */
-  var mv = chessPickMove(CHESS.state, 12, 2500);
+  var mv = chessPickMove(CHESS.state, 14, 3500);
   CHESS.busy = false;
   if (mv) chessPlayMove(mv);
   else chessFinalize();

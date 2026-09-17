@@ -138,6 +138,8 @@ const TR = {
   'rdc.brk.total': [ 'الإجمالي', 'Total général', 'Grand total', 'المجموع الكامل' ],
   'rdc.match.score': [ 'النتيجة النهائية: {a} — {b}', 'Score final : {a} — {b}', 'Final score: {a} — {b}', 'النتيجة النهائية: {a} — {b}' ],
   /* ── [v23] مفاتيح الغرف وإعدادات اللعبة ── */
+  'ui.trainingFree': [ 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط', 'Entraînement gratuit sans mise — les mises sont réservées aux salles en ligne', 'Free training, no stake — stakes are available only in online rooms', 'تدريب فابور بلا رهان — الرهان غير فالم_rooms أونلاين برك' ],
+  'rm.humansOnly': [ 'الغرف حصرية للاعبين البشر — التدريب ضد الآلي من شاشة اللعبة', 'Salles réservées aux humains — entraînez-vous contre l\'IA depuis l\'écran du jeu', 'Rooms are exclusive to human players — train against the AI from the game screen', 'الغرف غير للبشر — التدريب ضد الآلي من شاشة اللعبة' ],
   'ui.roomBackToGame': [ 'العودة للعبة', 'Retour au jeu', 'Back to game', 'الرجوع للعبة' ],
   'ui.roomRequestSeat': [ 'اطلب مقعداً للعب', 'Demander une place', 'Request a seat', 'طلب بلاصة تلعب' ],
   'ui.roomSeatPending': [ 'في انتظار مقعد شاغر…', 'En attente d\'une place libre…', 'Waiting for a free seat…', 'كنتسناو بلاصة خاوية…' ],

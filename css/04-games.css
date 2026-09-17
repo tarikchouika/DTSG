@@ -4003,6 +4003,13 @@ body.rami-game-open { overflow: hidden; }
   max-width: 100% !important;
   box-sizing: border-box;
 }
+/* [Fit-2026-09-16] مرحلة كراش يجب أن تنكمش داخل حاوية flex على الشاشات
+   القصيرة بدل أن تفيض عمودياً (min-height:auto يمنع الانكماش افتراضياً) */
+#gamePageBody .stage:has(.crash-3d-container) {
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 
 @media (max-height: 600px) {
   #pg-game:fullscreen .gp-head,

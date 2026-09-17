@@ -108,8 +108,17 @@ function wallet() {
   const acctGoldEl = document.getElementById('acctGoldD');
   if (acctGoldEl) acctGoldEl.textContent = fmt(ST.gold);
 }
+/* ── [Training 2026-09-16] اللعب التدريبي (ضد الآلي أو وجه لوجه على نفس الجهاز)
+   مجاني بلا رهان ولا يُسجَّل في قاعدة البيانات ولا التذاكر ولا سجل المستخدم.
+   تضع الألعاب TRAINING.on=true عند بدء جولة تدريبية وfalse عند غرفة رهان حقيقية.
+   الرهان حصرٌ للغرف أونلاين حسب سياسة المنصة. */
+window.TRAINING = window.TRAINING || { on: false };
+function trainingOn() { return !!(window.TRAINING && window.TRAINING.on); }
+
 /* ── عمليات الرصيد ── */
 function takeBet(amount) {
+  /* جولة تدريبية: بلا خصم وبلا تسجيل */
+  if (trainingOn()) return true;
   if (ST.gold < amount) {
     toast(T('ts.noc'), 'err');
     SND.lose();
@@ -121,6 +130,13 @@ function takeBet(amount) {
   return true;
 }
 function giveWin(amount) {
+  /* جولة تدريبية: لا يُضاف ربح للرصيد */
+  if (trainingOn()) {
+    if (typeof window.SessionResume !== 'undefined') {
+      try { window.SessionResume.onResolve(); } catch (e) {}
+    }
+    return;
+  }
   ST.gold += amount;
   wallet();
   save();

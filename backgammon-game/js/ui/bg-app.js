@@ -170,12 +170,15 @@
     },
 
     updateBetUI: function () {
+      /* [Training 2026-09-16] التدريب ضد الآلي مجاني — خانة الرهان للغرف فقط */
       const f = this.$('bwBetField');
-      if (f) f.style.display = this.config.mode === 'ai' ? '' : 'none';
+      if (f) f.style.display = 'none';
       const inp = this.$('bwBetInput');
       if (inp) inp.value = this.config.bet;
       const hint = this.$('bwBetHint');
-      if (hint) hint.textContent = FMT('bg.bet.hint');
+      if (hint) hint.textContent = (this.config.mode === 'room')
+        ? FMT('bg.bet.hint')
+        : ('🎓 ' + (FMT('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط'));
     },
 
     renderRulesDoc: function () {
@@ -255,8 +258,11 @@
     startMatch: function () {
       /* [BG-Room] جولة غرفة جارية: زر القائمة محجوب في وضع الغرفة أصلاً — سلامة */
       if (this.room && this.room.on) return;
+      /* [Training 2026-09-16] الآلي/المحلي تدريب مجاني بلا رهان ولا تسجيل */
+      window.TRAINING = window.TRAINING || { on: false };
+      window.TRAINING.on = (this.config.mode !== 'room');
       this.betPlaced = 0;
-      if (this.config.mode === 'ai') {
+      if (this.config.mode === 'ai' && !window.TRAINING.on) {
         const amt = Math.min(this.config.bet, this.walletBalance());
         if (amt < 10) { this._toast(T('bg.bet'), 'err'); SFX.error(); return; }
         const p = this._platform();

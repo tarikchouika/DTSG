@@ -15,7 +15,8 @@ security: 'ui.security',
 pf: 'ui.pf',
 fairness: 'ui.fairness',
 '2fa': 'ui.security',
-transactions: 'ui.transactions'
+transactions: 'ui.transactions',
+refund: 'refund.title'
 };
 
 function buildSidebar() {
@@ -129,6 +130,7 @@ return bnav +
 '<a href="contact.html" data-i18n="ui.contact">تواصل معنا</a>' +
 '<a href="privacy.html" lang="ar" data-i18n="ui.privacy">الخصوصية</a>' +
 '<a href="terms.html" lang="ar" data-i18n="ui.terms">الشروط</a>' +
+'<a href="refund-policy.html" lang="ar" data-i18n="ui.refund">الاسترداد</a>' +
 '</div>' +
 '</div>' +
 '</footer>';

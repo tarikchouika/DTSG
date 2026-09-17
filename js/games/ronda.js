@@ -236,6 +236,12 @@ class RondaGame extends EventEmitter {
   }
   /* خصم رهان الجولة مع فحص الرصيد —true إن نجح */
   _chargeBet() {
+    /* [Training 2026-09-16] المحلي تدريب مجاني بلا رهان ولا تسجيل */
+    if (!this.multiplayer) { window.TRAINING = window.TRAINING || { on: false }; window.TRAINING.on = true; }
+    if (window.TRAINING && window.TRAINING.on) {
+      this.emit('BET_PLACED', { bet: 0, gold: typeof ST !== 'undefined' ? ST.gold : 0 });
+      return true;
+    }
     if (typeof ST !== 'undefined' && ST.gold < this.bet) {
       toast(T('ts.noc') || '❌ رصيد غير كافٍ', 'err');
       this.state = 'IDLE';
@@ -261,6 +267,10 @@ class RondaGame extends EventEmitter {
     if (this.dead) return;
     /* وضع الغرفة: لا رهان — الأدوار والجولات يديرها صاحب الغرفة */
     if (!this.multiplayer) {
+      window.TRAINING = window.TRAINING || { on: false };
+      window.TRAINING.on = true;   /* [Training 2026-09-16] المحلي تدريب مجاني */
+    }
+    if (!this.multiplayer && !(window.TRAINING && window.TRAINING.on)) {
       /* خصم رهان الجولة — مع فحص الرصيد (إصلاح: سابقاً لم يكن يُخصم شيء عند الخسارة) */
       if (typeof ST !== 'undefined' && ST.gold < this.bet) {
         toast(T('ts.noc') || '❌ رصيد غير كافٍ', 'err');
@@ -274,6 +284,8 @@ class RondaGame extends EventEmitter {
         wallet();
       }
       this.emit('BET_PLACED', { bet: this.bet, gold: typeof ST !== 'undefined' ? ST.gold : 0 });
+    } else if (!this.multiplayer) {
+      this.emit('BET_PLACED', { bet: 0, gold: typeof ST !== 'undefined' ? ST.gold : 0 });
     }
     this.roundId++;
     this.selection = null;
@@ -1002,7 +1014,8 @@ class RondaRenderer {
     const sub = document.getElementById('rnBannerSub');
     const whoWon = winner === 'dealer' ? RL('dealerWon') : RL('selectorWon');
     if (isWin) {
-      if (!mp && typeof ST !== 'undefined') { ST.gold += amt; save(); wallet(); }
+      /* [Training 2026-09-16] التدريب المحلي مجاني: لا إضافة رصيد */
+      if (!mp && !(window.TRAINING && window.TRAINING.on) && typeof ST !== 'undefined') { ST.gold += amt; save(); wallet(); }
       SND.win();
       if (typeof celebrate === 'function' && !mp) celebrate(true);
       inner.className = 'fd-banner-inner win';

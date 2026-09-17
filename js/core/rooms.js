@@ -625,7 +625,17 @@
       var vis = document.getElementById('rsVisibility');
       /* [F4] قيمة افتراضية (اللعبة الحالية أو رامي) كي لا تفتح القائمة فارغة أبداً */
       if (game) {
+        /* [Policy 2026-09-16] تُعاد تعبئة القائمة عند كل فتح — الألعاب المعطلة
+           من السوبر أدمن تختفي من نافذة إعداد الغرفة */
+        var dis = (typeof DISABLED !== 'undefined') ? DISABLED : {};
+        var ids = Object.keys(Rooms.roomGameIds).filter(function (id) { return !dis[id]; });
+        game.innerHTML = ids.map(function (id) {
+          var g = (typeof GAMES !== 'undefined') && GAMES.filter(function (x) { return x.id === id; })[0];
+          var label = g ? (g.em + ' ' + (typeof gname === 'function' ? gname(g) : g.n[0])) : id;
+          return '<option value="' + id + '">' + esc(label) + '</option>';
+        }).join('');
         var def = window._currentGameId || (Rooms.state && Rooms.state.game_id) || 'rm';
+        if (dis[def]) def = ids[0] || 'rm';
         game.value = def;
         /* [RS-GameOpts] خانات إعدادات اللعبة المختارة — تُحدَّث مع كل تغيير */
         Rooms._renderGameOpts(def);
@@ -790,20 +800,12 @@
         }
       });
     },
-    /* [MP-AI] المضيف يضيف لاعباً آلياً لملء مقعد */
+    /* [Policy 2026-09-16] أُزيلت إضافة الآليين للغرف — الغرف حصرية للرهان
+       واللعب وجه لوجه بين البشر؛ التدريب ضد الآلي مجاني خارج الغرف. */
     addBot: function () {
-      if (!Rooms.state) return;
-      API.post('/api/rooms/addBot', { room_id: Rooms.state.id }).then(function (r) {
-        if (r && r.ok && r.data && r.data.room) Rooms._onUpdate(r.data.room);
-      });
+      toast(T('rm.humansOnly') || 'الغرف حصرية للاعبين البشر — التدريب ضد الآلي من شاشة اللعبة', 'warn');
     },
-    /* [MP-AI] المضيف يحذف لاعباً آلياً */
-    removeBot: function (botId) {
-      if (!Rooms.state) return;
-      API.post('/api/rooms/removeBot', { room_id: Rooms.state.id, botId: botId }).then(function (r) {
-        if (r && r.ok && r.data && r.data.room) Rooms._onUpdate(r.data.room);
-      });
-    },
+    removeBot: function () {},
     leaveRoom: function () {
       if (!Rooms.state) return;
       /* [RoomFlow] الخروج سلس في أي وقت — الخادم ينقل الملكية ويُبقي الغرفة حية ما بقي لاعبون */
@@ -984,29 +986,10 @@
       }
       Rooms.openModal();
     },
-    /* [MP-AI] غرفة تدريب ضد الآلي: إنشاء غرفة + ملؤها بلاعبين آليين + بدء فوري */
+    /* [Policy 2026-09-16] لم يعد التدريب عبر غرفة بوت — التدريب ضد الآلي
+       مجاني بلا رهان من شاشة إعداد كل لعبة (الغرف حصرية للبشر والرهان). */
     practiceVsAi: function (gameId) {
-      var u = me();
-      if (!u) { toast(T('ui.roomNeedLogin'), 'warn'); if (typeof openAuthModal === 'function') openAuthModal(); return; }
-      if (!Rooms.isGameSupported(gameId)) return;
-      Rooms.createRoom(gameId).then(function () {
-        if (!Rooms.state) return;
-        var rid = Rooms.state.id;
-        var max = Rooms.maxFor(gameId) || 4;
-        var n = Math.max(1, max - 1);   /* لاعب بشري واحد + بقية المقاعد آليون */
-        function addNext(k) {
-          if (k <= 0) {
-            Rooms.setReady(true);
-            setTimeout(function () { Rooms.startGame(); }, 500);
-            return;
-          }
-          API.post('/api/rooms/addBot', { room_id: rid }).then(function (r) {
-            if (r && r.ok && r.data && r.data.room) Rooms._onUpdate(r.data.room);
-            setTimeout(function () { addNext(k - 1); }, 180);
-          });
-        }
-        addNext(n);
-      });
+      toast(T('rm.humansOnly') || 'الغرف حصرية للاعبين البشر — التدريب ضد الآلي من شاشة اللعبة', 'warn');
     },
 
     render: function () {
@@ -1062,11 +1045,7 @@
             (mySpect ? '🎮 ' + T('ui.roomPlay') : '👁️ ' + T('ui.roomSpectate')) + '</button>';
         }
         if (isOwner) {
-          /* [MP-AI] ملء مقعد بلاعب آلي إن بقيت مقاعد شاغرة */
-          var freeSeats = (st.max_players || 4) - st.players.filter(function (p) { return !p.spectate; }).length;
-          if (freeSeats > 0) {
-            btns += '<button class="btn half" onclick="Rooms.addBot()">🤖 ' + T('ui.roomAddBot') + '</button>';
-          }
+          /* [Policy 2026-09-16] بلا زر «أضف آلياً» — الغرف حصرية للاعبين البشر */
           btns += '<button class="btn half gold" onclick="Rooms.startGame()" ' +
             (allReady ? '' : 'disabled') + '>' + T('ui.roomStart') + '</button>';
           /* [RDC] تنبيه: الروندا تحتاج مقاعد كاملة للبدء */

@@ -350,6 +350,9 @@
     },
 
     startMatch: function () {
+      /* [Training 2026-09-16] الروندا المحلية تدريب مجاني بلا تسجيل */
+      window.TRAINING = window.TRAINING || { on: false };
+      window.TRAINING.on = !(this.room && this.room.on);
       const cfg = this.config;
       const seats = this._shapeSeats(cfg.shape);
       const gameMode = this._shapeEngine(cfg.shape);

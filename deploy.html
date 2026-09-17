@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0b1526">
+<title>DTSG — الرفع إلى GitHub (نشر Vercel)</title>
+<link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+<style>
+  * { box-sizing: border-box; font-family: 'Cairo', 'Segoe UI', Tahoma, sans-serif; }
+  body { margin: 0; background: linear-gradient(165deg, #0b1526, #101c30); color: #eaf2ff; min-height: 100vh; padding: 26px 14px 60px; }
+  .box { max-width: 640px; margin: 0 auto; background: #101c30; border: 1px solid rgba(217, 180, 92, .3); border-radius: 18px; padding: 20px 18px; }
+  h1 { font-size: 1.2rem; color: #f2d489; margin: 0 0 4px; }
+  .sub { color: #8aa0c0; font-size: .8rem; margin-bottom: 16px; }
+  label { display: block; font-size: .8rem; color: #8aa0c0; margin: 10px 0 4px; }
+  input { width: 100%; border-radius: 12px; border: 1px solid #2a3a55; background: #0b1526; color: #eaf2ff; padding: 11px 12px; font-size: .9rem; direction: ltr; text-align: left; }
+  input:focus { outline: 2px solid rgba(242, 212, 137, .5); }
+  .row { display: flex; gap: 8px; } .row > div { flex: 1; }
+  button { width: 100%; margin-top: 16px; border: 0; border-radius: 14px; padding: 13px; background: linear-gradient(135deg, #f2d489, #d9a441); color: #221a05; font-weight: 800; font-size: 1rem; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: wait; }
+  #log { margin-top: 14px; background: #0b1526; border: 1px solid #2a3a55; border-radius: 12px; padding: 10px 12px; font-size: .78rem; color: #9fb4d4; max-height: 300px; overflow-y: auto; white-space: pre-wrap; direction: ltr; text-align: left; }
+  .warn { background: rgba(251, 191, 36, .08); border: 1px dashed rgba(251, 191, 36, .4); color: #fbbf24; border-radius: 12px; padding: 10px 12px; font-size: .78rem; margin-top: 12px; }
+  #bar { height: 8px; background: #0b1526; border: 1px solid #2a3a55; border-radius: 99px; margin-top: 12px; overflow: hidden; }
+  #bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #f2d489, #d9a441); transition: width .2s; }
+  a { color: #f2d489; }
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>🚀 DTSG — الرفع إلى GitHub</h1>
+  <div class="sub">ينسخ شجرة المنصة كاملة إلى مستودعك عبر Git Data API، ثم يعيد Vercel النشر تلقائياً.</div>
+
+  <label>GitHub Fine-grained Token (مستودع DTSG — صلاحية Contents: Read &amp; Write)</label>
+  <input id="tok" type="password" placeholder="github_pat_…" autocomplete="off">
+
+  <div class="row">
+    <div><label>المستودع</label><input id="repo" value="tarikchouika/DTSG"></div>
+    <div><label>الفرع</label><input id="branch" value="main"></div>
+  </div>
+
+  <div class="warn">🔐 التوكن يبقى في متصفحك فقط ويُرسَل إلى api.github.com مباشرة — لا يمر عبر خادم المنصة ولا يُخزَّن.</div>
+
+  <div id="bar"><i></i></div>
+  <button id="go">ابدأ الرفع</button>
+  <div id="log"></div>
+</div>
+
+<script>
+'use strict';
+var GH = 'https://api.github.com';
+var log = function (m) { var el = document.getElementById('log'); el.textContent += m + '\n'; el.scrollTop = el.scrollHeight; };
+var prog = function (p) { document.querySelector('#bar i').style.width = Math.round(p * 100) + '%'; };
+async function gh(path, method, body, tok) {
+  var r = await fetch(GH + path, {
+    method: method || 'GET',
+    headers: { 'authorization': 'token ' + tok, 'accept': 'application/vnd.github+json', 'content-type': 'application/json', 'user-agent': 'dtsg-deploy' },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  if (r.status === 204) return null;
+  var j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error('GitHub ' + r.status + ' ' + path + ' ' + (j && j.message ? j.message : ''));
+  return j;
+}
+/* بناء شجرة تدريجي: شجرة فرعية لكل مجلد، ودفعات ≤100 عنصر مربوطة بـ base_tree
+   (تجاوزاً لحد 422 على الأشجار الكبيرة) — يستبدل المحتوى القديم كاملاً بلا دمج */
+async function postTree(repo, tok, entries, base, onDir) {
+  var cur = base || null;
+  for (var i = 0; i < entries.length; i += 100) {
+    var part = entries.slice(i, i + 100);
+    var body = { tree: part };
+    if (cur) body.base_tree = cur;
+    var t = await gh('/repos/' + repo + '/git/trees', 'POST', body, tok);
+    cur = t.sha;
+  }
+  return cur;
+}
+async function buildDir(repo, tok, items, onDir) {
+  var files = [], dirs = {};
+  items.forEach(function (it) {
+    if (it.parts.length === 1) files.push({ path: it.parts[0], mode: '100644', type: 'blob', sha: it.sha });
+    else { (dirs[it.parts[0]] = dirs[it.parts[0]] || []).push({ parts: it.parts.slice(1), sha: it.sha }); }
+  });
+  var entries = files.slice();
+  var names = Object.keys(dirs).sort();
+  for (var n = 0; n < names.length; n++) {
+    var sub = await buildDir(repo, tok, dirs[names[n]], onDir);
+    entries.push({ path: names[n], mode: '040000', type: 'tree', sha: sub });
+  }
+  var sha = await postTree(repo, tok, entries, null, onDir);
+  if (onDir) onDir(items.length ? items[0].parts[0] : '/');
+  return sha;
+}
+async function mapPool(items, worker, conc) {
+  const out = new Array(items.length); let i = 0;
+  async function runner() { while (i < items.length) { const k = i++; out[k] = await worker(items[k], k); } }
+  await Promise.all(Array.from({ length: Math.min(conc, items.length) }, runner));
+  return out;
+}
+document.getElementById('go').onclick = async function () {
+  var btn = this; btn.disabled = true;
+  document.getElementById('log').textContent = '';
+  try {
+    var tok = document.getElementById('tok').value.trim();
+    var repo = document.getElementById('repo').value.trim();
+    var branch = document.getElementById('branch').value.trim();
+    if (!tok || !repo) throw new Error('أدخل التوكن واسم المستودع');
+
+    log('1/5 قراءة الفرع الحالي…');
+    var baseSha = null;
+    try { var ref = await gh('/repos/' + repo + '/git/refs/heads/' + branch, 'GET', null, tok); baseSha = ref.object.sha; } catch (e) { baseSha = null; }
+    log(baseSha ? '    الفرع موجود: ' + baseSha.slice(0, 7) : '    الفرع جديد — سيُنشأ');
+
+    log('2/5 رفع الملفات (blobs)…');
+    var entries = []; var offset = 0; var total = null;
+    while (total === null || offset < total) {
+      var man = await (await fetch('/api/deploy/manifest?offset=' + offset + '&limit=25')).json();
+      if (!man.ok) throw new Error('manifest: ' + man.error);
+      total = man.total;
+      var shas = await mapPool(man.files, async function (f) {
+        var b = await gh('/repos/' + repo + '/git/blobs', 'POST', { content: f.b64, encoding: 'base64' }, tok);
+        return { path: f.p, mode: '100644', type: 'blob', sha: b.sha };
+      }, 4);
+      entries = entries.concat(shas);
+      offset += man.files.length;
+      prog(0.1 + 0.6 * (offset / total));
+      log('    ' + offset + ' / ' + total);
+    }
+
+    log('3/5 بناء الشجرة تدريجياً (أشجار فرعية لكل مجلد)…');
+    var rootSha = await buildDir(repo, tok, entries.map(function (e) { return { parts: e.path.split('/'), sha: e.sha }; }), function (d) {
+      prog(0.7 + 0.1 * d); log('    مجلد: ' + d);
+    });
+    var tree = { sha: rootSha };
+    prog(0.8);
+
+    log('4/5 إنشاء الالتزام…');
+    var commit = await gh('/repos/' + repo + '/git/commits', 'POST', {
+      message: 'DTSG deploy ' + new Date().toISOString() + ' (v2.32 payments + refund + brand)',
+      tree: tree.sha, parents: baseSha ? [baseSha] : []
+    }, tok);
+    prog(0.85);
+
+    log('5/5 تحديث الفرع…');
+    if (baseSha) await gh('/repos/' + repo + '/git/refs/heads/' + branch, 'PATCH', { sha: commit.sha, force: true }, tok);
+    else await gh('/repos/' + repo + '/git/refs', 'POST', { ref: 'refs/heads/' + branch, sha: commit.sha }, tok);
+    prog(1);
+
+    log('✅ اكتمل الرفع: ' + commit.sha.slice(0, 7));
+    log('Vercel سيعيد النشر تلقائياً خلال دقائق — تحقق: https://github.com/' + repo);
+  } catch (e) {
+    log('❌ ' + (e && e.message ? e.message : e));
+  }
+  btn.disabled = false;
+};
+</script>
+</body>
+</html>

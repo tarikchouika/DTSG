@@ -1,0 +1,71 @@
+/* ════════════════════════════════════════════════════════════════
+   DTSG — المحفظة: شحن / سحب / كوبونات / سجل  [Payments 2026-09-16]
+   ════════════════════════════════════════════════════════════════ */
+#walletOverlay {
+  position: fixed; inset: 0; z-index: 96;
+  background: rgba(4, 10, 18, .62); backdrop-filter: blur(6px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+#walletOverlay[hidden] { display: none; }
+@media (min-width: 700px) { #walletOverlay { align-items: center; } }
+.wl-sheet {
+  width: min(560px, 100%); max-height: 92vh; overflow-y: auto;
+  background: linear-gradient(165deg, #101c30, #0b1526);
+  border: 1px solid var(--bd, #2a3a55); border-bottom: 0;
+  border-radius: 20px 20px 0 0; padding: 16px 16px 22px;
+  box-shadow: 0 -10px 50px rgba(0, 0, 0, .55);
+  color: var(--t1, #eaf2ff);
+}
+@media (min-width: 700px) { .wl-sheet { border-radius: 20px; border-bottom: 1px solid var(--bd, #2a3a55); } }
+.wl-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.wl-head h3 { margin: 0; font-size: 1.05rem; }
+.wl-x { background: none; border: 0; color: var(--t3, #8aa0c0); font-size: 1.2rem; cursor: pointer; }
+.wl-bal {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between;
+  background: rgba(242, 212, 137, .08); border: 1px solid rgba(242, 212, 137, .25);
+  border-radius: 14px; padding: 10px 14px; margin-bottom: 12px;
+}
+.wl-bal .usd { font-size: 1.25rem; font-weight: 800; color: #f2d489; }
+.wl-bal .gold { font-size: .9rem; color: var(--t2, #c6d4ea); }
+.wl-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.wl-tabs button {
+  flex: 1; padding: 9px 4px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--bd, #2a3a55); background: rgba(255, 255, 255, .04);
+  color: var(--t2, #c6d4ea); font-size: .85rem;
+}
+.wl-tabs button.on { background: rgba(242, 212, 137, .16); border-color: rgba(242, 212, 137, .5); color: #f2d489; font-weight: 700; }
+.wl-pane[hidden] { display: none; }
+.wl-method {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 1px solid var(--bd, #2a3a55); border-radius: 14px;
+  background: rgba(255, 255, 255, .03); color: var(--t1, #eaf2ff);
+  padding: 10px 12px; margin-bottom: 8px; cursor: pointer; text-align: start;
+}
+.wl-method .ic { font-size: 1.3rem; }
+.wl-method .soon { margin-inline-start: auto; font-size: .7rem; color: var(--t3, #8aa0c0); border: 1px solid var(--bd, #2a3a55); border-radius: 999px; padding: 2px 8px; }
+.wl-method:disabled { opacity: .55; cursor: not-allowed; }
+.wl-row { margin-bottom: 10px; }
+.wl-row label { display: block; font-size: .8rem; color: var(--t3, #8aa0c0); margin-bottom: 4px; }
+.wl-row input, .wl-row select {
+  width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px 12px;
+  border: 1px solid var(--bd, #2a3a55); background: rgba(255, 255, 255, .05);
+  color: var(--t1, #eaf2ff); font-size: .95rem;
+}
+.wl-cta {
+  width: 100%; border: 0; border-radius: 14px; padding: 12px;
+  background: linear-gradient(135deg, #f2d489, #d9a441); color: #221a05;
+  font-weight: 800; font-size: .95rem; cursor: pointer;
+}
+.wl-cta:disabled { opacity: .6; cursor: wait; }
+.wl-note { font-size: .78rem; color: var(--t3, #8aa0c0); margin-top: 8px; line-height: 1.7; }
+.wl-acct {
+  background: rgba(14, 116, 144, .12); border: 1px dashed rgba(34, 211, 238, .4);
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: .9rem; line-height: 1.9; word-break: break-all;
+}
+.wl-acct b { color: #22d3ee; }
+.wl-copy { border: 0; background: rgba(34, 211, 238, .15); color: #22d3ee; border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: .75rem; }
+.wl-tx { border: 1px solid var(--bd, #2a3a55); border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; font-size: .8rem; display: flex; justify-content: space-between; gap: 8px; }
+.wl-tx .st-pending { color: #fbbf24; } .wl-tx .st-completed { color: #34d399; } .wl-tx .st-rejected { color: #f87171; }
+.wl-msg { min-height: 1.2em; font-size: .82rem; margin-top: 8px; }
+.wl-msg.ok { color: #34d399; } .wl-msg.err { color: #f87171; }

@@ -209,12 +209,15 @@
     },
 
     updateBetUI: function () {
+      /* [Training 2026-09-16] التدريب ضد الآلي مجاني — خانة الرهان تظهر للغرف فقط */
       const f = this.$('dmBetField');
-      if (f) f.style.display = this.config.mode === 'ai' ? '' : 'none';
+      if (f) f.style.display = 'none';
       const inp = this.$('dmBetInput');
       if (inp) inp.value = this.config.bet;
       const hint = this.$('dmBetHint');
-      if (hint) hint.textContent = FMT('dm.bet.hint');
+      if (hint) hint.textContent = (this.config.mode === 'room')
+        ? FMT('dm.bet.hint')
+        : ('🎓 ' + (FMT('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط'));
     },
 
     renderRulesDoc: function () {
@@ -302,11 +305,12 @@
     startMatch: function () {
       /* [DO-Room] جولة غرفة جارية: زر القائمة محجوب في وضع الغرفة أصلاً — سلامة */
       if (this.room && this.room.on) return;
-      /* الرهان في نمط AI — المحفظة الحقيقية (takeBet) أو المحلية (الوضع المستقل).
-         حدّ الرهان: 10 كحد أدنى؛ الرصيد كحد أعلى — رهان أكبر من الرصيد يُرفض
-         بالكامل (بلا خصم جزئي) كي تطابق التذكرةُ المبلغَ المخصوم فعلاً. */
+      /* [Training 2026-09-16] الآلي/المحلي تدريب مجاني بلا رهان ولا تسجيل —
+         الرهان حصري للغرف بين البشر */
+      window.TRAINING = window.TRAINING || { on: false };
+      window.TRAINING.on = (this.config.mode !== 'room');
       this.betPlaced = 0;
-      if (this.config.mode === 'ai') {
+      if (this.config.mode === 'ai' && !window.TRAINING.on) {
         const bal = this.walletBalance();
         const bet = Math.max(10, this.config.bet);
         if (bal < 10 || bet > bal) { this._toast(T('dm.bet'), 'err'); SFX.error(); return; }
