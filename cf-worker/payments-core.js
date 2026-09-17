@@ -171,18 +171,39 @@ async function cryptomusCreateInvoice(env, orderId, amountUsd) {
   return await r.json();
 }
 
-/* ── كوبونات: إنشاء أدمن ── */
+/* ── [Codes 2026-09-17] شرائح أكواد الشحن — نوعان ──
+   أدمنز (بونص): 100→25% | 1000→30% | 10000→35% | 100000→40%
+   مباشر: 10$=1000كوين 0% | 100→5% | 1000→10% | 10000→15%
+   السعر: 100 كوين/$ و10 كوين/درهم */
+var COINS_PER_USD = 100, COINS_PER_MAD = 10;
+var ADMIN_TIERS = { 100: 25, 1000: 30, 10000: 35, 100000: 40 };
+var DIRECT_TIERS = { 10: 0, 100: 5, 1000: 10, 10000: 15 };
+function tierCoins(kind, tier, currency) {
+  var rate = (currency === 'mad') ? COINS_PER_MAD : COINS_PER_USD;
+  var bonus = (kind === 'admin' ? ADMIN_TIERS[tier] : DIRECT_TIERS[tier]);
+  if (bonus === undefined) return null;
+  return { coins: Math.round(tier * rate * (1 + bonus / 100)), bonus: bonus };
+}
+function newCode() { return 'DTSG-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase(); }
+async function makeTierVoucher(db, kind, tier, currency) {
+  const tc = tierCoins(kind, tier, currency);
+  const c = newCode();
+  await db.prepare('INSERT INTO vouchers (code, amount_usd, kind, coins, bonus_pct) VALUES (?1, ?2, ?3, ?4, ?5)').bind(c, tier, kind, tc.coins, tc.bonus).run();
+  return { code: c, coins: tc.coins, bonus: tc.bonus };
+}
 async function makeVoucherCodes(db, amt, count) {
   const codes = [];
   for (let i = 0; i < count; i++) {
-    const c = 'DTSG-' + Math.random().toString(36).slice(2, 6).toUpperCase() + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+    const c = newCode();
     await db.prepare('INSERT INTO vouchers (code, amount_usd) VALUES (?1, ?2)').bind(c, amt).run();
     codes.push(c);
   }
   return codes;
 }
 async function tgAdminIsAuthed(db, env, chatId) {
-  if (!env.TELEGRAM_ADMIN_PIN) return env.TELEGRAM_ADMIN_CHAT_ID && String(chatId) === String(env.TELEGRAM_ADMIN_CHAT_ID);
+  /* [Codes] شات السوبر أدمن نفسه (TELEGRAM_ADMIN_CHAT_ID) موثَّق دائماً — غيره يلزمه /auth <PIN> */
+  if (env.TELEGRAM_ADMIN_CHAT_ID && String(chatId) === String(env.TELEGRAM_ADMIN_CHAT_ID)) return true;
+  if (!env.TELEGRAM_ADMIN_PIN) return false;
   const r = await db.prepare('SELECT chat_id FROM tg_admin_sessions WHERE chat_id = ?1').bind(String(chatId)).first();
   return !!r;
 }
@@ -203,7 +224,8 @@ async function handleFetch(request, env) {
       { id: 'cryptomus', label: 'كريبتو (USDT/BTC…)', status: env.CRYPTOMUS_MERCHANT_ID ? 'live' : 'soon' },
       { id: 'cash_plus', label: 'Cash Plus', status: 'live',
         account: { name: env.CASH_PLUS_NAME || 'Tarik chouika', number: env.CASH_PLUS_ACCOUNT || '' } },
-      { id: 'cih', label: 'CIH Express', status: 'soon' },
+      { id: 'cih', label: 'CIH Bank / CIH Express', status: 'live',
+        account: { name: env.CIH_NAME || 'MONSIEUR TARIK CHOUIKA', number: env.CIH_ACCOUNT || '', rib: env.CIH_RIB || '', iban: env.CIH_IBAN || '', swift: env.CIH_SWIFT || '' } },
       { id: 'orange_money', label: 'Orange Money', status: 'soon' },
       { id: 'voucher', label: 'كوبون تعبئة', status: 'live' }
     ] });
@@ -282,7 +304,15 @@ async function handleFetch(request, env) {
     const up = await db.prepare('UPDATE vouchers SET is_used = 1, used_by_user_id = ?2 WHERE code = ?1 AND is_used = 0').bind(code, String(b.user_id)).run();
     const changed = up && up.meta ? up.meta.changes : 0;
     if (changed === 1) {
-      const v = await db.prepare('SELECT amount_usd FROM vouchers WHERE code = ?1').bind(code).first();
+      const v = await db.prepare('SELECT amount_usd, coins, kind FROM vouchers WHERE code = ?1').bind(code).first();
+      if (Number(v.coins) > 0) {
+        /* كود كوينز (أدمنز/مباشر): شحن الذهب مباشرة + سجل */
+        if (typeof env.__creditGold === 'function') await env.__creditGold(b.user_id, Number(v.coins));
+        const txId = uid('vch');
+        await db.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,'deposit',?3,'voucher','completed',?4)")
+          .bind(txId, String(b.user_id), Number(v.amount_usd), code + ' coins:' + v.coins).run();
+        return json({ ok: true, coins: Number(v.coins), kind: v.kind });
+      }
       const amt = Number(v.amount_usd);
       await creditUser(db, b.user_id, amt);
       const txId = uid('vch');
@@ -297,8 +327,17 @@ async function handleFetch(request, env) {
 
   /* ── إنشاء كوبونات (أدمن) ── */
   if (p === '/api/vouchers/create' && request.method === 'POST') {
-    if (!env.ADMIN_API_SECRET || request.headers.get('x-admin-secret') !== env.ADMIN_API_SECRET) return json({ ok: false, error: 'forbidden' }, 403);
+    const secretOk = env.ADMIN_API_SECRET && request.headers.get('x-admin-secret') === env.ADMIN_API_SECRET;
+    const superOk = typeof env.__authRole === 'function' && env.__authRole(request) === 'super';
+    if (!secretOk && !superOk) return json({ ok: false, error: 'forbidden' }, 403);
     const b = await request.json();
+    if (b.kind === 'admin' || b.kind === 'direct') {
+      const tier = Number(b.tier), cur = (b.currency === 'mad') ? 'mad' : 'usd';
+      const tc = tierCoins(b.kind, tier, cur);
+      if (!tc) return json({ ok: false, error: 'bad-tier', tiers: Object.keys(b.kind === 'admin' ? ADMIN_TIERS : DIRECT_TIERS) }, 400);
+      const v = await makeTierVoucher(db, b.kind, tier, cur);
+      return json({ ok: true, codes: [v.code], coins: v.coins, bonus: v.bonus });
+    }
     const amt = Number(b.amount_usd), count = Math.min(50, Math.max(1, b.count | 0));
     if (!(amt >= 1)) return json({ ok: false, error: 'bad-input' }, 400);
     return json({ ok: true, codes: await makeVoucherCodes(db, amt, count) });
@@ -415,6 +454,21 @@ async function handleFetch(request, env) {
           '\n\n💵 Cash Plus\n' + (env.CASH_PLUS_NAME || '') + ' — ' + (env.CASH_PLUS_ACCOUNT || '') });
         return json({ ok: true });
       }
+      if (text === '/codes') {
+        if (!(await tgAdminIsAuthed(db, env, chatId))) { await tg(env, 'sendMessage', { chat_id: chatId, text: '⛔ قائمة الأكواد للسوبر أدمن الموثَّق فقط.' }); return json({ ok: true }); }
+        await tg(env, 'sendMessage', { chat_id: chatId, text:
+          '🎟️ شرائح أكواد الشحن\n— أدمنز (بونص كوينز):\n/code admin 100 → +25%\n/code admin 1000 → +30%\n/code admin 10000 → +35%\n/code admin 100000 → +40%\n— مباشر:\n/code direct 10 → 1000 كوين\n/code direct 100 → +5%\n/code direct 1000 → +10%\n/code direct 10000 → +15%\nأضف العملة: usd أو mad (مثال: /code admin 100 mad)' });
+        return json({ ok: true });
+      }
+      const cm = text.match(/^\/code\s+(admin|direct)\s+(\d+)\s*(usd|mad)?/i);
+      if (cm) {
+        if (!(await tgAdminIsAuthed(db, env, chatId))) { await tg(env, 'sendMessage', { chat_id: chatId, text: '⛔ إنشاء أكواد الشحن مقصور على السوبر أدمن الموثَّق — /auth <PIN> أولاً.' }); return json({ ok: true }); }
+        const kind = cm[1].toLowerCase(), tier = Number(cm[2]), cur = (cm[3] || 'usd').toLowerCase();
+        const v = await (async () => { const tc = tierCoins(kind, tier, cur); if (!tc) return null; return await makeTierVoucher(db, kind, tier, cur); })();
+        if (!v) { await tg(env, 'sendMessage', { chat_id: chatId, text: '❌ شريحة غير صالحة — أرسل /codes لعرض الشرائح.' }); return json({ ok: true }); }
+        await tg(env, 'sendMessage', { chat_id: chatId, text: '🎟️ كود ' + (kind === 'admin' ? 'أدمنز' : 'مباشر') + ' (' + tier + ' ' + cur.toUpperCase() + '، بونص ' + v.bonus + '%):\n' + v.code + '\nيشحن ' + v.coins + ' كوين عند التفعيل.' });
+        return json({ ok: true });
+      }
       const vm = text.match(/^\/voucher\s+(\d+(?:\.\d+)?)\s*(\d+)?/);
       if (vm) {
         if (!(await tgAdminIsAuthed(db, env, chatId))) {
@@ -476,5 +530,5 @@ async function handleFetch(request, env) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit };
+  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
 }

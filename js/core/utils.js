@@ -221,13 +221,15 @@ function closeLangMenu(evt) {
 }
 /* ── ترجمة العناصر الثابتة (data-i18n / data-i18n-html) ── */
 function translateStatic() {
+  /* [i18n-fix 2026-09-17] لا تستبدل النص البديل بالمفتاح الخام عند غيابه من القاموس */
+  const has = k => (typeof TR !== 'undefined') && TR[k];
   document.querySelectorAll('[data-i18n]').forEach(function (el) {
-    const v = T(el.getAttribute('data-i18n'));
-    if (v) el.textContent = v;
+    const k = el.getAttribute('data-i18n');
+    if (has(k)) el.textContent = T(k);
   });
   document.querySelectorAll('[data-k]').forEach(function (el) {
-    const v = T(el.getAttribute('data-k'));
-    if (v) el.innerHTML = v;
+    const k = el.getAttribute('data-k');
+    if (has(k)) el.innerHTML = T(k);
   });
   document.querySelectorAll('[data-i18n-html]').forEach(function (el) {
     const v = T(el.getAttribute('data-i18n-html'));

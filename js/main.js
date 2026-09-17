@@ -1323,6 +1323,7 @@ function renderAdmin() {
       '<button class="atab' + (ADMIN_TAB === 'games' ? ' active' : '') + '" role="tab" onclick="adminTab(\'games\')">' + T('admin.gamesTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'rewards' ? ' active' : '') + '" role="tab" onclick="adminTab(\'rewards\')">' + T('admin.rewardsTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'fin' ? ' active' : '') + '" role="tab" onclick="adminTab(\'fin\')">' + T('admin.finTab') + '</button>' +
+      '<button class="atab' + (ADMIN_TAB === 'codes' ? ' active' : '') + '" role="tab" onclick="adminTab(\'codes\')">🎟️ أكواد الشحن</button>' +
       '<button class="atab' + (ADMIN_TAB === 'botpl' ? ' active' : '') + '" role="tab" onclick="adminTab(\'botpl\')">📊 ' + T('admin.botPL') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'logs' ? ' active' : '') + '" role="tab" id="logs" onclick="adminTab(\'logs\')"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ' + T('admin.logsTab') + '</button>'
     : '<button class="atab' + (ADMIN_TAB === 'users' ? ' active' : '') + '" role="tab" onclick="adminTab(\'users\')">👥 ' + T('admin.myPlayers') + '</button>' +
@@ -1336,9 +1337,54 @@ function renderAdmin() {
   else if (ADMIN_TAB === 'tourneys') adminLoadTourneys();
   else if (ADMIN_TAB === 'games') adminLoadGames();
   else if (ADMIN_TAB === 'rewards') adminLoadRewards();
+  else if (ADMIN_TAB === 'codes') adminLoadCodes();
   else if (ADMIN_TAB === 'botpl') adminLoadBotPL();
   else if (ADMIN_TAB === 'logs') adminLoadTransactions();
   else adminLoadFinance();
+}
+
+/* ── [Codes 2026-09-17] أكواد الشحن بالشرائح — سوبر أدمن فقط ── */
+const CODE_TIERS = {
+  admin:  { 100: 25, 1000: 30, 10000: 35, 100000: 40 },
+  direct: { 10: 0,  100: 5,  1000: 10, 10000: 15 }
+};
+function adminLoadCodes() {
+  const c = document.getElementById('adminContent');
+  if (!c) return;
+  const kind = window._codeKind || 'admin';
+  const tierOpts = Object.keys(CODE_TIERS[kind]).map(t =>
+    '<option value="' + t + '">' + Number(t).toLocaleString('ar-MA') + ' — بونص ' + CODE_TIERS[kind][t] + '%</option>').join('');
+  c.innerHTML =
+    '<div class="note">أنشئ أكواد شحن بالكوينز. أدمنز: بونص حسب الشريحة. مباشر: للمستخدمين (تيليغرام/Cryptomus). السعر: 100 كوين/$ و10 كوين/درهم.</div>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:10px 0">' +
+      '<label>النوع<br><select id="codeKind" onchange="window._codeKind=this.value;adminLoadCodes()">' +
+        '<option value="admin"' + (kind === 'admin' ? ' selected' : '') + '>أدمنز (بونص)</option>' +
+        '<option value="direct"' + (kind === 'direct' ? ' selected' : '') + '>مباشر</option></select></label>' +
+      '<label>العملة<br><select id="codeCur"><option value="usd">USD ($)</option><option value="mad">MAD (درهم)</option></select></label>' +
+      '<label>الشريحة<br><select id="codeTier">' + tierOpts + '</select></label>' +
+      '<button class="btn" onclick="adminMakeCode()">إنشاء الكود</button>' +
+    '</div>' +
+    '<div id="codeOut"></div>';
+}
+async function adminMakeCode() {
+  const out = document.getElementById('codeOut');
+  const kind = document.getElementById('codeKind').value;
+  const currency = document.getElementById('codeCur').value;
+  const tier = Number(document.getElementById('codeTier').value);
+  out.innerHTML = '<div class="note">…</div>';
+  try {
+    const r = await fetch('/api/vouchers/create', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: kind, tier: tier, currency: currency })
+    });
+    const j = await r.json();
+    if (j.ok) {
+      out.innerHTML = '<div class="note ok">✅ ' + j.codes[0] + ' — يشحن ' + j.coins.toLocaleString('ar-MA') + ' كوين (بونص ' + j.bonus + '%) ' +
+        '<button class="btn small" onclick="navigator.clipboard.writeText(\'' + j.codes[0] + '\')">نسخ</button></div>';
+    } else {
+      out.innerHTML = '<div class="note err">❌ ' + (j.error || 'فشل') + (j.tiers ? ' — الشرائح: ' + j.tiers.join(' / ') : '') + '</div>';
+    }
+  } catch (e) { out.innerHTML = '<div class="note err">❌ ' + e + '</div>'; }
 }
 
 function adminTab(tab) {

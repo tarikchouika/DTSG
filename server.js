@@ -230,7 +230,7 @@ let nextRoomId = 1;
 /* [Payments 2026-09-16] المحفظة/الدفع/السحب فوق SQLite المحلية — بلا D1 (تصحيح المالك) */
 const pay = require('./server-payments.js');
 pay.initPaymentsTables(db);
-pay.setContext(db, users);
+pay.setContext(db, users, sessions);
 /* رسم الرهان على المنصة: نسبة تُقتطع من الرهان عند تسوية الجولة بين لاعبَين */
 const BET_FEE_RATE = 0.05;      /* 5% رسوم المنصة على الرهان */
 /* [B-rooms] غرف الساعة: رسم افتتاح ثابت يُقتطع من المضيف + مدة صلاحية الغرفة */

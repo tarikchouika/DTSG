@@ -101,7 +101,7 @@ function req(method, url, body, headers) {
   r = await H('GET', 'https://w/api/payments/methods');
   let mj = await r.json();
   ok('methods: cash_plus live', mj.methods.find(m => m.id === 'cash_plus').status === 'live');
-  ok('methods: cih soon', mj.methods.find(m => m.id === 'cih').status === 'soon');
+  ok('methods: cih live بحساب كامل', mj.methods.find(m => m.id === 'cih').status === 'live' && /MA64/.test(mj.methods.find(m => m.id === 'cih').account.iban));
   ok('methods: حساب Cash Plus ظاهر', mj.methods.find(m => m.id === 'cash_plus').account.number === env.CASH_PLUS_ACCOUNT);
 
   /* 3) كوبونات: إنشاء أدمن + استبدال ذري + منع إعادة الاستعمال */
@@ -195,8 +195,11 @@ function req(method, url, body, headers) {
   ok('الوصل محفوظ photo:fBIG وحالة pending', proofed && proofed.proof_details === 'photo:fBIG' && proofed.status === 'pending');
 
   /* 9) أتمتة الكوبونات عبر تيليغرام بمصادقة السوبر أدمن */
-  r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 777 }, text: '/voucher 10 2' } });
-  ok('voucher قبل التوثيق مرفوض', captured.tg.some(t => t.body.chat_id === '777' && /مقصور على السوبر أدمن/.test(t.body.text)));
+  r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 555 }, text: '/voucher 10 2' } });
+  ok('voucher قبل التوثيق مرفوض', captured.tg.some(t => t.body.chat_id === '555' && /مقصور على السوبر أدمن/.test(t.body.text)));
+  /* شات السوبر أدمن (TELEGRAM_ADMIN_CHAT_ID) موثَّق دائماً — /auth اختياري له */
+  r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 777 }, text: '/voucher 10 1' } });
+  ok('شات السوبر أدمن ينشئ كوبوناً بلا /auth', (await r.json()).ok === true && captured.tg.some(t => t.body.chat_id === '777' && /DTSG-/.test(t.body.text || '')));
   r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 777 }, text: '/auth wrong' } });
   ok('PIN خاطئ مرفوض', captured.tg.some(t => t.body.chat_id === '777' && /غير صحيح/.test(t.body.text)));
   r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 777 }, text: '/auth pin123' } });
@@ -222,6 +225,36 @@ function req(method, url, body, headers) {
   /* غير الأدمن حتى برقم آخر لا ينشئ */
   r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 999 }, text: '/voucher 10 1' } });
   ok('غير الموثق لا ينشئ كوبونات', captured.tg.some(t => t.body.chat_id === '999' && /مقصور على السوبر أدمن/.test(t.body.text)));
+
+  /* 11) أكواد الشحن بالشرائح (أدمنز/مباشر) */
+  ok('tierCoins أدمنز 100 usd = 12500', core.tierCoins('admin', 100, 'usd').coins === 12500);
+  ok('tierCoins أدمنز 1000 mad = 13000', core.tierCoins('admin', 1000, 'mad').coins === 13000);
+  ok('tierCoins مباشر 10 usd = 1000', core.tierCoins('direct', 10, 'usd').coins === 1000);
+  ok('tierCoins مباشر 10000 usd = 1150000', core.tierCoins('direct', 10000, 'usd').coins === 1150000);
+  let goldBefore = 0; env.__creditGold = function (u, c) { goldBefore += c; };
+  r = await H('POST', 'https://w/api/vouchers/create', { kind: 'admin', tier: 100, currency: 'usd' }, { 'x-admin-secret': 'admsec' });
+  let tj = await r.json();
+  ok('كود أدمنز 100$ (+25%) منشأ', tj.ok && tj.coins === 12500);
+  r = await H('POST', 'https://w/api/vouchers/redeem', { user_id: '42', code: tj.codes[0] });
+  let rj2 = await r.json();
+  ok('كود الأدمنز يشحن 12500 كوين', rj2.ok && rj2.coins === 12500 && goldBefore === 12500);
+  /* عبر بوت تيليغرام: مباشر 100 mad */
+  const t0 = captured.tg.length;
+  r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 777 }, text: '/code direct 100 mad' } });
+  const cmMsg = captured.tg.slice(t0).find(t => /DTSG-/.test(t.body.text || ''));
+  const dCode = cmMsg && (cmMsg.body.text.match(/DTSG-[A-Z0-9]{4}-[A-Z0-9]{4}/) || [])[0];
+  ok('بوت: كود مباشر 100 mad (+5%) = 1050 كوين', !!cmMsg && /1050/.test(cmMsg.body.text));
+  if (dCode) {
+    goldBefore = 0;
+    r = await H('POST', 'https://w/api/vouchers/redeem', { user_id: '43', code: dCode });
+    ok('كود البوت يُستبدل بـ1050 كوين', (await r.json()).coins === 1050 && goldBefore === 1050);
+  } else ok('كود البوت يُستبدل بـ1050 كوين', false);
+  /* شريحة غير صالحة مرفوضة */
+  r = await H('POST', 'https://w/api/vouchers/create', { kind: 'admin', tier: 77, currency: 'usd' }, { 'x-admin-secret': 'admsec' });
+  ok('شريحة غير صالحة 400', r.status === 400);
+  /* غير السوبر ممنوع */
+  r = await H('POST', 'https://w/api/vouchers/create', { kind: 'admin', tier: 100, currency: 'usd' });
+  ok('بدون سر/جلسة = 403', r.status === 403);
 
   console.log('\nالنتيجة: ' + pass + ' نجح / ' + fail + ' فشل');
   process.exit(fail ? 1 : 0);

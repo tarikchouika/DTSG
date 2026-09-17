@@ -51,6 +51,12 @@ function initPaymentsTables(db) {
       since TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  const vAlters = [
+    "ALTER TABLE pay_vouchers ADD COLUMN kind TEXT DEFAULT 'std'",
+    'ALTER TABLE pay_vouchers ADD COLUMN coins INTEGER DEFAULT 0',
+    'ALTER TABLE pay_vouchers ADD COLUMN bonus_pct INTEGER DEFAULT 0'
+  ];
+  for (const a of vAlters) { try { db.exec(a); } catch (e) { /* العمود موجود */ } }
 }
 
 /* ── محاكي واجهة D1 فوق node:sqlite (نفس شكل الاختبارات) ── */
@@ -69,9 +75,21 @@ function d1shim(db) {
   return { prepare: (sql) => ({ bind: (...args) => stmt(sql, args) }) };
 }
 
-let CTX = null; /* { db, users, shim } */
-function setContext(db, users) {
-  CTX = { db: db, users: users, shim: d1shim(db) };
+let CTX = null; /* { db, users, sessions, shim } */
+function setContext(db, users, sessions) {
+  CTX = { db: db, users: users, sessions: sessions || {}, shim: d1shim(db) };
+}
+/* دور الجلسة الحالية (لكوبونات لوحة السوبر أدمن) */
+function roleOfRequest(req) {
+  if (!CTX) return null;
+  /* Request.headers = Headers (يقرأ بـ get) أو كائن عادي — ندعم الاثنين */
+  const h = (req && req.headers) || {};
+  const c = String((typeof h.get === 'function' ? h.get('cookie') : h.cookie) || '');
+  const m = c.match(/(?:^|;\s*)sid=([^;]+)/);
+  if (!m) return null;
+  const uid = CTX.sessions[decodeURIComponent(m[1])];
+  const u = uid != null ? CTX.users[uid] : null;
+  return u ? u.role : null;
 }
 
 function buildEnv(req) {
@@ -96,6 +114,14 @@ function buildEnv(req) {
     CIH_RIB: e.CIH_RIB || '230 815 6904085211014200 24',
     CIH_IBAN: e.CIH_IBAN || 'MA64 2308 1569 0408 5211 0142 0024',
     CIH_SWIFT: e.CIH_SWIFT || 'CIHMMAMC',
+    /* [Codes] شحن كوينز مباشر (أكواد التعبئة بالبونص) */
+    __creditGold: function (userId, coins) {
+      const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
+      if (!u || !(coins > 0)) return;
+      u.gold = (u.gold || 0) + Math.round(coins);
+      try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
+    },
+    __authRole: function (req) { return roleOfRequest(req); },
     /* شحن الذهب مباشرة في نفس القاعدة عند اكتمال إيداع */
     __platformCredit: function (userId, usd) {
       const rate = Number(e.USD_GOLD_RATE || 100);

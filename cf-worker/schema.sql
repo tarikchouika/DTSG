@@ -30,6 +30,9 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS vouchers (
     code TEXT PRIMARY KEY,
     amount_usd REAL NOT NULL,
+    kind TEXT DEFAULT 'std',           -- std | admin | direct
+    coins INTEGER DEFAULT 0,           -- رصيد الكوينز الجاهز إن وُجد
+    bonus_pct INTEGER DEFAULT 0,       -- نسبة البونص المطبقة
     is_used BOOLEAN DEFAULT FALSE,
     used_by_user_id TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
