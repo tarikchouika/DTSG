@@ -20,11 +20,9 @@ function initPaymentsTables(db) {
     'ALTER TABLE users ADD COLUMN balance_usd REAL DEFAULT 0'
   ];
   for (const a of alters) { try { db.exec(a); } catch (e) { /* العمود موجود */ } }
-  /* [v2.41.1] أثر المراجعة: من وافق/رفض ومتى (كان UPDATE يفشل فيرفض الرفض نفسه!) */
-  for (const a of ['ALTER TABLE pay_transactions ADD COLUMN reviewed_by TEXT',
-                   'ALTER TABLE pay_transactions ADD COLUMN reviewed_at INTEGER']) {
-    try { db.exec(a); } catch (e) {}
-  }
+  /* [v2.44-م3] أثر المراجعة (من وافق/رفض ومتى) — يُضاف بعد إنشاء الجدول أدناه.
+     ملاحظة جذر: كان هذا الـALTER قبل CREATE TABLE ⇒ على قاعدة جديدة يفشل صامتاً،
+     فلا يُسجَّل من صادق على العملية (عطل «لا تظهر العمليات في سجل السوبر أدمن»). */
   try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_users_telegram ON users(telegram_id) WHERE telegram_id IS NOT NULL'); } catch (e) {}
   try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL'); } catch (e) {}
   /* أسماء مميزة: جدول transactions الموجود هو سجل ذهب المنصة (server-tx) —
@@ -56,6 +54,47 @@ function initPaymentsTables(db) {
       since TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+  for (const a of ['ALTER TABLE pay_transactions ADD COLUMN reviewed_by TEXT',
+                   'ALTER TABLE pay_transactions ADD COLUMN reviewed_at INTEGER']) {
+    try { db.exec(a); } catch (e) {}
+  }
+  /* أثر المراجعة لم توجد قبل v2.44 — نضمن وجود العمودين دائماً */
+  try { db.exec('CREATE INDEX IF NOT EXISTS idx_pay_tx_rev ON pay_transactions(reviewed_at)'); } catch (e) {}
+  /* [v2.44-م3] سجل مالي موحّد (append-only): كل حركة رصيد — للمستخدمين والأدمنز
+     مع الفاعل (من وافق/رفض)، المبلغ بالدولار والكوينز، والبونص، وقبل/بعد. */
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS pay_audit (
+      id TEXT PRIMARY KEY,
+      ts INTEGER NOT NULL,
+      kind TEXT NOT NULL,
+      action TEXT NOT NULL,
+      user_id TEXT,
+      username TEXT,
+      amount_usd REAL DEFAULT 0,
+      coins INTEGER DEFAULT 0,
+      bonus_pct REAL DEFAULT 0,
+      bonus_coins INTEGER DEFAULT 0,
+      method TEXT,
+      status TEXT,
+      tx_id TEXT,
+      actor TEXT,
+      before_usd REAL,
+      after_usd REAL,
+      before_coins INTEGER,
+      after_coins INTEGER,
+      note TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pay_audit_ts   ON pay_audit(ts DESC);
+    CREATE INDEX IF NOT EXISTS idx_pay_audit_user ON pay_audit(user_id, ts DESC);
+    CREATE INDEX IF NOT EXISTS idx_pay_audit_tx   ON pay_audit(tx_id);
+  `);
+  try { db.exec('ALTER TABLE pay_audit ADD COLUMN before_coins INTEGER'); } catch (e) {}
+  try { db.exec('ALTER TABLE pay_audit ADD COLUMN after_coins INTEGER'); } catch (e) {}
+  /* [v2.44-م3] إصلاح انحراف الرصيد: balance_usd مرآة مشتقّة من gold (الحقيقة الوحيدة) */
+  try {
+    const rate = Number(process.env.USD_GOLD_RATE || 100) || 100;
+    db.prepare('UPDATE users SET balance_usd = ROUND(COALESCE(gold,0) * 1.0 / ? , 2)').run(rate);
+  } catch (e) {}
   try { db.exec('ALTER TABLE users ADD COLUMN telegram_id TEXT'); } catch (e) { /* موجود */ }
 
   /* [v2.40] ترحيل: عمود method في pay_transactions كان يرفض 'binance'
@@ -128,7 +167,64 @@ function creditGoldLocal(userId, coins) {
   if (!u || !(coins > 0)) return;
   u.gold = (u.gold || 0) + Math.round(coins);
   try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
+  mirrorUsd(u);
   pushWalletLocal(u, { delta: Math.round(coins) });
+}
+/* [v2.44-م3] الدولار مشتقّ من الكوينز دائماً — لا يمكن أن يتغيّر الدولار بلا كوينز */
+function mirrorUsd(u) {
+  if (!u) return;
+  const rate = Number(process.env.USD_GOLD_RATE || 100) || 100;
+  const usd = Math.round(((u.gold || 0) / rate) * 100) / 100;
+  try { CTX.db.prepare('UPDATE users SET balance_usd = ? WHERE id = ?').run(usd, u.id); } catch (e) {}
+}
+/* [v2.44-م3] كتابة سطر في السجل المالي الموحّد (يُستدعى من نواة الدفع عبر env.__audit) */
+function insertAudit(row) {
+  try {
+    row = row || {};
+    const uid = String(row.user_id || '');
+    const u = uid ? (CTX.users[Number(uid)] || Object.values(CTX.users).find(x => String(x.id) === uid)) : null;
+    CTX.db.prepare('INSERT INTO pay_audit (id, ts, kind, action, user_id, username, amount_usd, coins, bonus_pct, bonus_coins, method, status, tx_id, actor, before_usd, after_usd, before_coins, after_coins, note)'
+      + ' VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)').run(
+      'aud-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      Number(row.ts || Date.now()), String(row.kind || ''), String(row.action || ''), uid, u ? u.username : (row.username || null),
+      Number(row.amount_usd || 0), Math.round(Number(row.coins || 0)), Number(row.bonus_pct || 0), Math.round(Number(row.bonus_coins || 0)),
+      row.method || null, row.status || 'ok', row.tx_id || null, String(row.actor || 'system'),
+      row.before_usd === undefined || row.before_usd === null ? null : Number(row.before_usd),
+      row.after_usd === undefined || row.after_usd === null ? null : Number(row.after_usd),
+      row.before_coins === undefined || row.before_coins === null ? null : Math.round(Number(row.before_coins)),
+      row.after_coins === undefined || row.after_coins === null ? null : Math.round(Number(row.after_coins)),
+      row.note || null);
+    return true;
+  } catch (e) { return false; }
+}
+/* السجل المالي: كل الحركات (مستخدمين + أدمنز) مع فلاتر */
+function listAudit(opts) {
+  opts = opts || {};
+  const lim = Math.min(500, Math.max(1, Number(opts.limit) || 100));
+  const off = Math.max(0, Number(opts.offset) || 0);
+  const where = [], args = [];
+  if (opts.kind) { where.push('kind = ?'); args.push(String(opts.kind)); }
+  if (opts.status) { where.push('status = ?'); args.push(String(opts.status)); }
+  if (opts.user_id) { where.push('user_id = ?'); args.push(String(opts.user_id)); }
+  if (opts.q) {
+    where.push('(user_id LIKE ? OR username LIKE ? OR actor LIKE ? OR tx_id LIKE ? OR note LIKE ?)');
+    const s = '%' + String(opts.q) + '%';
+    args.push(s, s, s, s, s);
+  }
+  try {
+    const rows = CTX.db.prepare('SELECT * FROM pay_audit' + (where.length ? ' WHERE ' + where.join(' AND ') : '')
+      + ' ORDER BY ts DESC, rowid DESC LIMIT ' + lim + ' OFFSET ' + off).all(...args);
+    const sum = CTX.db.prepare("SELECT kind, status, COUNT(*) n, SUM(amount_usd) usd, SUM(coins) coins, SUM(bonus_coins) bonus"
+      + " FROM pay_audit" + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' GROUP BY kind, status').all(...args);
+    return { entries: rows, summary: sum };
+  } catch (e) { return { entries: [], summary: [] }; }
+}
+/* حركات لوحة الأدمن اليدوية (شحن/خصم/ضبط) في نفس السجل */
+function auditAdminOp(actor, target, kind, amountUsd, coins, note) {
+  return insertAudit({ kind: kind || 'admin_op', action: 'admin', user_id: target && target.id, amount_usd: amountUsd || 0,
+    coins: coins || 0, method: 'dashboard', status: 'completed', actor: actor || 'admin',
+    after_usd: target ? Math.round(((target.gold || 0) / (Number(process.env.USD_GOLD_RATE || 100) || 100)) * 100) / 100 : null,
+    note: note || null });
 }
 /* دور الجلسة الحالية (لكوبونات لوحة السوبر أدمن) */
 function roleOfRequest(req) {
@@ -143,10 +239,14 @@ function roleOfRequest(req) {
   return u ? u.role : null;
 }
 
-function buildEnv(req) {
+function buildEnv(req, opts) {
   const e = process.env;
+  const _actor = (opts && opts.actor) ? String(opts.actor) : (function () { try { return roleOfRequest(req) || 'system'; } catch (er) { return 'system'; } })();
   return {
     DATABASE_BINDING: CTX.shim,
+    /* [v2.44-م3] هويّة الفاعل + سجل مالي موحّد لكل حركة رصيد */
+    __actor: _actor,
+    __audit: function (row) { try { return insertAudit(row); } catch (er) { return false; } },
     CRYPTOMUS_PAYMENT_KEY: e.CRYPTOMUS_PAYMENT_KEY || '',
     CRYPTOMUS_MERCHANT_ID: e.CRYPTOMUS_MERCHANT_ID || '',
     SELLIX_WEBHOOK_SECRET: e.SELLIX_WEBHOOK_SECRET || '',
@@ -168,19 +268,20 @@ function buildEnv(req) {
     CIH_SWIFT: e.CIH_SWIFT || 'CIHMMAMC',
     /* [Schema-bridge] خطافات مخطط المنصة (users: gold بلا balance_usd) */
     /* [v2.41.1] إشعار الأدمنز بالمعاملات المالية عبر بوت الدعم + صلاحية تنفيذها */
-    __notifyAdminsPayment: function (text, buttons) {
-      try { return require('./server-support.js').notifyAdminsPayment(text, buttons); } catch (e) { return 0; }
+    __notifyAdminsPayment: async function (text, buttons) {
+      try { return await require('./server-support.js').notifyAdminsPayment(text, buttons); } catch (e) { return 0; }
     },
     __adminCanAct: function (tgId) {
       try { return require('./server-support.js').adminCanAct(String(tgId)); } catch (e) { return false; }
     },
     /* [Support 2026-09-18] ربط البوتين: إشعار المستخدم عبر بوت الدعم + أزرار تذاكر الدعم */
-    __notifyUser: function (uid, text) {
-      try { return require('./server-support.js').notifyUser(uid, text); } catch (e) { return false; }
+    __notifyUser: async function (uid, text) {
+      /* [v2.44-م3] إشعار غير قاتل: فشل الإشعار لا يُفشل عملية مالية مكتملة */
+      try { return await require('./server-support.js').notifyUser(uid, text); } catch (e) { return false; }
     },
-    __supportAction: function (act, id, cq) {
+    __supportAction: async function (act, id, cq) {
       try {
-        return require('./server-support.js').handleCallback({ id: cq && cq.id, from: (cq && cq.from) || {}, data: act + '_' + id });
+        return await require('./server-support.js').handleCallback({ id: cq && cq.id, from: (cq && cq.from) || {}, data: act + '_' + id });
       } catch (e) { return false; }
     },
     __rate: function () { return Number(process.env.USD_GOLD_RATE || 100); },
@@ -242,8 +343,11 @@ function buildEnv(req) {
       return { usd: Math.round((gold / rate) * 100) / 100, coins: gold };
     },
     __creditUsd: function (id, usd) {
-      const rate = Number(process.env.USD_GOLD_RATE || 100);
+      /* [v2.44-م3] المصدر الوحيد = gold؛ والدولار مرآة مشتقّة تُحدَّث فوراً */
+      const rate = Number(process.env.USD_GOLD_RATE || 100) || 100;
       creditGoldLocal(id, Math.round(Number(usd) * rate));
+      const u = CTX.users[Number(id)] || Object.values(CTX.users).find(x => String(x.id) === String(id));
+      mirrorUsd(u);
     },
     __debitUsd: function (id, usd) {
       const rate = Number(process.env.USD_GOLD_RATE || 100);
@@ -252,6 +356,7 @@ function buildEnv(req) {
       if (!u || (u.gold || 0) < coins) return false;
       u.gold -= coins;
       try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+      mirrorUsd(u);
       pushWalletLocal(u, { delta: -coins });
       return true;
     },
@@ -314,7 +419,7 @@ async function adminApprove(txId, actorName) {
   if (!tx) return { ok: false, error: 'not-found' };
   if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
   const need = tx.type === 'deposit' ? 'dapp' : 'wapp';
-  const r = await core.adminActOnTransaction(buildEnv({ headers: { host: 'localhost' } }), CTX.shim, String(txId), need);
+  const r = await core.adminActOnTransaction(buildEnv({ headers: { host: 'localhost' } }, { actor: String(actorName || 'dashboard') }), CTX.shim, String(txId), need);
   if (r && r.ok) { try { CTX.db.prepare('UPDATE pay_transactions SET reviewed_by = ?, reviewed_at = ? WHERE id = ?').run(String(actorName || 'dashboard'), Date.now(), String(txId)); } catch (e) {} }
   return r;
 }
@@ -327,11 +432,20 @@ function adminReject(txId, reason, actorName) {
   if (tx.type === 'withdrawal') {
     try {
       const u = CTX.users[String(tx.user_id)] || Object.values(CTX.users).find(x => String(x.id) === String(tx.user_id));
-      const rate = Number(process.env.USD_GOLD_RATE || 100);
+      const rate = Number(process.env.USD_GOLD_RATE || 100) || 100;
       const coins = Math.round(Number(tx.amount_usd) * rate);
-      if (u) { u.gold = (u.gold || 0) + coins; try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {} }
+      if (u) { u.gold = (u.gold || 0) + coins; try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {} mirrorUsd(u); }
     } catch (e) {}
   }
+  /* [v2.44-م3] تدقيق الرفض (كان الرفض يمرّ بلا أي أثر مالي في السجل) */
+  try {
+    const _u = CTX.users[String(tx.user_id)] || Object.values(CTX.users).find(x => String(x.id) === String(tx.user_id));
+    insertAudit({ kind: tx.type === 'withdrawal' ? 'withdrawal' : 'deposit', action: 'reject', user_id: tx.user_id,
+      amount_usd: Number(tx.amount_usd), coins: Math.round(Number(tx.amount_usd) * (Number(process.env.USD_GOLD_RATE || 100) || 100)),
+      method: tx.method, status: 'rejected', tx_id: String(txId), actor: String(actorName || 'dashboard'),
+      after_coins: _u ? (_u.gold || 0) : null,
+      note: (tx.proof_details ? String(tx.proof_details).slice(0, 120) + ' · ' : '') + (tx.type === 'withdrawal' ? 'refunded' : String(reason || '')) });
+  } catch (e) {}
   return { ok: true, done: tx.type === 'withdrawal' ? 'withdrawal-rejected-refunded' : 'deposit-rejected', reason: String(reason || '') };
 }
 async function adminActOnPlatformTx(txId, act, actorName) {
@@ -379,4 +493,4 @@ function serveManifest(req, res, parsedUrl) {
   res.end(JSON.stringify({ ok: true, total: files.length, offset: offset, files: slice }));
 }
 
-module.exports = { initPaymentsTables: initPaymentsTables, setContext: setContext, isPaymentsPath: isPaymentsPath, handlePayments: handlePayments, PAY_PATHS: PAY_PATHS, serveManifest: serveManifest, listPending: listPending, adminApprove: adminApprove, adminReject: adminReject, adminActOnPlatformTx: adminActOnPlatformTx };
+module.exports = { initPaymentsTables: initPaymentsTables, setContext: setContext, isPaymentsPath: isPaymentsPath, handlePayments: handlePayments, PAY_PATHS: PAY_PATHS, serveManifest: serveManifest, listPending: listPending, adminApprove: adminApprove, adminReject: adminReject, adminActOnPlatformTx: adminActOnPlatformTx, buildEnv: buildEnv, insertAudit: insertAudit, listAudit: listAudit, auditAdminOp: auditAdminOp, mirrorUsd: mirrorUsd };

@@ -1601,6 +1601,28 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      /* ── [v2.44-م3] «السجل المالي»: كل حركات الشحن/السحب (مستخدمين + أدمنز) ──
+         السوبر أدمن يرى الكل؛ الأدمن يرى حركات عملائه هو فقط. */
+      if (pathname === '/api/admin/pay-audit' && req.method === 'GET') {
+        if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
+        const q = parsedUrl.query || {};
+        const res = pay.listAudit({
+          limit: q.limit, offset: q.offset, kind: q.kind || null, status: q.status || null,
+          user_id: q.user_id || null, q: q.q || null
+        });
+        let entries = res.entries || [];
+        let summary = res.summary || [];
+        if (!isSuper(me)) {
+          const mine = {};
+          Object.values(users).forEach(function (u) { if (u.admin_id === me.id) mine[String(u.id)] = 1; });
+          entries = entries.filter(function (e) { return mine[String(e.user_id || '')] || String(e.actor || '') === String(me.username); });
+          summary = summary.filter(function () { return true; });
+        }
+        /* حركات لوحة الأدمن (شحن/خصم) تُدمج أيضاً من سجل المنصة tx_log */
+        json({ ok: true, entries: entries, summary: summary, me: { id: me.id, username: me.username, role: me.role } });
+        return;
+      }
+
       if (pathname === '/api/admin/stats') {
         if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
         var supStats = null; try { supStats = sup.stats(); } catch (e) {}
@@ -1657,6 +1679,10 @@ const server = http.createServer((req, res) => {
               note: 'من ' + before + ' إلى ' + target.gold,
               balance_after: target.gold
             });
+            /* [v2.44-م3] تدقيق مالي موحّد */
+            try { pay.insertAudit({ kind: 'admin_op', action: 'set_balance', user_id: target.id, amount_usd: 0,
+              coins: (target.gold || 0) - before, method: 'dashboard', status: 'completed', actor: me.username,
+              after_coins: target.gold, note: 'من ' + before + ' إلى ' + target.gold }); } catch (e) {}
             json({ ok: true, gold: target.gold });
             return;
           }
@@ -1694,6 +1720,16 @@ const server = http.createServer((req, res) => {
                 balance_after: users[target.referred_by].gold
               });
             }
+            /* [v2.44-م3] تدقيق مالي موحّد (شحن إداري + بونص الإحالة) */
+            try {
+              const rate = Number(process.env.USD_GOLD_RATE || 100) || 100;
+              pay.insertAudit({ kind: 'admin_op', action: 'charge', user_id: target.id, amount_usd: Math.round((amt / rate) * 100) / 100,
+                coins: amt, method: 'dashboard', status: 'completed', actor: me.username, after_coins: target.gold, note: 'شحن إداري' });
+              if (refBonus > 0 && users[target.referred_by]) {
+                pay.insertAudit({ kind: 'referral', action: 'bonus', user_id: users[target.referred_by].id, coins: refBonus,
+                  method: 'referral', status: 'completed', actor: me.username, note: '10% أول شحن للاعب ' + target.username });
+              }
+            } catch (e) {}
             json({ ok: true, gold: target.gold, admin_gold: me.gold, referral_bonus: refBonus });
             return;
           }
@@ -1710,6 +1746,11 @@ const server = http.createServer((req, res) => {
               counterparty_id: me.id, counterparty_name: me.username,
               balance_after: target.gold
             });
+            try {
+              const rate = Number(process.env.USD_GOLD_RATE || 100) || 100;
+              pay.insertAudit({ kind: 'admin_op', action: 'deduct', user_id: target.id, amount_usd: Math.round((amt / rate) * 100) / 100,
+                coins: amt, method: 'dashboard', status: 'completed', actor: me.username, after_coins: target.gold, note: 'سحب إداري' });
+            } catch (e) {}
             json({ ok: true, gold: target.gold });
             return;
           }

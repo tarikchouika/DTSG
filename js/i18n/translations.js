@@ -1789,6 +1789,26 @@ const TR = {
   'admin.txAction': [ 'إجراء', 'Action', 'Action', 'إجراء' ],
   'admin.payDone': [ 'تم تنفيذ الطلب', 'Demande exécutée', 'Request processed', 'تنفذ الطلب' ],
   'admin.payHint': [ 'تُشعر أيضاً عبر بوت الدعم في تيليغرام — يمكن الموافقة من تيليغرام أو من هنا.', 'Aussi notifié via le bot support — validez ici ou sur Telegram.', 'Also sent to the support bot — approve here or on Telegram.', 'كيوصل إشعار حتى لبوت الدعم — تقدر تأكد من هنا ولا من تيليغرام.' ],
+  /* ═══ [v2.44-م3] السجل المالي الموحّد في داشبورد الأدمن/السوبر ═══ */
+  'admin.payLog': [ 'السجل المالي — كل عمليات الشحن والسحب (المستخدمون والأدمنز)', 'Journal financier — tous les dépôts/retraits (joueurs et admins).', 'Financial log — every deposit/withdrawal (players and admins).', 'السجل المالي — گاع عمليات الشحن والسحب (المستخدمين والأدمنز)' ],
+  'admin.payLogNone': [ 'لا حركات مالية مسجّلة بعد.', 'Aucune opération enregistrée.', 'No money movements yet.', 'مازال ما كاين حتى حركة مالية.' ],
+  'admin.payLogSearch': [ 'بحث (مستخدم/مُنفِّذ/مرجع)…', 'Rechercher (joueur/acteur/réf)…', 'Search (user/actor/ref)…', 'قلّب (مستخدم/مُنفِّذ/مرجع)…' ],
+  'admin.payLogAllSt': [ 'كل الحالات', 'Tous les états', 'All states', 'گاع الحالات' ],
+  'admin.payLogAllKd': [ 'كل الأنواع', 'Tous les types', 'All types', 'گاع الأنواع' ],
+  'admin.payLogRefresh': [ 'تحديث', 'Rafraîchir', 'Refresh', 'حدّث' ],
+  'admin.payLogTime': [ 'الوقت', 'Heure', 'Time', 'الوقت' ],
+  'admin.payLogKind': [ 'النوع', 'Type', 'Type', 'النوع' ],
+  'admin.payLogCoins': [ 'الكوينز', 'Coins', 'Coins', 'الكوينز' ],
+  'admin.payLogBonus': [ 'البونص', 'Bonus', 'Bonus', 'البونص' ],
+  'admin.payLogStatus': [ 'الحالة', 'État', 'Status', 'الحالة' ],
+  'admin.payLogActor': [ 'المُنفِّذ', 'Validé par', 'Actor', 'المُنفِّذ' ],
+  'admin.txPending': [ 'قيد المعالجة', 'En attente', 'Pending', 'قيد المعالجة' ],
+  'admin.txDone': [ 'تمت العملية', 'Effectuée', 'Completed', 'تمت العملية' ],
+  'admin.txRej': [ 'مرفوضة', 'Rejetée', 'Rejected', 'مرفوضة' ],
+  'admin.txIssued': [ 'صادر', 'Émis', 'Issued', 'صادر' ],
+  'admin.txVoucher': [ 'كود شحن', 'Code', 'Voucher', 'كود شحن' ],
+  'admin.txAdminOp': [ 'عملية أدمن', 'Opération admin', 'Admin op', 'عملية أدمن' ],
+  'admin.txReferral': [ 'إحالة', 'Parrainage', 'Referral', 'إحالة' ],
 };
 
 /* ── Export to window and module ── */

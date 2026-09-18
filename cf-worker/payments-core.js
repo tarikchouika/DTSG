@@ -97,6 +97,63 @@ function corsPreflight() {
   return new Response(null, { status: 204, headers: { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET,POST,OPTIONS', 'access-control-allow-headers': 'content-type,x-admin-secret,x-pay-secret', 'access-control-max-age': '86400' } });
 }
 
+/* ═══════════════════════════════════════════════════════════════════
+   [v2.44-م3] مصدر واحد للحقيقة + سجل مالي موحّد (pay_audit)
+   القاعدة: الكوينز (gold) هي الحقيقة الوحيدة؛ الدولار = gold/rate دائماً.
+   كل عملية مالية تمرّ من هنا: (1) تحويل/شحن، (2) تدقيق قبل/بعد، (3) إشعار.
+   ═══════════════════════════════════════════════════════════════════ */
+function rateOf(env) {
+  try { if (typeof env.__rate === 'function') { const r = Number(env.__rate()); if (r > 0) return r; } } catch (e) {}
+  return Number(env.USD_GOLD_RATE || 100) || 100;
+}
+/* بونص الشريحة الآلي على الإيداع النقدي — نفس شرائح أكواد «مباشر» */
+function depositBonusPct(usd) {
+  const t = Number(usd);
+  return (DIRECT_TIERS[t] !== undefined) ? DIRECT_TIERS[t] : 0;
+}
+/* كتابة سطر تدقيق — best-effort: لا تُكسر أي عملية مالية إن فشل السجل */
+async function payAudit(env, db, e) {
+  const row = Object.assign({ ts: Date.now(), status: 'ok' }, e || {});
+  try {
+    if (typeof env.__audit === 'function') { await env.__audit(row); return; }
+    await db.prepare('INSERT INTO pay_audit (id, ts, kind, action, user_id, username, amount_usd, coins, bonus_pct, bonus_coins, method, status, tx_id, actor, before_usd, after_usd, note)'
+      + ' VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)')
+      .bind(uid('aud'), row.ts, row.kind || '', row.action || '', String(row.user_id || ''), row.username || null,
+        Number(row.amount_usd || 0), Math.round(Number(row.coins || 0)), Number(row.bonus_pct || 0),
+        Math.round(Number(row.bonus_coins || 0)), row.method || null, row.status || 'ok', row.tx_id || null,
+        row.actor || 'system', row.before_usd === undefined ? null : row.before_usd,
+        row.after_usd === undefined ? null : row.after_usd, row.note || null).run();
+  } catch (err) {
+    /* لا نستعمل payDebug هنا (معرَّف داخل handleFetch) — لا نكسر العملية المالية */
+    try { if (env && (env.PAY_DEBUG_LOG === '1' || env.PAY_DEBUG_LOG === 'true')) console.log('[pay-audit-failed]', String(err && err.message || err)); } catch (e2) {}
+  }
+}
+/* هويّة منشئ الكود (بوت/لوحة/سوبر أدمن) — للتدقيق فقط */
+function actorLabel(env, b) {
+  if (env && env.__actor) return String(env.__actor);
+  /* استخراج محلي — pickStr معرَّف داخل handleFetch ولا يُرى من هنا */
+  b = b || {};
+  const cand = [b.tg_id, b.telegram_id, b.chat_id];
+  for (let i = 0; i < cand.length; i++) { const v = cand[i]; if (v !== undefined && v !== null && String(v).trim()) return 'tg:' + String(v).trim(); }
+  if (env && env.TELEGRAM_ADMIN_CHAT_ID && String(b.admin) === '1') return 'tg:' + env.TELEGRAM_ADMIN_CHAT_ID;
+  return 'admin-panel';
+}
+
+/* إشعار المستخدم بلا كسر العملية المالية (فشل الإشعار ≠ فشل الشحن) */
+async function safeNotify(env, uid, text) {
+  try { if (env && typeof env.__notifyUser === 'function') await env.__notifyUser(uid, text); } catch (e) {}
+}
+
+/* خطاف المنصة للشحن بالكوينز (يُمرَّر عبر uCreditGold) */
+async function uCreditGold(db, env, id, coins) {
+  const c = Math.round(Number(coins) || 0);
+  if (!(c > 0)) return 0;
+  if (typeof env.__creditGold === 'function') { await env.__creditGold(id, c); return c; }
+  await ensureUser(db, id);
+  await db.prepare('UPDATE users SET balance_usd = balance_usd + (?2 / ?3) WHERE id = ?1').bind(String(id), c, rateOf(env)).run();
+  return c;
+}
+
 /* ── تيليغرام ── */
 function _fetch(env) { return env.__fetch || fetch; }
 async function tg(env, method, body) {
@@ -128,28 +185,38 @@ async function adminActOnTransaction(env, db, txId, act) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx) return { ok: false, error: 'not-found' };
   if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
+  const actor = (env && env.__actor) || 'system';
   if (act === 'dapp') {
     const r = await completeDeposit(env, db, txId, Number(tx.amount_usd));
     if (r && r.ok) {
-      if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تأكيد إيداعك وشحن رصيدك (' + tx.amount_usd + ' USD).');
+      await safeNotify(env, tx.user_id, '✅ تم تأكيد إيداعك وشحن رصيدك (' + tx.amount_usd + ' USD).');
       return { ok: true, done: 'deposit-approved', amount_usd: Number(tx.amount_usd) };
     }
     return { ok: false, error: (r && r.error) || 'failed' };
   }
   if (act === 'drej') {
     await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
-    if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان خطأً تواصل مع الدعم.');
+    await payAudit(env, db, { kind: 'deposit', action: 'reject', user_id: tx.user_id, amount_usd: Number(tx.amount_usd),
+      method: tx.method, status: 'rejected', tx_id: txId, actor: actor, note: tx.proof_details ? String(tx.proof_details).slice(0, 160) : null });
+    await safeNotify(env, tx.user_id, '❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان خطأً تواصل مع الدعم.');
     return { ok: true, done: 'deposit-rejected', amount_usd: Number(tx.amount_usd) };
   }
   if (act === 'wapp') {
     await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
-    if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
+    await payAudit(env, db, { kind: 'withdrawal', action: 'approve', user_id: tx.user_id, amount_usd: Number(tx.amount_usd),
+      coins: Math.round(Number(tx.amount_usd) * rateOf(env)), method: tx.method, status: 'completed', tx_id: txId, actor: actor });
+    await safeNotify(env, tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
     return { ok: true, done: 'withdrawal-approved', amount_usd: Number(tx.amount_usd) };
   }
   if (act === 'wrej') {
+    const before = await uBalance(db, env, tx.user_id);
     await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
     await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd));  /* إعادة الرصيد */
-    if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك.');
+    const after = await uBalance(db, env, tx.user_id);
+    await payAudit(env, db, { kind: 'withdrawal', action: 'reject', user_id: tx.user_id, amount_usd: Number(tx.amount_usd),
+      coins: Math.round(Number(tx.amount_usd) * rateOf(env)), method: tx.method, status: 'rejected', tx_id: txId, actor: actor,
+      before_usd: before ? before.usd : null, after_usd: after ? after.usd : null, note: 'refunded' });
+    await safeNotify(env, tx.user_id, '❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك.');
     return { ok: true, done: 'withdrawal-rejected', amount_usd: Number(tx.amount_usd) };
   }
   return { ok: false, error: 'bad-act' };
@@ -227,12 +294,28 @@ async function platformCredit(env, userId, usd, txId) {
 async function completeDeposit(env, db, txId, paidUsd) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx || tx.status !== 'pending' || tx.type !== 'deposit') return { ok: false, reason: 'not-pending' };
-  await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1").bind(txId, paidUsd || tx.amount_usd).run();
-  await uCreditUsd(db, env, tx.user_id, paidUsd || Number(tx.amount_usd));
-  await platformCredit(env, tx.user_id, paidUsd || Number(tx.amount_usd), txId);
+  const amt = Number(paidUsd || tx.amount_usd) || 0;
+  const rate = rateOf(env);
+  const before = await uBalance(db, env, tx.user_id);
+  await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1").bind(txId, amt).run();
+  await uCreditUsd(db, env, tx.user_id, amt);
+  /* [v2.44-م3] البونص حسب الشريحة آلياً (نفس شرائح «مباشر»: 10→0% · 100→5% · 1000→10% · 10000→15%) */
+  const pct = depositBonusPct(amt);
+  let bonusCoins = 0;
+  if (pct > 0) { bonusCoins = await uCreditGold(db, env, tx.user_id, Math.round(amt * rate * pct / 100)); }
+  await platformCredit(env, tx.user_id, amt, txId);
+  const after = await uBalance(db, env, tx.user_id);
+  await payAudit(env, db, {
+    kind: 'deposit', action: 'approve', user_id: tx.user_id, amount_usd: amt,
+    coins: Math.round(amt * rate) + bonusCoins, bonus_pct: pct, bonus_coins: bonusCoins,
+    method: tx.method, status: 'completed', tx_id: txId, actor: (env && env.__actor) || 'system',
+    before_usd: before ? before.usd : null, after_usd: after ? after.usd : null,
+    before_coins: before ? before.coins : null, after_coins: after ? after.coins : null,
+    note: 'deposit-approved' + (pct ? ' +bonus ' + pct + '%' : '')
+  });
   const tgId = await uGetTelegram(db, env, tx.user_id);
-  if (tgId) await tg(env, 'sendMessage', { chat_id: tgId, text: '✅ تم شحن رصيدك بنجاح: +' + (paidUsd || tx.amount_usd) + ' USD' });
-  return { ok: true };
+  if (tgId) await tg(env, 'sendMessage', { chat_id: tgId, text: '✅ تم شحن رصيدك بنجاح: +' + amt + ' USD (' + (Math.round(amt * rate) + bonusCoins) + ' كوين' + (pct ? ' بونص ' + pct + '%' : '') + ')' });
+  return { ok: true, amount_usd: amt, coins: Math.round(amt * rate) + bonusCoins, bonus_pct: pct, bonus_coins: bonusCoins };
 }
 
 /* ── Cryptomus ── */
@@ -495,6 +578,8 @@ function payDebug(env, entry) {
     const txId = uid('p2p');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,?4,\'pending\',?5)')
       .bind(txId, String(uidResolved), amt, method, proof.slice(0, 2000)).run();
+    await payAudit(env, db, { kind: 'deposit', action: 'request', user_id: uidResolved, amount_usd: amt, method: method,
+      status: 'pending', tx_id: txId, actor: 'user', note: proof.slice(0, 160) });
     await tgNotifyAdmin(env,
       '📥 <b>إيداع جديد بانتظار الموافقة</b>\nالتذكرة: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || uidResolved) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + method + '\nالوصل/الكود: ' + proof.slice(0, 300),
       [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
@@ -518,16 +603,24 @@ function payDebug(env, entry) {
     const up = await db.prepare('UPDATE vouchers SET is_used = 1, used_by_user_id = ?2 WHERE code = ?1 AND is_used = 0').bind(code, String(ub)).run();
     const changed = up && up.meta ? up.meta.changes : 0;
     if (changed === 1) {
-      const v = await db.prepare('SELECT amount_usd, coins, kind FROM vouchers WHERE code = ?1').bind(code).first();
+      const v = await db.prepare('SELECT amount_usd, coins, kind, bonus_pct FROM vouchers WHERE code = ?1').bind(code).first();
       if (Number(v.coins) > 0) {
-        /* كود كوينز (أدمنز/مباشر): شحن الذهب مباشرة + سجل */
-        if (typeof env.__creditGold === 'function') await env.__creditGold(ub, Number(v.coins));
+        /* كود كوينز (أدمنز/مباشر): شحن الذهب مباشرة + سجل + تدقيق
+           البونص محسوب داخل v.coins عند الإنشاء (tierCoins) — لا يُضاعف هنا. */
+        const before = await uBalance(db, env, ub);
+        await uCreditGold(db, env, ub, Number(v.coins));
         const txId = uid('vch');
         try {
           await db.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,'deposit',?3,'voucher','completed',?4)")
             .bind(txId, String(ub), Number(v.amount_usd), code + ' coins:' + v.coins).run();
         } catch (e) { payDebug(env, { path: p, warn: 'ledger-failed', detail: String(e && e.message || e) }); }
-        return json({ ok: true, coins: Number(v.coins), kind: v.kind });
+        const after = await uBalance(db, env, ub);
+        await payAudit(env, db, { kind: 'voucher', action: 'redeem', user_id: ub, amount_usd: Number(v.amount_usd),
+          coins: Math.round(Number(v.coins)), bonus_pct: Number(v.bonus_pct || 0),
+          bonus_coins: Math.round(Number(v.coins) * Number(v.bonus_pct || 0) / 100),
+          method: 'voucher', status: 'completed', tx_id: txId, actor: 'user', note: code + ':' + (v.kind || 'std'),
+          before_usd: before ? before.usd : null, after_usd: after ? after.usd : null });
+        return json({ ok: true, coins: Number(v.coins), kind: v.kind, amount_usd: Number(v.amount_usd) || 0, bonus_pct: Number(v.bonus_pct || 0) });
       }
       const amt = Number(v.amount_usd);
       await uCreditUsd(db, env, ub, amt);
@@ -537,7 +630,9 @@ function payDebug(env, entry) {
           .bind(txId, String(ub), amt, code).run();
       } catch (e) { payDebug(env, { path: p, warn: 'ledger-failed', detail: String(e && e.message || e) }); }
       await platformCredit(env, ub, amt, txId);
-      return json({ ok: true, amount_usd: amt });
+      await payAudit(env, db, { kind: 'voucher', action: 'redeem', user_id: ub, amount_usd: amt,
+        coins: Math.round(amt * rateOf(env)), method: 'voucher', status: 'completed', tx_id: txId, actor: 'user', note: code + ':usd' });
+      return json({ ok: true, amount_usd: amt, coins: Math.round(amt * rateOf(env)) });
     }
     const ex = await db.prepare('SELECT is_used FROM vouchers WHERE code = ?1').bind(code).first();
     return json({ ok: false, error: ex ? 'already-used' : 'invalid-code' }, 404);
@@ -559,6 +654,10 @@ function payDebug(env, entry) {
       const tc = tierCoins(kind, tier, cur);
       if (!tc) return json({ ok: false, error: 'bad-tier', tiers: Object.keys(kind === 'admin' ? ADMIN_TIERS : DIRECT_TIERS) }, 400);
       const v = await makeTierVoucher(db, kind, tier, cur);
+      await payAudit(env, db, { kind: 'voucher', action: 'create', user_id: '', amount_usd: Number(tier),
+        coins: Math.round(Number(v.coins)), bonus_pct: Number(v.bonus || 0),
+        bonus_coins: Math.round(Number(v.coins) * Number(v.bonus || 0) / 100),
+        method: 'voucher', status: 'issued', actor: actorLabel(env, b), note: kind + ':' + cur + ':' + v.code });
       return json({ ok: true, codes: [v.code], coins: v.coins, bonus: v.bonus });
     }
     const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.mad_amount, b.price);
@@ -567,7 +666,11 @@ function payDebug(env, entry) {
       payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}) });
       return json({ ok: false, error: 'bad-input', hint: 'أرسل amount_usd (أو amount) بقيمة ≥ 1' }, 400);
     }
-    return json({ ok: true, codes: await makeVoucherCodes(db, amt, count) });
+    const codes = await makeVoucherCodes(db, amt, count);
+    await payAudit(env, db, { kind: 'voucher', action: 'create', user_id: '', amount_usd: Number(amt),
+      coins: Math.round(Number(amt) * rateOf(env) * count), method: 'voucher', status: 'issued',
+      actor: actorLabel(env, b), note: 'std:' + count + 'x' + amt });
+    return json({ ok: true, codes: codes });
   }
 
   /* ── طلب سحب ── */
@@ -598,6 +701,9 @@ function payDebug(env, entry) {
     const txId = uid('wd');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'withdrawal\',?3,?4,\'pending\',?5)')
       .bind(txId, String(uidResolved), amt, method, details.slice(0, 2000)).run();
+    await payAudit(env, db, { kind: 'withdrawal', action: 'request', user_id: uidResolved, amount_usd: amt,
+      coins: Math.round(amt * rateOf(env)), method: method, status: 'pending', tx_id: txId, actor: 'user',
+      note: details.slice(0, 160) });
     await tgNotifyAdmin(env,
       '💸 <b>طلب سحب بانتظار الموافقة</b>\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || uidResolved) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + method + '\nالتفاصيل: ' + details.slice(0, 300),
       [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
@@ -796,5 +902,5 @@ function payDebug(env, entry) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
+  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS, payAudit: payAudit, depositBonusPct: depositBonusPct, rateOf: rateOf };
 }

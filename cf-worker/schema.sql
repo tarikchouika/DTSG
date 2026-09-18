@@ -40,6 +40,31 @@ CREATE TABLE IF NOT EXISTS vouchers (
     FOREIGN KEY(used_by_user_id) REFERENCES users(id)
 );
 
+-- [v2.44-م3] السجل المالي الموحّد (append-only): كل حركة رصيد مع الفاعل والبونص
+CREATE TABLE IF NOT EXISTS pay_audit (
+    id TEXT PRIMARY KEY,
+    ts INTEGER NOT NULL,
+    kind TEXT NOT NULL,               -- deposit | withdrawal | voucher | admin_op | referral
+    action TEXT NOT NULL,             -- request | approve | reject | redeem | create | admin
+    user_id TEXT,
+    username TEXT,
+    amount_usd REAL DEFAULT 0,
+    coins INTEGER DEFAULT 0,
+    bonus_pct REAL DEFAULT 0,
+    bonus_coins INTEGER DEFAULT 0,
+    method TEXT,
+    status TEXT DEFAULT 'ok',
+    tx_id TEXT,
+    actor TEXT,
+    before_usd REAL,
+    after_usd REAL,
+    before_coins INTEGER,
+    after_coins INTEGER,
+    note TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pay_audit_ts   ON pay_audit(ts DESC);
+CREATE INDEX IF NOT EXISTS idx_pay_audit_user ON pay_audit(user_id, ts DESC);
+
 -- جلسات توثيق السوبر أدمن لبوت التلغرام (أتمتة الكوبونات)
 CREATE TABLE IF NOT EXISTS tg_admin_sessions (
     chat_id TEXT PRIMARY KEY,

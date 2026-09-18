@@ -252,7 +252,14 @@ window.PWAL = window.PWAL || {};
     if (!code) { msg(mm, '❌ أدخل الكوبون', false); return; }
     try {
       const r = await api('/api/vouchers/redeem', { user_id: AUTH.user.id, code: code });
-      if (r && r.ok) { msg(mm, '✅ تم شحن +' + r.amount_usd + ' USD', true); overlay.querySelector('#wlVCode').value = ''; wlRefresh(); }
+      if (r && r.ok) {
+        /* [v2.44-م3] أكواد الكوينز: نعرض الكوينز (المصدر الوحيد) + ما يساويها بالدولار، لا العكس */
+        var okMsg = (Number(r.coins) > 0)
+          ? ('✅ تم شحن +' + fmt(r.coins) + ' 🪙' + (Number(r.bonus_pct) ? ' (بونص ' + fmt(r.bonus_pct) + '%)' : '') +
+             (Number(r.amount_usd) ? ' ≈ ' + Number(r.amount_usd).toFixed(2) + ' USD' : ''))
+          : ('✅ تم شحن +' + fmt(r.amount_usd) + ' USD' + (Number(r.coins) ? ' (🪙 ' + fmt(r.coins) + ')' : ''));
+        msg(mm, okMsg, true); overlay.querySelector('#wlVCode').value = ''; wlRefresh();
+      }
       else msg(mm, '❌ ' + (r && r.error === 'already-used' ? 'الكوبون مستعمل مسبقاً' : r && r.error === 'invalid-code' ? 'كوبون غير صالح' : 'فشل'), false);
     } catch (e) { msg(mm, '❌ تعذر الاتصال', false); }
   }

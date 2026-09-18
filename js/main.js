@@ -1988,8 +1988,12 @@ function adminLoadFinance() {
       '</div>' + rows +
       /* ═══ [v2.41.1] طلبات الدفع المعلّقة (إيداع/سحب) — موافقة أو رفض من هنا مباشرة ═══ */
       '<div class="note" style="margin-top:16px">' + T('admin.payHint') + '</div>' +
-      '<div id="payPending"><div class="note">…</div></div>';
+      '<div id="payPending"><div class="note">…</div></div>' +
+      /* ═══ [v2.44-م3] «السجل المالي»: كل عمليات الشحن/السحب للمستخدمين والأدمنز ═══ */
+      '<div class="note" style="margin-top:18px">' + T('admin.payLog') + '</div>' +
+      '<div id="payAuditBox"><div class="note">…</div></div>';
     adminLoadPendingPayments();
+    adminLoadPayAudit();
   }).catch(function () {
     c.innerHTML = '<div class="note">' + T('auth.error') + '</div>';
   });
@@ -2020,10 +2024,64 @@ function adminLoadPendingPayments() {
     box.innerHTML = '<div class="note">' + T('auth.error') + '</div>';
   });
 }
+/* ═══ [v2.44-م3] السجل المالي الموحّد (pay_audit) — للمستخدمين والأدمنز ═══
+   يعرض: الوقت · المستخدم · النوع/الإجراء · الدولار · الكوينز · البونص · الحالة · المُنفِّذ · المرجع */
+function adminLoadPayAudit() {
+  const box = document.getElementById('payAuditBox');
+  if (!box) return;
+  const q = (document.getElementById('payQ') || {}).value || '';
+  const st = (document.getElementById('paySt') || {}).value || '';
+  const kd = (document.getElementById('payKd') || {}).value || '';
+  const url = '/api/admin/pay-audit?limit=120' +
+    (q ? '&q=' + encodeURIComponent(q) : '') + (st ? '&status=' + encodeURIComponent(st) : '') + (kd ? '&kind=' + encodeURIComponent(kd) : '');
+  API.get(url).then(function (r) {
+    if (!r.ok) { box.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; return; }
+    const list = (r.data && r.data.entries) || [];
+    const sum = (r.data && r.data.summary) || [];
+    const stName = { pending: '⏳ ' + T('admin.txPending'), completed: '✅ ' + T('admin.txDone'), rejected: '❌ ' + T('admin.txRej'), issued: '🎟️ ' + T('admin.txIssued'), ok: '✅' };
+    const knName = { deposit: '📥 ' + T('admin.txDeposit'), withdrawal: '💸 ' + T('admin.txWithdrawal'), voucher: '🎟️ ' + T('admin.txVoucher'), admin_op: '🛠️ ' + T('admin.txAdminOp'), referral: '🤝 ' + T('admin.txReferral') };
+    const filters = '<div class="prow" style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0">' +
+      '<input id="payQ" class="ain" placeholder="' + T('admin.payLogSearch') + '" value="' + esc(q) + '" onkeydown="if(event.key===\'Enter\')adminLoadPayAudit()" style="flex:1;min-width:150px">' +
+      '<select id="paySt" class="ain" onchange="adminLoadPayAudit()"><option value="">' + T('admin.payLogAllSt') + '</option>' +
+        ['pending', 'completed', 'rejected', 'issued'].map(function (s) { return '<option value="' + s + '"' + (st === s ? ' selected' : '') + '>' + (stName[s] || s) + '</option>'; }).join('') + '</select>' +
+      '<select id="payKd" class="ain" onchange="adminLoadPayAudit()"><option value="">' + T('admin.payLogAllKd') + '</option>' +
+        ['deposit', 'withdrawal', 'voucher', 'admin_op', 'referral'].map(function (k) { return '<option value="' + k + '"' + (kd === k ? ' selected' : '') + '>' + (knName[k] || k) + '</option>'; }).join('') + '</select>' +
+      '<button class="abtn" onclick="adminLoadPayAudit()">🔄 ' + T('admin.payLogRefresh') + '</button></div>';
+    const sumLine = sum.length
+      ? '<div class="note" style="color:var(--t3)">' + sum.map(function (s) {
+          return (knName[s.kind] || s.kind) + ' · ' + (stName[s.status] || s.status) + ': <b>' + fmt(s.n) + '</b>' +
+            (Number(s.usd) ? ' (' + fmt(s.usd) + ' $)' : '') + (Number(s.coins) ? ' 🪙 ' + fmt(s.coins) : '');
+        }).join(' &nbsp;|&nbsp; ') + '</div>'
+      : '';
+    const rows = list.length
+      ? '<div class="atable-wrap"><table class="atable"><thead><tr>' +
+        '<th>' + T('admin.payLogTime') + '</th><th>' + T('admin.txUser') + '</th><th>' + T('admin.payLogKind') + '</th>' +
+        '<th>' + T('admin.txAmount') + '</th><th>' + T('admin.payLogCoins') + '</th><th>' + T('admin.payLogBonus') + '</th>' +
+        '<th>' + T('admin.payLogStatus') + '</th><th>' + T('admin.payLogActor') + '</th><th>' + T('admin.txRef') + '</th></tr></thead><tbody>' +
+        list.map(function (e) {
+          const d = new Date(Number(e.ts) || Date.now());
+          const t = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + ' ' + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+          return '<tr><td style="white-space:nowrap">' + t + '</td>' +
+            '<td><b>' + esc(e.username || e.user_id || '—') + '</b></td>' +
+            '<td>' + (knName[e.kind] || esc(e.kind || '')) + '<div style="opacity:.6;font-size:.72rem">' + esc(e.action || '') + (e.method ? ' · ' + esc(e.method) : '') + '</div></td>' +
+            '<td>' + (Number(e.amount_usd) ? fmt(e.amount_usd) + ' $' : '—') + '</td>' +
+            '<td>' + (Number(e.coins) ? '🪙 ' + fmt(e.coins) : '—') + '</td>' +
+            '<td>' + (Number(e.bonus_pct) ? '<b style="color:var(--ok,#22c55e)">' + fmt(e.bonus_pct) + '%</b> (🪙 ' + fmt(e.bonus_coins || 0) + ')' : '—') + '</td>' +
+            '<td>' + (stName[e.status] || esc(e.status || '')) + '</td>' +
+            '<td>' + esc(e.actor || '—') + '</td>' +
+            '<td style="max-width:190px;word-break:break-all;opacity:.8"><b>' + esc(e.tx_id || '—') + '</b>' +
+              (e.note ? '<div style="opacity:.7;font-size:.72rem">' + esc(e.note) + '</div>' : '') + '</td></tr>';
+        }).join('') + '</tbody></table></div>'
+      : '<div class="note">' + T('admin.payLogNone') + '</div>';
+    box.innerHTML = filters + sumLine + rows;
+  }).catch(function () { box.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; });
+}
+window.adminLoadPayAudit = adminLoadPayAudit;
+
 function adminPayAct(txId, action) {
   if (action === 'reject' && !confirm((T('admin.reject') + ' — ' + txId + ' ?'))) return;
   API.post('/api/admin/payments/act', { tx_id: txId, action: action }).then(function (r) {
-    if (r.ok) { toast(T('admin.payDone') + ' ✔', 'ok'); adminLoadPendingPayments(); }
+    if (r.ok) { toast(T('admin.payDone') + ' ✔', 'ok'); adminLoadPendingPayments(); adminLoadPayAudit(); }
     else toast((r.data && (r.data.error || r.data.message)) || T('auth.error'), 'err');
   }).catch(function () { toast(T('auth.error'), 'err'); });
 }

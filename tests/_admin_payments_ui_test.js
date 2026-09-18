@@ -24,13 +24,28 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   page._bad4xx = bad4xx;
   page.on('dialog', d => d.accept());   /* confirm/alert — نوافق تلقائياً كما يفعل الأدمن */
 
+  /* [v2.44-م3] لا معرّفات صلبة: نحلّ معرّف qa_player من قاعدة الخادم نفسه
+     (ملاحظة: كوكي sid محمي Secure ⇒ page.request لا يشاركه — نستعمل الصفحة) */
+  await page.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
+  await page.evaluate(async () => {
+    await fetch(location.origin + '/api/login', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'qa_super', password: 'QaTest12345' }) });
+  });
+  const UID = await page.evaluate(async () => {
+    const r = await fetch('/api/admin/users', { credentials: 'include' });
+    const j = await r.json();
+    const hit = (j.users || []).filter(u => u.username === 'qa_player')[0];
+    return hit ? hit.id : 0;
+  });
+  if (!UID) { console.log('FATAL: qa_player غير موجود في قاعدة الخادم'); process.exit(2); }
+  console.log('qa_player id = ' + UID);
+
   const RUN = String(Date.now()).slice(-6);
   const REF1 = 'TX-ADMIN-UI-' + RUN, REF2 = 'CP-568409-' + RUN, REFWD = 'TX-ADMIN-UI-WD-' + RUN;
   console.log('\n═══ أ) تجهيز: إيداعان معلّقان (بنفس بيانات بوت الشحن) ═══');
   const mk = async (body) => await page.request.post(BASE + '/api/payments/p2p', { data: body });
-  const dep1 = await mk({ user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 25, proof_details: REF1 });
+  const dep1 = await mk({ user_id: UID, username: 'qa_player', method: 'binance', amount_usd: 25, proof_details: REF1 });
   const j1 = await dep1.json();
-  const dep2 = await mk({ user_id: 18, username: 'qa_player', method: 'cash_plus', amount_usd: 12, details: REF2 });
+  const dep2 = await mk({ user_id: UID, username: 'qa_player', method: 'cash_plus', amount_usd: 12, details: REF2 });
   const j2 = await dep2.json();
   (j1.ok && j2.ok) ? ok('إنشاء إيداعين معلّقين: ' + j1.tx + ' · ' + j2.tx) : bad('فشل الإنشاء: ' + JSON.stringify([j1, j2]));
 
@@ -87,7 +102,7 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
 
   console.log('\n═══ ج) الموافقة على إيداع من الواجهة ═══');
   const coins = async () => {
-    const r = await page.request.get(BASE + '/api/wallet/balance?user_id=18');
+    const r = await page.request.get(BASE + '/api/wallet/balance?user_id=' + UID);
     const j = await r.json(); return j.coins || 0;
   };
   const before = await coins();
@@ -110,7 +125,7 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   (new RegExp('قيد|pending|' + REF1)).test(refreshed) ? ok('القائمة أُعيد تحميلها (الطلب المؤكد غادر المعلّق)') : ok('القائمة أُعيد تحميلها');
 
   console.log('\n═══ د) سحب + رفضه من الواجهة (إعادة الرصيد) ═══');
-  const wd = await page.request.post(BASE + '/api/withdrawals/request', { data: { user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 9, details: REFWD } });
+  const wd = await page.request.post(BASE + '/api/withdrawals/request', { data: { user_id: UID, username: 'qa_player', method: 'binance', amount_usd: 9, details: REFWD } });
   const wj = await wd.json();
   wj.ok ? ok('إنشاء طلب سحب: ' + wj.tx) : bad('فشل السحب: ' + JSON.stringify(wj));
   await page.evaluate(() => adminLoadPendingPayments());
@@ -129,6 +144,60 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   const coinsAfter = await coins();
   (coinsAfter === coinsBefore + 900) ? ok('رفض السحب أعاد 9$ (900 كوين) للرصيد: ' + coinsBefore + ' → ' + coinsAfter) : bad('إعادة الرصيد: ' + coinsBefore + ' → ' + coinsAfter);
   await page.screenshot({ path: '/tmp/audit-admin-pay2.png' });
+
+  console.log('\n═══ د2) [v2.44-م3] «السجل المالي» في داشبورد السوبر أدمن ═══');
+  /* الشرط: السوبر أدمن يرى كل الحركات (مستخدمين + أدمنز) — نتحقق بجلسته */
+  await page.evaluate(async () => {
+    await fetch(location.origin + '/api/login', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'qa_super', password: 'QaTest12345' }) });
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.waitForTimeout(2200);
+  await page.evaluate(() => { try { nav('admin'); } catch (e) { } });
+  await page.waitForTimeout(700);
+  await page.evaluate(() => { try { adminTab('fin'); } catch (e) { } });
+  await page.waitForTimeout(2200);
+  await page.evaluate(() => adminLoadPayAudit());
+  await page.waitForTimeout(2000);
+  const log1 = await page.evaluate(() => {
+    const box = document.getElementById('payAuditBox');
+    if (!box) return { has: false };
+    const rows = Array.from(box.querySelectorAll('tbody tr'));
+    return {
+      has: true, rows: rows.length,
+      texts: rows.map(r => r.innerText.replace(/\s+/g, ' ')),
+      full: box.innerText.replace(/\s+/g, ' '),
+      hasFilters: !!document.getElementById('payKd') && !!document.getElementById('paySt') && !!document.getElementById('payQ')
+    };
+  });
+  log1.has ? ok('صندوق «السجل المالي» موجود في داشبورد الأدمن') : bad('لا صندوق #payAuditBox');
+  log1.hasFilters ? ok('فلاتر السجل موجودة (بحث/حالة/نوع)') : bad('لا فلاتر للسجل');
+  log1.rows >= 2 ? ok('السجل يعرض الحركات (' + log1.rows + ' صفوف)') : bad('صفوف السجل: ' + log1.rows);
+  (new RegExp(REF1)).test(log1.full) ? ok('الطلب المؤكَّد ظاهر في السجل بمرجعه') : bad('المرجع المؤكد ليس في السجل');
+  /تمت العملية|Effectuée|Completed/.test(log1.full) ? ok('حالة «تمت العملية» معروضة') : bad('لا حالة مكتملة في السجل');
+  /بونص|Bonus/.test(log1.full) ? ok('عمود البونص معروض (شريحة 25$ = 0% — يظهر لبونص 100$ فما فوق)') : bad('لا عمود بونص');
+  (new RegExp('qa_admin|qa_player')).test(log1.full) ? ok('المستخدم/المُنفِّذ معروضان') : bad('لا اسم مستخدم في السجل');
+  /* فلترة بالنوع: إيداعات فقط */
+  const kdFiltered = await page.evaluate(async () => {
+    document.getElementById('payKd').value = 'deposit';
+    await adminLoadPayAudit();
+    await new Promise(r => setTimeout(r, 1600));
+    const box = document.getElementById('payAuditBox');
+    const rows = Array.from(box.querySelectorAll('tbody tr')).map(r => r.innerText.replace(/\s+/g, ' '));
+    return { rows: rows.length, sample: rows.slice(0, 3), hasWd: rows.some(x => /سحب|Retrait|Withdrawal/.test(x)) };
+  });
+  (kdFiltered.rows >= 1 && !kdFiltered.hasWd) ? ok('فلتر «إيداع» يستبعد صفوف السحب (' + kdFiltered.rows + ' صف)') : bad('الفلتر لا يعمل: ' + JSON.stringify(kdFiltered.sample));
+  /* فلترة بالحالة: مرفوضة (طلب السحب المرفوض) */
+  const stFiltered = await page.evaluate(async () => {
+    const kd = document.getElementById('payKd'); if (kd) kd.value = '';
+    document.getElementById('paySt').value = 'rejected';
+    await adminLoadPayAudit();
+    await new Promise(r => setTimeout(r, 1600));
+    const box = document.getElementById('payAuditBox');
+    return { text: box.innerText.replace(/\s+/g, ' ') };
+  });
+  (new RegExp(REFWD)).test(stFiltered.text) ? ok('فلتر «مرفوضة» يُظهر السحب المرفوض بمرجعه') : bad('السحب المرفوض ليس في فلتر الرفض');
+  await page.evaluate(async () => { document.getElementById('paySt').value = ''; await adminLoadPayAudit(); });
+  await page.screenshot({ path: '/tmp/dtsg-shots/v244-payaudit.png' });
 
   console.log('\n═══ هـ) اختصارات ودجت الشات (بجلسة اللاعب) ═══');
   await page.evaluate(async () => {
