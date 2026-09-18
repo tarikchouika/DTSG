@@ -82,6 +82,18 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok('ملف Cryptomus خام 18 بايت بالحرف', cm.body === 'cryptomus=696df86d' && Buffer.byteLength(cm.body) === 18,
     Buffer.byteLength(cm.body) + 'B');
 
+  /* ── 4.b) نموذج «اتصل بنا» يعمل (كان 405 من Pages بسبب مسار نسبي) ── */
+  const cpost = async (payload) => {
+    try { const r = await fetch(BASE + '/api/contact', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) }); return { code: r.status, body: await r.text() }; }
+    catch (e) { return { code: 0, body: String(e) }; }
+  };
+  const c1 = await cpost({ name: 'اختبار', email: 'a@b.c', subject: 's', message: 'رسالة اختبارية طويلة بما يكفي' });
+  ok('POST /api/contact → 200', c1.code === 200 && /"ok":true/.test(c1.body), 'code=' + c1.code);
+  const c2 = await cpost({ name: 'x', message: '' });
+  ok('POST /api/contact مدخل ناقص → 400', c2.code === 400, 'code=' + c2.code);
+  const c3 = await get('/api/admin/contact-messages');
+  ok('قائمة رسائل الاتصال محمية (403 بلا جلسة)', c3.code === 403, 'code=' + c3.code);
+
   /* ── 5) محاولات تجاوز المسار ── */
   for (const p of ['/../server.js', '/%2e%2e/server.js', '/data/../server.js', '/DATA/royalcoin.db', '/Server.js']) {
     const r = await get(p);

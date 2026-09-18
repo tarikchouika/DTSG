@@ -1373,19 +1373,24 @@ async function adminMakeCode() {
   const currency = document.getElementById('codeCur').value;
   const tier = Number(document.getElementById('codeTier').value);
   out.innerHTML = '<div class="note">…</div>';
+  /* [v2.40.5 · إصلاح] كان الزر يستعمل نداء fetch بمسار نسبي إلى مسار إنشاء الأكواد ⇒
+     يذهب إلى dtsg.pages.dev (واجهة Pages) لا إلى الباكأند، فيردّ Pages 405 وتفشل
+     العملية دائماً. الصحيح: API.post الذي يحلّ عنوان الباكأند من /api-url2.json
+     ويرسل كوكي الجلسة (‏sid). */
   try {
-    const r = await fetch('/api/vouchers/create', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ kind: kind, tier: tier, currency: currency })
-    });
-    const j = await r.json();
-    if (j.ok) {
-      out.innerHTML = '<div class="note ok">✅ ' + j.codes[0] + ' — يشحن ' + j.coins.toLocaleString('ar-MA') + ' كوين (بونص ' + j.bonus + '%) ' +
+    const r = await API.post('/api/vouchers/create', { kind: kind, tier: tier, currency: currency });
+    const j = (r && r.data) || {};
+    if (r && r.ok && j.ok) {
+      out.innerHTML = '<div class="note ok">✅ <b>' + j.codes[0] + '</b> — يشحن ' + Number(j.coins).toLocaleString('ar-MA') + ' كوين (بونص ' + j.bonus + '%) ' +
         '<button class="btn small" onclick="navigator.clipboard.writeText(\'' + j.codes[0] + '\')">نسخ</button></div>';
-    } else {
-      out.innerHTML = '<div class="note err">❌ ' + (j.error || 'فشل') + (j.tiers ? ' — الشرائح: ' + j.tiers.join(' / ') : '') + '</div>';
+      return;
     }
-  } catch (e) { out.innerHTML = '<div class="note err">❌ ' + e + '</div>'; }
+    let msg = j.error || ('HTTP ' + (r ? r.status : '?'));
+    if (r && r.status === 403) msg = 'غير مصرح — إنشاء الأكواد للسوبر أدمن فقط. سجّل الخروج ثم الدخول بحساب السوبر.';
+    else if (r && r.status === 400 && j.error === 'bad-tier') msg = 'شريحة غير صالحة';
+    if (j.tiers) msg += ' — الشرائح المتاحة: ' + j.tiers.join(' / ');
+    out.innerHTML = '<div class="note err">❌ ' + msg + '</div>';
+  } catch (e) { out.innerHTML = '<div class="note err">❌ تعذّر الاتصال بالخادم: ' + e + '</div>'; }
 }
 
 function adminTab(tab) {

@@ -488,12 +488,10 @@
           subject: (fd.get('subject') || '').trim(),
           message: (fd.get('message') || '').trim()
         };
-        fetch('/api/contact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-          .then(function (r) { return r.json(); })
+        /* [v2.40.5 · إصلاح] المسار النسبي كان يذهب إلى dtsg.pages.dev فيردّ 405.
+           API.post يحلّ عنوان الباكأند (نفق الهاتف عبر الووركر) ويرسل كوكي الجلسة. */
+        API.post('/api/contact', payload)
+          .then(function (r) { return r.data; })
           .then(function (data) {
             if (data && data.ok) {
               msg.textContent = D['c.formSuccess'] ? D['c.formSuccess'][curLang] : 'تم إرسال رسالتك بنجاح';

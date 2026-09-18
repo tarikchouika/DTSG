@@ -113,7 +113,13 @@ document.getElementById('go').onclick = async function () {
     log('2/5 رفع الملفات (blobs)…');
     var entries = []; var offset = 0; var total = null;
     while (total === null || offset < total) {
-      var man = await (await fetch('/api/deploy/manifest?offset=' + offset + '&limit=25')).json();
+      /* [v2.40.5 · إصلاح] كان المسار نسبياً ⇒ يُطلب من dtsg.pages.dev (405).
+         نحلّ عنوان الباكأند مرة واحدة من /api-url2.json (ووركر الهاتف الوسيط). */
+      if (!window.__API_BASE) {
+        try { var cfg = await (await fetch('/api-url2.json', { cache: 'no-store' })).json(); window.__API_BASE = (cfg && cfg.url) || location.origin; }
+        catch (e) { window.__API_BASE = location.origin; }
+      }
+      var man = await (await fetch(window.__API_BASE + '/api/deploy/manifest?offset=' + offset + '&limit=25', { credentials: 'include' })).json();
       if (!man.ok) throw new Error('manifest: ' + man.error);
       total = man.total;
       var shas = await mapPool(man.files, async function (f) {

@@ -882,6 +882,41 @@ const server = http.createServer((req, res) => {
       /* ── [Payments] مسارات المحفظة تُدار بمنطق payments-core فوق القاعدة المحلية ── */
       if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body); return; }
 
+      /* ── [v2.40.5] نموذج «اتصل بنا» — كان يرسل إلى مسار غير موجود (405 من Pages)
+         فيبقى الزر بلا نتيجة. يُخزَّن في contact_messages + إشعار تيليغرام إن توفّر. ── */
+      if (pathname === '/api/contact' && req.method === 'POST') {
+        try { db.exec("CREATE TABLE IF NOT EXISTS contact_messages (id INTEGER PRIMARY KEY AUTOINCREMENT, ts INTEGER, name TEXT, email TEXT, subject TEXT, message TEXT, ip TEXT)"); } catch (e) {}
+        const name = String(data.name || '').trim().slice(0, 60);
+        const email = String(data.email || '').trim().slice(0, 120);
+        const subject = String(data.subject || '').trim().slice(0, 120);
+        const message = String(data.message || '').trim().slice(0, 4000);
+        if (name.length < 2 || message.length < 5) { json({ ok: false, message: 'يرجى إكمال الاسم والنص' }, 400); return; }
+        /* تحديد بسيط ضد الإغراق: 5 رسائل لكل IP في الساعة */
+        const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+        let recent = 0;
+        try { recent = db.prepare('SELECT COUNT(*) c FROM contact_messages WHERE ip = ? AND ts > ?').get(ip, Date.now() - 3600000).c; } catch (e) {}
+        if (recent >= 5) { json({ ok: false, message: 'محاولات كثيرة — أعد المحاولة بعد قليل' }, 429); return; }
+        try { db.prepare('INSERT INTO contact_messages (ts,name,email,subject,message,ip) VALUES (?,?,?,?,?,?)').run(Date.now(), name, email, subject, message, ip); } catch (e) {}
+        const tok = process.env.TELEGRAM_BOT_TOKEN, chat = process.env.TELEGRAM_ADMIN_CHAT_ID;
+        if (tok && chat) {
+          fetch('https://api.telegram.org/bot' + tok + '/sendMessage', {
+            method: 'POST', headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ chat_id: chat, text: '📩 رسالة من نموذج الاتصال\nالاسم: ' + name + '\nالبريد: ' + email + '\nالموضوع: ' + subject + '\n\n' + message.slice(0, 1500) })
+          }).catch(function () {});
+        }
+        json({ ok: true });
+        return;
+      }
+
+      /* ── [v2.40.5] استعراض رسائل الاتصال (أدمن) ── */
+      if (pathname === '/api/admin/contact-messages') {
+        if (!isAdmin(getUser(req))) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
+        let rows = [];
+        try { rows = db.prepare('SELECT id, ts, name, email, subject, message FROM contact_messages ORDER BY id DESC LIMIT 200').all(); } catch (e) {}
+        json({ ok: true, messages: rows });
+        return;
+      }
+
       /* ── [Deploy] manifest مُجزأ لصفحة الرفع — DEPLOY_MANIFEST=1 ── */
       if (pathname === '/api/deploy/manifest') { pay.serveManifest(req, res, parsedUrl); return; }
 
