@@ -28,16 +28,17 @@ ok('4 نجوم + 4 رؤوس آمنة', PR_STARS.length === 4 && PR_HEADS.length 
 ok('12 خانة آمنة (4 ساليدات + 8 نجوم)', PR_SAFE.length === 12);
 ok('ساليدات المقاعد [4,21,38,55] (خانات 5/22/39/56)', JSON.stringify(PR_OFF) === JSON.stringify([4, 21, 38, 55]));
 ok('لا تكرار في خانات المسار', new Set(PR_TRACK.map(t => t.x + ',' + t.y)).size === 68);
-/* [v2.43] المواصفة الجديدة: القاعدة 160 (كانت 194) والخانة المستطيلة 93.33×30
+/* [v2.44] المواصفة: الخانة الكلاسيكية 64×27.5 (نسبة 2.33:1) واللوحة flush 600
+   القاعدة 204 والمركز 160 — كلها تُشتق بالصيغ عند هامش = 0
    (كانت 64×27.5) — الذراع 3 أعمدة × 280 و8 صفوف × 240 والمركز 120×120 */
-const PR_ARM_OK = (600 - 2 * 160) / 3, PR_PITCH_OK = ((600 - 120) / 2) / 8;
+const PR_ARM_OK = (600 - 2 * 204) / 3, PR_PITCH_OK = ((600 - 160) / 2) / 8;   /* 64 × 27.5 */
 ok('خانات مستطيلة (' + PR_ARM_OK.toFixed(2) + '×' + PR_PITCH_OK + ')',
   PR_TRACK.every(t => (Math.abs(t.w - PR_ARM_OK) < 0.01 && Math.abs(t.h - PR_PITCH_OK) < 0.01) ||
                       (Math.abs(t.w - PR_PITCH_OK) < 0.01 && Math.abs(t.h - PR_ARM_OK) < 0.01)));
-ok('القاعدة الملوّنة 160', typeof PR_B === 'number' ? PR_B === 160 : true);
-ok('المركز 120×120', typeof PR_CTR === 'number' ? PR_CTR === 120 : true);
+ok('القاعدة الملوّنة 204 (نسب كلاسيكية)', typeof PR_B === 'number' ? PR_B === 204 : true);
+ok('المركز 160×160', typeof PR_CTR === 'number' ? PR_CTR === 160 : true);
 ok('بلا هوامش: القواعد ملتصقة بالحواف', typeof PR_BASE_INSET === 'number' ? PR_BASE_INSET <= 4 : true);
-ok('البيادق مكبَّرة +15%', typeof PR_PIECE_R === 'number' ? Math.abs(PR_PIECE_R - 10.5 * 1.15) < 0.2 : true);
+ok('البيادق ملائمة للممر (9.1 < r < 12)', typeof PR_PIECE_R === 'number' ? (PR_PIECE_R > 9 && PR_PIECE_R < 12) : true);
 
 console.log('═══ كلاسيك: الخروج التلقائي بالخمسة ═══');
 let e = mk(2, 'classic');

@@ -24,4 +24,4 @@ for (const u of users) {
     console.log('أُنشئ:', u.username, 'id=' + id);
   }
 }
-console.log(db.prepare('SELECT id,username,role,gold,telegram_id FROM users WHERE username LIKE 'qa%'').all());
+console.log(db.prepare("SELECT id,username,role,gold,telegram_id FROM users WHERE username LIKE 'qa%'").all());

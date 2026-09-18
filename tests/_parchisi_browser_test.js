@@ -51,24 +51,27 @@ const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  �
     const px = await p.evaluate(() => {
       const ctx = ParchisiApp.ctx;
       const at = (x, y) => { const d = ctx.getImageData(x, y, 1, 1).data; return [d[0], d[1], d[2]]; };
-      /* [v2.43] الهندسة الجديدة: الخانة 93.33×30 والقاعدة 160 والمركز 120×120
-         (المراكز محسوبة من شبكة المسار الجديدة) */
+      /* [v2.44] المراكز تُحسب من الهندسة نفسها (PR_TRACK/PR_OFF/PR_STARS) فلا تنكسر
+         مع أي تعديل أبعاد لاحق — كانت مكتوبة يدوياً ففسدت مع الاستطالة */
+      const cAt = (i) => { const t = PR_TRACK[i]; return at(Math.round(t.x + t.w / 2), Math.round(t.y + t.h / 2)); };
       return {
-        vTrack: at(207, 75), hTrack: at(15, 207),
-        starV: at(135, 207), starH: at(207, 465),
-        salRed: at(207, 135), salGreen: at(135, 393), salYellow: at(393, 465), salBlue: at(465, 207),
-        nest: at(40, 40), ctr: at(300, 255)
+        vTrack: cAt(0), hTrack: cAt(15),
+        starV: cAt(PR_STARS[0]), starH: cAt(PR_STARS[3]),
+        salRed: cAt(PR_OFF[0]), salGreen: cAt(PR_OFF[1]), salYellow: cAt(PR_OFF[2]), salBlue: cAt(PR_OFF[3]),
+        nest: at(Math.round(PR_B / 4), Math.round(PR_B / 4)),
+        /* الميتا: مثلث أحمر في ربع المركز العلوي (عيّنة قريبة من مركزه) */
+        ctr: at(PR_CTR0 + Math.round(PR_CTR / 2), PR_CTR0 + Math.round(PR_CTR / 4))
       };
     });
     /* [B7] العادية بيضاء والآمنة رمادي فضي */
     const isWood = c => c[0] > 243 && c[1] > 243 && c[2] > 238;   /* أبيض */
     const isSilver = c => Math.abs(c[0] - c[2]) <= 18 && c[0] >= 160 && c[0] <= 225 && c[1] >= 165 && c[2] >= 170;
     const isStar = c => c[0] > 90 && c[0] < 135 && c[1] > 60 && c[1] < 100 && c[2] > 55 && c[2] < 85;
-    ok('خانة عمودية بيضاء (93.33×30)', isWood(px.vTrack));
-    ok('خانة أفقية بيضاء (30×93.33)', isWood(px.hTrack));
+    ok('خانة عمودية بيضاء (64×27.5)', isWood(px.vTrack));
+    ok('خانة أفقية بيضاء (27.5×64)', isWood(px.hTrack));
     ok('نجمة في عمود رأسي', isStar(px.starV));
     ok('نجمة في صف أفقي', isStar(px.starH));
-    ok('ساليدة حمراء أعلى·يسار', px.salRed[0] > 190 && px.salRed[1] < 110);
+    ok('ساليدة حمراء (خانة الأمان الحمراء)', px.salRed[0] > 190 && px.salRed[1] < 110);
     ok('ساليدة خضراء يسار·أسفل', px.salGreen[1] > 150 && px.salGreen[0] < 90);
     ok('ساليدة صفراء أسفل·يمين', px.salYellow[0] > 200 && px.salYellow[1] > 170);
     ok('ساليدة زرقاء يمين·أعلى', px.salBlue[2] > 150 && px.salBlue[0] < 80);

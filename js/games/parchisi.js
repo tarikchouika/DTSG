@@ -43,17 +43,21 @@ const PR_COLORS = {
    ⇒ الخانة المستطيلة 93.33×30 (كانت 64×27.5) = +46% عرضاً. المركز 120×120.
    المسار 68 خانة عكس عقارب الساعة؛ الساليدات 5/22/39/56 والآمنات 12/17/29/34/46/51/63/68 */
 const PR_BOARD = 600;
-const PR_B = 160;                                   /* ضلع مربع القاعدة الملوّن */
-const PR_ARM = (PR_BOARD - 2 * PR_B) / 3;           /* عرض الخانة الطويلة */
-const PR_PITCH = ((PR_BOARD - 120) / 2) / 8;        /* طول الخانة القصيرة (30) */
-const PR_ARM_LEN = PR_PITCH * 8;                    /* طول الذراع (240) */
+/* [v2.44 RENDER-FIX] استرجاع نسب الخانة الكلاسيكية 64×27.5 (2.33:1) مع بقاء اللوحة
+   تملأ الشاشة بلا أي هامش: الأبعاد الكلاسيكية تُشتق بنفس الصيغ عند هامش = 0 —
+   القاعدة 204 (= 3×64 + 12)، الذراع 3 أعمدة × 192، المركز 160، 16 صفاً × 27.5 = 440.
+   كانت v2.43 تستعمل 160/93.33×30 (3.11:1) فبدت الخانات أشرطة مشوّهة/محشورة. */
+const PR_B = 204;                                   /* ضلع مربع القاعدة الملوّن */
+const PR_CTR = 160;                                 /* ضلع المركز (16×27.5 = 440 ⇒ flush) */
+const PR_ARM = (PR_BOARD - 2 * PR_B) / 3;           /* عرض الخانة الطويلة (64) */
+const PR_PITCH = ((PR_BOARD - PR_CTR) / 2) / 8;     /* طول الخانة القصيرة (27.5) */
+const PR_ARM_LEN = PR_PITCH * 8;                    /* طول الذراع (220) */
 const PR_BASE_INSET = 4;                            /* مربع القاعدة من حدّ اللوحة */
-const PR_BASE_SIZE = PR_B - PR_BASE_INSET;          /* 156 داخل الإطار */
-const PR_MID0 = PR_B + PR_ARM;                      /* بداية عمود الممر */
-const PR_MID1 = PR_MID0 + PR_ARM;
-const PR_CTR = 120;                                 /* ضلع المركز */
-const PR_CTR0 = (PR_BOARD - PR_CTR) / 2;            /* 240 */
-const PR_CTR1 = PR_BOARD - PR_CTR0;                 /* 360 */
+const PR_BASE_SIZE = PR_B - PR_BASE_INSET;          /* 200 داخل الإطار */
+const PR_MID0 = PR_B + PR_ARM;                      /* بداية عمود الممر (268) */
+const PR_MID1 = PR_MID0 + PR_ARM;                   /* 332 */
+const PR_CTR0 = (PR_BOARD - PR_CTR) / 2;            /* 220 */
+const PR_CTR1 = PR_BOARD - PR_CTR0;                 /* 380 */
 const PR_CW = PR_ARM, PR_CH = PR_PITCH;             /* أسماء تاريخية: الطويل/القصير */
 const PR_OFF = [4, 21, 38, 55];                     /* ساليدة كل مقعد (خانات 5/22/39/56) */
 const PR_STARS = [11, 28, 45, 62];                  /* نجوم آمنة (خانات 12/29/46/63) */
@@ -111,7 +115,7 @@ const PR_CHAMFER = [
   [PR_BOARD - PR_B, PR_BOARD - PR_B, PR_CTR1, PR_CTR1]
 ];
 /* [v2.43] تكبير البيادق +15% (10.5×1.15 = 12.075 · 10×1.15 · 7×1.15 · 12×1.15) */
-const PR_PIECE_R = 12.1, PR_PIECE_R_HOME = 13.8, PR_PIECE_R3 = 11.5, PR_PIECE_R4 = 8.1;
+const PR_PIECE_R = 11.2, PR_PIECE_R_HOME = 15.4, PR_PIECE_R3 = 10.6, PR_PIECE_R4 = 7.6;   /* [v2.44] وفق الخانة 64×27.5 والعش 204 */
 
 /* ═══════════ المحرك ═══════════ */
 class ParchisiEngine {
