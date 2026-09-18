@@ -159,38 +159,90 @@ console.log('\n[2d] King-row stop & deferred promotion');
 })();
 
 /* ── 2d. [توضيح المالك 2026-09-16] أولوية الإلزام: الضائم ← السلسلة الأطول ← إتمام السلسلة وإلا نفخ ── */
-console.log('\n[2e][v2.43] إصلاح: إتمام أطول أكل بقطعة أخرى لا يُنفخ لاعباً صحيحاً');
+console.log('\n[2e][v2.44 RULES-RESTORE] مصفوفة قانون النفخ — المالك: الملك ← الأطول ← الأكثر أسراً');
 {
-  /* بيدق أبيض له سلسلة أكل 2، وملك أبيض له سلسلة 2 أيضاً ⇒ المُلزَم كان يُختار
-     بالملكية أولاً؛ لاعب يُتمّ الأطول بالبيدق كان يُنفخ ملكه ظلماً. */
+  /* المصدر الموثّق في المحرك: ١) الضائم يُلزَم قبل البيدق ٢) الأطول قبل الأقصر
+     ٣) عند التساوي: الأكثر أسراً ٤) الواجب إتمام سلسلة المُلزَم وإلا نُفخ.
+     (v2.43 استبدلت هذا بـ«مقارنة مجموع أسر الدور» ⇒ تضرّر القانون — أُعيد هنا) */
   const mk = () => { const g = []; for (let r = 0; r < 8; r++) g.push([null, null, null, null, null, null, null, null]); return g; };
-  const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
-  st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
-  st.grid[4][2] = { owner: BLACK, king: false, id: 2 };
-  st.grid[2][4] = { owner: BLACK, king: false, id: 3 };
-  st.grid[6][6] = { owner: WHITE, king: true, id: 4 };
-  st.grid[5][5] = { owner: BLACK, king: false, id: 5 };
-  ok('أطول سلسلة عامة = 2', eng.maxChainOverall(st) === 2);
-  const first = eng.capturesAt(st.grid, 5, 1)[0];
-  let i1 = eng.applyMove(st, first);
-  ok('بداية السلسلة بطول 2 مُتاحة', !!(i1.continued || i1.souffled === null));
-  if (i1.continued) {
-    const cont = eng.continuationMoves(st);
-    const i2 = eng.applyMove(st, cont[0]);
-    ok('إتمام الأطول (2 أسر) ⇒ لا نفخ', i2.souffled === null);
-    ok('القطعتان الأبيضتان باقيتان (ملك + بيدق)', st.grid.flat().filter(p => p && p.owner === WHITE).length === 2);
+
+  /* 1) الملك أولاً: ملك بأسر 1 وبيدق بأسر 1 (نفس الطول) ⇒ المُلزَم الملك */
+  {
+    const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    st.grid[6][1] = { owner: WHITE, king: true, id: 1 };    /* ملك أبيض */
+    st.grid[5][2] = { owner: BLACK, king: false, id: 2 };    /* أسر إلى (4,3) */
+    st.grid[6][5] = { owner: WHITE, king: false, id: 3 };    /* بيدق أبيض */
+    st.grid[5][6] = { owner: BLACK, king: false, id: 4 };    /* أسر إلى (4,7) */
+    const ob = eng.obligationPiece(st);
+    ok('١) الملك يُلزَم قبل البيدق عند تساوي الطول', ob && ob[0] === 6 && ob[1] === 1);
   }
-  /* التقصير ما زال يُنفخ: أسر واحد فقط ثم تُرك الدور */
-  const st2 = { grid: mk(), turn: WHITE, over: false, half: 0 };
-  st2.grid[5][1] = { owner: WHITE, king: false, id: 1 };
-  st2.grid[4][2] = { owner: BLACK, king: false, id: 2 };
-  st2.grid[2][4] = { owner: BLACK, king: false, id: 3 };
-  st2.grid[6][6] = { owner: WHITE, king: true, id: 4 };
-  st2.grid[5][5] = { owner: BLACK, king: false, id: 5 };
-  const one = eng.capturesAt(st2.grid, 5, 1)[0];
-  one.cap = false; one.captured = [];            /* حركة هادئة رغم وجود أكل */
-  const i3 = eng.applyMove(st2, one);
-  ok('تجاهل الأكل كلياً ⇒ نفخ المُلزَم', !!i3.souffled);
+
+  /* 2) الأطول قبل الأقصر عند تساوي الرتبة (بيدقان) */
+  {
+    const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+    st.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+    st.grid[2][4] = { owner: BLACK, king: false, id: 3 };    /* سلسلة 2 للبيدق 1 */
+    st.grid[6][5] = { owner: WHITE, king: false, id: 4 };
+    st.grid[5][4] = { owner: BLACK, king: false, id: 5 };    /* سلسلة 1 للبيدق 4 */
+    const ob = eng.obligationPiece(st);
+    ok('٢) صاحب السلسلة الأطول يُلزَم أولاً', ob && ob[0] === 5 && ob[1] === 1);
+  }
+
+  /* 3) إتمام سلسلة المُلزَم ⇒ لا نفخ */
+  {
+    const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+    st.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+    st.grid[2][4] = { owner: BLACK, king: false, id: 3 };
+    st.grid[7][0] = { owner: WHITE, king: false, id: 9 };    /* قطعة إضافية */
+    const first = eng.capturesAt(st.grid, 5, 1)[0];
+    let inf = eng.applyMove(st, first);
+    while (inf.continued) {
+      const cont = eng.continuationMoves(st);
+      if (!cont || !cont.length) break;
+      inf = eng.applyMove(st, cont[0]);
+    }
+    ok('٣) إتمام سلسلة المُلزَم ⇒ لا نفخ', inf.souffled === null);
+  }
+
+  /* 4) أكل بقطعة أخرى وتجاهل المُلزَم ⇒ يُنفخ المُلزَم (قانون المالك) */
+  {
+    const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    st.grid[6][1] = { owner: WHITE, king: true, id: 1 };     /* المُلزَم: الملك */
+    st.grid[5][2] = { owner: BLACK, king: false, id: 2 };
+    st.grid[6][5] = { owner: WHITE, king: false, id: 3 };
+    st.grid[5][6] = { owner: BLACK, king: false, id: 4 };
+    const ob = eng.obligationPiece(st);
+    const other = eng.capturesAt(st.grid, 6, 5)[0];
+    const inf = eng.applyMove(st, other);
+    ok('٤) تجاهل المُلزَم (الملك) والأكل بغيره ⇒ نُفخ الملك',
+      !!inf.souffled && inf.souffled[0] === 6 && inf.souffled[1] === 1 && ob && ob[1] === 1);
+  }
+
+  /* 5) لا أكل إطلاقاً مع وجود أكل متاح ⇒ نفخ المُلزَم */
+  {
+    const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+    st.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+    const quiet = eng.legalMoves(st, WHITE).find(m => !m.cap);
+    const inf = eng.applyMove(st, quiet);
+    ok('٥) ترْك الأكل كلياً ⇒ نفخ المُلزَم', !!inf.souffled);
+  }
+
+  /* 6) أكل بالمُلزَم ثم التوقف قبل إتمام السلسلة ⇒ نفخ (الواجب الإتمام) */
+  {
+    const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+    st.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+    st.grid[2][4] = { owner: BLACK, king: false, id: 3 };
+    const one = eng.capturesAt(st.grid, 5, 1)[0];
+    /* نُجبر التوقف: نُزيل إمكان التتمة بمسح القطعة الهدف الثانية قبل النقلة */
+    st.grid[2][4] = null;
+    const inf = eng.applyMove(st, one);
+    ok('٦) سلسلة منقوصة (الهدف الثاني اختفى) ⇒ الواجب تحقّق فيسقط النفخ',
+      inf.souffled === null && inf.continued === false);
+  }
 }
 
 console.log('\n[2d] King priority + longest chain + incomplete-chain soufflé');

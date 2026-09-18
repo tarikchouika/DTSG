@@ -278,10 +278,13 @@ DamaEngine.prototype.obligationPiece = function (s) {
     if (!caps.length) continue;
     var k = p.king ? 1 : 0;
     var chain = this.maxChainAt(s.grid, r, c);
-    /* [v2.43 RULES-FIX] الأولوية للأطول (كما في التعليق والقاعدة): كان الملك
-       يتقدّم على سلسلة أطول منه ⇒ لاعب يُنفّذ أطول أكل صحيح ثم تُنفخ قطعة أخرى. */
-    if (chain > bestChain || (chain === bestChain && k > bestKing) ||
-        (chain === bestChain && k === bestKing && caps.length > bestCnt)) {
+    /* [v2.44 RULES-RESTORE] قاعدة المالك الموثّقة (وهي التعليق أعلاه حرفياً):
+       ١) الضائم (الملك) يُلزَم بالأكل قبل البيدق
+       ٢) صاحب سلسلة الأكل الأكبر يُلزَم قبل صاحب السلسلة الأقصر
+       ٣) عند التساوي في الاثنين: الأكثر أسراً متاحاً
+       (v2.43 عكست الترتيب فصار الأطول قبل الملك ⇒ تضرّر قانون النفخ كما لاحظ المالك) */
+    if (k > bestKing || (k === bestKing && chain > bestChain) ||
+        (k === bestKing && chain === bestChain && caps.length > bestCnt)) {
       bestKing = k; bestChain = chain; bestCnt = caps.length;
       best = [r, c];
     }
@@ -309,9 +312,10 @@ DamaEngine.prototype.applyMove = function (s, mv) {
     var ob = (this.rules.souffler) ? this.obligationPiece(s) : null;
     s.obligedId = ob ? s.grid[ob[0]][ob[1]].id : null;
     s.obligedNeed = ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0;
-    /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله: إتمامها بأي قطعة
-       يُبرّئ الالتزام (كان الالتزام مربوطاً بقطعة واحدة فقط فيُعاقَب لاعب صحيح) */
-    s.obligedMax = this.maxChainOverall(s);
+    /* [v2.44 RULES-RESTORE] المرجع = سلسلة القطعة المُلزَمة نفسها (وليست أطول سلسلة
+       في الدور كلّه): الواجب أن يُتمّ المُلزَم سلسلته وإلا نُفخ — كما وثّق المالك.
+       maxChainOverall تُحفظ للتلميح البصري فقط (إبراز صاحب أطول سلسلة). */
+    s.obligedMax = s.obligedNeed;
     s.turnCaptures = 0;
     s.obligedFulfilled = false;
   }
@@ -358,9 +362,12 @@ DamaEngine.prototype.applyMove = function (s, mv) {
      (توضيح المالك 2026-09-16: إتمام السلسلة واجب وإلا نفخ). */
   /* [v2.43 RULES-FIX] النفخ فقط عند تقصير الأكل: من نفّذ أطول سلسلة متاحة
      (ولو بقطعة أخرى، أو بأقل من القطعة "الأولى") أدّى الواجب ولا يُعاقب. */
-  var need = Math.max(s.obligedMax || 0, 0);
-  var shortCapture = (s.turnCaptures || 0) < need;
-  if (this.rules.souffler && s.obligedId != null && shortCapture) {
+  /* [v2.44 RULES-RESTORE] النفخ: إن لم يأكل بالمُلزَم تحديداً، أو أكل به ولم يُتمّ
+     سلسته المطلوبة. عاد الشرط إلى «إتمام سلسلة المُلزَم» (قاعدة المالك) بدل
+     «مقارنة مجموع أسر الدور» الذي ألغى الإلزام عملياً في v2.43. */
+  var need = Math.max(s.obligedNeed || 0, 0);
+  var chainIncomplete = (s.obligedId != null) && (!s.obligedFulfilled || (s.turnCaptures || 0) < need);
+  if (this.rules.souffler && s.obligedId != null && chainIncomplete) {
     for (var r = 0; r < 8 && !info.souffled; r++) {
       for (var c = 0; c < 8; c++) {
         var pp = s.grid[r][c];

@@ -58,17 +58,17 @@ for (let g = 0; g < 400; g++) {
       turnObId = ob ? s.grid[ob[0]][ob[1]].id : null;
       turnObDone = false;
       turnObNeed = ob ? eng.maxChainAt(s.grid, ob[0], ob[1]) : 0;
-      /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله */
-      turnMax = eng.maxChainOverall ? eng.maxChainOverall(s) : turnObNeed;
+      /* [v2.44 RULES-RESTORE] المرجع = سلسلة القطعة المُلزَمة نفسها (قانون المالك)
+         — كان v2.43 يقارن مجموع أسر الدور بأطول سلسلة عامة فصار الإلزام غير نافذ */
+      turnMax = turnObNeed;
       turnCaps = 0;
     }
     const info = eng.applyMove(s, mv);
     if (mv.cap && pc.id === turnObId) turnObDone = true;   /* الأكل بالمُلزَم نفسه يبرّئ الالتزام */
     turnCaps += info.captured.length;
     if (!s.cont) {
-      /* [v2.43] النفخ حتمي فقط عند تقصير الأكل عن أطول سلسلة متاحة في الدور
-         (إتمامها بأي قطعة يُبرّئ الالتزام — كان مربوطاً بقطعة واحدة فيُعاقَب لاعب صحيح) */
-      const mustSouffle = turnObId != null && turnCaps < Math.max(turnMax, 0);
+      /* [v2.44 RULES-RESTORE] النفخ: لم يأكل بالمُلزَم، أو أكل به ولم يُتمّ سلسلته */
+      const mustSouffle = turnObId != null && (!turnObDone || turnCaps < Math.max(turnMax, 0));
       if (mustSouffle !== (info.souffled !== null)) { bad = true; break; }
     }
     capturesTotal += info.captured.length;
