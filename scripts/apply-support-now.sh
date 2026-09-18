@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-#  DTSG — تطبيق طبقة بوت الدعم + ودجت المساعدة فوراً (v2.42)  ·  يُشغَّل على الهاتف
+#  DTSG — تطبيق طبقة بوت الدعم + ودجت المساعدة + إصلاحات v2.43.1  ·  يُشغَّل على الهاتف
 #
 #  لماذا؟ لو تعذّر `git fetch` (شبكة/توثيق/تعديلات محلية) ننزّل الملفات
 #  المطلوبة مباشرة من GitHub (المستودع عام) ونستبدلها بعد نسخة احتياطية.
@@ -35,17 +35,23 @@ cd "$APP_DIR" || die "لا يمكن الدخول إلى $APP_DIR"
 echo "   المجلد: $APP_DIR"
 
 say "1) نسخة احتياطية"
-mkdir -p "$BK"/{js/ui,js/i18n,js/core,css}
-cp -a server.js server-support.js support.html package.json "$BK/" 2>/dev/null
-cp -a js/ui/bot-chat.js js/ui/legal-ui.js js/i18n/translations.js js/main.js js/core/api.js js/core/auth.js "$BK"/js/ 2>/dev/null
-cp -a css/09-chrome.css "$BK"/css/ 2>/dev/null
+mkdir -p "$BK"/{js/ui,js/i18n,js/core,js/games,css,cf-worker}
+cp -a server.js server-payments.js server-support.js support.html package.json "$BK/" 2>/dev/null
+cp -a js/ui/bot-chat.js js/ui/legal-ui.js js/i18n/translations.js js/main.js js/core/api.js js/core/auth.js js/core/live.js js/core/live-ws-bridge.js js/wallet.js "$BK"/js/ 2>/dev/null
+cp -a js/games/rami.js js/games/ronda.js js/games/dama.js js/games/parchisi.js js/games/engines.js "$BK"/js/games/ 2>/dev/null
+cp -a css/09-chrome.css css/06-parchisi.css "$BK"/css/ 2>/dev/null
+cp -a cf-worker/payments-core.js "$BK"/cf-worker/ 2>/dev/null
 [ -f data/royalcoin.db ] && cp -a data/royalcoin.db "$BK/royalcoin.db" 2>/dev/null
 ok "احتياط: $BK"
 
-say "2) تنزيل ملفات v2.42 من GitHub"
-FILES=(server-support.js server.js support.html js/ui/bot-chat.js js/ui/legal-ui.js \
-       js/i18n/translations.js js/main.js js/core/api.js js/core/auth.js css/09-chrome.css \
-       index.html package.json CHANGELOG.md)
+say "2) تنزيل ملفات v2.43.1 من GitHub"
+FILES=(server-support.js server.js server-payments.js support.html package.json \
+       cf-worker/payments-core.js \
+       js/ui/bot-chat.js js/ui/legal-ui.js js/i18n/translations.js js/main.js \
+       js/core/api.js js/core/auth.js js/core/live.js js/core/live-ws-bridge.js js/wallet.js \
+       js/games/rami.js js/games/ronda.js js/games/dama.js js/games/parchisi.js js/games/engines.js \
+       css/09-chrome.css css/06-parchisi.css \
+       index.html CHANGELOG.md)
 for f in "${FILES[@]}"; do
   printf '   %-28s ' "$f"
   TMPF="/tmp/.dtsg-dl-$(printf '%s' "$f" | tr '/' '_').tmp"
@@ -57,7 +63,7 @@ for f in "${FILES[@]}"; do
     bad "فشل التنزيل (تحقّق من الإنترنت)"
   fi
 done
-have node && { node --check server-support.js || die "server-support.js تالف"; node --check server.js || die "server.js تالف"; } 
+have node && { node --check server-support.js || die "server-support.js تالف"; node --check server.js || die "server.js تالف"; node --check server-payments.js || die "server-payments.js تالف"; node --check cf-worker/payments-core.js || die "payments-core.js تالف"; } 
 ok "الشيفرة سليمة (node --check)"
 
 say "3) تفعيل طبقة الدعم في server.js (إن لم تكن مربوطة)"
@@ -88,6 +94,10 @@ printf '   %-40s ' "/api/support/status"; C2="$(curl -s -m 15 -o /dev/null -w '%
 printf '   %-40s ' "/support.html"; C3="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/support.html")"
 [ "$C3" = "200" ] && ok "منشورة" || bad "code=$C3"
 printf '   %-40s ' "/api/health build"; curl -s -m 15 "$H/api/health" | head -c 80; echo
+printf '   %-40s ' "/api/payments/methods"; C4="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/api/payments/methods")"
+[ "$C4" = "200" ] && ok "يعمل (200)" || bad "code=$C4"
+printf '   %-40s ' "/api/admin/payments/pending"; C5="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/api/admin/payments/pending")"
+[ "$C5" = "403" ] && ok "محمي (403 بلا جلسة)" || bad "code=$C5"
 
 cat <<EOF
 

@@ -42,6 +42,15 @@
   basePromise.then(function (b) {
     if (/casino-phone\.|trycloudflare\.com$|\.lhr\.life$|\.loca\.lt$/.test(b || '')) isSSEMode = true;
   });
+  /* [v2.43.1] العنوان الحالي للـAPI: المحلول أو المخزّن (لا نبني رابطاً بعنوان مجهول) */
+  function curBase() {
+    try {
+      if (typeof API_BASE === 'string' && API_BASE) return API_BASE;
+      if (typeof _cachedBase === 'string' && _cachedBase) return _cachedBase;
+    } catch (e) { }
+    return '';
+  }
+
   function getUid() {
     /* [PR-Sync] const AUTH لا يظهر على window — يقرأ كرابطة عالمية مباشرة.
        كان uid يصل '0' فلا يتعرف الخادم على اللاعب ولا يرسل room:replay (لوحة مجمدة). */
@@ -69,9 +78,15 @@
     /* تراجع آمن: نفس أحداث /api/live عبر EventSource (بلا WS) للواجهات القائمة */
     _fallbackSSE: function () {
       var self = this;
-      if (self.closed || self._es || !API_BASE) return;
+      var b = curBase();
+      if (self.closed || self._es) return;
+      if (!b) {
+        /* [v2.43.1] القاعدة لم تُحسم: انتظرها بدل بناء 'null/api/live' */
+        basePromise.then(function () { if (!self.closed && !self._es) self._fallbackSSE(); });
+        return;
+      }
       try {
-        var es = new OrigES(API_BASE + '/api/live', { withCredentials: true });
+        var es = new OrigES(b + '/api/live', { withCredentials: true });
         self._es = es;
         es.onopen = function () {
           for (var i = 0; i < self.facades.length; i++) {
@@ -193,17 +208,58 @@
     }
   };
 
+  /* [v2.43.1] واجهة مؤجّلة: تُربط بالاتصال الحقيقي عند حسم عنوان الـAPI،
+     وتُسكِت نفسها إن لم يُحسم (مضيف ثابت بلا API) — بدل EventSource بعنوان
+     'null/api/live' يخدمه مضيف الصفحات كـHTML ⇒ خطأ MIME متكرر في الكونسول. */
+  function deferredLive() {
+    var listeners = {}, closed = false, real = null, _onmessage = null;
+    var api = {
+      readyState: 0,
+      _listeners: listeners,
+      addEventListener: function (t, f) {
+        (listeners[t] = listeners[t] || []).push(f);
+        if (real && real.addEventListener) real.addEventListener(t, f);
+      },
+      removeEventListener: function (t, f) {
+        var ls = listeners[t] || []; var i = ls.indexOf(f);
+        if (i >= 0) ls.splice(i, 1);
+        if (real && real.removeEventListener) real.removeEventListener(t, f);
+      },
+      close: function () { closed = true; if (real) { try { real.close(); } catch (e) { } } api.readyState = 3; }
+    };
+    Object.defineProperty(api, 'onmessage', {
+      get: function () { return _onmessage; },
+      set: function (v) { _onmessage = v; if (real) real.onmessage = v; }
+    });
+    basePromise.then(function () {
+      if (closed || real) return;
+      var b = curBase();
+      if (!b) { api.readyState = 2; return; }              /* بلا عنوان: لا اتصال ولا أخطاء */
+      real = isSSEMode ? new OrigES(b + '/api/live', { withCredentials: true }) : new LiveWS('global');
+      for (var t in listeners) {
+        for (var i = 0; i < listeners[t].length; i++) {
+          if (real.addEventListener) real.addEventListener(t, listeners[t][i]);
+        }
+      }
+      if (_onmessage) real.onmessage = _onmessage;
+      if (api.onerror) real.onerror = api.onerror;
+      api.readyState = real.readyState || 0;
+    });
+    return api;
+  }
+
   /* polyfill: استبدال EventSource للـ '/api/live' فقط */
   var OrigES = window.EventSource;
   window.EventSource = function (url) {
+    var b = curBase();
+    var isLive = (url === '/api/live') || (b && url === (b + '/api/live'));
+    if (!isLive) return new OrigES(url);
+    if (!b) return deferredLive();
     /* [SSE-Cookie 2026-09-15] عبر الووركر الوسيط (نطاق مغاير لصفحة dtsg) يجب
        withCredentials: true وإلا فلن يُرسل كوكي sid → getUser=null في الخادم
        → broadcastRoom يستثني هذا العميل فلا تصل room:update (جاهز/بدء/حركات). */
-    if (isSSEMode) return new OrigES(API_BASE + '/api/live', { withCredentials: true });
-    if (url === '/api/live' || url === (API_BASE + '/api/live')) {
-      return new LiveWS('global');
-    }
-    return new OrigES(url);
+    if (isSSEMode) return new OrigES(b + '/api/live', { withCredentials: true });
+    return new LiveWS('global');
   };
   window.EventSource.prototype = OrigES ? OrigES.prototype : {};
   window.LiveWS = LiveWS;
