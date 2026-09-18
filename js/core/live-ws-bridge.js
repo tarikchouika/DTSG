@@ -32,6 +32,13 @@
      يُحسم محلياً بشكل متزامن: أول EventSource يُفتح أثناء الإقلاع قبل حسم الوعد،
      فكان يقع في مسار WS المعطوب. */
   var isSSEMode = (typeof location !== 'undefined') && /^(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?$/.test(location.hostname);
+  /* [v2.42-Bugfix] قرار متزامن: نقرأ العنوان المخزّن (يضعه api.js) قبل أي اتصال،
+     وإلا وقع أول EventSource في مسار WS قبل حسم الوعد ⇒ WebSocket فاشل على النفق
+     (خطأ كونسول متكرر + حرمان الصفحة من أحداث الغرف). */
+  try {
+    var _cachedBase = localStorage.getItem('rc_api_base') || '';
+    if (_cachedBase && /casino-phone\.|trycloudflare\.com$|\.lhr\.life$|\.loca\.lt$/.test(_cachedBase)) isSSEMode = true;
+  } catch (e) { }
   basePromise.then(function (b) {
     if (/casino-phone\.|trycloudflare\.com$|\.lhr\.life$|\.loca\.lt$/.test(b || '')) isSSEMode = true;
   });
@@ -59,9 +66,42 @@
     self._connect();
   }
   Channel.prototype = {
+    /* تراجع آمن: نفس أحداث /api/live عبر EventSource (بلا WS) للواجهات القائمة */
+    _fallbackSSE: function () {
+      var self = this;
+      if (self.closed || self._es || !API_BASE) return;
+      try {
+        var es = new OrigES(API_BASE + '/api/live', { withCredentials: true });
+        self._es = es;
+        es.onopen = function () {
+          for (var i = 0; i < self.facades.length; i++) {
+            self.facades[i].readyState = 1;
+            if (self.facades[i].onopen) try { self.facades[i].onopen(); } catch (e) { }
+          }
+        };
+        es.onmessage = function (ev) {
+          var m; try { m = JSON.parse(ev.data); } catch (e) { return; }
+          var targets = self.facades.slice();
+          if (self.rid !== 'global' && globalChannel && !globalChannel.closed && globalChannel !== self) {
+            for (var t = 0; t < globalChannel.facades.length; t++) {
+              if (targets.indexOf(globalChannel.facades[t]) === -1) targets.push(globalChannel.facades[t]);
+            }
+          }
+          var evObj = { data: JSON.stringify(m.data) };
+          for (var i = 0; i < targets.length; i++) {
+            var ls = targets[i]._listeners[m.event];
+            if (!ls) continue;
+            for (var j = 0; j < ls.length; j++) try { ls[j](evObj); } catch (e) { }
+          }
+        };
+        es.onerror = function () { /* EventSource يعيد المحاولة تلقائياً */ };
+      } catch (e) { }
+    },
     _connect: function () {
       var self = this;
       if (self.closed) return;
+      /* [v2.42-Bugfix] وضع SSE مُحسوم ⇒ لا تحاول WS أصلاً؛ اربط الواجهات على /api/live */
+      if (isSSEMode) { self._fallbackSSE(); return; }
       /* [BASE-Guard 2026-09-15] API_BASE لم يُحل بعد (وعد api-url2.json قيد
          المعالجة) — أعد المحاولة عند الجاهزية بدل رمي toWs(null).
          يغطي كل مسارات الإنشاء (polyfill EventSource/watchRoom/غرفة لعب) */
@@ -80,6 +120,10 @@
       self._ws.onclose = function () {
         if (self.closed) return;
         for (var i = 0; i < self.facades.length; i++) self.facades[i].readyState = 0;
+        /* [v2.42-Bugfix] الووركر الوسيط/النفق لا يدعم WS — بعد أول فشل، أو إن
+           حُسم الوضع لاحقاً، نتحول إلى EventSource بدل حلقة إعادة محاولة بلا نهاية */
+        if (isSSEMode || self._failTries >= 1) { self._fallbackSSE(); return; }
+        self._failTries = (self._failTries || 0) + 1;
         setTimeout(function () { self._connect(); }, 3000);
       };
       self._ws.onerror = function () { };

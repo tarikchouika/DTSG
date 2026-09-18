@@ -739,12 +739,12 @@
     /* [Dev localhost] جسر WebSocket (Durable Objects) خاص بالإنتاج على Cloudflare Worker.
        عند التشغيل المحلي (server.js يدعم SSE أصلاً ولا يدعم WS) نتجاوز الجسر لنبقى على SSE. */
     if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname)) {
-      document.write('<script src="js/core/live-ws-bridge.js?v=dtsg6"><\/script>');
+      document.write('<script src="js/core/live-ws-bridge.js?v=dtsg9"><\/script>');
     }
   </script>
   <!-- [v2.26-merge] dtsg4: فوق dtsg3 سام (rami dtsg3/auth dtsg3 مأخوذة) — إصدار موحّد -->
-  <script src="js/core/api.js?v=dtsg6"></script>
-  <script src="js/core/auth.js?v=dtsg6"></script>
+  <script src="js/core/api.js?v=dtsg9"></script>
+  <script src="js/core/auth.js?v=dtsg9"></script>
   <script src="js/core/audio.js?v=dtsg6"></script>
   <script src="js/core/utils.js?v=dtsg6"></script>
   <script src="js/core/fx.js?v=dtsg6"></script>

@@ -27,7 +27,12 @@ var API_BASE_PROMISE = (typeof window !== 'undefined' && typeof window.API_BASE_
 if (typeof window !== 'undefined') {
   window.__API_BASE_PROMISE = API_BASE_PROMISE;
   if (typeof window.API_BASE_URL !== 'string') {
-    API_BASE_PROMISE.then(function (b) { try { if (typeof b === 'string') window.API_BASE_URL = b; } catch (e) { } });
+    API_BASE_PROMISE.then(function (b) {
+      try { if (typeof b === 'string') window.API_BASE_URL = b; } catch (e) { }
+      /* [v2.42] نخزّنه محلياً ليقرأه جسر WS بشكل متزامن عند الإقلاع التالي
+         (يمنع محاولة WebSocket على نفق الهاتف الذي لا يدعمه ⇒ خطأ كونسول متكرر) */
+      try { if (typeof b === 'string') localStorage.setItem('rc_api_base', b); } catch (e) { }
+    });
   }
 }
 

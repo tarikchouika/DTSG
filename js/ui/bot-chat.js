@@ -100,12 +100,24 @@
     if (document.getElementById('botFab')) return;
     document.body.insertAdjacentHTML('beforeend', html);
     bind();
+    /* [v2.42] لا طلب في الإقلاع بلا جلسة معروفة (يمنع 401 لكل زائر) */
+    var tries = 0;
+    var t = setInterval(function () {
+      tries++;
+      if (knownSession()) { clearInterval(t); refresh(); }
+      else if (tries >= 12) { clearInterval(t); }   /* 6 ثوانٍ */
+    }, 500);
     if (sessionStorage.getItem('rc_botchat_open') === '1') open(true);
   }
 
   var STATE = { open: false, logged: null, tickets: [], busy: false, timer: null, seen: 0 };
 
   function el(id) { return document.getElementById(id); }
+  /* [v2.42] هل الجلسة معروفة محلياً؟ (يمنع طلباً بلا جلسة ⇒ خطأ 401 في الكونسول لكل زائر)
+     AUTH.user يُضبط بعد authRestore في المنصة وفي الصفحات القانونية معاً. */
+  function knownSession() {
+    try { return !!(window.AUTH && window.AUTH.user); } catch (e) { return false; }
+  }
 
   function open(silent) {
     STATE.open = true;
@@ -114,8 +126,9 @@
     try { sessionStorage.setItem('rc_botchat_open', '1'); } catch (e) { }
     if (!silent) { el('botFab').classList.remove('pulse'); }
     el('botFabDot').hidden = true;
-    refresh();
-    STATE.timer = setInterval(refresh, POLL_MS);
+    refresh(true);                                   /* بفعل المستخدم: اسمح بالطلب حتى لو لم تُحسم الجلسة بعد */
+    refresh();                                       /* تحديث خلفي إن كانت الجلسة معروفة */
+    STATE.timer = setInterval(function () { refresh(true); }, POLL_MS);
   }
   function close() {
     STATE.open = false;
@@ -164,7 +177,13 @@
     box.scrollTop = box.scrollHeight;
   }
 
-  function refresh() {
+  function refresh(force) {
+    if (!force && !knownSession()) {
+      STATE.logged = false; STATE.tickets = [];
+      renderTickets();
+      el('bcState').textContent = L('bc.offline', 'سجّل الدخول للتواصل');
+      return;
+    }
     if (STATE.busy) return;
     STATE.busy = true;
     api('/api/support/status').then(function (j) {
@@ -197,7 +216,7 @@
         bubble('<i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ' + esc(msg), 'err');
         return;
       }
-      refresh();
+      refresh(true);
     });
   }
 
