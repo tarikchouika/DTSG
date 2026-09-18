@@ -101,15 +101,26 @@ TELEGRAM_BOT_TOKEN=…                     # بوت المنصة (لديكم ع�
 
 ## 6) النشر والتشغيل
 
-```bash
-# 1) على هذا الجهاز/الخادم الذي يضبط تيليغرام (مرة واحدة — تم تنفيذه ✅)
-bash scripts/setup-telegram-bots.sh
-#    → setWebhook + الأوامر + الوصف + فحص الوصول
+### ✅ تم بالفعل (على جهة الخادم السحابي)
+- `bash scripts/setup-telegram-bots.sh` نُفِّذ: **setWebhook** + الأوامر + الوصف + **اسم البوت**
+  «دعم DTSG | Support» + **صورة تعريفية** (`assets/dtsg/support-bot-avatar.jpg`).
+- الصفحة `support.html` منشورة على https://dtsg.pages.dev/support.html
+- الشجرة في GitHub على **v2.41.0** (`c8e3c93`).
 
-# 2) على الهاتف (يجلب v2.41 ويضبط المتغيرات ويعيد التشغيل)
+### ⏳ الخطوة الوحيدة المتبقية: على الهاتف (أمر واحد)
+الحالة الآن: الخادم الحيّ على **v2.40.5** ⇒ `/api/support/webhook` يردّ **404**.
+
+```bash
+# الطريق الأول (المعتاد)
 cd /root/dmgames-arena && git fetch origin && git reset --hard origin/main
 bash scripts/update-phone-server.sh
-#    → يتحقق من: /api/support/webhook = 200 · /api/support/status = 401 · support.html = 200
+
+# الطريق الثاني (لو تعذّر git fetch لاختلافات/شبكة) — ينزّل الملفات من GitHub مباشرة
+bash scripts/apply-support-now.sh
+# → نسخة احتياطية + تنزيل server-support.js/server.js/support.html + ربط تلقائي + فحص نهائي
+
+# تشخيص فقط في أي وقت
+bash scripts/phone-doctor.sh        # يعرض قسم «5.b) بوت خدمة العملاء»
 
 # 3) تأكيد خارجي من أي جهاز
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://casino-phone.dmgames-api.workers.dev/api/support/webhook \
@@ -142,3 +153,12 @@ curl -s "https://api.telegram.org/bot<SUPPORT_BOT_TOKEN>/getWebhookInfo"
 node tests/_support_bot_test.js     # 72 فحصاً: ربط · تذاكر · أزرار · خصوصية · صلاحيات · حدود · ويب هوك · منصة
 node tests/_security_static_test.js # 37: أمن الملفات والمدفوعات
 ```
+
+### ما يتحقق منه كل سكربت
+
+| السكربت | يحقّق في |
+|---|---|
+| `setup-telegram-bots.sh` | getMe للبوتين · setWebhook + السرّ · الأوامر/الوصف/الاسم/الصورة · وصول ويب هوك فعلي (200/403/404 بدلالة واضحة) |
+| `update-phone-server.sh` | 4 فحوص دعم محلية + الفحص الخارجي عبر الووركر + إغلاق التسريبات + مطابقة `build` |
+| `apply-support-now.sh` | نسخة احتياطية · تنزيل الملفات من GitHub · ربط تلقائي في `server.js` · إعادة تشغيل · فحص 4 نقاط |
+| `phone-doctor.sh` | قسم مخصّص لبوت الدعم (webhook/status/support.html/server-support.js) + حكم نهائي يوجّهك للسكربت المناسب |

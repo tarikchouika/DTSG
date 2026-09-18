@@ -90,6 +90,15 @@ M="$(jget "$H/api/payments/methods")"; echo "   /api/payments/methods → ${M:0:
 printf '%s' "$M" | grep -q '"methods"' && ok "طبقة المدفوعات تعمل محلياً" || bad "طبقة المدفوعات مفقودة محلياً (شجرة قديمة)"
 echo "   /api/deploy/manifest → $(jget "$H/api/deploy/manifest" | head -c 100)"
 
+say "5.b) بوت خدمة العملاء (v2.41)"
+printf '   %-40s ' "POST /api/support/webhook"; SC="$(curl -s -m 15 -o /tmp/_dwh.txt -w '%{http_code}' -X POST "$H/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:-dtsgsup_k9Qz7mW3xR5tB1nY}" -d '{"update_id":900100}')"
+if [ "$SC" = "200" ]; then ok "يعمل (200)"; elif [ "$SC" = "403" ]; then bad "403 — السرّ مختلف عن setWebhook (اضبط SUPPORT_WEBHOOK_SECRET)"; elif [ "$SC" = "404" ]; then bad "404 — الشجرة بلا v2.41: نفّذ scripts/apply-support-now.sh"; else bad "code=$SC"; fi
+printf '   %-40s ' "GET /api/support/status"; SC2="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/api/support/status")"
+[ "$SC2" = "401" ] && ok "محمي (401)" || bad "code=$SC2"
+printf '   %-40s ' "/support.html"; SC3="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/support.html")"
+[ "$SC3" = "200" ] && ok "منشورة (200)" || bad "code=$SC3"
+[ -f server-support.js ] && ok "server-support.js موجود ($(wc -c < server-support.js) بايت)" || bad "server-support.js مفقود"
+
 say "6) فحص أمني محلي (يجب أن تردّ 404)"
 for f in /data/royalcoin.db /server.js /package.json /cf-worker/payments-core.js /scripts/update-phone-server.sh; do
   c="$(code "$H$f")"
@@ -99,13 +108,21 @@ done
 say "7) الرابط العام (ما يراه اللاعبون) $PUBLIC"
 PH="$(jget "$PUBLIC/api/health")"; echo "   /api/health           → ${PH:0:120}"
 PM="$(jget "$PUBLIC/api/payments/methods")"; echo "   /api/payments/methods → ${PM:0:140}"
+SW="$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:-dtsgsup_k9Qz7mW3xR5tB1nY}" -d '{"update_id":900101}')"
+printf '   %-46s %s\n' "$PUBLIC/api/support/webhook (بوت الدعم)" "$SW"
+printf '   %-46s %s\n' "$PUBLIC/support.html" "$(code "$PUBLIC/support.html")"
 DBC="$(code "$PUBLIC/data/royalcoin.db")"; printf '   /data/royalcoin.db     → %s' "$DBC"; [ "$DBC" = "404" ] && echo '  ✓' || echo '  ✗ مكشوف عمومياً! (قاعدة بيانات المستخدمين)'
 
 say "8) الحكم النهائي"
 VERDICT="ok"
 printf '%s' "$PM" | grep -q '"methods"' || VERDICT="payments"
 [ "$DBC" = "404" ] || VERDICT="leak"
+[ "$SW" = "200" ] || { [ "$VERDICT" = "ok" ] && VERDICT="support"; }
 case "$VERDICT" in
+  support)
+    bad "بوت الدعم لا يستقبل التحديثات عمومياً (code=$SW)."
+    printf '       نفّذ على الهاتف: bash scripts/apply-support-now.sh\n'
+    ;;
   ok)
     ok "كل شيء سليم: المدفوعات تعمل والأمن مغلق."
     ;;

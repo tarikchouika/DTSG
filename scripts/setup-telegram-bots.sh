@@ -61,6 +61,13 @@ curl -s -m 20 "$TG/bot$SUPPORT_BOT_TOKEN/setMyCommands" -H 'content-type: applic
 curl -s -m 20 "$TG/bot$SUPPORT_BOT_TOKEN/setMyDescription" -H 'content-type: application/json' -d '{"description":"🛟 دعم DTSG — خدمة عملاء 24/7.\nاكتب مشكلتك وسيجيبك فريق الدعم في هذه المحادثة.\nالخصوصية: لا تُكشف أرقامك أو هويتك."}' | grep -q '"ok":true' && ok "وصف البوت" || warn "تعذّر ضبط الوصف"
 curl -s -m 20 "$TG/bot$SUPPORT_BOT_TOKEN/setMyShortDescription" -H 'content-type: application/json' -d '{"short_description":"دعم فني وخدمة عملاء DTSG — تذاكر وردود فورية"}' >/dev/null && ok "الوصف المختصر"
 
+say "3.b) الاسم والصورة التعريفية"
+curl -s -m 20 "$TG/bot$SUPPORT_BOT_TOKEN/setMyName" -H 'content-type: application/json' -d '{"name":"دعم DTSG | Support"}' | grep -q '"ok":true' && ok "اسم البوت: دعم DTSG | Support" || warn "تعذّر تغيير الاسم"
+AV="${DTSG_AVATAR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/assets/dtsg/support-bot-avatar.jpg}"
+if [ -f "$AV" ]; then
+  curl -s -m 40 "$TG/bot$SUPPORT_BOT_TOKEN/setMyProfilePhoto" -F 'photo={"type":"static","photo":"attach://f"}' -F "f=@$AV;type=image/jpeg" | grep -q '"ok":true' && ok "الصورة التعريفية مضبوطة" || warn "تعذّر ضبط الصورة"
+else warn "لا توجد صورة في $AV (تخطّي)"; fi
+
 say "4) هل يصل الويب هوك للخادم فعلاً؟"
 CODE="$(curl -s -m 25 -o /tmp/_wh.txt -w '%{http_code}' -X POST "$WH_URL" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $WEBHOOK_SECRET" -d '{"update_id":1}')"
 echo "   POST $WH_URL → $CODE  $(head -c 120 /tmp/_wh.txt)"
