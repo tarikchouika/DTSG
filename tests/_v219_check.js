@@ -69,45 +69,80 @@ function bad(l) { fail++; console.log('  ❌ ' + l); }
     await ctx.close();
   }
 
-  /* ── 2) واتساب العائم: الرئيسية ظاهر، داخل لعبة مخفي، القانونية ظاهر ── */
+  /* ── 2) [v2.42] مركز المساعدة العائم: بديل واتساب — ظاهر بالرئيسية، مخفي في اللعبة ── */
   {
     const { page, ctx } = await PW.newPage(browser, { width: 412, height: 915 });
     await PW.gotoGamePage(page);
-    await page.waitForTimeout(500);
+    await PW.wait(page, () => !!document.getElementById('botFab'), 8000);
     const home = await page.evaluate(() => {
-      const f = document.getElementById('waFab');
-      return { exists: !!f, visible: f ? (getComputedStyle(f).display !== 'none' && f.getBoundingClientRect().height > 0) : false };
+      const f = document.getElementById('botFab');
+      return {
+        exists: !!f,
+        visible: f ? (getComputedStyle(f).display !== 'none' && f.getBoundingClientRect().height > 0) : false,
+        wa: !!document.getElementById('waFab'),
+        panelHidden: !!document.getElementById('botChat') && document.getElementById('botChat').hidden
+      };
     });
-    (home.exists && home.visible) ? ok('الرئيسية: أيقونة واتساب عائمة ظاهرة') : bad('الرئيسية: الأيقونة غير ظاهرة');
-    const href = await page.evaluate(() => { const f = document.getElementById('waFab'); return f ? f.href : ''; });
-    (/212706865019/.test(href)) ? ok('رابط واتساب الرسمي الصحيح') : bad('رابط خاطئ: ' + href);
+    (home.exists && home.visible) ? ok('الرئيسية: زر مركز المساعدة العائم ظاهر') : bad('الرئيسية: زر الشات غير ظاهر');
+    (!home.wa) ? ok('لا أثر لأيقونة واتساب العائمة (waFab محذوفة)') : bad('waFab ما زالت موجودة!');
+    (home.panelHidden) ? ok('نافذة الشات مغلقة ابتداءً') : bad('نافذة الشات مفتوحة ابتداءً');
 
-    /* دخول لعبة → مخفية */
+    /* فتح النافذة + تبويباها */
+    await page.click('#botFab');
+    await page.waitForTimeout(600);
+    const opened = await page.evaluate(() => {
+      const p = document.getElementById('botChat');
+      return { open: p && !p.hidden, tabs: Array.from(document.querySelectorAll('[data-bctab]')).map(b => b.getAttribute('data-bctab')) };
+    });
+    (opened.open) ? ok('الزر يفتح نافذة مركز المساعدة') : bad('النافذة لم تُفتح');
+    (opened.tabs.length === 2) ? ok('تبويبان: محادثة الدعم + الشحن والمدفوعات') : bad('تبويبات: ' + JSON.stringify(opened.tabs));
+
+    /* تبويب المدفوعات: روابط البوتين والمحفظة */
+    await page.click('[data-bctab="bots"]');
+    await page.waitForTimeout(300);
+    const pay = await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('#bcPaneBots a')).map(a => a.getAttribute('href'));
+      return { telegram: links.filter(h => /t\.me\//.test(h)), wallet: links.filter(h => /#wallet/.test(h)), chips: document.querySelectorAll('.bc-chip').length };
+    });
+    (pay.telegram.length >= 1) ? ok('رابط بوت خدمة العملاء (@dtsgsupports_bot) داخل النافذة') : bad('لا رابط تيليغرام');
+    (pay.wallet.length >= 1) ? ok('رابط المحفظة (شحن/سحب) داخل النافذة') : bad('لا رابط محفظة');
+    (pay.chips === 3) ? ok('اختصارات سريعة: شحن · حالة معاملة · ربط تيليغرام') : bad('عدد الاختصارات: ' + pay.chips);
+
+    /* دخول لعبة → مخفي */
     await page.evaluate(() => openGame('hl'));
     await PW.wait(page, () => document.body.classList.contains('pg-game'), 8000);
     const inGame = await page.evaluate(() => {
-      const f = document.getElementById('waFab');
+      const f = document.getElementById('botFab');
       return f ? getComputedStyle(f).display === 'none' : true;
     });
-    (inGame) ? ok('داخل اللعبة: الأيقونة مخفية (pg-game)') : bad('داخل اللعبة: الأيقونة ما زالت ظاهرة!');
+    (inGame) ? ok('داخل اللعبة: زر الشات مخفي (pg-game)') : bad('داخل اللعبة: الزر ما زال ظاهراً!');
     await page.evaluate(() => closeGamePage());
     await page.waitForTimeout(400);
     const back = await page.evaluate(() => {
-      const f = document.getElementById('waFab');
+      const f = document.getElementById('botFab');
       return f ? getComputedStyle(f).display !== 'none' : false;
     });
-    (back) ? ok('بعد الخروج من اللعبة: الأيقونة عادت') : bad('بعد الخروج: الأيقونة مخفية!');
+    (back) ? ok('بعد الخروج من اللعبة: الزر عاد') : bad('بعد الخروج: الزر مخفي!');
+    (page._errs.length === 0) ? ok('صفر أخطاء كونسول (الودجت)') : bad('أخطاء: ' + page._errs.slice(0, 3).join(' | '));
     await ctx.close();
   }
   {
     const { page, ctx } = await PW.newPage(browser, { width: 412, height: 915 });
     await page.goto('http://localhost:4173/about.html', { waitUntil: 'domcontentloaded' });
-    await page.waitForTimeout(1200);
+    await PW.wait(page, () => !!document.getElementById('botFab'), 8000);
     const legal = await page.evaluate(() => {
-      const f = document.getElementById('waFab');
-      return { exists: !!f, visible: f ? getComputedStyle(f).display !== 'none' : false };
+      const f = document.getElementById('botFab');
+      return {
+        exists: !!f, visible: f ? getComputedStyle(f).display !== 'none' : false,
+        wa: !!document.getElementById('waFab'),
+        supportLink: !!document.querySelector('footer a[href="support.html"]'),
+        headerIcons: document.querySelectorAll('.app-dock .dock-ic').length
+      };
     });
-    (legal.exists && legal.visible) ? ok('صفحة قانونية (about): الأيقونة ظاهرة') : bad('about: الأيقونة غير ظاهرة');
+    (legal.exists && legal.visible) ? ok('صفحة قانونية (about): زر الشات ظاهر') : bad('about: الزر غير ظاهر');
+    (!legal.wa) ? ok('about: لا waFab') : bad('about: waFab موجودة');
+    (legal.supportLink) ? ok('فوتر الصفحات القانونية فيه رابط «الدعم»') : bad('لا رابط دعم في الفوتر');
+    (legal.headerIcons >= 3) ? ok('هيدر الصفحات القانونية فيه أيقوناته (' + legal.headerIcons + ')') : bad('أيقونات الهيدر: ' + legal.headerIcons);
     await ctx.close();
   }
 

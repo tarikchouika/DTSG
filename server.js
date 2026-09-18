@@ -253,7 +253,14 @@ pay.setContext(db, users, sessions);
 /* [Support 2026-09-18] بوت دعم العملاء @dtsgsupports_bot — نفس القاعدة والجلسات */
 const sup = require('./server-support.js');
 sup.initSupport(db);
-sup.setCtx(db, users, sessions);
+sup.setCtx(db, users, sessions, {
+  /* أزرار الموافقة المالية (dapp/drej/wapp/wrej) تعمل من بوت الدعم كأنها من بوت المنصة */
+  payAction: async function (act, txId, actor) {
+    const map = { dapp: 'approve', drej: 'reject', wapp: 'approve', wrej: 'reject' };
+    const r = await pay.adminActOnPlatformTx(txId, map[act] || '', (actor && actor.name) || 'telegram');
+    return r;
+  }
+});
 /* رسم الرهان على المنصة: نسبة تُقتطع من الرهان عند تسوية الجولة بين لاعبَين */
 const BET_FEE_RATE = 0.05;      /* 5% رسوم المنصة على الرهان */
 /* [B-rooms] غرف الساعة: رسم افتتاح ثابت يُقتطع من المضيف + مدة صلاحية الغرفة */
@@ -1539,6 +1546,30 @@ const server = http.createServer((req, res) => {
            • استبدال كوينز العميل بمال حقيقي: لا سحب مباشر من حساب العميل —
              العميل يرسل الكوينز للأدمن عبر «إرسال الكوينز» بنفسه
            • إسكات لاعب عن التعليق الصوتي والمراسلة 24 ساعة أو أكثر */
+
+      /* ── [v2.41.1] المعاملات المالية المعلّقة (واجهة المحفظة) + الموافقة/الرفض من اللوحة ── */
+      if (pathname === '/api/admin/payments/pending') {
+        if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
+        json({ ok: true, pending: pay.listPending(60) });
+        return;
+      }
+      if (pathname === '/api/admin/payments/act' && req.method === 'POST') {
+        if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
+        const txId = String((data && data.tx_id) || '');
+        const action = String((data && data.action) || '');
+        const pendingRow = pay.listPending(60).filter(function (x) { return String(x.id) === txId; })[0] || null;
+        pay.adminActOnPlatformTx(txId, action, me.username).then(function (r) {
+          json(r && r.ok ? { ok: true, result: r } : { ok: false, error: (r && r.error) || 'failed' }, r && r.ok ? 200 : 400);
+          if (pendingRow && r && r.ok) {
+            try {
+              sup.notifyUser(pendingRow.user_id, action === 'approve'
+                ? ('✅ تم تنفيذ طلبك: ' + pendingRow.amount_usd + ' USD')
+                : ('❌ رُفض طلبك (' + pendingRow.amount_usd + ' USD). للاستفسار أرسل رسالة هنا.'));
+            } catch (e) {}
+          }
+        }).catch(function (e) { json({ ok: false, error: String(e && e.message || e) }, 500); });
+        return;
+      }
 
       if (pathname === '/api/admin/stats') {
         if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }

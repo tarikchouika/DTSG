@@ -108,7 +108,7 @@ function initSupport(db) {
   }
   return true;
 }
-function setCtx(db, users, sessions) { CTX = { db: db, users: users || {}, sessions: sessions || {} }; }
+function setCtx(db, users, sessions, hooks) { CTX = { db: db, users: users || {}, sessions: sessions || {}, hooks: hooks || {} }; }
 function setting(k, def) {
   try { const r = CTX.db.prepare('SELECT value FROM sup_settings WHERE key = ?').get(k); return r ? r.value : def; } catch (e) { return def; }
 }
@@ -185,6 +185,26 @@ async function notifyUser(userId, text, extra) {
   const res = await send(chat, text, extra);
   return !!(res && res.ok);
 }
+
+/* ── [v2.41.1] إشعار الأدمنز بمعاملة مالية معلّقة (إيداع/سحب) عبر بوت الدعم ──
+   يستدعيه payments-core عبر الخطاف __notifyAdminsPayment — يضمن وصول الإشعار حتى
+   لو كان توكن بوت المنصة غير مضبوط على الخادم. */
+async function notifyAdminsPayment(text, buttons) {
+  const rows = activeAdminRows();
+  const markup = buttons && buttons.length ? { reply_markup: kb(buttons.map(b => [{ text: b[0], callback_data: b[1] }])) } : {};
+  const seen = {};
+  let n = 0;
+  const head = '💰 <i>معاملة مالية</i>\n';
+  for (const a of rows) {
+    if (seen[a.tg_id] || String(a.notify) === '0') continue;
+    seen[a.tg_id] = 1;
+    const r = await send(a.tg_id, head + text, markup); if (r && r.ok) n++;
+  }
+  const chat = adminChat();
+  if (chat && !seen[chat]) { const r = await send(chat, head + text, markup); if (r && r.ok) n++; }
+  return n;
+}
+function adminCanAct(tgId) { return isAdminTg(tgId); }
 
 /* ── التذاكر ── */
 function openTicketOf(tgChat) {
@@ -696,6 +716,19 @@ async function handleCallback(cq) {
   const chat = String(cq.from.id);
   const data = String(cq.data || '');
   const a = adminRow(chat);
+  /* [v2.41.1] أزرار الموافقة المالية (dapp/drej/wapp/wrej) تصل عبر بوت الدعم أيضاً */
+  const pay = data.match(/^(dapp|drej|wapp|wrej)_(.+)$/);
+  if (pay) {
+    if (!a) { await tg('answerCallbackQuery', { callback_query_id: cq.id, text: 'غير مصرّح' }); await send(chat, '⛔ أزرار الموافقة المالية لأدمنز الدعم فقط.'); return { ok: false }; }
+    await tg('answerCallbackQuery', { callback_query_id: cq.id, text: '⏳ جارٍ التنفيذ…' });
+    const fn = CTX && CTX.hooks && CTX.hooks.payAction;
+    if (!fn) { await send(chat, '⚠️ وحدة المدفوعات غير مربوطة بعد — نفّذ تحديث الخادم.'); return { ok: false }; }
+    const r = await fn(pay[1], pay[2], { tg_id: chat, name: a.name });
+    await send(chat, (r && r.ok) ? ('✅ ' + ({ dapp: 'تم تأكيد الإيداع وشحن الرصيد.', drej: 'تم رفض الإيداع.', wapp: 'تم تأكيد السحب.', wrej: 'تم رفض السحب وإعادة الرصيد.' }[pay[1]] || 'تم.') + '\nالمرجع: <code>' + esc(pay[2]) + '</code>')
+      : ('⚠️ تعذّر التنفيذ: ' + esc((r && r.error) || 'خطأ') + (r && r.error === 'already-completed' ? ' (المعاملة مُعالجة سلفاً)' : '')));
+    audit(chat, a.name, 'pay-' + pay[1], String(pay[2]));
+    return { ok: true };
+  }
   await tg('answerCallbackQuery', { callback_query_id: cq.id, text: a ? '' : 'غير مصرّح' });
   const m = data.match(/^(supc|supx|supr)_(\d+)$/);
   if (!m) return { ok: false };
@@ -781,8 +814,47 @@ async function platformClaim(user, tkId) {
   return { ok: true };
 }
 
+/* ── [v2.41.1] رسائل المستخدم من ودجت المنصة (المنصة ↔ بوت الدعم) ──
+   الرسالة تُسجَّل في نفس التذكرة والمسار الذي يستعمله البوت، فيرى المستخدم
+   رد الأدمن في المنصة وفي تيليغرام، ويرى الأدمن رسالة المنصة في تيليغرام. */
+function supUserLinked(userId) {
+  try { return CTX.db.prepare('SELECT * FROM sup_users WHERE user_id = ? ORDER BY linked_at DESC LIMIT 1').get(String(userId)) || null; } catch (e) { return null; }
+}
+function openTicketOfUser(userId) {
+  try { return CTX.db.prepare("SELECT * FROM sup_tickets WHERE user_id = ? AND status IN ('open','claimed') ORDER BY id DESC LIMIT 1").get(String(userId)) || null; } catch (e) { return null; }
+}
+async function platformSay(user, text) {
+  if (!user) return { ok: false, error: 'unauthorized' };
+  text = cut(String(text == null ? '' : text).trim(), 1500);
+  if (!text) return { ok: false, error: 'empty' };
+  const su = supUserLinked(user.id);
+  if (su && su.blocked) return { ok: false, error: 'blocked' };
+  const chat = su ? String(su.tg_chat) : ('web:' + user.id);
+  let recent = 0;
+  try { recent = CTX.db.prepare('SELECT COUNT(*) c FROM sup_messages WHERE tg_chat = ? AND sender = ? AND created_at > ?').get(String(chat), 'user', now() - 60000).c; } catch (e) {}
+  if (recent >= MSG_PER_MIN) return { ok: false, error: 'too-many' };
+  let tk = openTicketOfUser(user.id);
+  if (!tk) {
+    const res = CTX.db.prepare('INSERT INTO sup_tickets (user_id, username, tg_chat, guest, subject, category, status, created_at, updated_at, last_user_at, unread_admin) VALUES (?,?,?,0,?,?,?,?,?,?,1)')
+      .run(String(user.id), user.username || null, chat, cut(text, 70), guessCategory(text), TICKET_OPEN, now(), now(), now());
+    tk = ticketById(res.lastInsertRowid);
+    addMessage(tk.id, 'user', chat, null, text);
+    if (su) await send(chat, '✅ استلمنا رسالتك من المنصة (تذكرة <b>#' + tk.id + '</b>).\nسيرد فريق الدعم هنا وفي المنصة معاً.');
+    await notifyAdminsNewTicket(tk, '[من المنصة] ' + text);
+    return { ok: true, ticket: tk.id, created: true };
+  }
+  addMessage(tk.id, 'user', chat, null, text);
+  try { CTX.db.prepare('UPDATE sup_tickets SET updated_at = ?, last_user_at = ?, unread_admin = unread_admin + 1 WHERE id = ?').run(now(), now(), tk.id); } catch (e) {}
+  if (tk.assignee_tg) {
+    await send(tk.assignee_tg, '💬 <b>رسالة من المنصة</b> على تذكرة #' + tk.id + ' من ' + esc(tk.username || user.username || 'مستخدم') + ':\n\n' + esc(cut(text, 400)) + '\n\nاكتب /r <نص> للرد.');
+  } else {
+    await notifyAdminsNewTicket(tk, '[من المنصة] ' + text);
+  }
+  return { ok: true, ticket: tk.id, created: false };
+}
+
 /* ── توجيه HTTP (يُستدعى من server.js) ── */
-const SUP_PATHS = ['/api/support/webhook', '/api/support/link-code', '/api/support/my-tickets', '/api/support/unlink', '/api/support/status', '/api/support/admin/queue', '/api/support/admin/reply', '/api/support/admin/close', '/api/support/admin/claim'];
+const SUP_PATHS = ['/api/support/webhook', '/api/support/message', '/api/support/link-code', '/api/support/my-tickets', '/api/support/unlink', '/api/support/status', '/api/support/admin/queue', '/api/support/admin/reply', '/api/support/admin/close', '/api/support/admin/claim'];
 function isSupportPath(p) { return SUP_PATHS.indexOf(p) >= 0; }
 
 function json(res, obj, code) { res.writeHead(code || 200, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); }
@@ -814,6 +886,12 @@ async function handleHttp(req, res, pathname, bodyStr, query) {
     return;
   }
   if (pathname === '/api/support/my-tickets') { json(res, { ok: true, tickets: myTickets(me.id) }); return; }
+  if (pathname === '/api/support/message' && req.method === 'POST') {
+    let b = {}; try { b = JSON.parse(bodyStr || '{}'); } catch (e) {}
+    const r = await platformSay(me, b.text);
+    json(res, r, r.ok ? 200 : (r.error === 'unauthorized' ? 401 : 400));
+    return;
+  }
   if (pathname === '/api/support/unlink' && req.method === 'POST') {
     unlinkUser(me.telegram_id || '__none__');
     CTX.db.prepare('DELETE FROM sup_users WHERE user_id = ?').run(String(me.id));
@@ -851,6 +929,7 @@ function stats() {
 
 module.exports = {
   initSupport, setCtx, handleUpdate, handleHttp, isSupportPath, SUP_PATHS,
+  notifyAdminsPayment, adminCanAct,
   notifyUser, makeLinkCode, myTickets, queueFor, platformReply, platformClose, platformClaim,
   handleCallback, stats, adminRow, setting, setSetting, audit, publicBotLink,
   _internal: { userSay, userCommand, adminCommand, ticketById, ticketMessages, closeTicket, supUser, linkUser, guessCategory }

@@ -1985,10 +1985,47 @@ function adminLoadFinance() {
         '<div class="stat"><div class="si">👥</div><div><div class="sv">' + fmt(s.users_total || 0) + '</div><div class="sl">' + T('admin.totalUsers') + '</div></div></div>' +
         '<div class="stat"><div class="si">🪙</div><div><div class="sv">' + fmt(s.gold_total || 0) + '</div><div class="sl">' + T('admin.totalCoins') + '</div></div></div>' +
         '<div class="stat"><div class="si">🎮</div><div><div class="sv">' + fmt(s.plays_total || 0) + '</div><div class="sl">' + T('admin.plays') + '</div></div></div>' +
-      '</div>' + rows;
+      '</div>' + rows +
+      /* ═══ [v2.41.1] طلبات الدفع المعلّقة (إيداع/سحب) — موافقة أو رفض من هنا مباشرة ═══ */
+      '<div class="note" style="margin-top:16px">' + T('admin.payHint') + '</div>' +
+      '<div id="payPending"><div class="note">…</div></div>';
+    adminLoadPendingPayments();
   }).catch(function () {
     c.innerHTML = '<div class="note">' + T('auth.error') + '</div>';
   });
+}
+
+/* ── [v2.41.1] قائمة طلبات الدفع المعلّقة مع أزرار الموافقة/الرفض ── */
+function adminLoadPendingPayments() {
+  const box = document.getElementById('payPending');
+  if (!box) return;
+  API.get('/api/admin/payments/pending').then(function (r) {
+    const list = (r.ok && r.data && r.data.pending) ? r.data.pending : (r.ok && r.data && r.data.transactions) ? r.data.transactions : [];
+    if (!r.ok) { box.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; return; }
+    if (!list.length) { box.innerHTML = '<div class="note" style="color:var(--ok,#22c55e)">' + T('admin.payNone') + '</div>'; return; }
+    box.innerHTML = '<div class="atable-wrap"><table class="atable"><thead><tr>' +
+      '<th>#</th><th>' + T('admin.txUser') + '</th><th>' + T('admin.txMethod') + '</th><th>' + T('admin.txAmount') + '</th>' +
+      '<th>' + T('admin.txRef') + '</th><th>' + T('admin.txAction') + '</th></tr></thead><tbody>' +
+      list.map(function (t) {
+        const dir = (t.type === 'withdrawal') ? '💸 ' + T('admin.txWithdrawal') : '📥 ' + T('admin.txDeposit');
+        return '<tr><td><b>' + esc(t.id) + '</b><div style="opacity:.6;font-size:.72rem">' + esc(t.created_at || '') + '</div></td>' +
+          '<td>' + esc(t.user_id || '') + '</td>' +
+          '<td>' + dir + '<div style="opacity:.6">' + esc(t.method || '') + '</div></td>' +
+          '<td>🪙 ' + fmt(t.amount_usd) + ' $</td>' +
+          '<td style="max-width:220px;word-break:break-all">' + esc(t.proof_details || '—') + '</td>' +
+          '<td><button class="abtn ok" onclick="adminPayAct(\'' + esc(t.id) + '\',\'approve\')">✅ ' + T('admin.approve') + '</button> ' +
+          '<button class="abtn bad" onclick="adminPayAct(\'' + esc(t.id) + '\',\'reject\')">❌ ' + T('admin.reject') + '</button></td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }).catch(function () {
+    box.innerHTML = '<div class="note">' + T('auth.error') + '</div>';
+  });
+}
+function adminPayAct(txId, action) {
+  if (action === 'reject' && !confirm((T('admin.reject') + ' — ' + txId + ' ?'))) return;
+  API.post('/api/admin/payments/act', { tx_id: txId, action: action }).then(function (r) {
+    if (r.ok) { toast(T('admin.payDone') + ' ✔', 'ok'); adminLoadPendingPayments(); }
+    else toast((r.data && (r.data.error || r.data.message)) || T('auth.error'), 'err');
+  }).catch(function () { toast(T('auth.error'), 'err'); });
 }
 /* ═══ [BotPL 2026-09-14] مؤشر أرباح/خسائر المنصة من اللاعب الآلي (سوبر فقط) ═══
    رصيد الآلي = مؤشر نسبي لأرباح/خسائر المنصة (توضيح المالك): كل دفع للاعب

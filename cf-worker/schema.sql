@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- جدول المعاملات (الدفع والسحب)
+-- [v2.41.1] transactions (D1) — أعمدة المراجعة تُضاف عبر الترحيل في server-payments.js
 CREATE TABLE IF NOT EXISTS transactions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,

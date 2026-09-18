@@ -109,10 +109,50 @@ async function tg(env, method, body) {
   } catch (e) { return null; }
 }
 async function tgNotifyAdmin(env, text, buttons) {
-  if (!env.TELEGRAM_ADMIN_CHAT_ID) return;
-  const body = { chat_id: env.TELEGRAM_ADMIN_CHAT_ID, text: text, parse_mode: 'HTML' };
-  if (buttons) body.reply_markup = { inline_keyboard: buttons.map(b => [{ text: b[0], callback_data: b[1] }]) };
-  await tg(env, 'sendMessage', body);
+  /* القناة 1: بوت المنصة (إن وُجد توكنه) */
+  if (env.TELEGRAM_ADMIN_CHAT_ID && env.TELEGRAM_BOT_TOKEN) {
+    const body = { chat_id: env.TELEGRAM_ADMIN_CHAT_ID, text: text, parse_mode: 'HTML' };
+    if (buttons) body.reply_markup = { inline_keyboard: buttons.map(b => [{ text: b[0], callback_data: b[1] }]) };
+    await tg(env, 'sendMessage', body);
+  }
+  /* [v2.41.1] القناة 2: بوت خدمة العملاء ⇒ كل الأدمنز المسجّلين + شات الإدارة المشترك.
+     تضمن وصول الإشعار حتى لو كان توكن بوت المنصة غير مضبوط على الخادم. */
+  if (typeof env.__notifyAdminsPayment === 'function') {
+    try { await env.__notifyAdminsPayment(text, buttons); } catch (e) {}
+  }
+}
+
+/* [v2.41.1] تنفيذ إجراء أدمن على معاملة معلّقة — نواة واحدة للبوت وللوحة المنصة.
+   act: 'dapp' تأكيد إيداع | 'drej' رفض إيداع | 'wapp' تأكيد سحب | 'wrej' رفض سحب (مع إعادة الرصيد) */
+async function adminActOnTransaction(env, db, txId, act) {
+  const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
+  if (!tx) return { ok: false, error: 'not-found' };
+  if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
+  if (act === 'dapp') {
+    const r = await completeDeposit(env, db, txId, Number(tx.amount_usd));
+    if (r && r.ok) {
+      if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تأكيد إيداعك وشحن رصيدك (' + tx.amount_usd + ' USD).');
+      return { ok: true, done: 'deposit-approved', amount_usd: Number(tx.amount_usd) };
+    }
+    return { ok: false, error: (r && r.error) || 'failed' };
+  }
+  if (act === 'drej') {
+    await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
+    if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان خطأً تواصل مع الدعم.');
+    return { ok: true, done: 'deposit-rejected', amount_usd: Number(tx.amount_usd) };
+  }
+  if (act === 'wapp') {
+    await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
+    if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
+    return { ok: true, done: 'withdrawal-approved', amount_usd: Number(tx.amount_usd) };
+  }
+  if (act === 'wrej') {
+    await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
+    await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd));  /* إعادة الرصيد */
+    if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك.');
+    return { ok: true, done: 'withdrawal-rejected', amount_usd: Number(tx.amount_usd) };
+  }
+  return { ok: false, error: 'bad-act' };
 }
 
 /* ── DB helpers (D1) ── */
@@ -323,13 +363,20 @@ async function handleFetch(request, env) {
     const amt = Number(b.amount_usd);
     /* [v2.40] binance: تحويل USDT يدوي إلى عنواننا — نفس مسار المراجعة اليدوية */
     const methods = ['cash_plus', 'cih', 'orange_money', 'binance'];
-    if (!b.user_id || !(amt >= 1) || methods.indexOf(b.method) < 0 || !b.proof_details) return json({ ok: false, error: 'bad-input' }, 400);
+    /* [v2.41.1] نتقبّل أسماء الحقول البديلة التي يرسلها بوت الشحن/الواجهة (كانت تسبب bad-input دائماً) */
+    const proof = String(b.proof_details || b.details || b.reference || b.ref || b.proof || b.receipt || b.code || '').trim();
+    const missing = [];
+    if (!b.user_id && !b.username) missing.push('user_id');
+    if (!(amt >= 1)) missing.push('amount_usd');
+    if (methods.indexOf(String(b.method)) < 0) missing.push('method');
+    if (!proof) missing.push('proof_details');
+    if (missing.length) return json({ ok: false, error: 'bad-input', missing: missing, hint: 'أرسل proof_details (أو details) مع رقم/كود التحويل' }, 400);
     await uEnsure(db, env, b.user_id, b.email);
     const txId = uid('p2p');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,?4,\'pending\',?5)')
-      .bind(txId, String(b.user_id), amt, b.method, String(b.proof_details).slice(0, 2000)).run();
+      .bind(txId, String(b.user_id), amt, b.method, proof.slice(0, 2000)).run();
     await tgNotifyAdmin(env,
-      '📥 إيداع محلي جديد\nالمستخدم: ' + (b.username || b.user_id) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + b.method + '\nالوصل/الكود: ' + String(b.proof_details).slice(0, 300),
+      '📥 <b>إيداع جديد بانتظار الموافقة</b>\nالتذكرة: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || b.user_id) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + b.method + '\nالوصل/الكود: ' + proof.slice(0, 300),
       [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
     return json({ ok: true, tx: txId, status: 'pending' });
   }
@@ -396,7 +443,7 @@ async function handleFetch(request, env) {
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'withdrawal\',?3,?4,\'pending\',?5)')
       .bind(txId, String(b.user_id), amt, b.method, String(b.details || '').slice(0, 2000)).run();
     await tgNotifyAdmin(env,
-      '💸 طلب سحب جديد\nالمستخدم: ' + (b.username || b.user_id) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + b.method + '\nالتفاصيل: ' + String(b.details || '').slice(0, 300),
+      '💸 <b>طلب سحب بانتظار الموافقة</b>\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || b.user_id) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + b.method + '\nالتفاصيل: ' + String(b.details || '').slice(0, 300),
       [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
     return json({ ok: true, tx: txId, status: 'pending' });
   }
@@ -417,7 +464,9 @@ async function handleFetch(request, env) {
     /* استعلام زرّ من الأدمن */
     if (up.callback_query) {
       const cq = up.callback_query;
-      const adminOk = env.TELEGRAM_ADMIN_CHAT_ID && String(cq.from.id) === String(env.TELEGRAM_ADMIN_CHAT_ID);
+      let adminOk = env.TELEGRAM_ADMIN_CHAT_ID && String(cq.from.id) === String(env.TELEGRAM_ADMIN_CHAT_ID);
+      /* [v2.41.1] يُسمح أيضاً لأي أدمن دعم مسجَّل (sup_admins) بالموافقة/الرفض */
+      if (!adminOk && typeof env.__adminCanAct === 'function') { try { adminOk = !!env.__adminCanAct(String(cq.from.id)); } catch (e) {} }
       const data = String(cq.data || '');
       await tg(env, 'answerCallbackQuery', { callback_query_id: cq.id });
       /* [Support 2026-09-18] أزرار بوت الدعم (استلام/إغلاق تذكرة) — تصل هنا أيضاً لأن
@@ -433,29 +482,29 @@ async function handleFetch(request, env) {
       const txId = m[2], act = m[1];
       const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
       if (!tx || tx.status !== 'pending') { await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '⚠️ المعاملة غير موجودة أو تمت معالجتها مسبقاً.' }); return json({ ok: true }); }
-      if (act === 'dapp') {
-        const r = await completeDeposit(env, db, txId, Number(tx.amount_usd));
-        await tg(env, 'sendMessage', { chat_id: cq.from.id, text: r.ok ? '✅ تم تأكيد الإيداع وشحن الرصيد.' : '⚠️ تعذر التأكيد.' });
-        if (r.ok && typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تأكيد إيداعك وشحن رصيدك.');
-      } else if (act === 'drej') {
-        await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
-        const tg1 = await uGetTelegram(db, env, tx.user_id);
-        if (tg1) await tg(env, 'sendMessage', { chat_id: tg1, text: '❌ تم رفض عملية الإيداع (' + tx.amount_usd + ' USD). تواصل مع الدعم.' });
-        if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان هناك خطأ تواصل مع الدعم: /start');
-        await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '❌ تم رفض الإيداع.' });
-      } else if (act === 'wapp') {
-        await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
-        const tg2 = await uGetTelegram(db, env, tx.user_id);
-        if (tg2) await tg(env, 'sendMessage', { chat_id: tg2, text: '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD' });
-        if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
-        await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '✅ تم تأكيد السحب.' });
-      } else if (act === 'wrej') {
-        await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
-        await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd)); /* إعادة الرصيد */
-        const tg3 = await uGetTelegram(db, env, tx.user_id);
-        if (tg3) await tg(env, 'sendMessage', { chat_id: tg3, text: '❌ رُفض طلب السحب وأُعيد المبلغ لرصيدك.' });
-        if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك. للاستفسار اكتب رسالة هنا.');
-        await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '❌ تم رفض السحب وإعادة الرصيد.' });
+      /* نواة موحّدة: نفس ما تستعمله لوحة المنصة */
+      const r = await adminActOnTransaction(env, db, txId, act);
+      const msgs = {
+        dapp: ['✅ تم تأكيد الإيداع وشحن الرصيد.', '⚠️ تعذر التأكيد: '],
+        drej: ['❌ تم رفض الإيداع.', '⚠️ '],
+        wapp: ['✅ تم تأكيد السحب.', '⚠️ '],
+        wrej: ['❌ تم رفض السحب وإعادة الرصيد.', '⚠️ ']
+      }[act] || ['—', '⚠️ '];
+      if (act !== 'dapp' && act !== 'wrej') {
+        const tgU = await uGetTelegram(db, env, tx.user_id);
+        if (tgU) {
+          const t = act === 'drej' ? ('❌ تم رفض عملية الإيداع (' + tx.amount_usd + ' USD). تواصل مع الدعم.')
+            : act === 'wapp' ? ('✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD') : '';
+          if (t) await tg(env, 'sendMessage', { chat_id: tgU, text: t });
+        }
+      }
+      await tg(env, 'sendMessage', { chat_id: cq.from.id, text: r.ok ? msgs[0] : (msgs[1] + (r.error || '')) });
+      if (r.ok && typeof env.__notifyUser === 'function') {
+        const ut = act === 'dapp' ? ('✅ تم تأكيد إيداعك وشحن رصيدك (' + tx.amount_usd + ' USD).')
+          : act === 'drej' ? ('❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان هناك خطأ تواصل مع الدعم.')
+          : act === 'wapp' ? ('✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD')
+          : ('❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك.');
+        await env.__notifyUser(tx.user_id, ut);
       }
       return json({ ok: true });
     }
@@ -566,7 +615,7 @@ async function handleFetch(request, env) {
           if (txId) {
             const proof = msg.photo ? ('photo:' + msg.photo[msg.photo.length - 1].file_id) : text;
             await db.prepare('UPDATE transactions SET proof_details = ?2 WHERE id = ?1').bind(txId, String(proof).slice(0, 2000)).run();
-            await tgNotifyAdmin(env, '🧾 وصل إيداع من ' + ((msg.from && msg.from.first_name) || u.id) + ' للمعاملة ' + txId, [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
+            await tgNotifyAdmin(env, '🧾 <b>وصل إيداع</b> من ' + ((msg.from && msg.from.first_name) || u.id) + '\nالمرجع: <code>' + txId + '</code>\nالمرفق: ' + String(proof).slice(0, 120), [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
             await tg(env, 'sendMessage', { chat_id: chatId, text: '📨 تم استلام وصلك وسيراجعه الأدمن خلال دقائق.' });
             if (env.__pendingProof) delete env.__pendingProof[chatId];
             return json({ ok: true });
@@ -583,5 +632,5 @@ async function handleFetch(request, env) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
+  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
 }

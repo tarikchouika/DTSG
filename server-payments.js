@@ -20,6 +20,11 @@ function initPaymentsTables(db) {
     'ALTER TABLE users ADD COLUMN balance_usd REAL DEFAULT 0'
   ];
   for (const a of alters) { try { db.exec(a); } catch (e) { /* العمود موجود */ } }
+  /* [v2.41.1] أثر المراجعة: من وافق/رفض ومتى (كان UPDATE يفشل فيرفض الرفض نفسه!) */
+  for (const a of ['ALTER TABLE pay_transactions ADD COLUMN reviewed_by TEXT',
+                   'ALTER TABLE pay_transactions ADD COLUMN reviewed_at INTEGER']) {
+    try { db.exec(a); } catch (e) {}
+  }
   try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_users_telegram ON users(telegram_id) WHERE telegram_id IS NOT NULL'); } catch (e) {}
   try { db.exec('CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email ON users(email) WHERE email IS NOT NULL'); } catch (e) {}
   /* أسماء مميزة: جدول transactions الموجود هو سجل ذهب المنصة (server-tx) —
@@ -155,6 +160,13 @@ function buildEnv(req) {
     BINANCE_TRC20: e.BINANCE_TRC20 || 'TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ',
     CIH_SWIFT: e.CIH_SWIFT || 'CIHMMAMC',
     /* [Schema-bridge] خطافات مخطط المنصة (users: gold بلا balance_usd) */
+    /* [v2.41.1] إشعار الأدمنز بالمعاملات المالية عبر بوت الدعم + صلاحية تنفيذها */
+    __notifyAdminsPayment: function (text, buttons) {
+      try { return require('./server-support.js').notifyAdminsPayment(text, buttons); } catch (e) { return 0; }
+    },
+    __adminCanAct: function (tgId) {
+      try { return require('./server-support.js').adminCanAct(String(tgId)); } catch (e) { return false; }
+    },
     /* [Support 2026-09-18] ربط البوتين: إشعار المستخدم عبر بوت الدعم + أزرار تذاكر الدعم */
     __notifyUser: function (uid, text) {
       try { return require('./server-support.js').notifyUser(uid, text); } catch (e) { return false; }
@@ -249,6 +261,46 @@ async function handlePayments(req, res, bodyStr) {
   }
 }
 
+/* ── [v2.41.1] المعاملات المالية المعلّقة + تنفيذ الموافقة/الرفض من لوحة المنصة ── */
+function listPending(limit) {
+  try {
+    return CTX.db.prepare("SELECT id, user_id, type, amount_usd, method, status, proof_details, created_at FROM pay_transactions WHERE status = 'pending' ORDER BY id DESC LIMIT ?").all(Number(limit || 50));
+  } catch (e) { return []; }
+}
+function txById(txId) {
+  try { return CTX.db.prepare('SELECT * FROM pay_transactions WHERE id = ?').get(String(txId)) || null; } catch (e) { return null; }
+}
+async function adminApprove(txId, actorName) {
+  const tx = txById(txId);
+  if (!tx) return { ok: false, error: 'not-found' };
+  if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
+  const need = tx.type === 'deposit' ? 'dapp' : 'wapp';
+  const r = await core.adminActOnTransaction(buildEnv({ headers: { host: 'localhost' } }), CTX.shim, String(txId), need);
+  if (r && r.ok) { try { CTX.db.prepare('UPDATE pay_transactions SET reviewed_by = ?, reviewed_at = ? WHERE id = ?').run(String(actorName || 'dashboard'), Date.now(), String(txId)); } catch (e) {} }
+  return r;
+}
+function adminReject(txId, reason, actorName) {
+  const tx = txById(txId);
+  if (!tx) return { ok: false, error: 'not-found' };
+  if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
+  /* رفض: للإيداع لا يخصم شيء (لم يُشحن) · للسحب يُعاد الرصيد */
+  try { CTX.db.prepare("UPDATE pay_transactions SET status = 'rejected', reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(String(actorName || 'dashboard'), Date.now(), String(txId)); } catch (e) { return { ok: false, error: 'db' }; }
+  if (tx.type === 'withdrawal') {
+    try {
+      const u = CTX.users[String(tx.user_id)] || Object.values(CTX.users).find(x => String(x.id) === String(tx.user_id));
+      const rate = Number(process.env.USD_GOLD_RATE || 100);
+      const coins = Math.round(Number(tx.amount_usd) * rate);
+      if (u) { u.gold = (u.gold || 0) + coins; try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {} }
+    } catch (e) {}
+  }
+  return { ok: true, done: tx.type === 'withdrawal' ? 'withdrawal-rejected-refunded' : 'deposit-rejected', reason: String(reason || '') };
+}
+async function adminActOnPlatformTx(txId, act, actorName) {
+  if (act === 'approve') return await adminApprove(txId, actorName);
+  if (act === 'reject') return adminReject(txId, '', actorName);
+  return { ok: false, error: 'bad-act' };
+}
+
 /* ════════════════════════════════════════════════════════════════
    [Deploy 2026-09-17] manifest مُجزأ لصفحة الرفع داخل المعاينة (deploy.html)
    يُفعَّل بـ DEPLOY_MANIFEST=1 فقط — التوكن يبقى في متصفح المالك وحده.
@@ -288,4 +340,4 @@ function serveManifest(req, res, parsedUrl) {
   res.end(JSON.stringify({ ok: true, total: files.length, offset: offset, files: slice }));
 }
 
-module.exports = { initPaymentsTables: initPaymentsTables, setContext: setContext, isPaymentsPath: isPaymentsPath, handlePayments: handlePayments, PAY_PATHS: PAY_PATHS, serveManifest: serveManifest };
+module.exports = { initPaymentsTables: initPaymentsTables, setContext: setContext, isPaymentsPath: isPaymentsPath, handlePayments: handlePayments, PAY_PATHS: PAY_PATHS, serveManifest: serveManifest, listPending: listPending, adminApprove: adminApprove, adminReject: adminReject, adminActOnPlatformTx: adminActOnPlatformTx };

@@ -16,7 +16,8 @@ pf: 'ui.pf',
 fairness: 'ui.fairness',
 '2fa': 'ui.security',
 transactions: 'ui.transactions',
-refund: 'refund.title'
+refund: 'refund.title',
+support: 'bc.title'
 };
 
 function buildSidebar() {
@@ -131,6 +132,7 @@ return bnav +
 '<a href="privacy.html" lang="ar" data-i18n="ui.privacy">الخصوصية</a>' +
 '<a href="terms.html" lang="ar" data-i18n="ui.terms">الشروط</a>' +
 '<a href="refund-policy.html" lang="ar" data-i18n="ui.refund">الاسترداد</a>' +
+'<a href="support.html" data-i18n="ui.support">الدعم</a>' +
 '</div>' +
 '</div>' +
 '</footer>';
@@ -191,10 +193,12 @@ document.body.insertAdjacentHTML('beforeend',
 '<div id="toasts" role="alert" aria-live="assertive"></div>');
 }
 
-/* [WAFab] واتساب الرسمي العائم في كل الصفحات القانونية (ليست صفحات ألعاب) */
-if (!document.getElementById('waFab')) {
-document.body.insertAdjacentHTML('beforeend',
-'<a id="waFab" href="https://wa.me/212706865019" target="_blank" rel="noopener" aria-label="واتساب الرسمي — الدعم 7/24" title="واتساب الرسمي — الدعم 7/24"><i class="fa-brands fa-whatsapp" aria-hidden="true"></i></a>');
+/* [v2.42] مركز المساعدة العائم بدل أيقونة واتساب — نفس الودجت المستعمل في المنصة
+   (شات مع بوت خدمة العملاء + روابط الشحن والمدفوعات) */
+if (!document.getElementById('botFab') && !window.__dtsgBotChat) {
+var _bc = document.createElement('script');
+_bc.src = 'js/ui/bot-chat.js?v=dtsg9'; _bc.defer = true;
+document.head.appendChild(_bc);
 }
 
 var titleKey = PAGE_TITLES[pageKey] || PAGE_TITLES.about;

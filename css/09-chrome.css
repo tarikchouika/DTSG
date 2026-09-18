@@ -812,34 +812,141 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
   word-break: break-all;
 }
 
-/* ═══════════ واتساب الرسمي العائم ═══════════
-   أيقونة دائرية خضراء أسفل يسار الشاشة (RTL) — تظهر في كل الصفحات
-   باستثناء صفحات الألعاب: nav() يوسم <body> بـ pg-game عند دخول
-   أي لعبة فتُخفى الأيقونة تلقائياً بلا JavaScript. */
-#waFab {
+/* ═══════════ مركز المساعدة العائم (ودجت الشات) — [v2.42] ═══════════
+   بديل أيقونة واتساب: زر ذهبي دائري أسفل الشاشة يفتح نافذة شات تربط
+   المستخدم ببوت خدمة العملاء (تذاكر وردود) وبالمحفظة/المدفوعات مباشرة.
+   مخفي في صفحات الألعاب (body.pg-game) ووضع ملء الشاشة — بلا JavaScript. */
+#botFab {
   position: fixed;
   bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   inset-inline-end: 16px;
   z-index: 950;
-  width: 52px;
-  height: 52px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(160deg, #34d75c, #1faa44 70%);
-  border: 2px solid rgba(255,255,255,.35);
-  box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 4px rgba(52,215,92,.18);
-  color: #fff;
-  font-size: 1.65rem;
+  background: var(--gg, linear-gradient(160deg, #ffd479, #e0a52f 70%));
+  border: 2px solid rgba(255, 255, 255, .35);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45), 0 0 0 4px rgba(255, 200, 87, .16);
+  color: #16233d;
+  font-size: 1.5rem;
   line-height: 1;
-  text-decoration: none;
+  cursor: pointer;
+  padding: 0;
   transition: transform .16s ease, box-shadow .16s ease;
 }
-#waFab:hover {
-  transform: translateY(-3px) scale(1.05);
-  box-shadow: 0 10px 24px rgba(0,0,0,.5), 0 0 0 6px rgba(52,215,92,.25);
+#botFab:hover { transform: translateY(-3px) scale(1.05); box-shadow: 0 10px 24px rgba(0, 0, 0, .5), 0 0 0 6px rgba(255, 200, 87, .22); }
+#botFab.pulse { animation: botFabPulse 1.6s ease-in-out infinite; }
+@keyframes botFabPulse { 0%, 100% { box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 4px rgba(255,200,87,.16); } 50% { box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 0 10px rgba(255,200,87,.30); } }
+#botFab .botfab-dot {
+  position: absolute; top: 2px; inset-inline-end: 2px; width: 12px; height: 12px;
+  border-radius: 50%; background: #ff5c68; border: 2px solid #0b1526;
 }
-/* صفحات الألعاب: مخفية دائماً (وسم body.pg-game من nav) + وضع ملء الشاشة */
-body.pg-game #waFab,
-body.app-fs-on #waFab { display: none !important; }
+body.pg-game #botFab,
+body.app-fs-on #botFab { display: none !important; }
+
+/* ── نافذة الشات ── */
+.botchat {
+  position: fixed;
+  bottom: calc(142px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: 16px;
+  z-index: 951;
+  width: min(362px, calc(100vw - 24px));
+  max-height: min(72vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg2, #0f1c31);
+  border: 1px solid var(--ctl-bd, rgba(217, 180, 92, .28));
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .6);
+  overflow: hidden;
+  direction: rtl;
+  color: var(--t1, #eaf2ff);
+  font-size: .92rem;
+}
+.botchat[hidden] { display: none !important; }
+html[dir="ltr"] .botchat { direction: ltr; }
+.bc-head {
+  display: flex; align-items: center; gap: 10px; padding: 12px 12px;
+  background: linear-gradient(160deg, rgba(255, 212, 121, .16), rgba(255, 212, 121, 0));
+  border-bottom: 1px solid var(--ctl-bd, rgba(217, 180, 92, .22));
+}
+.bc-ava { width: 38px; height: 38px; border-radius: 12px; object-fit: cover; border: 1px solid var(--ctl-bd, rgba(217,180,92,.35)); }
+.bc-ht { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.35; }
+.bc-ht b { font-size: .95rem; }
+.bc-ht span { color: var(--t3, #9db0d0); font-size: .74rem; }
+.bc-ic {
+  width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+  background: rgba(255, 255, 255, .06); border: 1px solid var(--ctl-bd, rgba(217,180,92,.22));
+  color: var(--t1, #eaf2ff); cursor: pointer; text-decoration: none; font-size: .95rem; padding: 0;
+}
+.bc-ic:hover { background: rgba(255, 255, 255, .12); }
+.bc-tabs { display: flex; gap: 6px; padding: 8px 10px 0; }
+.bc-tab {
+  flex: 1; padding: 8px 6px; border-radius: 11px 11px 0 0; cursor: pointer; font-size: .8rem; font-weight: 700;
+  background: rgba(255, 255, 255, .04); border: 1px solid transparent; border-bottom: none; color: var(--t2, #cfd9ee);
+}
+.bc-tab.active { background: rgba(255, 212, 121, .14); border-color: var(--ctl-bd, rgba(217,180,92,.28)); color: var(--gold, #ffc857); }
+.bc-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; overflow: hidden; flex: 1; min-height: 0; }
+.bc-body[hidden] { display: none !important; }
+.bc-msgs {
+  flex: 1; min-height: 120px; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 7px;
+  padding: 4px 2px;
+}
+.bc-b {
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--ctl-bd, rgba(217,180,92,.16));
+  border-radius: 12px; padding: 8px 10px; font-size: .84rem; line-height: 1.6;
+  white-space: pre-wrap; word-break: break-word; max-width: 92%;
+}
+.bc-b.me { align-self: flex-end; background: rgba(255, 212, 121, .13); border-color: rgba(255, 212, 121, .3); }
+.bc-b.sup { align-self: flex-start; background: rgba(47, 212, 122, .1); border-color: rgba(47, 212, 122, .28); }
+.bc-b.sys { align-self: stretch; max-width: 100%; }
+.bc-b.err { align-self: stretch; max-width: 100%; background: rgba(255, 92, 104, .12); border-color: rgba(255, 92, 104, .32); }
+.bc-b b { color: var(--gold, #ffc857); }
+.bc-b .t { color: var(--t3, #9db0d0); font-size: .68rem; }
+.bc-empty, .bc-hello { text-align: center; color: var(--t2, #cfd9ee); display: flex; flex-direction: column; gap: 8px; padding: 16px 8px; }
+.bc-empty i { font-size: 1.7rem; color: var(--gold, #ffc857); }
+.bc-empty span, .bc-hello span { font-size: .8rem; color: var(--t3, #9db0d0); }
+.bc-hello { text-align: start; }
+.bc-th { font-size: .74rem; color: var(--gold, #ffc857); border-bottom: 1px dashed var(--ctl-bd, rgba(217,180,92,.28)); padding-bottom: 6px; }
+.bc-cat { color: var(--t3, #9db0d0); }
+.bc-quick { display: flex; gap: 6px; flex-wrap: wrap; }
+.bc-chip {
+  background: rgba(255, 255, 255, .05); border: 1px solid var(--ctl-bd, rgba(217,180,92,.24));
+  color: var(--t2, #cfd9ee); border-radius: 999px; padding: 5px 10px; font-size: .74rem; cursor: pointer;
+}
+.bc-chip:hover { color: var(--gold, #ffc857); border-color: var(--gold, #ffc857); }
+.bc-in { display: flex; gap: 6px; }
+.bc-in input {
+  flex: 1; min-width: 0; background: rgba(0, 0, 0, .25); border: 1px solid var(--ctl-bd, rgba(217,180,92,.24));
+  border-radius: 11px; color: var(--t1, #eaf2ff); padding: 10px; font-family: inherit; font-size: .85rem;
+}
+.bc-in button {
+  width: 44px; border-radius: 11px; border: 0; cursor: pointer; color: #16233d; font-size: 1rem;
+  background: var(--gg, linear-gradient(160deg, #ffd479, #e0a52f));
+}
+.bc-pane-pay { overflow-y: auto; }
+.bc-card {
+  display: flex; align-items: center; gap: 10px; padding: 10px; text-decoration: none; cursor: pointer;
+  background: rgba(255, 255, 255, .04); border: 1px solid var(--ctl-bd, rgba(217,180,92,.2)); border-radius: 13px;
+  color: var(--t1, #eaf2ff);
+}
+.bc-card:hover { border-color: var(--gold, #ffc857); }
+.bc-card b { display: block; font-size: .86rem; }
+.bc-card small { color: var(--t3, #9db0d0); font-size: .74rem; }
+.bc-cic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(74, 168, 255, .16); color: #4aa8ff; font-size: 1.05rem; }
+.bc-cic.gold { background: rgba(255, 200, 87, .16); color: var(--gold, #ffc857); }
+.bc-go { margin-inline-start: auto; color: var(--t3, #9db0d0); }
+.bc-note { color: var(--t3, #9db0d0); font-size: .72rem; line-height: 1.7; margin: 2px 2px 4px; }
+.bc-cta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+.bc-btn {
+  display: inline-flex; align-items: center; gap: 6px; justify-content: center;
+  background: var(--gg, linear-gradient(160deg, #ffd479, #e0a52f)); color: #16233d; font-weight: 700;
+  border: 0; border-radius: 11px; padding: 9px 14px; cursor: pointer; text-decoration: none; font-size: .84rem;
+}
+.bc-cta code { background: rgba(0, 0, 0, .3); border-radius: 8px; padding: 5px 8px; font-size: .78rem; color: var(--gold, #ffc857); }
+@media (max-width: 420px) {
+  .botchat { inset-inline: 10px; width: auto; bottom: calc(134px + env(safe-area-inset-bottom, 0px)); max-height: 68vh; }
+}

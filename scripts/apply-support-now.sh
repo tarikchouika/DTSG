@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-#  DTSG — تطبيق طبقة بوت الدعم فوراً (v2.41)  ·  يُشغَّل على الهاتف
+#  DTSG — تطبيق طبقة بوت الدعم + ودجت المساعدة فوراً (v2.42)  ·  يُشغَّل على الهاتف
 #
 #  لماذا؟ لو تعذّر `git fetch` (شبكة/توثيق/تعديلات محلية) ننزّل الملفات
 #  المطلوبة مباشرة من GitHub (المستودع عام) ونستبدلها بعد نسخة احتياطية.
@@ -35,17 +35,24 @@ cd "$APP_DIR" || die "لا يمكن الدخول إلى $APP_DIR"
 echo "   المجلد: $APP_DIR"
 
 say "1) نسخة احتياطية"
-mkdir -p "$BK" && cp -a server.js server-support.js support.html package.json "$BK/" 2>/dev/null
+mkdir -p "$BK"/{js/ui,js/i18n,js/core,css}
+cp -a server.js server-support.js support.html package.json "$BK/" 2>/dev/null
+cp -a js/ui/bot-chat.js js/ui/legal-ui.js js/i18n/translations.js js/main.js js/core/api.js js/core/auth.js "$BK"/js/ 2>/dev/null
+cp -a css/09-chrome.css "$BK"/css/ 2>/dev/null
 [ -f data/royalcoin.db ] && cp -a data/royalcoin.db "$BK/royalcoin.db" 2>/dev/null
 ok "احتياط: $BK"
 
-say "2) تنزيل ملفات v2.41 من GitHub"
-FILES=(server-support.js server.js support.html package.json CHANGELOG.md)
+say "2) تنزيل ملفات v2.42 من GitHub"
+FILES=(server-support.js server.js support.html js/ui/bot-chat.js js/ui/legal-ui.js \
+       js/i18n/translations.js js/main.js js/core/api.js js/core/auth.js css/09-chrome.css \
+       index.html package.json CHANGELOG.md)
 for f in "${FILES[@]}"; do
-  printf '   %-24s ' "$f"
-  if curl -fsS -m 40 "$RAW/$f" -o "/tmp/.dtsg-$f.tmp"; then
-    sz="$(wc -c < "/tmp/.dtsg-$f.tmp")"
-    if [ "$sz" -gt 100 ]; then mv "/tmp/.dtsg-$f.tmp" "./$f"; ok "$sz بايت"; else bad "ملف صغير غير متوقع ($sz)"; fi
+  printf '   %-28s ' "$f"
+  TMPF="/tmp/.dtsg-dl-$(printf '%s' "$f" | tr '/' '_').tmp"
+  mkdir -p "$(dirname "./$f")"
+  if curl -fsS -m 40 "$RAW/$f" -o "$TMPF"; then
+    sz="$(wc -c < "$TMPF")"
+    if [ "$sz" -gt 100 ]; then mv "$TMPF" "./$f"; ok "$sz بايت"; else bad "ملف صغير غير متوقع ($sz)"; fi
   else
     bad "فشل التنزيل (تحقّق من الإنترنت)"
   fi

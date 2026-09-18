@@ -576,7 +576,10 @@ if (typeof document !== 'undefined') {
   window.addEventListener('beforeunload', function () {
     if (AUTH.user) {
       try {
-        fetch((window.API_BASE_URL || (/(^|\.)dmgames\.pages\.dev$|(^|\.)dtsg\.pages\.dev$/.test(location.hostname) ? 'https://casino-api.dmgames-api.workers.dev' : 'https://casino-api.tarikc.workers.dev')) + '/api/sync', {
+        /* [v2.42-Bugfix] API_BASE_URL نص فقط (كان قد يكون Promise ⇒ [object Promise]/api/sync) */
+        fetch(((typeof window.API_BASE_URL === 'string' && window.API_BASE_URL) ||
+          (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname) ? location.origin :
+            (/(^|\.)dmgames\.pages\.dev$|(^|\.)dtsg\.pages\.dev$/.test(location.hostname) ? 'https://casino-api.dmgames-api.workers.dev' : 'https://casino-api.tarikc.workers.dev'))) + '/api/sync', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },

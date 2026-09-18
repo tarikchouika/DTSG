@@ -21,7 +21,15 @@ var API_BASE_PROMISE = (typeof window !== 'undefined' && typeof window.API_BASE_
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (cfg) { return (cfg && cfg.url) || API_BASE_FALLBACK; })
         .catch(function () { return API_BASE_FALLBACK; }));
-if (typeof window !== 'undefined' && !window.API_BASE_URL) window.API_BASE_URL = API_BASE_PROMISE;
+/* [v2.42-Bugfix] كان يضع الوعد (Promise) في window.API_BASE_URL — وهو اسم يعني نصاً،
+   فمن يقرؤه (مثل auth.js في beforeunload) ينشئ رابطاً مثل "[object Promise]/api/sync" ⇒ 404.
+   الآن: نضع الوعد في متغيّر داخلي، وAPI_BASE_URL يبقى نصاً فقط (يُحدَّث عند الحل). */
+if (typeof window !== 'undefined') {
+  window.__API_BASE_PROMISE = API_BASE_PROMISE;
+  if (typeof window.API_BASE_URL !== 'string') {
+    API_BASE_PROMISE.then(function (b) { try { if (typeof b === 'string') window.API_BASE_URL = b; } catch (e) { } });
+  }
+}
 
 /* يكتشف ردّ غير JSON (HTML خطأ من نفق ميت مثلاً) لتفعيل التراجع */
 function _looksBroken(res) {
