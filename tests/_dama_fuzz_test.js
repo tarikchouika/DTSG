@@ -43,7 +43,7 @@ let games = 0, capturesTotal = 0, soufflesTotal = 0, chains = 0;
 for (let g = 0; g < 400; g++) {
   const s = damaNewState();
   let guard = 0, bad = false;
-  let turnObId = null, turnObDone = false, turnObNeed = 0, turnCaps = 0;   /* [v2.27+] تتبّع التزام الدور الجاري (قاعدة النفخ) */
+  let turnObId = null, turnObDone = false, turnObNeed = 0, turnCaps = 0, turnMax = 0;   /* تتبّع التزام الدور (قاعدة النفخ) */
   while (!s.over && guard++ < 400) {
     const moves = eng.legalMoves(s, s.turn);
     if (!moves.length) { s.over = true; s.outcome = eng.opponent(s.turn); break; }
@@ -58,15 +58,17 @@ for (let g = 0; g < 400; g++) {
       turnObId = ob ? s.grid[ob[0]][ob[1]].id : null;
       turnObDone = false;
       turnObNeed = ob ? eng.maxChainAt(s.grid, ob[0], ob[1]) : 0;
+      /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله */
+      turnMax = eng.maxChainOverall ? eng.maxChainOverall(s) : turnObNeed;
       turnCaps = 0;
     }
     const info = eng.applyMove(s, mv);
     if (mv.cap && pc.id === turnObId) turnObDone = true;   /* الأكل بالمُلزَم نفسه يبرّئ الالتزام */
     turnCaps += info.captured.length;
     if (!s.cont) {
-      /* [2026-09-16] النفخ حتمي عند: تجاهل الالتزام، أو إتمام سلسلة أقصر من المطلوبة */
-      const incomplete = turnObDone && turnObNeed > 0 && turnCaps < turnObNeed;
-      const mustSouffle = turnObId != null && (!turnObDone || incomplete);
+      /* [v2.43] النفخ حتمي فقط عند تقصير الأكل عن أطول سلسلة متاحة في الدور
+         (إتمامها بأي قطعة يُبرّئ الالتزام — كان مربوطاً بقطعة واحدة فيُعاقَب لاعب صحيح) */
+      const mustSouffle = turnObId != null && turnCaps < Math.max(turnMax, 0);
       if (mustSouffle !== (info.souffled !== null)) { bad = true; break; }
     }
     capturesTotal += info.captured.length;

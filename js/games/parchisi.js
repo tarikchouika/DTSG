@@ -37,54 +37,81 @@ const PR_COLORS = {
   track: { normal: '#FFFFFF', normalBorder: '#C9CED6', safe: '#C2C9D1', safeBorder: '#939DA9' }
 };
 
-/* ── هندسة اللوحة (وفق اللوحة المرجعية): خانات مستطيلة ──
-   خلية عمودية 64×27.5 وأفقية 27.5×64؛ الذراع 3 أعمدة (192) × 8 صفوف (220)؛ المركز 140×140
+/* ── هندسة اللوحة [v2.43]: قواعد الزوايا الملوّنة مُصغَّرة والخانات المستطيلة
+   مُكبَّرة إلى أقصى حد هندسي ممكن، واللوحة 600×600 بلا أي هامش (حافتها = حدّ الشاشة).
+   القاعدة 160×160 (كانت 194) • الذراع 3 أعمدة × 280 عرضاً و8 صفوف × 240 طولاً
+   ⇒ الخانة المستطيلة 93.33×30 (كانت 64×27.5) = +46% عرضاً. المركز 120×120.
    المسار 68 خانة عكس عقارب الساعة؛ الساليدات 5/22/39/56 والآمنات 12/17/29/34/46/51/63/68 */
-const PR_CW = 64, PR_CH = 27.5;
+const PR_BOARD = 600;
+const PR_B = 160;                                   /* ضلع مربع القاعدة الملوّن */
+const PR_ARM = (PR_BOARD - 2 * PR_B) / 3;           /* عرض الخانة الطويلة */
+const PR_PITCH = ((PR_BOARD - 120) / 2) / 8;        /* طول الخانة القصيرة (30) */
+const PR_ARM_LEN = PR_PITCH * 8;                    /* طول الذراع (240) */
+const PR_BASE_INSET = 4;                            /* مربع القاعدة من حدّ اللوحة */
+const PR_BASE_SIZE = PR_B - PR_BASE_INSET;          /* 156 داخل الإطار */
+const PR_MID0 = PR_B + PR_ARM;                      /* بداية عمود الممر */
+const PR_MID1 = PR_MID0 + PR_ARM;
+const PR_CTR = 120;                                 /* ضلع المركز */
+const PR_CTR0 = (PR_BOARD - PR_CTR) / 2;            /* 240 */
+const PR_CTR1 = PR_BOARD - PR_CTR0;                 /* 360 */
+const PR_CW = PR_ARM, PR_CH = PR_PITCH;             /* أسماء تاريخية: الطويل/القصير */
 const PR_OFF = [4, 21, 38, 55];                     /* ساليدة كل مقعد (خانات 5/22/39/56) */
 const PR_STARS = [11, 28, 45, 62];                  /* نجوم آمنة (خانات 12/29/46/63) */
-const PR_HEADS = [67, 16, 33, 50];                  /* رؤوس الأذرع (خانات 68/17/34/51) = مداخل الممرات */
+const PR_HEADS = [67, 16, 33, 50];                  /* رؤوس الأذرع = مداخل الممرات */
 const PR_SAFE = PR_OFF.concat(PR_STARS, PR_HEADS);  /* الساليدات + النجوم + الرؤوس = آمن */
 const PR_TRACK = [];                                 /* 68 خانة مستطيلة (عكس عقارب الساعة) */
 (function () {
-  const V = (x, y) => ({ x: x, y: y, w: PR_CW, h: PR_CH });
-  const H = (x, y) => ({ x: x, y: y, w: PR_CH, h: PR_CW });
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(204, 10 + PR_CH * i));       /* 0-7   أعلى·يسار نزولاً */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(202.5 - PR_CH * i, 204));    /* 8-15  يسار·أعلى للخارج */
-  PR_TRACK.push(H(10, 268));                                               /* 16    رأس اليسرى */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(10 + PR_CH * i, 332));       /* 17-24 يسار·أسفل للداخل */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(204, 370 + PR_CH * i));      /* 25-32 أسفل·يسار نزولاً */
-  PR_TRACK.push(V(268, 562.5));                                            /* 33    رأس السفلية */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(332, 562.5 - PR_CH * i));    /* 34-41 أسفل·يمين صعوداً */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(370 + PR_CH * i, 332));      /* 42-49 يمين·أسفل للخارج */
-  PR_TRACK.push(H(562.5, 268));                                            /* 50    رأس اليمنى */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(562.5 - PR_CH * i, 204));    /* 51-58 يمين·أعلى للداخل */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(332, 202.5 - PR_CH * i));    /* 59-66 أعلى·يمين صعوداً */
-  PR_TRACK.push(V(268, 10));                                               /* 67    رأس العلوية */
+  const L = PR_ARM, P = PR_PITCH, A = PR_ARM_LEN, F = PR_BOARD - PR_ARM_LEN;
+  const V = (x, y) => ({ x: x, y: y, w: L, h: P });
+  const H = (x, y) => ({ x: x, y: y, w: P, h: L });
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_B, P * i));                 /* 0-7   أعلى·يسار نزولاً */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(A - P * (i + 1), PR_B));       /* 8-15  يسار·أعلى للخارج */
+  PR_TRACK.push(H(0, PR_B + L));                                            /* 16    رأس اليسرى */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(P * i, PR_B + 2 * L));         /* 17-24 يسار·أسفل للداخل */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_B, F + P * i));             /* 25-32 أسفل·يسار نزولاً */
+  PR_TRACK.push(V(PR_MID0, F + A - P));                                      /* 33    رأس السفلية */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_MID1, F + A - P * (i + 1))); /* 34-41 أسفل·يمين صعوداً */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(F + P * i, PR_B + 2 * L));     /* 42-49 يمين·أسفل للخارج */
+  PR_TRACK.push(H(F + A - P, PR_B + L));                                     /* 50    رأس اليمنى */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(F + A - P * (i + 1), PR_B));   /* 51-58 يمين·أعلى للداخل */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_MID1, A - P * (i + 1)));    /* 59-66 أعلى·يمين صعوداً */
+  PR_TRACK.push(V(PR_MID0, 0));                                             /* 67    رأس العلوية */
 })();
 /* ممرات الوصول: 7 خانات لكل مقعد من بعد رأس ذراعه نحو المركز (ثم الميتا بالمثلث) */
 const PR_CORRIDOR = [
-  Array.from({ length: 7 }, (_, i) => ({ x: 268, y: 37.5 + PR_CH * i, w: PR_CW, h: PR_CH })), /* 0 أحمر: العلوية نزولاً */
-  Array.from({ length: 7 }, (_, i) => ({ x: 37.5 + PR_CH * i, y: 268, w: PR_CH, h: PR_CW })), /* 1 أخضر: اليسرى يميناً */
-  Array.from({ length: 7 }, (_, i) => ({ x: 268, y: 535 - PR_CH * i, w: PR_CW, h: PR_CH })),  /* 2 أصفر: السفلية صعوداً */
-  Array.from({ length: 7 }, (_, i) => ({ x: 535 - PR_CH * i, y: 268, w: PR_CH, h: PR_CW }))   /* 3 أزرق: اليمنى يساراً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_MID0, y: PR_PITCH * (i + 1), w: PR_ARM, h: PR_PITCH })),          /* 0 أحمر: العلوية نزولاً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_PITCH * (i + 1), y: PR_MID0, w: PR_PITCH, h: PR_ARM })),          /* 1 أخضر: اليسرى يميناً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_MID0, y: PR_BOARD - PR_ARM_LEN + PR_PITCH * (6 - i), w: PR_ARM, h: PR_PITCH })), /* 2 أصفر: السفلية صعوداً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_BOARD - PR_ARM_LEN + PR_PITCH * (6 - i), y: PR_MID0, w: PR_PITCH, h: PR_ARM }))  /* 3 أزرق: اليمنى يساراً */
 ];
 /* أعشاش الانتظار: ربع دوائر بزوايا اللوحة + فتحات القطع الأربع */
 const PR_NEST = [
-  { cx: 204, cy: 204, a0: Math.PI, a1: Math.PI * 1.5, nx: 117, ny: 117 },       /* 0 أحمر: أعلى اليسار */
-  { cx: 204, cy: 396, a0: Math.PI * 0.5, a1: Math.PI, nx: 117, ny: 483 },       /* 1 أخضر: أسفل اليسار */
-  { cx: 396, cy: 396, a0: 0, a1: Math.PI * 0.5, nx: 483, ny: 483 },             /* 2 أصفر: أسفل اليمين */
-  { cx: 396, cy: 204, a0: Math.PI * 1.5, a1: Math.PI * 2, nx: 483, ny: 117 }    /* 3 أزرق: أعلى اليمين */
+  { cx: PR_B, cy: PR_B, nx: PR_BASE_INSET + PR_BASE_SIZE * 0.464, ny: PR_BASE_INSET + PR_BASE_SIZE * 0.464 },                                  /* 0 أحمر: أعلى اليسار */
+  { cx: PR_B, cy: PR_BOARD - PR_B, nx: PR_BASE_INSET + PR_BASE_SIZE * 0.464, ny: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464 },            /* 1 أخضر: أسفل اليسار */
+  { cx: PR_BOARD - PR_B, cy: PR_BOARD - PR_B, nx: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464, ny: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464 }, /* 2 أصفر: أسفل اليمين */
+  { cx: PR_BOARD - PR_B, cy: PR_B, nx: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464, ny: PR_BASE_INSET + PR_BASE_SIZE * 0.464 }             /* 3 أزرق: أعلى اليمين */
 ];
-const PR_NEST_R = 192;
-const PR_BASE = [
-  [[84, 84], [150, 84], [84, 150], [150, 150]],
-  [[84, 446], [150, 446], [84, 522], [150, 522]],
-  [[446, 446], [522, 446], [446, 522], [522, 522]],
-  [[446, 84], [522, 84], [446, 150], [522, 150]]
-];
+const PR_NEST_R = PR_BASE_SIZE * 0.98;
+/* فتحات القطع الأربع داخل كل قاعدة (شبكة 2×2 داخل المربع) */
+const PR_BASE = (function () {
+  const i = PR_BASE_INSET, z = PR_BASE_SIZE, a = i + z * 0.3815, b = i + z * 0.7215;
+  const sq = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x0, y1], [x1, y1]];
+  return [
+    sq(a, a, b, b),                                     /* 0 أحمر: أعلى اليسار */
+    sq(a, PR_BOARD - b, b, PR_BOARD - a),               /* 1 أخضر: أسفل اليسار */
+    sq(PR_BOARD - b, PR_BOARD - b, PR_BOARD - a, PR_BOARD - a), /* 2 أصفر: أسفل اليمين */
+    sq(PR_BOARD - b, a, PR_BOARD - a, b)                /* 3 أزرق: أعلى اليمين */
+  ];
+})();
 /* قصّات الزوايا الداخلية حيث تلتقي الأذرع */
-const PR_CHAMFER = [[204, 204, 230, 230], [396, 204, 370, 230], [204, 396, 230, 370], [396, 396, 370, 370]];
+const PR_CHAMFER = [
+  [PR_B, PR_B, PR_CTR0, PR_CTR0],
+  [PR_BOARD - PR_B, PR_B, PR_CTR1, PR_CTR0],
+  [PR_B, PR_BOARD - PR_B, PR_CTR0, PR_CTR1],
+  [PR_BOARD - PR_B, PR_BOARD - PR_B, PR_CTR1, PR_CTR1]
+];
+/* [v2.43] تكبير البيادق +15% (10.5×1.15 = 12.075 · 10×1.15 · 7×1.15 · 12×1.15) */
+const PR_PIECE_R = 12.1, PR_PIECE_R_HOME = 13.8, PR_PIECE_R3 = 11.5, PR_PIECE_R4 = 8.1;
 
 /* ═══════════ المحرك ═══════════ */
 class ParchisiEngine {
@@ -875,23 +902,22 @@ const ParchisiApp = {
          الهامش العمودي، فطرحه يُبقي حواف اللوحة داخل المحتوى ويُخصّص الهامش
          للنرد الدائم خارج اللوحة (يمنع الفيضان فوق الترويسة/صف النرد في
          الشاشة الممتلئة القصيرة/الأفقية) */
-      const cs = getComputedStyle(area);
-      const pt = parseFloat(cs.paddingTop) || 0;
-      const pb = parseFloat(cs.paddingBottom) || 0;
-      const pl = parseFloat(cs.paddingLeft) || 0;
-      const pr = parseFloat(cs.paddingRight) || 0;
-      const w = area.clientWidth - pl - pr - 4;
-      const h = area.clientHeight - pt - pb - 4;
+      /* [v2.43] لا حشو في المنطقة ولا إطار ذهبي: اللوحة تأخذ أصغر بُعد كاملاً
+         ⇒ landscape: الضلعان الأعلى والأسفل = حدود الشاشة · portrait: الأيمن والأيسر */
+      const w = area.clientWidth;
+      const h = area.clientHeight;
       /* إذا كانت المنطقة بلا ارتفاع فعلي (شاشة ممتلئة/عمودية لم تُعطَ
          ارتفاعاً كاملاً) نعتمد نسبة عرضية بدل الانهيار إلى 150px */
       const effH = (h > 40) ? h : w * 1.3;
+      this.syncBoardOrientation();
       /* [Landscape] الأرضية 280px كانت تُجبر اللوحة على الارتفاع الكامل في
          الشاشات الأفقية القصيرة (الهواتف المُدارة) رغم حجز هوامش النرد
          الدائم أعلى/أسفل اللوحة — فتتجاوز المساحة وتُقصّ. نخفضها إلى 160px
          كي تتأقلم اللوحة مع الارتفاع المتاح بلا فيضان (لا أثر لها في
          البورتريه/سطح المكتب حيث تتجاوز القيمة الفعلية الأرضية دوماً) */
-      const size = Math.max(160, Math.min(w, effH, 640));
+      const size = Math.max(160, Math.min(w, effH));
       wrap.style.width = size + 'px';
+      wrap.style.height = size + 'px';
     };
     apply();
     if (this._boardRO) this._boardRO.disconnect();
@@ -902,6 +928,14 @@ const ParchisiApp = {
   },
 
   init() {
+    /* [v2.43] إعادة ضبط مواضع الأشرطة عند أي تغيّر مقاس/اتجاه */
+    if (!window.__prOrientBound) {
+      window.__prOrientBound = true;
+      const re = () => { try { ParchisiApp.syncBoardOrientation(); ParchisiApp.setupBoardFit(); } catch (e) {} };
+      window.addEventListener('resize', re);
+      window.addEventListener('orientationchange', () => setTimeout(re, 220));
+      if (typeof document !== 'undefined' && document.addEventListener) document.addEventListener('fullscreenchange', () => setTimeout(re, 200));
+    }
     this.canvas = document.getElementById('parchisiCanvas');
     if (!this.canvas) return;
     this.ctx = this.canvas.getContext('2d');
@@ -1353,30 +1387,117 @@ const ParchisiApp = {
     const pot = this.roomMode ? 0 : (this.bet * e.players.length);
     if (potEl) potEl.textContent = fmt(pot);
     if (potWrap) potWrap.style.display = pot > 0 ? '' : 'none';
-    /* حسب المقعد: أحمر أعلى·يسار / أخضر أسفل·يسار / أصفر أسفل·يمين / أزرق أعلى·يمين */
-    const seatPos = [
-      { x: '6.5%', y: '6.5%', side: 'right' },
-      { x: '6.5%', y: '93.5%', side: 'right' },
-      { x: '93.5%', y: '93.5%', side: 'left' },
-      { x: '93.5%', y: '6.5%', side: 'left' }
-    ];
-    /* [Rotate] إزاحة مواقع الأيقونات مع تدوير اللوحة */
+    /* [v2.43] أيقونات اللاعبين خارج اللوحة تماماً:
+       landscape ⇒ أشرطة يمين/يسار الشاشة • portrait ⇒ أشرطة أعلى/أسفل الشاشة.
+       الموضع يُحسب من الزاوية البصرية للمقعد (مع مراعاة تدوير اللوحة) والتفاصيل في CSS. */
     const rot = e.boardRotation || 0;
+    const corners = ['tl', 'bl', 'br', 'tr'];
     let html = '';
     for (let i = 0; i < e.players.length; i++) {
       const seat = e.seats[i];
-      const pos = seatPos[(seat + rot) % 4] || seatPos[0];
+      const corner = corners[(seat + rot) % 4] || 'tl';
       const col = PR_COLORS.main[seat];
       const on = (i === e.current && !e.gameOver && this.gameActive) ? ' on' : '';
       const ini = String(this.iconInitials(i)).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      html += '<div class="pr-picon' + on + '" data-side="' + pos.side + '" style="--pc:' + col + ';left:' + pos.x + ';top:' + pos.y + '">'
+      html += '<div class="pr-picon' + on + '" data-corner="' + corner + '" data-seat="' + seat + '" style="--pc:' + col + '">'
            + '<span class="pr-pc">' + ini + '</span>'
            + '<span class="pr-ptimer" data-ti="' + i + '"></span>'
            + '<button class="pr-hist-btn" type="button" data-hi="' + i + '" title="' + T('parchisi.rollLogBtn') + '" aria-label="' + T('parchisi.rollLogBtn') + ' ' + String(i + 1) + '" onclick="ParchisiApp.toggleRollLog(' + i + ')">🎲</button>'
            + '</div>';
     }
     wrap.innerHTML = html;
+    this.syncBoardOrientation();
     this.renderIconTimers();
+  },
+
+  /* ── [v2.43] اتجاه منطقة اللوحة: عرضي (land) أو طولي (port) — يحدّد أشرطة
+     أيقونات اللاعبين ونردهم (يمين/يسار في العرضي · أعلى/أسفل في الطولي) ── */
+  syncBoardOrientation() {
+    const area = document.getElementById('parchisiBoardArea');
+    if (!area) return 'port';
+    /* [v2.43] مؤقّت خفيف يضمن أن مواضع الأشرطة مطابقة للتخطيط النهائي حتى بعد
+       أي إعادة تخطيط متأخرة (دوّامة رَسْم/AI/دوران الشاشة) */
+    if (!this._prOrientIv && this.gameActive) {
+      this._prOrientIv = setInterval(() => {
+        if (!this.gameActive) { clearInterval(this._prOrientIv); this._prOrientIv = null; return; }
+        const an = document.getElementById('parchisiBoardArea');
+        if (!an) return;
+        const cur = Math.min(an.clientWidth || 0, an.clientHeight || 0);
+        if (cur > 40 && Math.abs(cur - (this._prLastSize || 0)) > 1) { this._prLastSize = cur; this.setupBoardFit(); }
+        this._prPlaceAll(an);
+      }, 700);
+    }
+    const w = area.clientWidth || 0, h = area.clientHeight || 0;
+    if (w < 40 || h < 40) {
+      /* المنطقة لم تُقس بعد (إعادة رسم/انتقال) ⇒ أعِد المحاولة في الإطار التالي */
+      if (!this._prOrientT) {
+        this._prOrientT = requestAnimationFrame(() => {
+          this._prOrientT = null;
+          this.syncBoardOrientation();
+        });
+      }
+      return 'port';
+    }
+    const land = w > h * 1.02;
+    area.classList.toggle('land', land);
+    area.classList.toggle('port', !land);
+    const bs = Math.min(w, h);
+    /* حجم العناصر يتناسب مع اللوحة (أيقونة/نرد مقروءان بلا مزاحمة اللوحة) */
+    const icon = Math.max(34, Math.min(Math.round(bs * 0.115), 62));
+    const die = Math.max(30, Math.min(Math.round(bs * 0.098), 56));
+    area.style.setProperty('--pr-icon', icon + 'px');
+    area.style.setProperty('--pr-die', die + 'px');
+    /* المواضع: landscape ⇒ أشرطة يمين/يسار · portrait ⇒ أشرطة أعلى/أسفل */
+    const pos = {};
+    if (land) {
+      const slack = Math.max(0, (w - bs) / 2);
+      const lx = Math.round(slack * 0.5), rx = Math.round(w - slack * 0.5);
+      const ty = Math.round(h * 0.27), by = Math.round(h * 0.73);
+      pos.tl = [lx, ty]; pos.bl = [lx, by]; pos.tr = [rx, ty]; pos.br = [rx, by];
+    } else {
+      const slack = Math.max(0, (h - bs) / 2);
+      const ty = Math.round(slack * 0.42), by = Math.round(h - slack * 0.42);
+      const lx = Math.round(w * 0.26), rx = Math.round(w * 0.74);
+      pos.tl = [lx, ty]; pos.tr = [rx, ty]; pos.bl = [lx, by]; pos.br = [rx, by];
+    }
+    this._prPlaceAll(area);
+    return land ? 'land' : 'port';
+  },
+
+  /* وضع أيقونات اللاعبين ونردهم على أشرطة خارج اللوحة */
+  _prPlaceAll(area) {
+    area = area || document.getElementById('parchisiBoardArea');
+    if (!area) return;
+    const w = area.clientWidth || 0, h = area.clientHeight || 0;
+    if (w < 40 || h < 40) return;
+    const bs = Math.min(w, h);
+    const land = w > h * 1.02;
+    area.classList.toggle('land', land);
+    area.classList.toggle('port', !land);
+    const icon = Math.max(34, Math.min(Math.round(bs * 0.115), 62));
+    const die = Math.max(30, Math.min(Math.round(bs * 0.098), 56));
+    area.style.setProperty('--pr-icon', icon + 'px');
+    area.style.setProperty('--pr-die', die + 'px');
+    const pos = {};
+    if (land) {
+      const slack = Math.max(0, (w - bs) / 2);
+      const lx = Math.round(slack * 0.5), rx = Math.round(w - slack * 0.5);
+      const ty = Math.round(h * 0.27), by = Math.round(h * 0.73);
+      pos.tl = [lx, ty]; pos.bl = [lx, by]; pos.tr = [rx, ty]; pos.br = [rx, by];
+    } else {
+      const slack = Math.max(0, (h - bs) / 2);
+      const ty = Math.round(slack * 0.42), by = Math.round(h - slack * 0.42);
+      const lx = Math.round(w * 0.26), rx = Math.round(w * 0.74);
+      pos.tl = [lx, ty]; pos.tr = [rx, ty]; pos.bl = [lx, by]; pos.br = [rx, by];
+    }
+    ['.pr-picon', '.pr-cd'].forEach((sel) => {
+      area.querySelectorAll(sel).forEach((el) => {
+        const p = pos[el.getAttribute('data-corner')];
+        if (!p) return;
+        el.style.left = p[0] + 'px';
+        el.style.top = p[1] + 'px';
+      });
+    });
   },
 
   /* ── سجل الرميات المنسدل: آخر خمس رميات لكل لاعب (أعلى اليسار) ── */
@@ -1529,6 +1650,7 @@ const ParchisiApp = {
     this.renderIcons();
     this.renderCornerDice();
     this.renderDice();
+    this.syncBoardOrientation();   /* [v2.43] ضبط نهائي لمواضع الأشرطة بعد أي إعادة رسم */
     this.draw();   /* حلقرة الرسم — تستعمل seats الجديد في رسم القواعد والقطع */
     if (this.engine.onStateChange) this.engine.onStateChange();
   },
@@ -1541,7 +1663,8 @@ const ParchisiApp = {
     const e = this.engine;
     const corners = ['tl', 'bl', 'br', 'tr'];
     /* [Rotate] زاوية كل لاعب تتحول مع تدوير اللوحة: مقعد + تدوير = زاوية.
-       ركن مقعد i بعد r تدويرات عكس عقارب الساعة = corners[(i + r) % 4]. */
+       ركن مقعد i بعد r تدويرات عكس عقارب الساعة = corners[(i + r) % 4].
+       [v2.43] النرد يأخذ نفس زاوية أيقونة صاحبه ⇒ الأيقونة فوقه في الشريط الخارجي. */
     const rot = e.boardRotation || 0;
     let html = '';
     for (let i = 0; i < e.players.length; i++) {
@@ -1558,6 +1681,7 @@ const ParchisiApp = {
       html += '</div>';
     }
     wrap.innerHTML = html;
+    this.syncBoardOrientation();   /* [v2.43] مواضع النرد الجديدة (خارج اللوحة) */
   },
 
   _dieFaceHTML(v) {
@@ -2198,21 +2322,21 @@ const ParchisiApp = {
         let x = g.pos.x, y = g.pos.y;
         if (n === 2) {
           /* [B9] الحجم ثابت دائماً: نفس نصف قطر البيدق المنفرد (10.5) والمركزان
-             متباعدان 22 > القطر 21 — بيدقان كاملان بلا أي تغطية */
-          const off = 11;
+             متباعدان 25.2 > القطر 24.2 — بيدقان كاملان بلا أي تغطية */
+          const off = 12.6;
           if (vertical) y += (i === 0 ? -off : off);
           else x += (i === 0 ? -off : off);
-          map.set(g.list[i], { x: x, y: y, r: 10.5 });
+          map.set(g.list[i], { x: x, y: y, r: PR_PIECE_R });
         } else if (n >= 3) {
           /* [B9] التصغير مسموح فقط عند تجاوز اثنين (خانات الممر السبع الأخيرة)
              كي تتسع الخانة — 3: قطر 20 خطوة 21.5 • 4: قطر 14 خطوة 15 */
-          const step = n === 3 ? 21.5 : 15;
-          const rr = n === 3 ? 10 : 7;
+          const step = n === 3 ? 24.5 : 17.4;
+          const rr = n === 3 ? PR_PIECE_R3 : PR_PIECE_R4;
           const d = (i - (n - 1) / 2) * step;
           if (vertical) y += d; else x += d;
           map.set(g.list[i], { x: x, y: y, r: rr });
         } else {
-          map.set(g.list[i], { x: x, y: y, r: 10.5 });
+          map.set(g.list[i], { x: x, y: y, r: PR_PIECE_R });
         }
       }
     }
@@ -2222,7 +2346,7 @@ const ParchisiApp = {
       for (const pc of pl.pieces) {
         if (pc.state !== 'home') continue;
         const s = PR_BASE[seat][pc.id];
-        map.set(pc, { x: s[0], y: s[1], r: 12 });
+        map.set(pc, { x: s[0], y: s[1], r: PR_PIECE_R_HOME });
       }
     }
     return map;
@@ -2245,37 +2369,14 @@ const ParchisiApp = {
       ctx.rotate(-Math.PI / 2 * rot);
       ctx.translate(-W / 2, -W / 2);
     }
-    /* خلفية بنية دافئة */
-    const bg = ctx.createRadialGradient(300, 280, 60, 300, 320, 460);
-    bg.addColorStop(0, PR_COLORS.wood.bg1);
-    bg.addColorStop(1, PR_COLORS.wood.bg2);
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, W);
-    /* حافة ذهبية خارجية بزوايا قائمة (حدّ الشاشة واللعبة) */
-    this.rr(ctx, 3, 3, 594, 594, 2);
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = PR_COLORS.wood.gold;
-    ctx.stroke();
-    /* اللوحة الخشبية بزوايا قائمة */
-    this.rr(ctx, 10, 10, 580, 580, 3);
-    const wg = ctx.createLinearGradient(0, 10, 0, 590);
+    /* [v2.43] لا هوامش ولا إطار ذهبي: اللوحة الخشبية تملأ الكانفاس إلى حافته
+       (حافة اللوحة = حدّ الشاشة في الاتجاه المستوفى) */
+    const wg = ctx.createLinearGradient(0, 0, 0, W);
     wg.addColorStop(0, '#98603f');
     wg.addColorStop(0.5, PR_COLORS.wood.frame);
     wg.addColorStop(1, '#6f4128');
     ctx.fillStyle = wg;
-    ctx.fill();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = PR_COLORS.wood.frameDark;
-    ctx.stroke();
-    /* خط ذهبي داخلي يطّر اللوحة */
-    this.rr(ctx, 16, 16, 568, 568, 2);
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = PR_COLORS.wood.goldDeep;
-    ctx.stroke();
-    this.rr(ctx, 20, 20, 560, 560, 2);
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(255,235,200,0.22)';
-    ctx.stroke();
+    ctx.fillRect(0, 0, W, W);
 
     /* قواعد الزوايا */
     this.drawBases(ctx);
@@ -2304,10 +2405,12 @@ const ParchisiApp = {
     for (let seat = 0; seat < 4; seat++) {
       const n = PR_NEST[seat];
       const col = PR_COLORS.main[seat];
-      /* مربع بزوايا مدورة يملأ ركن اللوحة */
-      const nx = (n.cx < 300) ? 10 : 396, ny = (n.cy < 300) ? 10 : 396;
-      this.rr(ctx, nx, ny, 194, 194, 20);
-      const ng = ctx.createLinearGradient(nx, ny, nx + 194, ny + 194);
+      /* [v2.43] مربع بزوايا مدورة — أصغر (160) ليُفسح للخانات المستطيلة الكبرى */
+      const nx = (n.cx < PR_BOARD / 2) ? PR_BASE_INSET : PR_BOARD - PR_B;
+      const ny = (n.cy < PR_BOARD / 2) ? PR_BASE_INSET : PR_BOARD - PR_B;
+      const bs = PR_BASE_SIZE;
+      this.rr(ctx, nx, ny, bs, bs, 16);
+      const ng = ctx.createLinearGradient(nx, ny, nx + bs, ny + bs);
       ng.addColorStop(0, col);
       ng.addColorStop(1, PR_COLORS.dark[seat]);
       ctx.fillStyle = ng;
@@ -2319,7 +2422,7 @@ const ParchisiApp = {
       for (let k = 0; k < 4; k++) {
         const s = PR_BASE[seat][k];
         ctx.beginPath();
-        ctx.arc(s[0], s[1], 15, 0, Math.PI * 2);
+        ctx.arc(s[0], s[1], PR_PIECE_R_HOME + 1.6, 0, Math.PI * 2);
         ctx.fillStyle = 'rgba(255,255,255,0.16)';
         ctx.fill();
         ctx.lineWidth = 2;
@@ -2443,8 +2546,8 @@ const ParchisiApp = {
   },
 
   drawCenter(ctx) {
-    const x0 = 230, y0 = 230, x1 = 370, y1 = 370;
-    const cx = 300, cy = 300;
+    const x0 = PR_CTR0, y0 = PR_CTR0, x1 = PR_CTR1, y1 = PR_CTR1;
+    const cx = PR_BOARD / 2, cy = PR_BOARD / 2;
     const e = this.engine;
     /* المثلثات الأربعة (ميتا كل لون) */
     const tri = [
@@ -2465,19 +2568,19 @@ const ParchisiApp = {
       ctx.strokeStyle = PR_COLORS.dark[t.seat];
       ctx.stroke();
     }
-    this.rr(ctx, x0, y0, 140, 140, 8);
+    this.rr(ctx, x0, y0, PR_CTR, PR_CTR, 8);
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = PR_COLORS.wood.cellDark;
     ctx.stroke();
     /* شعار المركز */
     ctx.beginPath();
-    ctx.arc(cx, cy, 15, 0, Math.PI * 2);
+    ctx.arc(cx, cy, 13.5, 0, Math.PI * 2);
     ctx.fillStyle = PR_COLORS.wood.ivory;
     ctx.fill();
     ctx.lineWidth = 2;
     ctx.strokeStyle = '#F5C518';
     ctx.stroke();
-    ctx.font = '15px sans-serif';
+    ctx.font = '14px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = '#2A1715';
@@ -2491,10 +2594,10 @@ const ParchisiApp = {
         if (pc.state !== 'finished') continue;
         const k = fin;
         let x, y;
-        if (seat === 0) { x = cx; y = y0 + 13 + k * 9; }
-        else if (seat === 2) { x = cx; y = y1 - 13 - k * 9; }
-        else if (seat === 1) { x = x0 + 13 + k * 9; y = cy; }
-        else { x = x1 - 13 - k * 9; y = cy; }
+        if (seat === 0) { x = cx; y = y0 + 12 + k * 8.5; }
+        else if (seat === 2) { x = cx; y = y1 - 12 - k * 8.5; }
+        else if (seat === 1) { x = x0 + 12 + k * 8.5; y = cy; }
+        else { x = x1 - 12 - k * 8.5; y = cy; }
         ctx.beginPath();
         ctx.arc(x, y, 5.5, 0, Math.PI * 2);
         const pg = ctx.createRadialGradient(x - 1.5, y - 2, 0.5, x, y, 6);
@@ -2524,7 +2627,7 @@ const ParchisiApp = {
       const c = this.rc(PR_TRACK[g]);
       ctx.save();
       ctx.beginPath();
-      ctx.arc(c.x, c.y, 14.5, 0, Math.PI * 2);
+      ctx.arc(c.x, c.y, 16, 0, Math.PI * 2);
       ctx.setLineDash([4, 3]);
       ctx.lineWidth = 2;
       ctx.strokeStyle = 'rgba(255,255,255,0.9)';

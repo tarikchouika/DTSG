@@ -496,7 +496,9 @@ class RondaRenderer {
     this.core.on('SYMBOL_PICKED', (d) => this._onSymbolPicked(d));
     this.core.on('SELECTION_CONFIRMED', (d) => this._showConfirmed(d));
     this.core.on('BET_PLACED', (d) => {
-      this._addLog('🪙 ' + RL('betPlaced') + ' −' + fmt(d.bet), 'event');
+      /* [v2.43] في التدريب المجاني لا رهان ⇒ لا سطر بمبلغ (كان يظهر −0) */
+      if (this._isFreeTraining()) this._addLog('🎓 ' + RND_TRAIN_TXT(), 'event');
+      else this._addLog('🪙 ' + RL('betPlaced') + ' −' + fmt(d.bet), 'event');
       this._refreshBetBar();
       if (typeof window.SessionResume !== 'undefined') {
         try { window.SessionResume.markRoundStart({ bet: d.bet }); } catch (e) {}
@@ -511,6 +513,9 @@ class RondaRenderer {
       this._renderChips();
       if (this.core.multiplayer) {
         this._addLog((d.won ? '🏆 ' : '💔 ') + (d.won ? RL('youWin') : RL('youLose')), d.won ? 'win' : 'lose');
+      } else if (this._isFreeTraining()) {
+        /* تدريب مجاني: بلا مبالغ إطلاقاً (كان يعرض +30/−10 خطأً) */
+        this._addLog((d.won ? '🏆 ' + RL('youWin') : '💔 ' + RL('youLose')) + ' · 🎓 ' + RND_TRAIN_TXT(), d.won ? 'win' : 'lose');
       } else if (d.won) {
         this._addLog('🏆 ' + RL('youWin') + ' +' + fmt(d.payout) + ' 🪙', 'win');
       } else {
@@ -600,9 +605,19 @@ class RondaRenderer {
   }
   _refreshBetBar() {
     const amt = document.getElementById('rnBetAmt');
-    if (amt) amt.textContent = fmt(this.core.bet);
     const minus = document.getElementById('rnBetMinus');
     const plus = document.getElementById('rnBetPlus');
+    const bar = document.getElementById('rnBetBar') || (amt ? amt.closest('.fd-betbar, .rn-betbar, div') : null);
+    /* [v2.43] في التدريب المجاني لا مبالغ: تُعرض كلمة «تدريب» بدل الرهان ويُعطَّل التعديل */
+    if (this._isFreeTraining()) {
+      if (amt) amt.textContent = (typeof T === 'function' ? (T('ui.training') || 'تدريب') : 'تدريب');
+      if (minus) { minus.disabled = true; minus.setAttribute('aria-disabled', 'true'); }
+      if (plus) { plus.disabled = true; plus.setAttribute('aria-disabled', 'true'); }
+      if (bar) bar.classList.add('rn-free');
+      return;
+    }
+    if (bar) bar.classList.remove('rn-free');
+    if (amt) amt.textContent = fmt(this.core.bet);
     if (minus) minus.disabled = this.core.bet <= 10;
     if (plus && typeof ST !== 'undefined') plus.disabled = this.core.bet >= ST.gold;
   }
@@ -990,6 +1005,11 @@ class RondaRenderer {
     setTimeout(() => { if (zone) zone.classList.remove('active'); }, 1100);
     this._setTurn();
   }
+  /* [v2.43 FIX] وضع التدريب المحلي (ضد AI / وجه لوجه) بلا رهان إطلاقاً:
+     كان البانر والسجل يعرضان core.bet*mult (+30/−10) في جولة مجانية تماماً. */
+  _isFreeTraining() {
+    return !this.core.multiplayer && !!(window.TRAINING && window.TRAINING.on);
+  }
   _showResult(isWin, winner) {
     if (!this._alive()) return;
     const banner = document.getElementById('rnBanner');
@@ -997,7 +1017,8 @@ class RondaRenderer {
     if (!banner || !inner) return;
     const mp = this.core.multiplayer;
     const mult = this.core.mode === 'number_only' ? 2 : 3;
-    const amt = isWin ? this.core.bet * mult : this.core.bet;
+    const free = this._isFreeTraining();
+    const amt = free ? 0 : (isWin ? this.core.bet * mult : this.core.bet);
     const ic = document.getElementById('rnBannerIc');
     const txt = document.getElementById('rnBannerText');
     const sub = document.getElementById('rnBannerSub');
@@ -1010,7 +1031,9 @@ class RondaRenderer {
       inner.className = 'fd-banner-inner win';
       if (ic) ic.textContent = '🏆';
       if (txt) txt.textContent = RL('youWin');
-      if (sub) sub.innerHTML = mp ? whoWon : ('+' + fmt(amt) + ' 🪙');
+      if (sub) sub.innerHTML = mp ? whoWon
+        : (free ? ('🎓 ' + (RND_TRAIN_TXT()))
+                : ('+' + fmt(amt) + ' 🪙'));
       if (typeof burst === 'function' && !mp) {
         const r = banner.getBoundingClientRect();
         if (r.width) burst(r.left + r.width / 2, r.top + r.height / 2, ['#F5C518', '#FFD93D', '#34D399'], 18, 4.5);
@@ -1020,7 +1043,9 @@ class RondaRenderer {
       inner.className = 'fd-banner-inner lose';
       if (ic) ic.textContent = '💔';
       if (txt) txt.textContent = RL('youLose');
-      if (sub) sub.innerHTML = mp ? whoWon : ('−' + fmt(amt) + ' 🪙');
+      if (sub) sub.innerHTML = mp ? whoWon
+        : (free ? ('🎓 ' + RND_TRAIN_TXT())
+                : ('−' + fmt(amt) + ' 🪙'));
     }
     banner.classList.add('show');
     setTimeout(() => banner.classList.remove('show'), 1900);
@@ -1617,6 +1642,11 @@ const RONDA_L = {
   dealerWon: ['الموزع ربح الجولة', 'Le donneur gagne', 'Dealer wins the round'],
   selectorWon: ['المتخمن ربح الجولة', 'Le devineur gagne', 'Guesser wins the round']
 };
+/* [v2.43] نص التدريب المجاني القصير (مترجم) */
+function RND_TRAIN_TXT() {
+  try { if (typeof T === 'function') { const t = T('ui.trainingFreeShort'); if (t && t !== 'ui.trainingFreeShort') return t; } } catch (e) {}
+  return 'تدريب مجاني — بلا رهان';
+}
 function RL(k) {
   var e = RONDA_L[k];
   if (!e) return k;

@@ -9,9 +9,10 @@
   background:
     radial-gradient(140% 90% at 50% 0%, rgba(97, 62, 33, 0.95) 0%, rgba(43, 25, 11, 0.97) 70%),
     linear-gradient(180deg, #4a2f1a, #241206);
-  border: 3px solid #d9b45c;
+  /* [v2.43] بلا هامش ذهبي حول حاوية اللعبة ولا حشو — اللوحة تلتصق بحدود الشاشة */
+  border: 0;
   border-radius: 0;
-  padding: 6px 5px 9px;
+  padding: 0;
   box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.5), inset 0 0 0 1px rgba(255, 227, 150, 0.25), 0 0 26px rgba(217, 169, 78, 0.22);
   display: flex;
   flex-direction: column;
@@ -26,16 +27,16 @@
 }
 #parchisiGame > .pr-header { flex: 0 0 auto; }
 
-/* منطقة اللوحة تتمدد عمودياً وتوسّط اللوحة — الحافة الذهبية تلاصق أسفل الشاشة */
+/* ── [v2.43] منطقة اللوحة: اللوحة تملأ الشاشة (landscape: أعلى/أسفل = حدود الشاشة ·
+   portrait: يمين/يسار = حدود الشاشة) وأيقونات اللاعبين ونردهم في الأشرطة الخارجية. ── */
 .pr-boardarea {
   position: relative;
   flex: 1 1 auto;
-  min-height: 150px;
+  min-height: 120px;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* [Owner] هامش عمودي أوسع لإخراج النرد خارج اللوحة والبيوت الملوّنة بفجوة واضحة */
-  padding: 72px 4px;
+  padding: 0;
 }
 
 /* ── سجل الرميات المنسدل: الزاوية 90° العليا اليسرى للشاشة (ملتقى الضلع
@@ -258,27 +259,29 @@
   height: auto;
   aspect-ratio: 1 / 1;
   border-radius: 0;
-  border: 2px solid #d9b45c;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.55);
+  /* [v2.43] بلا إطار ذهبي ولا ظل خارجي: حافة اللوحة = حدود الشاشة */
+  border: 0;
+  box-shadow: none;
   touch-action: manipulation;
   cursor: pointer;
   display: block;
 }
-.pr-icons {
+/* أيقونات اللاعبين: طبقة على كامل منطقة اللوحة — المواضع تحسبها القواعد أدناه
+   بحيث تقع كلها خارج مستطيل اللوحة (أشرطة جانبية أو أفقية) */
+.pr-icons,
+.pr-dicelayer {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 5;
 }
+.pr-dicelayer { z-index: 6; }
 .pr-picon {
   position: absolute;
-  transform: translate(-50%, -50%);
-  width: 9.6cqw;
-  height: 9.6cqw;
-  min-width: 36px;
-  min-height: 36px;
-  max-width: 58px;
-  max-height: 58px;
+  right: auto;
+  bottom: auto;
+  width: var(--pr-icon, clamp(40px, 11cqw, 62px));
+  height: var(--pr-icon, clamp(40px, 11cqw, 62px));
   border-radius: 50%;
   background: radial-gradient(circle at 35% 28%, #4a2f18, #1d0f05 82%);
   border: 2.5px solid var(--pc);
@@ -451,26 +454,27 @@
 
 @keyframes prPulse { 50% { opacity: 0.4; } }
 
-/* ── [B9] النرد الدائم بزوايا القواعد — خارج زوايا اللوحة الأربع ── */
-#prCornerDice {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 58;
+/* ══ [v2.43] أيقونات اللاعبين ونردهم خارج اللوحة ══
+   نقطة الارتكاز (left/top) يحسبها JS من فجوة اللوحة الفعلية؛ الأيقونة فوقها
+   والنرد تحتها ⇒ لا ملامسة للوحة ولا تداخل بين أي عنصرين. */
+.pr-boardarea .pr-picon {
+  transform: translate(-50%, calc(-100% - 8px));
 }
+.pr-boardarea .pr-cd {
+  transform: translate(-50%, 8px);
+}
+
+/* ── [B9] النرد الدائم بزوايا القواعد — خارج زوايا اللوحة الأربع ── */
 .pr-cd {
-  --cdsz: clamp(40px, 10vw, 52px);       /* [Owner] أصغر ليُحتوى في الهامش بفجوة واضحة */
+  --cdsz: var(--pr-die, clamp(42px, 11.5cqw, 58px));
   position: absolute;
+  right: auto;
+  bottom: auto;
   display: flex;
   gap: 6px;
   transition: filter 0.25s ease;
+  z-index: 6;
 }
-/* [Owner] خارج اللوحة والبيوت الملوّنة: أعلى/أسفل الحافة العمودية بعيداً عن زوايا
-   القواعد، مع إزاحة للخارج (فجوة واضحة عن حافة اللوحة وأي مثلث لوني للقاعدة) */
-.pr-cd[data-corner="tl"] { top: 0; left: 24%; transform: translate(-50%, calc(-100% - 10px)); }
-.pr-cd[data-corner="tr"] { top: 0; left: 76%; transform: translate(-50%, calc(-100% - 10px)); }
-.pr-cd[data-corner="bl"] { bottom: 0; left: 24%; transform: translate(-50%, calc(100% + 10px)); }
-.pr-cd[data-corner="br"] { bottom: 0; left: 76%; transform: translate(-50%, calc(100% + 10px)); }
 .pr-cdie {
   width: var(--cdsz);
   height: var(--cdsz);
@@ -723,33 +727,8 @@
     align-items: center;
     gap: 8px;
   }
-  /* [Landscape] تصغير النرد الدائم (خارج اللوحة) ليُحتوى في الهامش العمودي
-     المحجوز أعلاه — لا يتجاوز الاحتياج حتى على الهواتف القصيرة */
-  #pg-game.app-fs #parchisiGame .pr-cd {
-    --cdsz: clamp(30px, 5.5vw, 46px);
-  }
-  /* [Landscape] إعادة توزيع النرد الدائم على يمين/يسار اللوحة (عكس البورتريه):
-     - tl (أحمر) → يسار اللوحة، الثلث العلوي
-     - bl (أخضر) → يسار اللوحة، الثلث السفلي
-     - tr (أزرق)  → يمين اللوحة، الثلث العلوي
-     - br (أصفر) → يمين اللوحة، الثلث السفلي
-     تُحاذى إلى حافة اللوحة مع فجوة واضحة، وتبقى قابلة للنقر (pointer-events:auto) */
-  #pg-game.app-fs #parchisiGame .pr-cd[data-corner="tl"] {
-    top: 25%; left: 0; right: auto; bottom: auto;
-    transform: translate(calc(-100% - 10px), -50%);
-  }
-  #pg-game.app-fs #parchisiGame .pr-cd[data-corner="bl"] {
-    top: 75%; left: 0; right: auto; bottom: auto;
-    transform: translate(calc(-100% - 10px), -50%);
-  }
-  #pg-game.app-fs #parchisiGame .pr-cd[data-corner="tr"] {
-    top: 25%; right: 0; left: auto; bottom: auto;
-    transform: translate(calc(100% + 10px), -50%);
-  }
-  #pg-game.app-fs #parchisiGame .pr-cd[data-corner="br"] {
-    top: 75%; right: 0; left: auto; bottom: auto;
-    transform: translate(calc(100% + 10px), -50%);
-  }
+  /* [v2.43] النرد الدائم: مواضعه وأحجامه يحسبها JS خارج اللوحة في الاتجاهين
+     (كانت هنا قواعد app-fs تُمدّد العنصر بـ left+right وتخرجه عن الشاشة). */
 }
 
 /* ── لاندسكيب: النموذج (يسار) يأخذ معظم الارتفاع ويتمرّر داخلياً،

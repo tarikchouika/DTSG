@@ -269,7 +269,7 @@ const HOUR_ROOM_MS = 3600000;   /* ساعة واحدة */
 
 /* تحميل المستخدمين من قاعدة البيانات إلى الذاكرة */
 function loadUsersFromDB() {
-  const rows = db.prepare('SELECT id, username, pass_hash, pass_salt, role, gold, lang, banned, totp_secret, twofa_enabled, ref_code, admin_id, referred_by, muted_until, first_topup_done FROM users').all();
+  const rows = db.prepare('SELECT id, username, pass_hash, pass_salt, role, gold, lang, banned, totp_secret, twofa_enabled, ref_code, admin_id, referred_by, muted_until, first_topup_done, created_at, last_seen FROM users').all();
   rows.forEach(function (r) {
     users[r.id] = {
       id: r.id, username: r.username,
@@ -278,6 +278,9 @@ function loadUsersFromDB() {
       totpSecret: r.totp_secret || null, twofaEnabled: !!r.twofa_enabled,
       ref_code: r.ref_code || null, admin_id: r.admin_id || null,
       referred_by: r.referred_by || null,
+      /* [v2.43] يلزمهما سجل الحساب (انضممت/آخر نشاط) — كانا لا يُحمَّلان أصلاً */
+      created_at: (r.created_at != null) ? Number(r.created_at) : null,
+      last_seen: (r.last_seen != null) ? Number(r.last_seen) : null,
       muted_until: r.muted_until || 0, first_topup_done: !!r.first_topup_done,
     };
     if (r.id >= nextUserId) nextUserId = r.id + 1;
@@ -627,6 +630,10 @@ function publicUser(u) {
   return {
     id: u.id, username: u.username, role: u.role, gold: u.gold, lang: u.lang,
     twofa_enabled: !!u.twofaEnabled,
+    /* [v2.43] تاريخ الانضمام وآخر نشاط (بالثواني — العميل يضرب ×1000)
+       كانا مفقودين فظهر «غير متوفر» دائماً في سجل الحساب */
+    created_at: (typeof u.created_at === 'number') ? u.created_at : (u.created_at ? Math.floor(new Date(u.created_at).getTime() / 1000) || null : null),
+    last_seen: (typeof u.last_seen === 'number') ? u.last_seen : (u.last_seen ? Math.floor(new Date(u.last_seen).getTime() / 1000) || null : null),
     ref_code: u.ref_code || null, admin_id: u.admin_id || null,
     referred_by: u.referred_by || null,
     muted_until: (u.muted_until && u.muted_until > Date.now()) ? u.muted_until : null
@@ -714,6 +721,25 @@ function dissolveIfExpired(room) {
   dissolveRoom(room);
   return true;
 }
+/* [v2.43] دفع الرصيد لحظياً لصاحب الحساب بعد أي تغيير مالي يحدث خارج جلسته
+   (اعتماد إيداع/كوبون/إنشاء طلب سحب) — بدونه يبقى الرصيد المعروض قديماً حتى إعادة التحميل. */
+function pushWallet(userId, extra) {
+  try {
+    const key = String(userId);
+    const u = users[key] || Object.values(users).find(function (x) { return String(x.id) === key; });
+    if (!u) return false;
+    const rate = Number(process.env.USD_GOLD_RATE || 100);
+    const payload = Object.assign({
+      user_id: String(u.id),
+      coins: u.gold || 0,
+      usd: Math.round(((u.gold || 0) / rate) * 100) / 100
+    }, extra || {});
+    sendToUser(Number(u.id), 'wallet', payload);
+    return true;
+  } catch (e) { return false; }
+}
+global.__DTSG_PUSH_WALLET = pushWallet;
+
 /* [Friends] إرسال حدث SSE لمستخدم محدّد (يطابق بنية sseClients الموجودة) */
 function sendToUser(userId, event, data) {
   sseClients.forEach(function (c) {
@@ -947,6 +973,8 @@ const server = http.createServer((req, res) => {
         const gold = Math.round(usd * rate);
         u.gold = (u.gold || 0) + gold;
         try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+        /* [v2.43] إعلام المستخدم فوراً بالرصيد الجديد */
+        pushWallet(u.id, { delta: gold, message: '✅ تم شحن رصيدك: +' + gold + ' 🪙' });
         json({ ok: true, gold_added: gold, new_gold: u.gold });
         return;
       }
@@ -976,6 +1004,7 @@ const server = http.createServer((req, res) => {
           }
         }
         try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), existing.id); } catch (e) {}
+        existing.last_seen = Math.floor(Date.now() / 1000);
         startSession(res, existing);
         json({ ok: true, user: publicUser(existing) });
         return;
@@ -1092,6 +1121,7 @@ const server = http.createServer((req, res) => {
         if (!user) { json({ ok: false, message: 'المستخدم غير موجود' }, 401); return; }
         if (user.twofaEnabled && !totpVerify(user.totpSecret, data.code)) { json({ ok: false, message: 'رمز التحقق غير صحيح' }, 401); return; }
         try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), user.id); } catch (e) {}
+        user.last_seen = Math.floor(Date.now() / 1000);
         startSession(res, user);
         json({ ok: true, user: publicUser(user) });
         return;

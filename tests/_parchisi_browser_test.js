@@ -51,12 +51,12 @@ const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  �
     const px = await p.evaluate(() => {
       const ctx = ParchisiApp.ctx;
       const at = (x, y) => { const d = ctx.getImageData(x, y, 1, 1).data; return [d[0], d[1], d[2]]; };
-      /* هندسة مستطيلة: خلية عمودية (236,78) وأفقية (78,236) • نجمة عمودية (364,134) وأفقية (134,236)
-         ساليدات: أحمر (236,134) أخضر (134,364) أصفر (364,466) أزرق (466,236) • عش (40,40) */
+      /* [v2.43] الهندسة الجديدة: الخانة 93.33×30 والقاعدة 160 والمركز 120×120
+         (المراكز محسوبة من شبكة المسار الجديدة) */
       return {
-        vTrack: at(236, 78), hTrack: at(78, 236),
-        starV: at(364, 134), starH: at(134, 236),
-        salRed: at(236, 134), salGreen: at(134, 364), salYellow: at(364, 466), salBlue: at(466, 236),
+        vTrack: at(207, 75), hTrack: at(15, 207),
+        starV: at(135, 207), starH: at(207, 465),
+        salRed: at(207, 135), salGreen: at(135, 393), salYellow: at(393, 465), salBlue: at(465, 207),
         nest: at(40, 40), ctr: at(300, 255)
       };
     });
@@ -64,8 +64,8 @@ const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  �
     const isWood = c => c[0] > 243 && c[1] > 243 && c[2] > 238;   /* أبيض */
     const isSilver = c => Math.abs(c[0] - c[2]) <= 18 && c[0] >= 160 && c[0] <= 225 && c[1] >= 165 && c[2] >= 170;
     const isStar = c => c[0] > 90 && c[0] < 135 && c[1] > 60 && c[1] < 100 && c[2] > 55 && c[2] < 85;
-    ok('خانة عمودية بيضاء (64×27.5)', isWood(px.vTrack));
-    ok('خانة أفقية بيضاء (27.5×64)', isWood(px.hTrack));
+    ok('خانة عمودية بيضاء (93.33×30)', isWood(px.vTrack));
+    ok('خانة أفقية بيضاء (30×93.33)', isWood(px.hTrack));
     ok('نجمة في عمود رأسي', isStar(px.starV));
     ok('نجمة في صف أفقي', isStar(px.starH));
     ok('ساليدة حمراء أعلى·يسار', px.salRed[0] > 190 && px.salRed[1] < 110);

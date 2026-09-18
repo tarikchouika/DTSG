@@ -10,3 +10,8 @@ node_modules/
 server.log
 .wrangler/
 .dev.vars
+
+# لقطات الاختبارات تُكتب في /tmp/dtsg-shots (ليست جزءاً من المستودع)
+screenshots/
+shot_*.png
+_shot_*.png

@@ -206,7 +206,8 @@ window.PWAL = window.PWAL || {};
 
   async function wlRefresh() {
     var u = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
-    if (!u) return;
+    /* [v2.43] المحفظة قد لا تكون مركّبة في الصفحة الحالية ⇒ لا رمي استثناء */
+    if (!u || !overlay) return;
     overlay.querySelector('#wlGold').textContent = '🪙 ' + (typeof fmt === 'function' ? fmt(ST.gold) : ST.gold);
     /* قاعدة فارغة = نفس الأصل (المنصة تخدم نقاط الدفع محلياً) */
     try {
@@ -272,6 +273,11 @@ window.PWAL = window.PWAL || {};
     btn.disabled = false;
   }
 
+  /* [v2.43] مرآة عامة لتحديث المحفظة من الأحداث اللحظية (RC_wallet) */
+  window.Wallet = {
+    refresh: function () { try { return wlRefresh(); } catch (e) {} },
+    isOpen: function () { return !!(overlay && !overlay.hidden); }
+  };
   window.openWallet = async function () {
     if (!(typeof AUTH !== 'undefined' && AUTH.user)) { if (typeof toast === 'function') toast('سجّل الدخول أولاً', 'warn'); return; }
     buildOverlay();

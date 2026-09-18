@@ -78,7 +78,7 @@ async function setup(ctx) {
     ok('شريط الترشيح يظهر ويتسع العرض', nomsFit);
 
     if (label === 'هاتف عمودي') {
-      await p.screenshot({ path: 'screenshots/bl-mobile-portrait.png' });
+      await p.screenshot({ path: '/tmp/dtsg-shots/bl-mobile-portrait.png' });
     }
 
     const ea = p._errs.filter(e => !/404|Failed to load resource/i.test(e));

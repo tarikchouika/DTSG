@@ -185,6 +185,8 @@ const TR = {
   'refund.noteB': [ 'ملاحظة:', 'Remarque :', 'Note:', 'ملاحظة:' ],
   'refund.note': [ 'أسئلة حول معاملة معينة؟ راسل الدعم مع رقم المعاملة من «السجل» في محفظتك.', 'Des questions sur une transaction ? Contactez le support avec le numéro de transaction.', 'Questions about a transaction? Contact support with your transaction ID.', 'سؤال على معاملة؟ راسل الدعم برقم المعاملة.' ],
   'refund.back': [ 'العودة للموقع', 'Retour au site', 'Back to site', 'الرجوع' ],
+  'ui.trainingFreeShort': [ 'تدريب مجاني — بلا رهان', 'Entraînement gratuit — sans mise', 'Free training — no stake', 'تدريب فابور — بلا رهان' ],
+  'ui.training': [ 'تدريب', 'Entraînement', 'Training', 'تدريب' ],
   'ui.trainingFree': [ 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط', 'Entraînement gratuit sans mise — les mises sont réservées aux salles en ligne', 'Free training, no stake — stakes are available only in online rooms', 'تدريب فابور بلا رهان — الرهان غير فالم_rooms أونلاين برك' ],
   'rm.humansOnly': [ 'الغرف حصرية للاعبين البشر — التدريب ضد الآلي من شاشة اللعبة', 'Salles réservées aux humains — entraînez-vous contre l\'IA depuis l\'écran du jeu', 'Rooms are exclusive to human players — train against the AI from the game screen', 'الغرف غير للبشر — التدريب ضد الآلي من شاشة اللعبة' ],
   'ui.roomBackToGame': [ 'العودة للعبة', 'Retour au jeu', 'Back to game', 'الرجوع للعبة' ],

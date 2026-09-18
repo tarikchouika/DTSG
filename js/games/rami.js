@@ -3061,27 +3061,71 @@ class RamiUIAdapter {
     this._startTimer();
   }
 
+  /* [v2.43 TIMER-FIX] سبب تجمّد المؤقّت في دور البوت:
+     كان كل tick يُلغي `this.timerId` الحاليّ إذا لم تكن المرحلة PLAYING —
+     وبين الأشواط تمرّ المرحلة بـ LOBBY/ROUND_END، فأي tick متأخر (خلفية الهاتف/
+     شوط جديد) كان يُلغي **المؤقّت الجديد** بدل مؤقّته ⇒ يتوقف العدّاد ولا يلعب البوت.
+     الحل: كل مؤقّت يحمل رقم جيل (gen) ولا يلمس إلا نفسه، والمرحلة غير PLAYING
+     = إيقاف مؤقت (return) لا إتلاف، مع شفاء ذاتي داخل الـ watchdog. */
   _startTimer() {
-    if (this.timerId) clearInterval(this.timerId);
-    this.timerId = setInterval(() => {
-      if (!this.game || this.game.gamePhase !== 'PLAYING') {
-        clearInterval(this.timerId);
-        return;
-      }
+    if (this.timerId) { clearInterval(this.timerId); this.timerId = null; }
+    if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = null; }
+    this._timerGen = (this._timerGen || 0) + 1;
+    const gen = this._timerGen;
+
+    const iv = setInterval(() => {
+      if (this._timerGen !== gen) { clearInterval(iv); return; }   /* نسخة قديمة */
+      if (!this.game) return;
+      if (this.game.gamePhase !== 'PLAYING') return;               /* إيقاف مؤقت */
       try { this._tick(); } catch (e) { console.error('[Rami] tick error:', e && e.message, e); }
     }, 1000);
+    this.timerId = iv;
 
     /* Watchdog مستقل يكتشف التجمد ويستعيد الحالة */
-    if (this.watchdogId) clearInterval(this.watchdogId);
-    this.watchdogId = setInterval(() => {
+    const wd = setInterval(() => {
+      if (this._timerGen !== gen) { clearInterval(wd); return; }
       try { this._watchdog(); } catch (e) { console.error('[Rami] watchdog error:', e && e.message); }
     }, 2000);
+    this.watchdogId = wd;
+  }
+
+  /* [v2.43] خطوة بوت مؤجّلة بمرجع واحد: لا تُنفَّذ مرتين، ويستعيدها الـ watchdog
+     إن تأخّر/سقط مؤقّت الصفحة (خلفية الهاتف، إعادة الرسم، تسريع المتصفح...). */
+  _deferBotStep(bot, fn, delay) {
+    const token = (this._botStepToken || 0) + 1;
+    this._botStepToken = token;
+    const now = Date.now();
+    const step = { token: token, botId: bot.id, at: now + (delay || 0), createdAt: now, fn: fn, done: false };
+    this._botStep = step;
+    const run = () => {
+      if (step.done) return;
+      step.done = true;
+      if (this._botStep === step) this._botStep = null;
+      try { fn(); } catch (e) {
+        console.error('[Rami] bot step error:', e && e.message, e);
+        try { setRamiBusy(false); if (this.game && this.game.gamePhase === 'PLAYING') this._processTurn(); } catch (e2) {}
+      }
+    };
+    step.run = run;
+    setTimeout(run, Math.max(0, delay || 0));
+    return step;
   }
 
   /* كشف التجمد: قفل انشغال عالق، عداد توقف، أو دور بوت بلا حركة */
   _watchdog() {
     if (!this.game) return;
     if (this.game.gamePhase !== 'PLAYING') return;
+
+    /* [v2.43] شفاء ذاتي: مؤقّت/حارس متوقفان والمرحلة جارية ⇒ أعد تشغيلهما */
+    if (!this.timerId || !this.watchdogId) { try { this._startTimer(); } catch (e) {} }
+
+    /* [v2.43] خطوة بوت مؤجّلة تأخّرت أكثر من 3 ثوانٍ ⇒ نفّذها الآن */
+    const step = this._botStep;
+    if (step && !step.done && (Date.now() - (step.createdAt || step.at)) > 3000) {
+      console.warn('[Rami] watchdog: running delayed bot step for bot', step.botId);
+      step.run();
+      return;
+    }
 
     // 1) قفل انشغال عالق لأكثر من 5 ثوانٍ → تحريره
     if (RAMI_BUSY && Date.now() - (_lastBusyTime || 0) > 5000) {
@@ -3316,7 +3360,7 @@ class RamiUIAdapter {
     setRamiBusy(true);
     const rm = this.game.roundManager;
 
-    setTimeout(() => {
+    this._deferBotStep(bot, () => {
       try {
       if (!this.game || this.game.gamePhase !== 'PLAYING') { setRamiBusy(false); return; }
 
@@ -3354,7 +3398,7 @@ class RamiUIAdapter {
         this._updateUI();
       }
 
-      setTimeout(() => {
+      this._deferBotStep(bot, () => {
         try {
         if (!this.game || this.game.gamePhase !== 'PLAYING') { setRamiBusy(false); return; }
 

@@ -239,6 +239,19 @@ DamaEngine.prototype.legalMovesForPiece = function (s, r, c) {
   return mine;
 };
 
+/* [v2.43 RULES-FIX] أطول سلسلة أكل متاحة للاعب في الدور الحالي على كل قطعه —
+   المرجع الصحيح للإلزام: من نفّذ أطول أكل (بأي قطعة) أدّى الواجب. */
+DamaEngine.prototype.maxChainOverall = function (s) {
+  var m = 0;
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+    var p = s.grid[r][c];
+    if (!p || p.owner !== s.turn) continue;
+    var ch = this.maxChainAt(s.grid, r, c);
+    if (ch > m) m = ch;
+  }
+  return m;
+};
+
 /* أطول سلسلة أكل متاحة لقطعة عند مربع معيّن (قفزة أولى + أقصى استمرارية). */
 DamaEngine.prototype.maxChainAt = function (grid, r, c) {
   var caps = this.capturesAt(grid, r, c);
@@ -265,8 +278,10 @@ DamaEngine.prototype.obligationPiece = function (s) {
     if (!caps.length) continue;
     var k = p.king ? 1 : 0;
     var chain = this.maxChainAt(s.grid, r, c);
-    if (k > bestKing || (k === bestKing && chain > bestChain) ||
-        (k === bestKing && chain === bestChain && caps.length > bestCnt)) {
+    /* [v2.43 RULES-FIX] الأولوية للأطول (كما في التعليق والقاعدة): كان الملك
+       يتقدّم على سلسلة أطول منه ⇒ لاعب يُنفّذ أطول أكل صحيح ثم تُنفخ قطعة أخرى. */
+    if (chain > bestChain || (chain === bestChain && k > bestKing) ||
+        (chain === bestChain && k === bestKing && caps.length > bestCnt)) {
       bestKing = k; bestChain = chain; bestCnt = caps.length;
       best = [r, c];
     }
@@ -294,6 +309,9 @@ DamaEngine.prototype.applyMove = function (s, mv) {
     var ob = (this.rules.souffler) ? this.obligationPiece(s) : null;
     s.obligedId = ob ? s.grid[ob[0]][ob[1]].id : null;
     s.obligedNeed = ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0;
+    /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله: إتمامها بأي قطعة
+       يُبرّئ الالتزام (كان الالتزام مربوطاً بقطعة واحدة فقط فيُعاقَب لاعب صحيح) */
+    s.obligedMax = this.maxChainOverall(s);
     s.turnCaptures = 0;
     s.obligedFulfilled = false;
   }
@@ -338,8 +356,11 @@ DamaEngine.prototype.applyMove = function (s, mv) {
   /* [Souffler] نهاية الدور: إن لم يأكل بالمُلزَم تحديداً يُنفخ هو (حتى لو أكل بقطعة أخرى)،
      وإن أكل بالمُلزَم لكن لم يُتمّ سلسلة الأكل الكاملة المطلوبة منه يُنفخ كذلك
      (توضيح المالك 2026-09-16: إتمام السلسلة واجب وإلا نفخ). */
-  var chainIncomplete = s.obligedFulfilled && (s.obligedNeed || 0) > 0 && (s.turnCaptures || 0) < s.obligedNeed;
-  if (this.rules.souffler && s.obligedId != null && (!s.obligedFulfilled || chainIncomplete)) {
+  /* [v2.43 RULES-FIX] النفخ فقط عند تقصير الأكل: من نفّذ أطول سلسلة متاحة
+     (ولو بقطعة أخرى، أو بأقل من القطعة "الأولى") أدّى الواجب ولا يُعاقب. */
+  var need = Math.max(s.obligedMax || 0, 0);
+  var shortCapture = (s.turnCaptures || 0) < need;
+  if (this.rules.souffler && s.obligedId != null && shortCapture) {
     for (var r = 0; r < 8 && !info.souffled; r++) {
       for (var c = 0; c < 8; c++) {
         var pp = s.grid[r][c];
@@ -347,7 +368,7 @@ DamaEngine.prototype.applyMove = function (s, mv) {
       }
     }
   }
-  s.obligedId = null; s.obligedFulfilled = false; s.obligedNeed = 0; s.turnCaptures = 0;
+  s.obligedId = null; s.obligedFulfilled = false; s.obligedNeed = 0; s.obligedMax = 0; s.turnCaptures = 0;
   s.cont = null; s.chainNeed = null;
   s.turn = this.opponent(s.turn);
   /* [B9] الترقية المؤجلة: تُحسم بعد مرور الدور — يُتوَّج الآن ما استحق من صاحب الدور الجديد */
@@ -1244,18 +1265,20 @@ function damaAutoHint() {
   if (!DAMA.eng.rules.mandatoryCapture) return;
   var caps = DAMA.eng.allCaptures(s.grid, s.turn);
   if (!caps.length) return;
-  /* أول قطعة تملك قفزة من السلسلة الكبرى */
+  /* [v2.43] أبرِز القطعة القادرة على أطول سلسلة (قاعدة الأكل الأكبر) */
+  var best = null, bestChain = -1;
   for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
     var p = s.grid[r][c];
-    if (p && p.owner === s.turn) {
-      var lm = DAMA.eng.legalMovesForPiece(s, r, c);
-      if (lm.length) {
-        DAMA.sel = [r, c];
-        DAMA.legal = lm;
-        damaRender();
-        return;
-      }
-    }
+    if (!p || p.owner !== s.turn) continue;
+    var lm = DAMA.eng.legalMovesForPiece(s, r, c);
+    if (!lm.length) continue;
+    var ch = DAMA.eng.maxChainAt(s.grid, r, c);
+    if (ch > bestChain) { bestChain = ch; best = [r, c]; }
+  }
+  if (best) {
+    DAMA.sel = best;
+    DAMA.legal = DAMA.eng.legalMovesForPiece(s, best[0], best[1]);
+    damaRender();
   }
 }
 
@@ -1273,13 +1296,20 @@ function damaSettle(humanWin) {
     return;
   }
   var lv = DAMA_LEVELS[DAMA.level];
+  var _tr = damaTraining();
   if (humanWin) {
-    var payout = Math.floor(GB * lv.mult);
-    give(payout);
-    gres(T('dama.win') + ' ×' + lv.mult.toFixed(1) + ' +' + fmt(payout) + ' 🪙', payout);
-    if (typeof winFX === 'function') winFX(payout);
+    if (_tr) {
+      /* [v2.43] التدريب: شريط النتيجة بلا مبلغ ولا مضاعف (لا رهان ولا ربح) */
+      gres(T('dama.win') + ' — 🎓 ' + damaTrainTxt(), 0, true, true);
+      if (typeof winFX === 'function') winFX(0);
+    } else {
+      var payout = Math.floor(GB * lv.mult);
+      give(payout);
+      gres(T('dama.win') + ' ×' + lv.mult.toFixed(1) + ' +' + fmt(payout) + ' 🪙', payout);
+      if (typeof winFX === 'function') winFX(payout);
+    }
   } else {
-    gres(T('dama.lose') + ' — ' + T('ts.lose'), 0);
+    gres(T('dama.lose') + ' — ' + T('ts.lose'), 0, _tr);
     if (typeof winFX === 'function') winFX(0);
   }
   damaShowOver(humanWin, null, lv.mult);
@@ -1300,44 +1330,68 @@ function damaFinalize(outcome) {
   }
   var lv = DAMA_LEVELS[DAMA.level];
   if (outcome === 'draw') {
-    give(GB);                 /* refund */
-    gres(T('dama.drawRefund'), 0);
+    if (damaTraining()) {
+      /* [v2.43] التدريب: لا استرداد وهمي — النتيجة فقط */
+      gres(T('dama.draw'), 0, true, true);
+    } else {
+      give(GB);                 /* refund */
+      gres(T('dama.drawRefund'), 0);
+    }
     damaShowOver(null, 'draw', lv.mult);
     return;
   }
   var humanWin = (outcome === DAMA.human);
+  var _tr = damaTraining();
   if (humanWin) {
-    var payout = Math.floor(GB * lv.mult);
-    give(payout);
-    gres(T('dama.win') + ' ×' + lv.mult.toFixed(1) + ' +' + fmt(payout) + ' 🪙', payout);
-    if (typeof winFX === 'function') winFX(payout);
+    if (_tr) {
+      /* [v2.43] التدريب: شريط النتيجة بلا مبلغ ولا مضاعف (لا رهان ولا ربح) */
+      gres(T('dama.win') + ' — 🎓 ' + damaTrainTxt(), 0, true, true);
+      if (typeof winFX === 'function') winFX(0);
+    } else {
+      var payout = Math.floor(GB * lv.mult);
+      give(payout);
+      gres(T('dama.win') + ' ×' + lv.mult.toFixed(1) + ' +' + fmt(payout) + ' 🪙', payout);
+      if (typeof winFX === 'function') winFX(payout);
+    }
   } else {
-    gres(T('dama.lose') + ' — ' + T('ts.lose'), 0);
+    gres(T('dama.lose') + ' — ' + T('ts.lose'), 0, _tr);
     if (typeof winFX === 'function') winFX(0);
   }
   damaShowOver(humanWin, null, lv.mult);
 }
 
+/* [v2.43] تدريب مجاني (بلا رهان): لا مبالغ ولا مضاعفات في الشرائط والنتيجة */
+function damaTraining() {
+  try { return !!(window.TRAINING && window.TRAINING.on); } catch (e) { return false; }
+}
+function damaTrainTxt() {
+  try { if (typeof T === 'function') { var t = T('ui.trainingFreeShort'); if (t && t !== 'ui.trainingFreeShort') return t; } } catch (e) {}
+  return 'تدريب مجاني — بلا رهان';
+}
 function damaShowOver(humanWin, draw, mult) {
   var ov = document.getElementById('damaOver');
   var em = document.getElementById('damaOverEm');
   var tx = document.getElementById('damaOverTx');
   var amt = document.getElementById('damaOverAmt');
   if (!ov) return;
+  var _trn = damaTraining();
   if (draw) {
     if (em) em.textContent = '🤝';
     if (tx) tx.textContent = T('dama.draw');
-    if (amt) amt.innerHTML = T('dama.refunded') + ' (<i class="fa-solid fa-coins" aria-hidden="true"></i> ' + fmt(GB) + ')';
+    if (amt) amt.innerHTML = _trn ? ('🎓 ' + damaTrainTxt())
+      : (T('dama.refunded') + ' (<i class="fa-solid fa-coins" aria-hidden="true"></i> ' + fmt(GB) + ')');
   } else if (humanWin) {
     if (em) em.textContent = '🏆';
     if (tx) tx.textContent = T('dama.youWin');
-    var p = Math.floor(GB * mult);
-    if (amt) amt.innerHTML = '+<i class="fa-solid fa-coins" aria-hidden="true"></i> ' + fmt(p) + ' (×' + mult.toFixed(1) + ')';
+    if (amt) {
+      if (_trn) amt.innerHTML = '🎓 ' + damaTrainTxt();
+      else { var p = Math.floor(GB * mult); amt.innerHTML = '+<i class="fa-solid fa-coins" aria-hidden="true"></i> ' + fmt(p) + ' (×' + mult.toFixed(1) + ')'; }
+    }
     if (typeof confetti === 'function') confetti(60);
   } else {
     if (em) em.textContent = '💀';
     if (tx) tx.textContent = T('dama.youLose');
-    if (amt) innerCoinsLost(amt);
+    if (amt) { if (_trn) amt.innerHTML = '🎓 ' + damaTrainTxt(); else innerCoinsLost(amt); }
   }
   ov.hidden = false;
 }

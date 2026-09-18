@@ -66,7 +66,7 @@ function give(w) {
   wallet();
   save();
 }
-function gres(m, w, noRec) {
+function gres(m, w, noRec, forceWin) {
   /* [BotsLedger v2.28] مؤشر المنصة: كل جولة محرك تُسجَّل تلقائياً —
      دلتا المنصة = الرهان − المدفوع (موجب = ربح منصة، سالب = دفع للفائز).
      الاسترداد الكامل (w==GB) يعطي صفراً فيتجاهله record(). */
@@ -84,7 +84,7 @@ function gres(m, w, noRec) {
       .replace(/[<>&"']/g, ch => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' }[ch]))
       .replace(/🪙/g, '<i class="fa-solid fa-coins" aria-hidden="true"></i>');
     e.innerHTML = html;
-    e.className = 'res ' + (w ? 'win' : 'lose');
+    e.className = 'res ' + ((w > 0 || forceWin) ? 'win' : 'lose');
     if (w > 0 && typeof burst === 'function') {
       const r = e.getBoundingClientRect();
       if (r.width) {

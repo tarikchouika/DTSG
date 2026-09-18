@@ -149,7 +149,7 @@ const near = (rgb, hex, tol) => {
   ok('تحويل اللمس عكوس بعد القلب', aimFlip);
   await P.evaluate(() => billiardsFlipView());
   await P.waitForTimeout(300);
-  await P.screenshot({ path: 'screenshots/bl-ui-portrait.png' });
+  await P.screenshot({ path: '/tmp/dtsg-shots/bl-ui-portrait.png' });
 
   /* ═══ 5) سنوكر: تدوين رقمي + ترشيح بالنقر ═══ */
   sec('5) السنوكر: نقاط رقمية وترشيح بالنقر على الكرة');
@@ -222,7 +222,7 @@ const near = (rgb, hex, tol) => {
     };
   });
   ok('طاولة عظمى + التحام + محاذاة على الحاسوب', desk.share > 0.78 && desk.share < 0.99 && desk.flushL && desk.flushB && desk.topAligned && desk.rightAligned);
-  await D.screenshot({ path: 'screenshots/bl-ui-desktop.png' });
+  await D.screenshot({ path: '/tmp/dtsg-shots/bl-ui-desktop.png' });
 
   /* ═══ 7) ثبات الالتصاق عبر نِسَب هواتف حقيقية ═══ */
   sec('7) نِسَب شاشات متعددة: بلا فراغات وبلا اختفاء');

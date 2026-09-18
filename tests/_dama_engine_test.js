@@ -159,6 +159,40 @@ console.log('\n[2d] King-row stop & deferred promotion');
 })();
 
 /* ── 2d. [توضيح المالك 2026-09-16] أولوية الإلزام: الضائم ← السلسلة الأطول ← إتمام السلسلة وإلا نفخ ── */
+console.log('\n[2e][v2.43] إصلاح: إتمام أطول أكل بقطعة أخرى لا يُنفخ لاعباً صحيحاً');
+{
+  /* بيدق أبيض له سلسلة أكل 2، وملك أبيض له سلسلة 2 أيضاً ⇒ المُلزَم كان يُختار
+     بالملكية أولاً؛ لاعب يُتمّ الأطول بالبيدق كان يُنفخ ملكه ظلماً. */
+  const mk = () => { const g = []; for (let r = 0; r < 8; r++) g.push([null, null, null, null, null, null, null, null]); return g; };
+  const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
+  st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+  st.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+  st.grid[2][4] = { owner: BLACK, king: false, id: 3 };
+  st.grid[6][6] = { owner: WHITE, king: true, id: 4 };
+  st.grid[5][5] = { owner: BLACK, king: false, id: 5 };
+  ok('أطول سلسلة عامة = 2', eng.maxChainOverall(st) === 2);
+  const first = eng.capturesAt(st.grid, 5, 1)[0];
+  let i1 = eng.applyMove(st, first);
+  ok('بداية السلسلة بطول 2 مُتاحة', !!(i1.continued || i1.souffled === null));
+  if (i1.continued) {
+    const cont = eng.continuationMoves(st);
+    const i2 = eng.applyMove(st, cont[0]);
+    ok('إتمام الأطول (2 أسر) ⇒ لا نفخ', i2.souffled === null);
+    ok('القطعتان الأبيضتان باقيتان (ملك + بيدق)', st.grid.flat().filter(p => p && p.owner === WHITE).length === 2);
+  }
+  /* التقصير ما زال يُنفخ: أسر واحد فقط ثم تُرك الدور */
+  const st2 = { grid: mk(), turn: WHITE, over: false, half: 0 };
+  st2.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+  st2.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+  st2.grid[2][4] = { owner: BLACK, king: false, id: 3 };
+  st2.grid[6][6] = { owner: WHITE, king: true, id: 4 };
+  st2.grid[5][5] = { owner: BLACK, king: false, id: 5 };
+  const one = eng.capturesAt(st2.grid, 5, 1)[0];
+  one.cap = false; one.captured = [];            /* حركة هادئة رغم وجود أكل */
+  const i3 = eng.applyMove(st2, one);
+  ok('تجاهل الأكل كلياً ⇒ نفخ المُلزَم', !!i3.souffled);
+}
+
 console.log('\n[2d] King priority + longest chain + incomplete-chain soufflé');
 (function () {
   /* أ) الضائم أُلزم من البيدق: ملك بقصيرة 1 وبيدق بقصيرة 1 — المُلزَم الملك */

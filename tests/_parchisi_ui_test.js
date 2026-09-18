@@ -19,7 +19,8 @@ async function wait(p, fn, t = 12000) {
   const b = await chromium.launch();
   const ctx = await b.newContext({ viewport: { width: 390, height: 780, isMobile: true, hasTouch: true }, isMobile: true, hasTouch: true });
   const u = 'prui' + Date.now().toString().slice(-5);
-  await ctx.request.post(BASE + 'api/register', { data: { username: u, password: 'pw123456' } });
+  /* [v2.43] لا تسجيل ذاتي على المنصة: نستخدم حساب QA قائماً */
+  await ctx.request.post(BASE + 'api/login', { data: { username: 'qa_player', password: 'QaTest12345' } });
   const p = await ctx.newPage();
   await p.goto(BASE, { waitUntil: 'domcontentloaded' });
   await wait(p, () => !!(typeof AUTH !== 'undefined' && AUTH.user && typeof ST !== 'undefined'));
@@ -187,7 +188,7 @@ async function wait(p, fn, t = 12000) {
     /* رجّع القطع للحاضنة ثم ركّب سيناريوهات */
     e.players.forEach(pl => pl.pieces.forEach(pc => { pc.state = 'home'; pc.pos = -1; }));
     const p0 = e.players[0].pieces;
-    /* (1) بيدقان على خانة عادية 30 → الحجم ثابت 10.5 ولا تغطية */
+    /* (1) [v2.43] بيدقان على خانة عادية → نصف القطر 12.1 (+15%) ولا تغطية */
     p0[0].state = 'onboard'; p0[0].pos = 30;
     p0[1].state = 'onboard'; p0[1].pos = 30;
     let L = A.pieceLayout();
@@ -204,11 +205,13 @@ async function wait(p, fn, t = 12000) {
   });
   const pr = sizes.pair;
   const dPair = Math.hypot(pr[0].x - pr[1].x, pr[0].y - pr[1].y);
-  ok('بيدقان: نصف القطر ثابت 10.5 (لا انكماش)', pr[0].r === 10.5 && pr[1].r === 10.5);
-  ok('بيدقان: بلا تغطية (المسافة 22 ≥ القطر 21)', dPair >= 21 && Math.abs(dPair - 22) < 0.6);
+  /* [v2.43] البيادق مكبَّرة +15%: 10.5 ⇒ 12.1 والقطر 24.2 والمسافة بين المركزين 25.2 */
+  ok('بيدقان: نصف القطر ثابت 12.1 (+15%)', Math.abs(pr[0].r - 12.1) < 0.05 && Math.abs(pr[1].r - 12.1) < 0.05);
+  ok('بيدقان: بلا تغطية (المسافة 25.2 ≥ القطر 24.2)', dPair >= 24.2 && Math.abs(dPair - 25.2) < 0.7);
   const tr = sizes.triple;
-  ok('ثلاثة (تصغير الممر مسموح): قطر 10 وخطوة 21.5', tr.every(q => q.r === 10) &&
-     Math.abs(Math.hypot(tr[0].x - tr[1].x, tr[0].y - tr[1].y) - 21.5) < 0.6);
+  /* [v2.43] ثلاثة في الممر: قطر 11.5 وخطوة 24.5 (+15%) */
+  ok('ثلاثة (تصغير الممر مسموح): قطر 11.5 وخطوة 24.5', tr.every(q => Math.abs(q.r - 11.5) < 0.05) &&
+     Math.abs(Math.hypot(tr[0].x - tr[1].x, tr[0].y - tr[1].y) - 24.5) < 0.7);
 
   await p.close();
   await b.close();

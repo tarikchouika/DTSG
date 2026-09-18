@@ -60,10 +60,10 @@ async function playActions(p, n) {
   await p.click('#dmStartBtn'); console.log('step: start clicked');
   await wait(p, () => document.getElementById('dmPlay').classList.contains('dm-screen-active')); console.log('step: play active');
   await sleep(900);
-  await p.screenshot({ path: 'shot_do_portrait_menu_done.png' });
+  await p.screenshot({ path: '/tmp/dtsg-shots/do-portrait-menu-done.png' });
   console.log('step: portrait playing'); const actedP = await playActions(p, 12); console.log('step: portrait done', actedP);
   await sleep(400);
-  await p.screenshot({ path: 'shot_do_portrait.png' });
+  await p.screenshot({ path: '/tmp/dtsg-shots/do-portrait.png' });
   results.push(['portrait actions', actedP, 'errors', p._er.slice(0, 3)]);
   await ctx.close();
 

@@ -81,7 +81,7 @@
   <link rel="stylesheet" href="css/03-components.css?v=dtsg6">
   <link rel="stylesheet" href="css/04-games.css?v=dtsg6">
   <link rel="stylesheet" href="css/05-ronda.css?v=dtsg6">
-  <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg6">
+  <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg10">
   <link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
   <link rel="stylesheet" href="css/08-rami.css?v=dtsg6">
   <link rel="stylesheet" href="css/09-chrome.css?v=dtsg6">
@@ -530,11 +530,12 @@
         <span id="parchisiBonus" class="pr-bonus" style="display:none"></span>
         <div id="parchisiBoardWrap" class="pr-boardwrap">
           <canvas id="parchisiCanvas" width="600" height="600" aria-label="لوحة Parchisi"></canvas>
-          <div id="prIcons" class="pr-icons" aria-hidden="true"></div>
-          <!-- [B9] النرد الدائم لكل لاعب فوق الزاوية الخارجية لقاعدته (خارج زوايا اللوحة):
-               الأحمر/الأزرق أعلى • الأخضر/الأصفر أسفل -->
-          <div id="prCornerDice" aria-hidden="true"></div>
         </div>
+        <!-- [v2.43] أيقونات اللاعبين ونردهم OUTSIDE اللوحة تماماً:
+             landscape: الأشرطة يمين/يسار الشاشة • portrait: أعلى/أسفل الشاشة.
+             كل مقعد = أيقونة فوق ونردها تحتها (لا تداخل مع اللوحة ولا بين بعضها). -->
+        <div id="prIcons" class="pr-icons" aria-hidden="true"></div>
+        <div id="prCornerDice" class="pr-dicelayer" aria-hidden="true"></div>
       </div>
       <div class="parchisi-info">
         <div id="parchisiDiceRow" class="pr-dice-row"></div>
@@ -748,11 +749,11 @@
   <script src="js/core/audio.js?v=dtsg6"></script>
   <script src="js/core/utils.js?v=dtsg6"></script>
   <script src="js/core/fx.js?v=dtsg6"></script>
-  <script src="js/i18n/translations.js?v=dtsg9"></script>
+  <script src="js/i18n/translations.js?v=dtsg10"></script>
   <script src="js/rules/game-rules.js?v=dtsg6"></script>
   <script src="js/games/catalog.js?v=dtsg6"></script>
   <script src="js/games/blackjack.js?v=dtsg6"></script>
-  <script src="js/games/ronda.js?v=unified13"></script>
+  <script src="js/games/ronda.js?v=unified14"></script>
   <!-- [RDC] روندا الكلاسيكية: المحرك الأصلي المستورد (ronda-game) حرفياً + الواجهة المنصّية -->
   <script src="ronda-game/js/engine/ronda-core.js?v=rdc6"></script>
   <script src="ronda-game/js/engine/ronda-game.js?v=rdc6"></script>
@@ -783,22 +784,22 @@
   <script src="dominoes-game/js/ui/domino-app.js?v=bgdo4"></script>
   <script src="dominoes-game/js/ui/domino-room.js?v=bgdo4"></script>
   <script src="dominoes-game/dominoes-bridge.js?v=bgdo4"></script>
-  <script src="js/games/parchisi.js?v=dtsg6"></script>
-  <script src="js/games/rami.js?v=dtsg6"></script>
-  <script src="js/games/dama.js?v=dtsg6"></script>
+  <script src="js/games/parchisi.js?v=dtsg10"></script>
+  <script src="js/games/rami.js?v=dtsg10"></script>
+  <script src="js/games/dama.js?v=dtsg11"></script>
   <script src="js/games/chess.js?v=dtsg6"></script>
   <script src="js/games/billiards-physics.js?v=dtsg6"></script>
   <script src="js/games/billiards-rules.js?v=dtsg6"></script>
   <script src="js/games/billiards.js?v=dtsg6"></script>
-  <script src="js/games/engines.js?v=dtsg6"></script>
+  <script src="js/games/engines.js?v=dtsg11"></script>
   <script type="module" src="js/games/crash.js?v=dtsg6"></script>
   <script src="js/core/rooms.js?v=dtsg6"></script>
-  <script src="js/main.js?v=dtsg9"></script>
-  <script src="js/core/live.js?v=dtsg6"></script>
+  <script src="js/main.js?v=dtsg10"></script>
+  <script src="js/core/live.js?v=dtsg10"></script>
   <script src="js/core/fair.js?v=dtsg6"></script>
   <script src="js/games/group.js?v=dtsg6"></script>
   <script src="js/friends.js?v=dtsg6"></script>
-  <script src="js/wallet.js?v=pay5"></script>
+  <script src="js/wallet.js?v=pay6"></script>
 
   <!-- ═══════════ Mobile Bottom Navigation Bar ═══════════ -->
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="التنقل السفلي">

@@ -2122,6 +2122,33 @@ if (typeof window !== 'undefined') {
     if (ADMIN_TAB === 'coord') loadAdminCoordinationMessages();
   });
 }
+
+/* [v2.43] وصول دفعة رصيد من الخادم (إيداع مُعتمد/كوبون/طلب سحب/إعادة رصيد):
+   حدّث الرصيد المعروض فوراً + سجل الحساب إن كان مفتوحاً + رسالة للمستخدم.
+   قبل هذا: العملية تُسجَّل في سجل الشحن لكن الرصيد المعروض يبقى قديماً. */
+window.RC_wallet = function (d) {
+  try {
+    if (!d) return;
+    const coins = Number(d.coins);
+    if (isFinite(coins)) {
+      ST.gold = coins;
+      if (AUTH && AUTH.user) AUTH.user.gold = coins;
+      if (typeof window.wallet === 'function') window.wallet();
+      const acct = document.getElementById('accountInfo');
+      if (acct) renderAccountLog();
+      try { save(); } catch (e) {}
+    }
+    if (d.message) toast(String(d.message), 'ok');
+    else {
+      const delta = Number(d.delta);
+      if (isFinite(delta) && delta !== 0) {
+        toast((delta > 0 ? '+' : '') + '🪙 ' + fmt(Math.abs(delta)), delta > 0 ? 'ok' : 'warn');
+      }
+    }
+    /* تحديث أي لوحة محفظة مفتوحة (js/wallet.js) */
+    if (typeof window.Wallet && typeof window.Wallet.refresh === 'function') { try { window.Wallet.refresh(); } catch (e) {} }
+  } catch (e) { console.error('[wallet] push', e); }
+};
 /* ═══════════ Ticker ═══════════ */
 /* [B7] اسم اللعبة في شريط الفائزين يُحوَّل لاسمه المحلي (لا إنجليزي بالواجهة العربية) */
 function tickGameLabel(raw) {

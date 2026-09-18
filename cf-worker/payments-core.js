@@ -208,6 +208,9 @@ async function uFindByTelegram(db, env, chatId) {
    - إن وُجد env.__platformCredit (تشغيل محلي داخل server.js بنفس القاعدة) يُستدعى مباشرة؛
    - وإلا نداء HTTP اختياري إن ضُبط PLATFORM_URL + PAYMENTS_SHARED_SECRET. */
 async function platformCredit(env, userId, usd, txId) {
+  /* [v2.43] على المنصة: __creditUsd (uCreditUsd) سبق وشحن الذهب ⇒
+     استدعاء __platformCredit ثانية كان يضاعف الشحن (كوبون 10$ = 2000 كوين بدل 1000). */
+  if (typeof env.__creditUsd === 'function') return;
   if (typeof env.__platformCredit === 'function') {
     try { await env.__platformCredit(userId, usd, txId); } catch (e) {}
     return;
@@ -357,26 +360,143 @@ async function handleFetch(request, env) {
     return json({ ok: true, applied: false });
   }
 
-  /* ── إيداع P2P محلي (وصل/كود تحويل) ── */
+  /* ═══════════════════════════════════════════════════════════════════════════
+   [v2.43] طبقة توافق لبوتات الطرف الثالث (بوت الشحن/الفوچر) ولواجهات قديمة:
+   ─ اختلاف أسماء الحقول كان يُنتج bad-input دائماً (رصيد/إيداع/سحب/كوبونات).
+   ─ هوية المستخدم تُقبل بـ user_id | username | tg_id | telegram_id | account.
+   ─ إنشاء الكوبونات يقبل السرّ في الترويسة أو الجسم أو الاستعلام (لبوت بلا جلسة).
+   ═══════════════════════════════════════════════════════════════════════════ */
+function pickNum() {
+  for (let i = 0; i < arguments.length; i++) {
+    const v = arguments[i];
+    if (v === undefined || v === null || v === '') continue;
+    const n = Number(String(v).replace(',', '.').replace(/[^0-9.]/g, ''));
+    if (isFinite(n) && n > 0) return n;
+  }
+  return 0;
+}
+function pickStr() {
+  for (let i = 0; i < arguments.length; i++) {
+    const v = arguments[i];
+    if (v === undefined || v === null) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return '';
+}
+/* أسماء الوسائل المرادفة (يتقبّل "Binance (TRC20)" و"Cash Plus" بأي كتابة) */
+function normMethod(m) {
+  const s = String(m || '').toLowerCase();
+  if (!s) return '';
+  if (/binance|usdt|trc|trx|usdт/.test(s)) return 'binance';
+  if (/cash[\s_-]*plus|cashplus|cash\+/.test(s)) return 'cash_plus';
+  if (/cih|bank|rib|iban|virement|بنك/.test(s)) return 'cih';
+  if (/orange/.test(s)) return 'orange_money';
+  if (/cryptomus|crypto|كريبتو|usdt\./.test(s)) return 'cryptomus';
+  if (/voucher|voutcher|code|coupon|كوبون|قصيمة|قسي/.test(s)) return 'voucher';
+  if (/sellix/.test(s)) return 'sellix';
+  return s;
+}
+/* حلّ هوية المستخدم ⇒ user_id نصي أو null (عبر خطاف المنصة إن وُجد) */
+async function resolveUid(db, env, body) {
+  const direct = pickStr(body.user_id, body.userId, body.uid, body.id_user, body.platform_user_id);
+  if (direct && /^\d+$/.test(direct)) return direct;
+  const uname = pickStr(body.username, body.user, body.name, body.account, body.login);
+  const tg = pickStr(body.tg_id, body.telegram_id, body.chat_id, body.from_id, body.telegram_user_id);
+  if (typeof env.__resolveUid === 'function') {
+    try { const r = await env.__resolveUid({ id: direct, username: uname, tg: tg }); if (r) return String(r); } catch (e) {}
+  }
+  if (uname) { try { const r = await db.prepare('SELECT id FROM users WHERE lower(username) = lower(?1)').bind(uname).first(); if (r) return String(r.id); } catch (e) {} }
+  if (tg) { try { const r = await db.prepare('SELECT id FROM users WHERE telegram_id = ?1').bind(tg).first(); if (r) return String(r.id); } catch (e) {} }
+  return '';
+}
+/* سرّ الأدمن: ترويسة x-admin-secret/x-api-secret | Bearer | body | استعلام.
+   [v2.43] تُقبل أيضاً أسرار البنية التحتية (بوت الفوچر/بوت الدعم) المزروعة في env
+   لأن بوتات الطرف الثالث لا تملك كوكي جلسة ⇒ كانت ترى 403 دائماً. */
+function adminSecretOk(request, env, body) {
+  const want = [env.ADMIN_API_SECRET, env.VOUCHER_BOT_SECRET, env.SUPPORT_WEBHOOK_SECRET, env.TELEGRAM_ADMIN_PIN]
+    .filter(function (x) { return !!x; });
+  if (!want.length) return false;
+  const h = (n) => { try { return String((request.headers && (request.headers.get ? request.headers.get(n) : request.headers[n])) || ''); } catch (e) { return ''; } };
+  const cands = [
+    h('x-admin-secret'), h('x-api-secret'), h('x-pay-secret'), h('x-admin-key'), h('x-bot-secret'),
+    h('x-telegram-bot-api-secret-token'),
+    (h('authorization') || '').replace(/^Bearer\s+/i, ''),
+    pickStr(body && body.admin_secret, body && body.secret, body && body.api_secret, body && body.bot_secret, body && body.key, body && body.token)
+  ];
+  for (let i = 0; i < cands.length; i++) { if (cands[i] && want.indexOf(cands[i]) >= 0) return true; }
+  try {
+    const u = new URL(request.url);
+    const qs = [u.searchParams.get('secret'), u.searchParams.get('admin_secret'), u.searchParams.get('key')];
+    for (let i = 0; i < qs.length; i++) { if (qs[i] && want.indexOf(qs[i]) >= 0) return true; }
+  } catch (e) {}
+  return false;
+}
+/* [v2.43] صلاحية إنشاء/إدارة الأكواد: السرّ المشترك أو سوبر أدمن تيليغرام
+   (بوت الفوچر يمرّر tg_id للمشغّل) أو جلسة super على المنصة. */
+function voucherActorOk(request, env, body) {
+  if (adminSecretOk(request, env, body)) return true;
+  if (typeof env.__authRole === 'function' && env.__authRole(request) === 'super') return true;
+  const tg = pickStr(body && body.tg_id, body && body.telegram_id, body && body.chat_id, body && body.from_id, body && body.admin_tg);
+  if (tg) {
+    if (env.TELEGRAM_ADMIN_CHAT_ID && tg === String(env.TELEGRAM_ADMIN_CHAT_ID)) return true;
+    if (env.SUPPORT_SUPER_TG && tg === String(env.SUPPORT_SUPER_TG)) return true;
+    if (typeof env.__adminCanAct === 'function') { try { if (env.__adminCanAct(tg)) return true; } catch (e) {} }
+  }
+  return false;
+}
+/* [v2.43] حماية: هل الهوية حساب حقيقي على المنصة؟ (على المنصة عبر __balance، وإلا نتحقق من الجدول) */
+async function userExists(db, env, uid) {
+  try {
+    /* الوضع المستقل (ووركر بقاعدة D1 خاصة): الحسابات تُنشأ عند أول عملية — لا تشدد */
+    const strict = (typeof env.__userExists === 'function') || (typeof env.__balance === 'function');
+    if (!strict) return true;
+    if (typeof env.__userExists === 'function') return !!env.__userExists(uid);
+    const b = await env.__balance(uid);
+    return !!b;
+  } catch (e) { return true; }
+}
+/* سجل تشخيص اختياري لبوتات الخارج (PAY_DEBUG_LOG=1) */
+function payDebug(env, entry) {
+  try {
+    if (env.PAY_DEBUG_LOG !== '1' && env.PAY_DEBUG_LOG !== 'true') return;
+    const line = JSON.stringify(Object.assign({ ts: new Date().toISOString() }, entry)) + '\n';
+    if (typeof env.__debugLog === 'function') env.__debugLog(line);
+    else console.log('[pay-debug]', line.trim());
+  } catch (e) {}
+}
+
+/* ── إيداع P2P محلي (وصل/كود تحويل) ── */
   if (p === '/api/payments/p2p' && request.method === 'POST') {
     const b = await request.json();
-    const amt = Number(b.amount_usd);
-    /* [v2.40] binance: تحويل USDT يدوي إلى عنواننا — نفس مسار المراجعة اليدوية */
-    const methods = ['cash_plus', 'cih', 'orange_money', 'binance'];
-    /* [v2.41.1] نتقبّل أسماء الحقول البديلة التي يرسلها بوت الشحن/الواجهة (كانت تسبب bad-input دائماً) */
-    const proof = String(b.proof_details || b.details || b.reference || b.ref || b.proof || b.receipt || b.code || '').trim();
+    /* [v2.43] مرادفات المبلغ والوسيلة والوصل + حلّ الهوية (username/tg_id) */
+    const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.total, b.mad_amount, b.price);
+    const method = normMethod(pickStr(b.method, b.pay_method, b.payment_method, b.type, b.gateway, b.way));
+    const methods = ['cash_plus', 'cih', 'orange_money', 'binance', 'voucher'];
+    const proof = pickStr(b.proof_details, b.details, b.reference, b.ref, b.proof, b.receipt, b.code,
+      b.txid, b.tx_id, b.transaction_id, b.hash, b.phone, b.account, b.account_number, b.receiver,
+      b.recipient, b.note, b.comment, b.message, b.voucher, b.coupon, b.photo, b.image, b.receipt_image);
+    const uidResolved = await resolveUid(db, env, b);
     const missing = [];
-    if (!b.user_id && !b.username) missing.push('user_id');
+    if (!uidResolved) missing.push('user_id|username|tg_id');
     if (!(amt >= 1)) missing.push('amount_usd');
-    if (methods.indexOf(String(b.method)) < 0) missing.push('method');
-    if (!proof) missing.push('proof_details');
-    if (missing.length) return json({ ok: false, error: 'bad-input', missing: missing, hint: 'أرسل proof_details (أو details) مع رقم/كود التحويل' }, 400);
-    await uEnsure(db, env, b.user_id, b.email);
+    if (methods.indexOf(method) < 0) missing.push('method');
+    if (!proof) missing.push('proof_details|details|reference');
+    if (missing.length) {
+      payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}), missing });
+      return json({ ok: false, error: 'bad-input', missing: missing,
+        hint: 'أرسل: user_id (أو username/tg_id) + amount_usd (أو amount) + method (binance/cash_plus/cih) + details (كود/مرجع التحويل)' }, 400);
+    }
+    if (!(await userExists(db, env, uidResolved))) {
+      payDebug(env, { path: p, status: 404, uid: uidResolved, keys: Object.keys(b || {}) });
+      return json({ ok: false, error: 'user-not-found', hint: 'لا يوجد حساب منصة مطابق لهذه الهوية — استعمل معرّف المستخدم (user_id) أو اسم المستخدم المسجَّل أو اربط telegram_id' }, 404);
+    }
+    await uEnsure(db, env, uidResolved, b.email);
     const txId = uid('p2p');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,?4,\'pending\',?5)')
-      .bind(txId, String(b.user_id), amt, b.method, proof.slice(0, 2000)).run();
+      .bind(txId, String(uidResolved), amt, method, proof.slice(0, 2000)).run();
     await tgNotifyAdmin(env,
-      '📥 <b>إيداع جديد بانتظار الموافقة</b>\nالتذكرة: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || b.user_id) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + b.method + '\nالوصل/الكود: ' + proof.slice(0, 300),
+      '📥 <b>إيداع جديد بانتظار الموافقة</b>\nالتذكرة: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || uidResolved) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + method + '\nالوصل/الكود: ' + proof.slice(0, 300),
       [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
     return json({ ok: true, tx: txId, status: 'pending' });
   }
@@ -384,28 +504,39 @@ async function handleFetch(request, env) {
   /* ── استبدال كوبون (Atomic) ── */
   if (p === '/api/vouchers/redeem' && request.method === 'POST') {
     const b = await request.json();
-    const code = String(b.code || '').trim().toUpperCase();
-    if (!b.user_id || !code) return json({ ok: false, error: 'bad-input' }, 400);
-    await uEnsure(db, env, b.user_id, b.email);
+    const code = pickStr(b.code, b.voucher, b.coupon, b.voucher_code, b.pin).trim().toUpperCase();
+    const uidResolved = await resolveUid(db, env, b);
+    if (!uidResolved || !code) {
+      payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}), missing: [!uidResolved && 'user_id|username|tg_id', !code && 'code'].filter(Boolean) });
+      return json({ ok: false, error: 'bad-input', missing: [!uidResolved && 'user_id|username|tg_id', !code && 'code'].filter(Boolean),
+        hint: 'أرسل: code + user_id (أو username/tg_id)' }, 400);
+    }
+    const ub = uidResolved;
+    if (!(await userExists(db, env, ub))) return json({ ok: false, error: 'user-not-found', hint: 'لا يوجد حساب منصة مطابق لهذه الهوية' }, 404);
+    await uEnsure(db, env, ub, b.email);
     /* UPDATE واحد بشرط is_used=0 = معاملة ذرية على D1 */
-    const up = await db.prepare('UPDATE vouchers SET is_used = 1, used_by_user_id = ?2 WHERE code = ?1 AND is_used = 0').bind(code, String(b.user_id)).run();
+    const up = await db.prepare('UPDATE vouchers SET is_used = 1, used_by_user_id = ?2 WHERE code = ?1 AND is_used = 0').bind(code, String(ub)).run();
     const changed = up && up.meta ? up.meta.changes : 0;
     if (changed === 1) {
       const v = await db.prepare('SELECT amount_usd, coins, kind FROM vouchers WHERE code = ?1').bind(code).first();
       if (Number(v.coins) > 0) {
         /* كود كوينز (أدمنز/مباشر): شحن الذهب مباشرة + سجل */
-        if (typeof env.__creditGold === 'function') await env.__creditGold(b.user_id, Number(v.coins));
+        if (typeof env.__creditGold === 'function') await env.__creditGold(ub, Number(v.coins));
         const txId = uid('vch');
-        await db.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,'deposit',?3,'voucher','completed',?4)")
-          .bind(txId, String(b.user_id), Number(v.amount_usd), code + ' coins:' + v.coins).run();
+        try {
+          await db.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,'deposit',?3,'voucher','completed',?4)")
+            .bind(txId, String(ub), Number(v.amount_usd), code + ' coins:' + v.coins).run();
+        } catch (e) { payDebug(env, { path: p, warn: 'ledger-failed', detail: String(e && e.message || e) }); }
         return json({ ok: true, coins: Number(v.coins), kind: v.kind });
       }
       const amt = Number(v.amount_usd);
-      await uCreditUsd(db, env, b.user_id, amt);
+      await uCreditUsd(db, env, ub, amt);
       const txId = uid('vch');
-      await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,\'voucher\',\'completed\',?4)')
-        .bind(txId, String(b.user_id), amt, code).run();
-      await platformCredit(env, b.user_id, amt, txId);
+      try {
+        await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,\'voucher\',\'completed\',?4)')
+          .bind(txId, String(ub), amt, code).run();
+      } catch (e) { payDebug(env, { path: p, warn: 'ledger-failed', detail: String(e && e.message || e) }); }
+      await platformCredit(env, ub, amt, txId);
       return json({ ok: true, amount_usd: amt });
     }
     const ex = await db.prepare('SELECT is_used FROM vouchers WHERE code = ?1').bind(code).first();
@@ -414,44 +545,77 @@ async function handleFetch(request, env) {
 
   /* ── إنشاء كوبونات (أدمن) ── */
   if (p === '/api/vouchers/create' && request.method === 'POST') {
-    const secretOk = env.ADMIN_API_SECRET && request.headers.get('x-admin-secret') === env.ADMIN_API_SECRET;
-    const superOk = typeof env.__authRole === 'function' && env.__authRole(request) === 'super';
-    if (!secretOk && !superOk) return json({ ok: false, error: 'forbidden' }, 403);
-    const b = await request.json();
-    if (b.kind === 'admin' || b.kind === 'direct') {
-      const tier = Number(b.tier), cur = (b.currency === 'mad') ? 'mad' : 'usd';
-      const tc = tierCoins(b.kind, tier, cur);
-      if (!tc) return json({ ok: false, error: 'bad-tier', tiers: Object.keys(b.kind === 'admin' ? ADMIN_TIERS : DIRECT_TIERS) }, 400);
-      const v = await makeTierVoucher(db, b.kind, tier, cur);
+    let b = {};
+    try { b = await request.json(); } catch (e) { b = {}; }
+    /* [v2.43] البوتات تنادي بلا ترويسة: نقبل السرّ من الجسم/الاستعلام/الترويسات + دور super من الجلسة */
+    if (!voucherActorOk(request, env, b)) {
+      payDebug(env, { path: p, status: 403, keys: Object.keys(b || {}) });
+      return json({ ok: false, error: 'forbidden', hint: 'مطلوب: ترويسة x-admin-secret (أو admin_secret في الجسم) أو tg_id لسوبر أدمن' }, 403);
+    }
+    const kind = pickStr(b.kind, b.type, b.mode).toLowerCase();
+    if (kind === 'admin' || kind === 'direct') {
+      const tier = pickNum(b.tier, b.amount, b.amount_usd, b.value);
+      const cur = (pickStr(b.currency, b.cur, b.coin).toLowerCase() === 'mad') ? 'mad' : 'usd';
+      const tc = tierCoins(kind, tier, cur);
+      if (!tc) return json({ ok: false, error: 'bad-tier', tiers: Object.keys(kind === 'admin' ? ADMIN_TIERS : DIRECT_TIERS) }, 400);
+      const v = await makeTierVoucher(db, kind, tier, cur);
       return json({ ok: true, codes: [v.code], coins: v.coins, bonus: v.bonus });
     }
-    const amt = Number(b.amount_usd), count = Math.min(50, Math.max(1, b.count | 0));
-    if (!(amt >= 1)) return json({ ok: false, error: 'bad-input' }, 400);
+    const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.mad_amount, b.price);
+    const count = Math.min(50, Math.max(1, Number(pickNum(b.count, b.qty, b.quantity, b.number, b.n) || 1) | 0));
+    if (!(amt >= 1)) {
+      payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}) });
+      return json({ ok: false, error: 'bad-input', hint: 'أرسل amount_usd (أو amount) بقيمة ≥ 1' }, 400);
+    }
     return json({ ok: true, codes: await makeVoucherCodes(db, amt, count) });
   }
 
   /* ── طلب سحب ── */
   if (p === '/api/withdrawals/request' && request.method === 'POST') {
     const b = await request.json();
-    const amt = Number(b.amount_usd);
-    if (!b.user_id || !(amt >= 1) || !b.method) return json({ ok: false, error: 'bad-input' }, 400);
-    await uEnsure(db, env, b.user_id, b.email);
+    const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.total);
+    const method = normMethod(pickStr(b.method, b.pay_method, b.payment_method, b.type, b.gateway, b.way));
+    const details = pickStr(b.details, b.proof_details, b.reference, b.ref, b.proof, b.account, b.account_number,
+      b.phone, b.phone_number, b.iban, b.rib, b.wallet, b.address, b.txid, b.code, b.note, b.message);
+    const uidResolved = await resolveUid(db, env, b);
+    const missing = [];
+    if (!uidResolved) missing.push('user_id|username|tg_id');
+    if (!(amt >= 1)) missing.push('amount_usd');
+    if (!method) missing.push('method');
+    if (missing.length) {
+      payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}), missing });
+      return json({ ok: false, error: 'bad-input', missing: missing,
+        hint: 'أرسل: user_id (أو username/tg_id) + amount_usd (أو amount) + method + details (رقم/حساب الاستلام)' }, 400);
+    }
+    if (!(await userExists(db, env, uidResolved))) {
+      payDebug(env, { path: p, status: 404, uid: uidResolved, keys: Object.keys(b || {}) });
+      return json({ ok: false, error: 'user-not-found', hint: 'لا يوجد حساب منصة مطابق لهذه الهوية' }, 404);
+    }
+    await uEnsure(db, env, uidResolved, b.email);
     /* خصم احتياطي ذري: لا يخصم إن لم يكفِ الرصيد */
-    const upOk = await uDebitUsd(db, env, b.user_id, amt);
-    if (!upOk) return json({ ok: false, error: 'insufficient-balance' }, 402);
+    const upOk = await uDebitUsd(db, env, uidResolved, amt);
+    if (!upOk) return json({ ok: false, error: 'insufficient-balance', message: 'الرصيد غير كافٍ', balance: await uBalance(db, env, uidResolved) }, 402);
     const txId = uid('wd');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'withdrawal\',?3,?4,\'pending\',?5)')
-      .bind(txId, String(b.user_id), amt, b.method, String(b.details || '').slice(0, 2000)).run();
+      .bind(txId, String(uidResolved), amt, method, details.slice(0, 2000)).run();
     await tgNotifyAdmin(env,
-      '💸 <b>طلب سحب بانتظار الموافقة</b>\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || b.user_id) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + b.method + '\nالتفاصيل: ' + String(b.details || '').slice(0, 300),
+      '💸 <b>طلب سحب بانتظار الموافقة</b>\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || uidResolved) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + method + '\nالتفاصيل: ' + details.slice(0, 300),
       [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
     return json({ ok: true, tx: txId, status: 'pending' });
   }
 
   /* ── رصيد وسجل ── */
   if (p === '/api/wallet/balance' && request.method === 'GET') {
-    const u = url.searchParams.get('user_id');
-    if (!u) return json({ ok: false, error: 'bad-input' }, 400);
+    /* [v2.43] يقبل user_id أو username أو tg_id/telegram_id */
+    let u = url.searchParams.get('user_id') || url.searchParams.get('uid') || '';
+    if (!u) {
+      const q = {
+        username: url.searchParams.get('username') || url.searchParams.get('user') || '',
+        tg_id: url.searchParams.get('tg_id') || url.searchParams.get('telegram_id') || url.searchParams.get('chat_id') || ''
+      };
+      u = await resolveUid(db, env, q);
+    }
+    if (!u) return json({ ok: false, error: 'bad-input', hint: 'أرسل user_id أو username أو tg_id' }, 400);
     const bal = await uBalance(db, env, u);
     if (!bal) return json({ ok: true, balance_usd: 0, coins: 0, transactions: [] });
     const rows = await db.prepare('SELECT id, type, amount_usd, method, status, created_at FROM transactions WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 30').bind(String(u)).all();

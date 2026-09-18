@@ -24,11 +24,13 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   page._bad4xx = bad4xx;
   page.on('dialog', d => d.accept());   /* confirm/alert — نوافق تلقائياً كما يفعل الأدمن */
 
+  const RUN = String(Date.now()).slice(-6);
+  const REF1 = 'TX-ADMIN-UI-' + RUN, REF2 = 'CP-568409-' + RUN, REFWD = 'TX-ADMIN-UI-WD-' + RUN;
   console.log('\n═══ أ) تجهيز: إيداعان معلّقان (بنفس بيانات بوت الشحن) ═══');
   const mk = async (body) => await page.request.post(BASE + '/api/payments/p2p', { data: body });
-  const dep1 = await mk({ user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 25, proof_details: 'TX-ADMIN-UI-1' });
+  const dep1 = await mk({ user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 25, proof_details: REF1 });
   const j1 = await dep1.json();
-  const dep2 = await mk({ user_id: 18, username: 'qa_player', method: 'cash_plus', amount_usd: 12, details: 'CP-568409-012234' });
+  const dep2 = await mk({ user_id: 18, username: 'qa_player', method: 'cash_plus', amount_usd: 12, details: REF2 });
   const j2 = await dep2.json();
   (j1.ok && j2.ok) ? ok('إنشاء إيداعين معلّقين: ' + j1.tx + ' · ' + j2.tx) : bad('فشل الإنشاء: ' + JSON.stringify([j1, j2]));
 
@@ -50,14 +52,37 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   const ui = await page.evaluate(() => {
     const box = document.getElementById('payPending');
     const rows = box ? box.querySelectorAll('tbody tr').length : 0;
-    const texts = box ? (box.innerText || '').slice(0, 400) : '';
+    const texts = box ? (box.innerText || '') : '';
     const btns = box ? box.querySelectorAll('button').length : 0;
     return { hasBox: !!box, rows, btns, texts };
   });
+  /* ── [نظافة] إزالة بقايا تشغيلات سابقة لنفس الاختبار حتى لا تتراكم صفوف وهمية ── */
+  const swept = await page.evaluate(async (arg) => {
+    const r = await fetch('/api/admin/payments/pending', { credentials: 'include' });
+    const j = await r.json();
+    const rows = (j && j.pending) || [];
+    const ref = x => String((x && (x.proof_details || x.details)) || '');
+    const stale = rows.filter(x => arg.pats.some(p => ref(x).indexOf(p) === 0) && arg.keep.indexOf(ref(x)) < 0);
+    return { total: rows.length, ids: stale.slice(0, 40).map(x => x.id) };
+  }, { pats: ['TX-ADMIN-UI-', 'CP-568409-'], keep: [REF1, REF2, REFWD] });
+  if (swept.ids.length) {
+    for (const id of swept.ids) {
+      await page.evaluate(async (tx) => { await fetch('/api/admin/payments/act', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tx_id: tx, action: 'reject' }) }); }, id);
+    }
+    await page.evaluate(() => adminLoadPendingPayments());
+    await page.waitForTimeout(1500);
+    ok('تنظيف ' + swept.ids.length + ' صفاً بقايا من تشغيلات سابقة (من أصل ' + swept.total + ')');
+  } else ok('لا بقايا معلّقة من تشغيلات سابقة (' + swept.total + ' معلّق)');
+
+  const ui2 = await page.evaluate(() => {
+    const box = document.getElementById('payPending');
+    return { rows: box ? box.querySelectorAll('tbody tr').length : 0 };
+  });
+  ui.rows = ui2.rows;
   ui.hasBox ? ok('صندوق طلبات الدفع المعلّقة موجود في تبويب المالية') : bad('لا صندوق — الزر/التبويب لم يُنشئ القائمة');
   ui.rows >= 2 ? ok('يُدرج الطلبات المعلّقة (' + ui.rows + ' صفوف، ' + ui.btns + ' زر)') : bad('عدد الصفوف: ' + ui.rows);
   /إيداع|Dépôt|Deposit/.test(ui.texts) ? ok('الصفوف تعرض نوع العملية') : bad('لا نوع عملية: ' + ui.texts.slice(0, 120));
-  /TX-ADMIN-UI-1|CP-568409-012234/.test(ui.texts) ? ok('تُعرض مراجع التحويل') : bad('لا مراجع');
+  (new RegExp(REF1 + '|' + REF2)).test(ui.texts) ? ok('تُعرض مراجع التحويل') : bad('لا مراجع');
   await page.screenshot({ path: '/tmp/audit-admin-pay.png' });
 
   console.log('\n═══ ج) الموافقة على إيداع من الواجهة ═══');
@@ -66,14 +91,14 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
     const j = await r.json(); return j.coins || 0;
   };
   const before = await coins();
-  const clicked = await page.evaluate(() => {
+  const clicked = await page.evaluate((ref1) => {
     const box = document.getElementById('payPending');
-    const row = Array.from(box.querySelectorAll('tbody tr')).find(tr => /TX-ADMIN-UI-1/.test(tr.innerText));
+    const row = Array.from(box.querySelectorAll('tbody tr')).find(tr => tr.innerText.indexOf(ref1) >= 0);
     if (!row) return false;
     const b = Array.from(row.querySelectorAll('button')).find(x => /✅/.test(x.textContent));
     if (!b) return false;
     b.click(); return true;
-  });
+  }, REF1);
   clicked ? ok('زر «تأكيد» موجود ونُقر') : bad('لم أجد زر التأكيد');
   await page.waitForTimeout(3000);
   const after = await coins();
@@ -82,23 +107,23 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
     const box = document.getElementById('payPending');
     return box ? box.innerText : '';
   });
-  /قيد|pending|TX-ADMIN-UI-1/.test(refreshed) ? ok('القائمة أُعيد تحميلها (الطلب المؤكد غادر المعلّق)') : ok('القائمة أُعيد تحميلها');
+  (new RegExp('قيد|pending|' + REF1)).test(refreshed) ? ok('القائمة أُعيد تحميلها (الطلب المؤكد غادر المعلّق)') : ok('القائمة أُعيد تحميلها');
 
   console.log('\n═══ د) سحب + رفضه من الواجهة (إعادة الرصيد) ═══');
-  const wd = await page.request.post(BASE + '/api/withdrawals/request', { data: { user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 9, details: 'TX-ADMIN-UI-WD' } });
+  const wd = await page.request.post(BASE + '/api/withdrawals/request', { data: { user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 9, details: REFWD } });
   const wj = await wd.json();
   wj.ok ? ok('إنشاء طلب سحب: ' + wj.tx) : bad('فشل السحب: ' + JSON.stringify(wj));
   await page.evaluate(() => adminLoadPendingPayments());
   await page.waitForTimeout(1800);
   const coinsBefore = await coins();
-  const rejClicked = await page.evaluate(() => {
+  const rejClicked = await page.evaluate((refwd) => {
     const box = document.getElementById('payPending');
-    const row = Array.from(box.querySelectorAll('tbody tr')).find(tr => /TX-ADMIN-UI-WD/.test(tr.innerText));
+    const row = Array.from(box.querySelectorAll('tbody tr')).find(tr => tr.innerText.indexOf(refwd) >= 0);
     if (!row) return false;
     const b = Array.from(row.querySelectorAll('button')).find(x => /❌/.test(x.textContent));
     if (!b) return false;
     b.click(); return true;
-  });
+  }, REFWD);
   rejClicked ? ok('زر «رفض» وُجد ونُقر') : bad('لم أجد زر الرفض');
   await page.waitForTimeout(3000);
   const coinsAfter = await coins();

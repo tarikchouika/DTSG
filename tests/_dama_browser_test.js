@@ -8,7 +8,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function wait(p, fn, t = 12000, a) { const s = Date.now(); let e; while (Date.now() - s < t) { try { const r = await p.evaluate(fn, a); if (r) return r; } catch (x) { e = x; } await p.waitForTimeout(150); } throw new Error('timeout ' + (e ? e.message : '')); }
 
 async function setup(ctx, u) {
-  await ctx.request.post(BASE + 'api/register', { data: { username: u, password: 'pw123456' } });
+  /* [v2.43] لا تسجيل ذاتي على المنصة: حساب QA قائم (كوكي Secure لا يُشارك عبر
+     APIRequestContext ⇒ الدخول من داخل الصفحة) */
+  const boot = await ctx.newPage();
+  await boot.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await boot.evaluate(async () => {
+    await fetch('/api/login', { method: 'POST', credentials: 'include', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ username: 'qa_player', password: 'QaTest12345' }) });
+  });
+  await boot.close();
   const p = await ctx.newPage();
   const er = [];
   p.on('pageerror', e => er.push(String(e.message).slice(0, 120)));
@@ -203,6 +210,50 @@ async function measureFit(page) {
       results.push([label + ': deferred promotion — piece stopped as man, turn passed', pend.stopped === true]);
       results.push([label + ': deferred promotion — crowned after opponent turn', pend.crowned === true && pend.crownVis === true]);
 
+      /* 6e. [v2.43] تدريب مجاني (مباراة الآلي): النتيجة بلا مبالغ/مضاعفات + الرصيد ثابت */
+      const trn = await page.evaluate(() => {
+        try {
+          window.TRAINING = window.TRAINING || { on: false };
+          window.TRAINING.on = true;
+          const g0 = (typeof ST !== 'undefined') ? ST.gold : null;
+          DAMA.state.over = false;
+          damaFinalize(DAMA.human);                     /* فوز بشري في وضع التدريب */
+          const amt = document.getElementById('damaOverAmt');
+          const bar = document.getElementById('GRes');
+          const res = {
+            amtTxt: amt ? amt.textContent : '',
+            barTxt: bar ? bar.textContent : '',
+            cls: bar ? bar.className : '',
+            g0: g0, g1: (typeof ST !== 'undefined') ? ST.gold : null
+          };
+          const ov = document.getElementById('damaOver'); if (ov) ov.hidden = true;
+          return res;
+        } catch (e) { return { err: e.message }; }
+      });
+      results.push([label + ': تدريب — لوحة الفوز بلا مبلغ/مضاعف (' + (trn.amtTxt || '').slice(0, 40) + ')',
+        !trn.err && /تدريب/.test(trn.amtTxt || '') && !/[0-9]/.test(trn.amtTxt || '')]);
+      results.push([label + ': تدريب — شريط النتيجة بلا × ولا +', !trn.err && !/[×+]/.test(trn.barTxt || '')]);
+      results.push([label + ': تدريب — شريط الفوز يبقى أخضر (res win)', trn.cls === 'res win']);
+      results.push([label + ': تدريب — الرصيد ثابت (' + trn.g0 + ' → ' + trn.g1 + ')', !trn.err && trn.g0 === trn.g1]);
+
+      /* 6f. انحدار: الرهان الحقيقي (خارج التدريب) ما زال يُظهر المبلغ والمضاعف ويصرف المكسب */
+      const cash = await page.evaluate(() => {
+        try {
+          window.TRAINING.on = false;
+          DAMA.state.over = false;
+          const g0 = ST.gold;
+          damaFinalize(DAMA.human);
+          const amt = document.getElementById('damaOverAmt');
+          const bar = document.getElementById('GRes');
+          const res = { amtTxt: amt ? amt.textContent : '', barTxt: bar ? bar.textContent : '', g0: g0, g1: ST.gold };
+          const ov = document.getElementById('damaOver'); if (ov) ov.hidden = true;
+          return res;
+        } catch (e) { return { err: e.message }; }
+      });
+      results.push([label + ': رهان حقيقي — المضاعف في الشريط (' + (cash.barTxt || '').slice(0, 30) + ')', !cash.err && /×/.test(cash.barTxt || '')]);
+      results.push([label + ': رهان حقيقي — المبلغ في اللوحة', !cash.err && /\+/.test(cash.amtTxt || '') && /[0-9]/.test(cash.amtTxt || '')]);
+      results.push([label + ': رهان حقيقي — الرصيد زاد (' + cash.g0 + ' → ' + cash.g1 + ')', !cash.err && cash.g1 > cash.g0]);
+
       /* 7. fit on this viewport */
       const m = await measureFit(page);
       const okFit = !m.err && m.inV && m.inH;
@@ -210,7 +261,7 @@ async function measureFit(page) {
       if (!okFit) console.log('  CLIP', label, JSON.stringify(m));
 
       /* screenshot */
-      await page.screenshot({ path: '_shot_dama_' + label + '.png' });
+      await page.screenshot({ path: '/tmp/dtsg-shots/dama-' + label + '.png' });
 
       results.push([label + ': 0 page errors', page._er.length === 0]);
       if (page._er.length) console.log('  ERRORS', label, JSON.stringify(page._er));

@@ -117,11 +117,18 @@ let CTX = null; /* { db, users, sessions, shim } */
 function setContext(db, users, sessions) {
   CTX = { db: db, users: users, sessions: sessions || {}, shim: d1shim(db) };
 }
+function pushWalletLocal(u, extra) {
+  /* [v2.43] إعلام المستخدم لحظياً (SSE) كي يرى الرصيد الجديد بلا إعادة تحميل */
+  try {
+    if (u && typeof global.__DTSG_PUSH_WALLET === 'function') global.__DTSG_PUSH_WALLET(u.id, extra || null);
+  } catch (e) {}
+}
 function creditGoldLocal(userId, coins) {
   const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
   if (!u || !(coins > 0)) return;
   u.gold = (u.gold || 0) + Math.round(coins);
   try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
+  pushWalletLocal(u, { delta: Math.round(coins) });
 }
 /* دور الجلسة الحالية (لكوبونات لوحة السوبر أدمن) */
 function roleOfRequest(req) {
@@ -177,6 +184,36 @@ function buildEnv(req) {
       } catch (e) { return false; }
     },
     __rate: function () { return Number(process.env.USD_GOLD_RATE || 100); },
+    /* [v2.43] حلّ هوية المستخدم القادمة من بوتات الطرف الثالث:
+       user_id | username | tg_id/telegram_id  ⇒ معرّف المنصة الحقيقي.
+       (بدون هذا كانت البوتات ترسل الاسم أو معرّف تيليغرام فتُسجَّل معاملة
+        بلا حساب مطابق ⇒ «تُسجَّل العملية ولا يتغيّر الرصيد»). */
+    __resolveUid: function (q) {
+      try {
+        q = q || {};
+        const id = q.id ? String(q.id) : '';
+        const un = q.username ? String(q.username).toLowerCase() : '';
+        const tg = q.tg ? String(q.tg) : '';
+        const all = Object.values(CTX.users);
+        if (id) { const hit = all.find(x => String(x.id) === id); if (hit) return String(hit.id); }
+        if (un) { const hit = all.find(x => String(x.username || '').toLowerCase() === un); if (hit) return String(hit.id); }
+        if (tg) { const hit = all.find(x => String(x.telegram_id || '') === tg); if (hit) return String(hit.id); }
+        try {
+          if (un) { const r = CTX.db.prepare('SELECT id FROM users WHERE lower(username) = ?').get(un); if (r) return String(r.id); }
+          if (tg) { const r = CTX.db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(tg); if (r) return String(r.id); }
+          if (id) { const r = CTX.db.prepare('SELECT id FROM users WHERE id = ?').get(Number(id)); if (r) return String(r.id); }
+        } catch (e) {}
+        return '';
+      } catch (e) { return ''; }
+    },
+    /* هل الحساب موجود فعلاً؟ (يُستعمل لمنع تسجيل معاملات بلا حساب ⇒ رصيد ثابت) */
+    __userExists: function (id) {
+      try {
+        if (Object.values(CTX.users).some(x => String(x.id) === String(id))) return true;
+        const r = CTX.db.prepare('SELECT id FROM users WHERE id = ?').get(Number(id));
+        return !!r;
+      } catch (e) { return false; }
+    },
     __findUserRow: function (id) {
       try { return CTX.db.prepare('SELECT id, username, gold, telegram_id FROM users WHERE id = ?').get(Number(id)) || null; } catch (e) { return null; }
     },
@@ -211,10 +248,11 @@ function buildEnv(req) {
     __debitUsd: function (id, usd) {
       const rate = Number(process.env.USD_GOLD_RATE || 100);
       const coins = Math.round(Number(usd) * rate);
-      const u = CTX.users[Number(id)];
+      const u = CTX.users[Number(id)] || Object.values(CTX.users).find(x => String(x.id) === String(id));
       if (!u || (u.gold || 0) < coins) return false;
       u.gold -= coins;
       try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+      pushWalletLocal(u, { delta: -coins });
       return true;
     },
     /* [Codes] شحن كوينز مباشر (أكواد التعبئة بالبونص) */
@@ -228,7 +266,8 @@ function buildEnv(req) {
       const gold = Math.round(usd * rate);
       u.gold = (u.gold || 0) + gold;
       try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
-    }
+      pushWalletLocal(u, { delta: gold, message: '✅ تم شحن رصيدك: +' + gold + ' 🪙' });
+    },
   };
 }
 
