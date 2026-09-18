@@ -1,6 +1,6 @@
 {
   "name": "digital-traditional-skills-games",
-  "version": "2.40.5",
+  "version": "2.41.0",
   "description": "DTSG — Digital Traditional Skills Games — منصة الألعاب التراثية والمهارات التقليدية (Vanilla JS + Node.js SSE)",
   "private": true,
   "scripts": {

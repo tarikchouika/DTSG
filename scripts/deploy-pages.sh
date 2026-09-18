@@ -50,7 +50,7 @@ cp -r js css assets ronda-game backgammon-game dominoes-game "$OUT/"
 for f in index.html admins.html about.html contact.html 2fa.html \
          cryptomus_*.html \
          provably-fair.html fairness.html privacy.html terms.html \
-         refund-policy.html \
+         refund-policy.html support.html \
          _headers _redirects api-url2.json payments-url.json tunnel-live.json; do
   [ -e "$f" ] && cp "$f" "$OUT/"
 done

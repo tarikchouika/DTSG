@@ -420,6 +420,13 @@ async function handleFetch(request, env) {
       const adminOk = env.TELEGRAM_ADMIN_CHAT_ID && String(cq.from.id) === String(env.TELEGRAM_ADMIN_CHAT_ID);
       const data = String(cq.data || '');
       await tg(env, 'answerCallbackQuery', { callback_query_id: cq.id });
+      /* [Support 2026-09-18] أزرار بوت الدعم (استلام/إغلاق تذكرة) — تصل هنا أيضاً لأن
+         البوتين يتشاركان شات الإدارة. الصلاحية يتحقّق منها وحدة الدعم نفسها. */
+      const supM = data.match(/^(supc|supx|supr)_(\d+)$/);
+      if (supM) {
+        if (typeof env.__supportAction === 'function') await env.__supportAction(supM[1], supM[2], cq);
+        return json({ ok: true });
+      }
       if (!adminOk) return json({ ok: false, error: 'not-admin' }, 403);
       const m = data.match(/^(dapp|drej|wapp|wrej)_(.+)$/);
       if (!m) return json({ ok: true });
@@ -429,21 +436,25 @@ async function handleFetch(request, env) {
       if (act === 'dapp') {
         const r = await completeDeposit(env, db, txId, Number(tx.amount_usd));
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: r.ok ? '✅ تم تأكيد الإيداع وشحن الرصيد.' : '⚠️ تعذر التأكيد.' });
+        if (r.ok && typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تأكيد إيداعك وشحن رصيدك.');
       } else if (act === 'drej') {
         await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
         const tg1 = await uGetTelegram(db, env, tx.user_id);
         if (tg1) await tg(env, 'sendMessage', { chat_id: tg1, text: '❌ تم رفض عملية الإيداع (' + tx.amount_usd + ' USD). تواصل مع الدعم.' });
+        if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان هناك خطأ تواصل مع الدعم: /start');
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '❌ تم رفض الإيداع.' });
       } else if (act === 'wapp') {
         await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
         const tg2 = await uGetTelegram(db, env, tx.user_id);
         if (tg2) await tg(env, 'sendMessage', { chat_id: tg2, text: '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD' });
+        if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '✅ تم تأكيد السحب.' });
       } else if (act === 'wrej') {
         await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
         await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd)); /* إعادة الرصيد */
         const tg3 = await uGetTelegram(db, env, tx.user_id);
         if (tg3) await tg(env, 'sendMessage', { chat_id: tg3, text: '❌ رُفض طلب السحب وأُعيد المبلغ لرصيدك.' });
+        if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك. للاستفسار اكتب رسالة هنا.');
         await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '❌ تم رفض السحب وإعادة الرصيد.' });
       }
       return json({ ok: true });
@@ -460,7 +471,11 @@ async function handleFetch(request, env) {
         return json({ ok: true });
       }
       if (text === '/start' || text === '/help') {
-        await tg(env, 'sendMessage', { chat_id: chatId, text: '🤖 بوت DTSG المالي\n/start plt_<معرفك> — ربط الحساب\n/deposit <المبلغ> — إيداع عبر Cash Plus\n/balance — الرصيد\n— للأدمن: /auth <PIN> ثم /voucher <المبلغ> [العدد]\nالدعم متاح 24/7.' });
+        await tg(env, 'sendMessage', { chat_id: chatId, text: '🤖 بوت DTSG المالي\n/start plt_<معرفك> — ربط الحساب\n/deposit <المبلغ> — إيداع عبر Cash Plus\n/balance — الرصيد\n/support — بوت خدمة العملاء (تذاكر ودعم)\n— للأدمن: /auth <PIN> ثم /voucher <المبلغ> [العدد]' });
+        return json({ ok: true });
+      }
+      if (text === '/support' || text === '/دعم') {
+        await tg(env, 'sendMessage', { chat_id: chatId, text: '🛟 بوت خدمة العملاء: ' + (env.SUPPORT_BOT_URL || 'https://t.me/dtsgsupports_bot') + '\nاكتب مشكلتك هناك وسيصلك رد الفريق في نفس المحادثة.\n(حسابك المرتبط يعمل في البوتين معاً.)' });
         return json({ ok: true });
       }
       /* [Voucher-Auto 2026-09-16] أتمتة إنشاء أكواد التعبئة عبر تيليغرام — مصادقة السوبر أدمن */

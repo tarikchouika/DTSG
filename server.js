@@ -250,6 +250,10 @@ let nextRoomId = 1;
 const pay = require('./server-payments.js');
 pay.initPaymentsTables(db);
 pay.setContext(db, users, sessions);
+/* [Support 2026-09-18] بوت دعم العملاء @dtsgsupports_bot — نفس القاعدة والجلسات */
+const sup = require('./server-support.js');
+sup.initSupport(db);
+sup.setCtx(db, users, sessions);
 /* رسم الرهان على المنصة: نسبة تُقتطع من الرهان عند تسوية الجولة بين لاعبَين */
 const BET_FEE_RATE = 0.05;      /* 5% رسوم المنصة على الرهان */
 /* [B-rooms] غرف الساعة: رسم افتتاح ثابت يُقتطع من المضيف + مدة صلاحية الغرفة */
@@ -878,6 +882,9 @@ const server = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
       function json(obj, status) { res.writeHead(status || 200); res.end(JSON.stringify(obj)); }
+
+      /* ── [Support 2026-09-18] بوت الدعم + واجهة صفحة الدعم (ربط/تذاكر/أدمنز) ── */
+      if (sup.isSupportPath(pathname)) { sup.handleHttp(req, res, pathname, body, parsedUrl); return; }
 
       /* ── [Payments] مسارات المحفظة تُدار بمنطق payments-core فوق القاعدة المحلية ── */
       if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body); return; }
@@ -1535,6 +1542,7 @@ const server = http.createServer((req, res) => {
 
       if (pathname === '/api/admin/stats') {
         if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
+        var supStats = null; try { supStats = sup.stats(); } catch (e) {}
         const all = Object.values(users);
         json({
           ok: true,
@@ -1542,7 +1550,8 @@ const server = http.createServer((req, res) => {
           active_today: all.filter(function (u) { return u.last_seen && (Date.now() / 1000 - u.last_seen) < 86400; }).length,
           plays_total: 0,
           gold_total: isSuper(me) ? all.reduce(function (s, u) { return s + (u.gold || 0); }, 0) : 0,
-          coins_won_total: 0
+          coins_won_total: 0,
+          support: supStats
         });
         return;
       }

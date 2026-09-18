@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>الدعم الفني وخدمة العملاء — DTSG</title>
+  <meta name="description" content="تواصل مع فريق دعم DTSG عبر تيليغرام: تذاكر دعم، ردود فورية، ومتابعة كاملة — بخصوصية تامة.">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://dtsg.pages.dev/support.html">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/dtsg/favicon/dtsg-32.png">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+  <style>
+    :root{
+      --bg:#0b1526; --bg2:#0f1c31; --card:#111f38; --line:#1e2f4d; --txt:#e8eefc; --mut:#9db0d0;
+      --gold:#ffc857; --green:#2fd47a; --red:#ff5c68; --blue:#4aa8ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:linear-gradient(180deg,var(--bg),#0a1322 60%);color:var(--txt);
+      font-family:"Segoe UI",Tahoma,system-ui,-apple-system,"Helvetica Neue",Arial,sans-serif;line-height:1.75}
+    .wrap{max-width:900px;margin:0 auto;padding:18px 16px 70px}
+    header.top{display:flex;align-items:center;gap:12px;padding:14px 0 22px;border-bottom:1px solid var(--line);margin-bottom:22px}
+    header.top img{width:44px;height:44px;border-radius:12px;background:#0a1322;padding:4px}
+    header.top b{font-size:1.15rem;display:block}
+    header.top span{color:var(--mut);font-size:.85rem}
+    h1{font-size:1.5rem;margin:0 0 6px}
+    h2{font-size:1.1rem;margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+    .lead{color:var(--mut);margin:0 0 18px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin:12px 0}
+    .card.ok{border-color:#1d5b3c;background:#0f2a1d}
+    .card.warn{border-color:#5b4a1d;background:#2a2310}
+    .card.err{border-color:#5b1d24;background:#2a1013}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .btn{background:linear-gradient(180deg,#ffd479,#f0a92c);color:#231a06;border:0;border-radius:12px;
+      padding:11px 18px;font-weight:700;font-size:.95rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+    .btn:hover{filter:brightness(1.06)}
+    .btn.ghost{background:#152744;color:var(--txt);border:1px solid var(--line)}
+    .btn.sm{padding:7px 12px;font-size:.82rem;border-radius:10px}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    code,.code{background:#0a1322;border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:inline-block;
+      font-family:ui-monospace,Menlo,Consolas,monospace;font-size:1.05rem;letter-spacing:1px;color:var(--gold)}
+    .mut{color:var(--mut);font-size:.88rem}
+    .steps{display:grid;gap:10px}
+    .step{display:flex;gap:10px;align-items:flex-start}
+    .step i{width:26px;height:26px;border-radius:50%;background:#152744;display:grid;place-items:center;
+      font-style:normal;font-weight:700;color:var(--gold);flex:0 0 26px;font-size:.85rem}
+    .ticket{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0;background:#0d1930}
+    .ticket h3{margin:0 0 6px;font-size:1rem}
+    .badge{font-size:.72rem;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--mut)}
+    .badge.open{color:var(--gold);border-color:#5b4a1d}
+    .badge.claimed{color:var(--green);border-color:#1d5b3c}
+    .badge.closed{color:#9aa6bd}
+    .msg{padding:9px 12px;border-radius:12px;margin:7px 0;font-size:.92rem;white-space:pre-wrap;word-break:break-word}
+    .msg.me{background:#152744;border:1px solid #21365c}
+    .msg.sup{background:#102b1e;border:1px solid #1d5b3c}
+    .tbl{width:100%;border-collapse:collapse;font-size:.9rem}
+    .tbl th,.tbl td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:right}
+    textarea,input{width:100%;background:#0a1322;border:1px solid var(--line);color:var(--txt);border-radius:10px;
+      padding:10px;font-family:inherit;font-size:.92rem}
+    #toast{position:fixed;inset-inline:0;bottom:14px;margin:auto;max-width:420px;background:#0f2a1d;border:1px solid #1d5b3c;
+      color:var(--txt);padding:11px 14px;border-radius:12px;display:none;text-align:center;font-size:.9rem}
+    .hide{display:none!important}
+    a{color:var(--blue)}
+    .foot{margin-top:30px;color:var(--mut);font-size:.82rem;text-align:center;border-top:1px solid var(--line);padding-top:16px}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img src="assets/dtsg/dtsg-logo-main.webp" alt="DTSG">
+    <div>
+      <b>الدعم الفني وخدمة العملاء</b>
+      <span>DTSG · فريق الدعم عبر تيليغرام — بخصوصية تامة</span>
+    </div>
+  </header>
+
+  <h1>🛟 كيف نساعدك؟</h1>
+  <p class="lead">محادثة واحدة تجمعك بفريق الدعم: افتح تذكرة من هنا أو من تيليغرام، وتابع الردود في المكانين معاً.</p>
+
+  <!-- ═══ حالة الربط ═══ -->
+  <div id="authBox" class="card warn">
+    <b>⏳ جارٍ التحقق من جلستك…</b>
+  </div>
+
+  <div id="linkBox" class="card hide"></div>
+
+  <!-- ═══ تذاكري ═══ -->
+  <h2 class="hide" id="ticketsTitle"><i class="fa-solid fa-ticket"></i> تذاكري</h2>
+  <div id="tickets"></div>
+
+  <!-- ═══ لوحة الأدمن ═══ -->
+  <div id="adminBox" class="hide">
+    <h2><i class="fa-solid fa-user-shield"></i> لوحة أدمنز الدعم</h2>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <span class="mut" id="adminNote">التذاكر المفتوحة (تذاكر الزوّار تظهر للسوبر أدمن فقط).</span>
+        <button class="btn ghost sm" onclick="loadQueue()"><i class="fa-solid fa-rotate"></i> تحديث</button>
+      </div>
+      <div id="queue" class="mut">…</div>
+    </div>
+  </div>
+
+  <!-- ═══ كيف يعمل ═══ -->
+  <h2><i class="fa-solid fa-circle-info"></i> كيف يعمل الدعم؟</h2>
+  <div class="card steps">
+    <div class="step"><i>1</i><div><b>اربط حسابك بتيليغرام</b> — اضغط الزر أعلاه، ثم اضغط «افتح البوت» فيرسل لك البوت تأكيد الربط. الربط يسري على بوت الدعم وبوت المدفوعات معاً.</div></div>
+    <div class="step"><i>2</i><div><b>اكتب مشكلتك</b> — من تيليغرام مباشرة أو من صفحة المحفظة. تُفتح «تذكرة» برقم تتابعها به.</div></div>
+    <div class="step"><i>3</i><div><b>يصلك الرد</b> — من فريق الدعم في نفس المحادثة، ويُسجَّل أيضاً في هذه الصفحة.</div></div>
+    <div class="step"><i>4</i><div><b>إشعارات المدفوعات</b> — تأكيد الإيداع/السحب يصل عبر بوت الدعم نفسه، فتنتهي الحاجة لمراسلة الأدمن يدوياً.</div></div>
+  </div>
+
+  <h2><i class="fa-solid fa-lock"></i> الخصوصية</h2>
+  <div class="card mut">
+    لا يرى فريق الدعم رقم هاتفك أو بريدك أو معرّفك في تيليغرام — يرى اسم مستخدمك في المنصة ورقم التذكرة فقط.
+    كل الردود تمر عبر البوت (هوية الأدمن محفوظة أيضاً)، والملاحظات الداخلية لا تُرسل إليك.
+    وحدها إدارة الدعم العليا (السوبر أدمن) تملك صلاحيات الإحصاءات والبثّ وبيانات الحسابات وسجل الإجراءات.
+    يمكنك فصل حسابك عن البوت في أي وقت من هنا أو بأمر <span class="code">/unlink</span>.
+  </div>
+
+  <div class="foot">DTSG — دعم العملاء · <a href="index.html">العودة للمنصة</a> · <a href="refund-policy.html">سياسة الاسترداد</a></div>
+</div>
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ── عميل API: نفس منطق المنصة (ووركر الهاتف عبر /api-url2.json، وإلا نفس الأصل) ── */
+var API_BASE_PROMISE = /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname)
+  ? Promise.resolve(location.origin)
+  : fetch('/api-url2.json', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (c) { return (c && c.url) || location.origin; })
+      .catch(function () { return location.origin; });
+
+function api(path, method, body) {
+  return API_BASE_PROMISE.then(function (base) {
+    return fetch(base + path, {
+      method: method || 'GET', credentials: 'include',
+      headers: body ? { 'content-type': 'application/json' } : undefined,
+      body: body ? JSON.stringify(body) : undefined
+    }).then(function (r) { return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status, status: r.status }; }).then(function (j) { j.status = j.status || r.status; return j; }); })
+      .catch(function (e) { return { ok: false, error: 'تعذّر الاتصال بالخادم: ' + e }; });
+  });
+}
+function toast(msg, bad) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  t.style.background = bad ? '#2a1013' : '#0f2a1d';
+  t.style.borderColor = bad ? '#5b1d24' : '#1d5b3c';
+  setTimeout(function () { t.style.display = 'none'; }, 4200);
+}
+function fmt(ts) { return ts ? new Date(ts).toISOString().slice(5, 16).replace('T', ' ') : ''; }
+function statusAr(s) { return s === 'open' ? '🟡 مفتوحة' : s === 'claimed' ? '🟢 قيد المعالجة' : '⚪ مغلقة'; }
+var STATE = { linked: false, is_admin: false, role: 'user', role_: '', bot_url: '', tickets: [] };
+
+/* ── العرض ── */
+function renderAuthBox() {
+  var box = document.getElementById('authBox');
+  var req = document.getElementById('linkBox');
+  if (!STATE.logged) {
+    box.className = 'card warn';
+    box.innerHTML = '<b>🔐 سجّل الدخول أولاً</b><div class="mut" style="margin-top:6px">الدعم مرتبط بحسابك في المنصة. ' +
+      '<a href="index.html" onclick="try{openAuth&&openAuth()}catch(e){}">سجّل الدخول من هنا</a> ثم أعِد فتح هذه الصفحة.</div>';
+    req.classList.add('hide');
+    return;
+  }
+  box.classList.add('hide');
+  req.classList.remove('hide');
+  if (STATE.linked) {
+    req.className = 'card ok';
+    req.innerHTML = '<b>✅ حسابك مرتبط بتيليغرام</b>' +
+      '<div class="mut" style="margin:6px 0 12px">تصلك ردود الدعم وإشعارات المدفوعات في محادثة البوت.</div>' +
+      '<div class="row"><a class="btn" href="' + STATE.bot_url + '" target="_blank" rel="noopener">' +
+      '<i class="fa-brands fa-telegram"></i> افتح محادثة الدعم</a>' +
+      '<button class="btn ghost" onclick="unlink()"><i class="fa-solid fa-link-slash"></i> فصل الربط</button></div>';
+  } else {
+    req.className = 'card';
+    req.innerHTML = '<b>🔗 اربط حسابك ببوت الدعم</b>' +
+      '<div class="mut" style="margin:6px 0 12px">خطوة واحدة، ثوانٍ معدودة — بعدها تصلك ردود الفريق وإشعارات الإيداع والسحب على تيليغرام.</div>' +
+      '<button class="btn" id="mkLink" onclick="makeLink()"><i class="fa-brands fa-telegram"></i> إنشاء كود الربط</button>' +
+      '<div id="linkOut" style="margin-top:12px"></div>';
+  }
+}
+function renderTickets() {
+  var box = document.getElementById('tickets');
+  var title = document.getElementById('ticketsTitle');
+  if (!STATE.tickets || !STATE.tickets.length) {
+    box.innerHTML = '<div class="card mut">لا تذاكر بعد. اكتب مشكلتك في محادثة الدعم وسنفتح تذكرة تلقائياً.</div>';
+    return;
+  }
+  title.classList.remove('hide');
+  box.innerHTML = STATE.tickets.map(function (tk) {
+    var msgs = (tk.messages || []).map(function (m) {
+      return '<div class="msg ' + (m.from === 'me' ? 'me' : 'sup') + '"><b>' + (m.from === 'me' ? 'أنا' : m.name) + '</b> · ' + fmt(m.ts) + '<br>' + escapeHtml(m.text) + '</div>';
+    }).join('');
+    return '<div class="ticket"><h3>#' + tk.id + ' — ' + escapeHtml(tk.subject || '') +
+      ' <span class="badge ' + tk.status + '">' + statusAr(tk.status) + '</span> <span class="badge">' + escapeHtml(tk.category || '') + '</span></h3>' +
+      '<div class="mut" style="font-size:.8rem">آخر تحديث: ' + fmt(tk.updated_at) + '</div>' + (msgs || '<div class="mut">…</div>') + '</div>';
+  }).join('');
+}
+function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]; }); }
+
+/* ── الأفعال ── */
+function makeLink() {
+  var btn = document.getElementById('mkLink'); if (btn) btn.disabled = true;
+  api('/api/support/link-code', 'POST', {}).then(function (j) {
+    if (btn) btn.disabled = false;
+    var out = document.getElementById('linkOut');
+    if (!j.ok) { out.innerHTML = '<div class="mut" style="color:var(--red)">❌ ' + escapeHtml(j.error || 'فشل إنشاء الكود') + '</div>'; return; }
+    out.innerHTML =
+      '<div class="mut">1) اضغط الزر التالي (ينتهي الكود بعد 30 دقيقة):</div>' +
+      '<div class="row" style="margin:8px 0"><a class="btn" href="' + j.url + '" target="_blank" rel="noopener">' +
+      '<i class="fa-brands fa-telegram"></i> فتح البوت وتأكيد الربط</a>' +
+      '<button class="btn ghost" onclick="navigator.clipboard.writeText(\'' + j.code + '\')">نسخ الكود</button></div>' +
+      '<div class="mut">2) إن لم يُفتح البوت تلقائياً، أرسل له هذا الكود:<br><span class="code">/start ' + j.code + '</span></div>' +
+      '<div class="mut" style="margin-top:8px">3) بعد التأكيد اضغط «تحديث الحالة»:</div>' +
+      '<button class="btn ghost sm" style="margin-top:8px" onclick="refresh()"><i class="fa-solid fa-rotate"></i> تحديث الحالة</button>';
+  });
+}
+function unlink() {
+  if (!confirm('فصل حسابك عن بوت الدعم؟ لن تصلك إشعارات المدفوعات على تيليغرام.')) return;
+  api('/api/support/unlink', 'POST', {}).then(function (j) {
+    if (j.ok) { toast('فُصل الحساب'); refresh(); } else toast(j.error || 'فشل', true);
+  });
+}
+function refresh() {
+  return api('/api/support/status').then(function (j) {
+    if (j.status === 401 || j.error === 'unauthorized') { STATE.logged = false; renderAuthBox(); renderTickets(); return; }
+    STATE.logged = true;
+    STATE.linked = !!j.linked; STATE.is_admin = !!j.is_admin; STATE.role = j.role || 'user';
+    STATE.bot_url = j.bot_url || 'https://t.me/dtsgsupports_bot';
+    STATE.tickets = j.tickets || [];
+    renderAuthBox(); renderTickets();
+    document.getElementById('adminBox').classList.toggle('hide', !STATE.is_admin);
+    if (STATE.is_admin) loadQueue();
+  });
+}
+function loadQueue() {
+  var q = document.getElementById('queue');
+  q.textContent = '…';
+  api('/api/support/admin/queue').then(function (j) {
+    if (!j.ok || !j.tickets || !j.tickets.length) { q.innerHTML = '<div class="mut">لا تذاكر مفتوحة.</div>'; return; }
+    document.getElementById('adminNote').textContent = STATE.role === 'super'
+      ? 'كل التذاكر (بما فيها تذاكر الزوّار) — أنت سوبر أدمن.'
+      : 'التذاكر غير المستلمة أو المستلمة منك (تذاكر الزوّار تظهر للسوبر أدمن فقط).';
+    q.innerHTML = '<table class="tbl"><tr><th>#</th><th>المستخدم</th><th>التصنيف</th><th>الحالة</th><th>رد</th></tr>' +
+      j.tickets.map(function (t) {
+        return '<tr><td>' + t.id + '</td><td>' + escapeHtml(t.guest ? 'زائر 🔒' : (t.username || t.user_id)) + '</td><td>' + escapeHtml(t.category) + '</td>' +
+          '<td>' + statusAr(t.status) + (t.assignee_tg ? '' : ' <span class="mut">(غير مستلمة)</span>') + '</td>' +
+          '<td><button class="btn sm ghost" onclick="replyTo(' + t.id + ')">رد</button> ' +
+          '<button class="btn sm ghost" onclick="claim(' + t.id + ')">استلام</button> ' +
+          '<button class="btn sm ghost" onclick="closeTk(' + t.id + ')">إغلاق</button></td></tr>';
+      }).join('') + '</table>';
+  });
+}
+function replyTo(id) {
+  var text = prompt('نص الرد على التذكرة #' + id + ':');
+  if (!text) return;
+  api('/api/support/admin/reply', 'POST', { ticket_id: id, text: text }).then(function (j) {
+    if (j.ok) { toast('أُرسل الرد ✓'); loadQueue(); } else toast(j.error === 'claimed-by-other' ? 'التذكرة يستلمها أدمن آخر' : (j.error || 'فشل'), true);
+  });
+}
+function claim(id) { api('/api/support/admin/claim', 'POST', { ticket_id: id }).then(function (j) { toast(j.ok ? 'استلمت التذكرة' : (j.error || 'فشل'), !j.ok); loadQueue(); }); }
+function closeTk(id) {
+  var reason = prompt('سبب الإغلاق (اختياري):') || '';
+  api('/api/support/admin/close', 'POST', { ticket_id: id, reason: reason }).then(function (j) { toast(j.ok ? 'أُغلقت التذكرة' : (j.error || 'فشل'), !j.ok); loadQueue(); });
+}
+refresh();
+</script>
+</body>
+</html>

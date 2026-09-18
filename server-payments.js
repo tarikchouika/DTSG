@@ -155,6 +155,15 @@ function buildEnv(req) {
     BINANCE_TRC20: e.BINANCE_TRC20 || 'TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ',
     CIH_SWIFT: e.CIH_SWIFT || 'CIHMMAMC',
     /* [Schema-bridge] خطافات مخطط المنصة (users: gold بلا balance_usd) */
+    /* [Support 2026-09-18] ربط البوتين: إشعار المستخدم عبر بوت الدعم + أزرار تذاكر الدعم */
+    __notifyUser: function (uid, text) {
+      try { return require('./server-support.js').notifyUser(uid, text); } catch (e) { return false; }
+    },
+    __supportAction: function (act, id, cq) {
+      try {
+        return require('./server-support.js').handleCallback({ id: cq && cq.id, from: (cq && cq.from) || {}, data: act + '_' + id });
+      } catch (e) { return false; }
+    },
     __rate: function () { return Number(process.env.USD_GOLD_RATE || 100); },
     __findUserRow: function (id) {
       try { return CTX.db.prepare('SELECT id, username, gold, telegram_id FROM users WHERE id = ?').get(Number(id)) || null; } catch (e) { return null; }

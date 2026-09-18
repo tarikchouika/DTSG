@@ -26,7 +26,7 @@ PM2_NAME="${DTSG_PM2:-casino-server}"          # اسم العملية في pm2
 REPO="${DTSG_REPO:-https://github.com/tarikchouika/DTSG.git}"
 LOCAL_PORT="${DTSG_PORT:-3000}"
 PUBLIC="${DTSG_PUBLIC:-https://casino-phone.dmgames-api.workers.dev}"
-EXPECT_FILES=(server.js server-payments.js cf-worker/payments-core.js js/wallet.js payments-url.json)
+EXPECT_FILES=(server.js server-payments.js server-support.js cf-worker/payments-core.js js/wallet.js payments-url.json support.html)
 
 say() { printf '\n\033[1;36m── %s\033[0m\n' "$*"; }
 ok()  { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }
@@ -122,8 +122,19 @@ export CIH_IBAN="${CIH_IBAN:-MA64 2308 1569 0408 5211 0142 0024}"
 export CIH_SWIFT="${CIH_SWIFT:-CIHMMAMC}"
 export BINANCE_TRC20="${BINANCE_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ}"
 export CRYPTO_USDT_TRC20="${CRYPTO_USDT_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ}"
+# [v2.41] بوت دعم العملاء @dtsgsupports_bot — التوكن والسرّ متطابقان مع setWebhook في Telegram
+export SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-8993467901:AAEUXgLqDB_-UKqnw8OGU-4OQNbQbuXhxlM}"
+export SUPPORT_WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-dtsgsup_k9Qz7mW3xR5tB1nY}"
+export SUPPORT_BOT_USERNAME="${SUPPORT_BOT_USERNAME:-dtsgsupports_bot}"
+export SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-${TELEGRAM_ADMIN_CHAT_ID:-5700612979}}"
 echo "   CRYPTOMUS: $([ -n "$CRYPTOMUS_MERCHANT_ID" ] && echo مضبوط || echo 'فارغ (وسيلة الكريبتو ستبقى soon)')"
 echo "   TELEGRAM_ADMIN_CHAT_ID: $TELEGRAM_ADMIN_CHAT_ID · USD_GOLD_RATE: $USD_GOLD_RATE"
+echo "   SUPPORT_BOT_TOKEN: $([ -n "$SUPPORT_BOT_TOKEN" ] && echo مضبوط || echo فارغ) · السرّ: $([ -n "$SUPPORT_WEBHOOK_SECRET" ] && echo مضبوط || echo فارغ)"
+echo "   TELEGRAM_BOT_TOKEN: $([ -n "$TELEGRAM_BOT_TOKEN" ] && echo مضبوط || echo 'فارغ (بوت المدفوعات معطّل)')"
+[ -n "${SUPPORT_BOT_TOKEN:-}" ] && {
+  SM="$(curl -s -m 12 "https://api.telegram.org/bot$SUPPORT_BOT_TOKEN/getMe" | "$(command -v node || echo node)" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write("@"+(JSON.parse(s).result.username||"?"))}catch(e){process.stdout.write("تعذّر التحقق")}})')"
+  echo "   بوت الدعم المُتحقَّق: $SM"
+}
 
 say "3) فحص الشيفرة قبل التشغيل"
 node --check server.js || die "server.js فيه خطأ صياغة"
@@ -134,6 +145,8 @@ for j in payments-url.json api-url2.json package.json; do [ -f "$j" ] && { json_
 ok "الشيفرة سليمة"
 grep -q "binance" server-payments.js && ok "إصلاح Binance موجود (ترحيل pay_transactions)"
 grep -q "isDeniedStatic" server.js && ok "حماية ملفات الخادم/القاعدة موجودة (v2.40.4)"
+grep -q "sup_tickets" server-support.js && ok "محرّك بوت الدعم موجود (v2.41)"
+node --check server-support.js || die "server-support.js فيه خطأ صياغة"
 
 say "4) نسخة احتياطية لقاعدة البيانات"
 [ -f data/royalcoin.db ] && cp -v data/royalcoin.db "data/royalcoin.db.bak-$(date +%Y%m%d-%H%M)" || echo "   (لا قاعدة بعد — ستُنشأ)"
@@ -160,6 +173,16 @@ printf '   %-34s ' "/api/payments/methods"; M="$(jget "$H/api/payments/methods")
 echo "$M" | grep -q '"methods"' && ok "طبقة المدفوعات تعمل محلياً" || bad "المدفوعات ما زالت معطّلة محلياً"
 printf '   %-34s ' "/api/deploy/manifest"; echo "$(jget "$H/api/deploy/manifest" | head -c 90)"
 
+say "5.b) فحوص بوت الدعم (v2.41)"
+printf '   %-40s ' "POST /api/support/webhook (بحث السرّ)"; WC="$(curl -s -m 15 -o /dev/null -w '%{http_code}' -X POST "$H/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $SUPPORT_WEBHOOK_SECRET" -d '{"update_id":900001}')"
+[ "$WC" = "200" ] && ok "يعمل (200)" || bad "code=$WC (توقّع 200)"
+printf '   %-40s ' "GET /api/support/status (بلا جلسة)"; SC="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/api/support/status")"
+[ "$SC" = "401" ] && ok "محمي (401)" || bad "code=$SC (توقّع 401)"
+printf '   %-40s ' "صفحة support.html"; PC="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/support.html")"
+[ "$PC" = "200" ] && ok "منشورة (200)" || bad "code=$PC"
+printf '   %-40s ' "طابور الأدمن (بلا جلسة)"; AC="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/api/support/admin/queue")"
+[ "$AC" = "401" ] && ok "محمي (401)" || bad "code=$AC (توقّع 401)"
+
 say "6.b) فحص أمني (يجب أن تردّ 404)"
 for f in /data/royalcoin.db /server.js /package.json; do
   c="$(code "$H$f")"
@@ -173,11 +196,14 @@ printf '   %-46s ' "$PUBLIC/api/health"; PH="$(jget "$PUBLIC/api/health")"; echo
 BUILD_PUB="$(printf '%s' "$PH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).build||""))}catch(e){}})')"
 printf '   %-46s ' "$PUBLIC/api/payments/methods"; PM="$(jget "$PUBLIC/api/payments/methods")"; echo "${PM:0:110}"
 printf '   %-46s ' "$PUBLIC/data/royalcoin.db (يجب 404)"; echo "$(code "$PUBLIC/data/royalcoin.db")"
+printf '   %-46s ' "$PUBLIC/api/support/webhook (بوت الدعم)"; SWC="$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $SUPPORT_WEBHOOK_SECRET" -d '{"update_id":900002}')"; echo "$SWC"
+printf '   %-46s ' "$PUBLIC/support.html"; echo "$(code "$PUBLIC/support.html")"
 
 RC=0
 echo "$PM" | grep -q '"methods"' || { bad "المدفوعات لا تعمل عبر الرابط العام"; RC=1; }
 [ "$BUILD_PUB" = "$(node -p "require('./package.json').version" 2>/dev/null)" ] || { bad "نسخة الرابط العام ($BUILD_PUB) لا تطابق الشجرة ($(node -p "require('./package.json').version"))"; RC=1; }
 [ "$(code "$PUBLIC/data/royalcoin.db")" = "404" ] || { bad "قاعدة البيانات ما زالت مكشوفة عمومياً"; RC=1; }
+[ "$SWC" = "200" ] || { bad "بوت الدعم لا يستقبل التحديثات عمومياً (code=$SWC) — راجع SUPPORT_WEBHOOK_SECRET"; RC=1; }
 
 printf '\n═══════════════════════════════════════════════════════════════════════════\n'
 if [ "$RC" = "0" ]; then

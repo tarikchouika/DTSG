@@ -118,6 +118,7 @@ window.PWAL = window.PWAL || {};
       '    <button class="wl-cta" id="wlWdGo" type="button" data-i18n="wl.wdGo">طلب السحب</button>' +
       '    <div class="wl-msg" id="wlWdMsg"></div>' +
       '    <div class="wl-note" data-i18n="wl.wdNote">يُخصم المبلغ فور الطلب ويحوَّل بعد موافقة الأدمن — تصلك الحالة إشعاراً.</div>' +
+      '    <div class="wl-note"><a href="support.html" style="text-decoration:none">🛟 <b>مشكلة في الإيداع أو السحب؟</b> افتح تذكرة دعم — رد فوري من الفريق</a></div>' +
       '  </div>' +
       /* ── سجل ─ */
       '  <div class="wl-pane" id="wlPaneHis" hidden><div id="wlTxList"></div></div>' +
