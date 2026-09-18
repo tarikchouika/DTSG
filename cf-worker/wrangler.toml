@@ -1,0 +1,17 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  casino-api — الووركر السحابي الاحتياطي (Durable Objects للغرف + JSON عام)
+#
+#  النشر:  bash scripts/deploy-casino-api.sh
+#  ملاحظة مهمة: لا توجد أي قاعدة D1 في حساب Cloudflare (0 قواعد)، والربط القديم
+#  كان يشير إلى قاعدة محذوفة. لذلك مسارات قاعدة البيانات ترد JSON واضحاً
+#  ({ok:false, error:"no-db"}) مع رؤوس CORS، والباك الحقيقي = خادم الهاتف.
+#  عند إنشاء قاعدة D1 لاحقاً: أضف كتلة [[d1_databases]] بالاسم royalcoin.
+# ═══════════════════════════════════════════════════════════════════════════
+name = "casino-api"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+preview_urls = false
+
+[[durable_objects.bindings]]
+name = "ROOMS"
+class_name = "RoomDO"

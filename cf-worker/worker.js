@@ -3,6 +3,21 @@ var __name = (target, value) => __defProp(target, "name", { value, configurable:
 
 // src/room-do.js
 var HOUR_ROOM_MS = 60 * 60 * 1e3;
+/* ═══ [SEC] أدوات أمان: تعقيم HTML + حد معدل بسيط في الذاكرة (best-effort لكل نسخة) ═══ */
+function sanitizeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#x27;");
+}
+__name(sanitizeHtml, "sanitizeHtml");
+var __rlMap = new Map();
+function rateLimited(key, max, winMs) {
+  const now = Date.now();
+  let e = __rlMap.get(key);
+  if (!e || now - e.t0 > winMs) { e = { t0: now, n: 0 }; __rlMap.set(key, e); }
+  e.n++;
+  if (__rlMap.size > 5000) __rlMap.clear();
+  return e.n > max;
+}
+__name(rateLimited, "rateLimited");
 function serializeRoom(room) {
   const nonspec = room.players.filter((p) => !p.spectate).sort((a, b) => a.seat - b.seat);
   return {
@@ -23,12 +38,14 @@ function serializeRoom(room) {
       ready: !!p.ready,
       spectate: !!p.spectate,
       seat: p.seat,
+      isBot: !!p.isBot,
       online: !!(room.online && room.online[p.id])
     })),
     joinQueue: (room.joinQueue || []).map((r) => ({ id: r.id, username: r.username, ts: r.ts })),
     order: nonspec.map((p) => p.id),
     driver_id: room.driverId || room.owner_id,
-    rematch: room.rematch || null
+    rematch: room.rematch || null,
+    game_opts: room.game_opts || {}
   };
 }
 __name(serializeRoom, "serializeRoom");
@@ -72,7 +89,7 @@ var RoomDO = class {
     return null;
   }
   async save() {
-    if (this.room) await this.state.storage.put("room", this.room);
+    if (this.room) { this.room.lastTouch = Date.now(); await this.state.storage.put("room", this.room); }
   }
   /* ─── بث عام لكل المتصلين ─── */
   broadcast(event, payload) {
@@ -353,7 +370,8 @@ var RoomDO = class {
         room_state: {},
         chat: [],
         joinQueue: [],
-        rematch: null
+        rematch: null,
+        game_opts: (data.game_opts && typeof data.game_opts === "object") ? data.game_opts : {}
       };
       await this.save();
       return Response.json({ ok: true, room: serializeRoom(this.room) });
@@ -362,16 +380,14 @@ var RoomDO = class {
     if (!room) return Response.json({ ok: false, message: "\u0627\u0644\u063A\u0631\u0641\u0629 \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F\u0629" }, 404);
     if (p === "/join") {
       if (this.sweepExpired()) return Response.json({ ok: false, message: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u063A\u0631\u0641\u0629" }, 410);
-      if (room.status === "playing" && !room.players.some((x) => x.id === data.user_id)) {
-        return Response.json({ ok: false, message: "\u0627\u0644\u0644\u0639\u0628\u0629 \u0628\u062F\u0623\u062A \u0628\u0627\u0644\u0641\u0639\u0644" }, 400);
-      }
       let pl = room.players.find((x) => x.id === data.user_id);
       if (!pl) {
         const nonSpec = room.players.filter((x) => !x.spectate).length;
-        if (nonSpec >= room.max_players) {
+        if (room.status === "playing" || nonSpec >= room.max_players || data.spectate) {
+          /* [RoomFlow] غرفة جارية/ممتلئة أو طلب فرجة صريح → متفرج (يطلب مقعداً لاحقاً) */
           pl = { id: data.user_id, username: data.username, ready: true, spectate: true, seat: room.players.length };
         } else {
-          pl = { id: data.user_id, username: data.username, ready: false, spectate: !!data.spectate, seat: nonSpec };
+          pl = { id: data.user_id, username: data.username, ready: false, spectate: false, seat: nonSpec };
         }
         room.players.push(pl);
       }
@@ -382,20 +398,27 @@ var RoomDO = class {
     if (p === "/leave") {
       this.sweepExpired();
       if (!this.room) return Response.json({ ok: true });
-      if (room.status === "playing" && room.owner_id === data.user_id) {
-        return Response.json({ ok: false, message: "\u0644\u0627 \u064A\u0645\u0643\u0646 \u0625\u063A\u0644\u0627\u0642 \u0627\u0644\u063A\u0631\u0641\u0629 \u062D\u062A\u0649 \u0627\u0646\u062A\u0647\u0627\u0621 \u0627\u0644\u0631\u0647\u0627\u0646 \u0627\u0644\u062C\u0627\u0631\u064A" }, 400);
-      }
+      /* [RoomFlow] خروج سلس في أي وقت: الغرفة تستمر ما بقي بشر؛
+         مغادرة المالك تنقل الملكية لأقدم لاعب؛ الحل فقط عند خلوها من البشر */
       room.players = room.players.filter((x) => x.id !== data.user_id);
       if (room.joinQueue) room.joinQueue = room.joinQueue.filter((r) => r.id !== data.user_id);
-      if (room.players.length === 0 || room.owner_id === data.user_id) {
+      const humans = room.players.filter((x) => typeof x.id === "number" && !x.isBot);
+      if (humans.length === 0) {
         this.broadcastRoom("room:update", null);
         this.room = null;
         this.state.storage.delete("room");
         return Response.json({ ok: true, dissolved: true });
       }
+      if (room.owner_id === data.user_id) {
+        const next = humans.find((x) => !x.spectate) || humans[0];
+        room.owner_id = next.id;
+        room.owner_name = next.username;
+        if (room.driverId === data.user_id) room.driverId = next.id;
+      }
+      if (room.status !== "playing") promoteQueued(room);
       await this.save();
       this.updateRoom();
-      return Response.json({ ok: true });
+      return Response.json({ ok: true, owner_id: room.owner_id });
     }
     if (p === "/ready") {
       if (this.sweepExpired()) return Response.json({ ok: false, message: "\u0627\u0646\u062A\u0647\u062A \u0635\u0644\u0627\u062D\u064A\u0629 \u0627\u0644\u063A\u0631\u0641\u0629" }, 410);
@@ -410,23 +433,34 @@ var RoomDO = class {
       /* [Rotation] المالك أو صاحب المقعد 0 (رابح الجولة السابقة — صاحب حق الكسر) */
       const seat0 = room.players.filter((x) => !x.spectate).sort((a, b) => a.seat - b.seat)[0];
       if (room.owner_id !== data.user_id && !(seat0 && seat0.id === data.user_id)) return Response.json({ ok: false, message: "\u0627\u0644\u0645\u0627\u0644\u0643 \u0623\u0648 \u0631\u0627\u0628\u062D \u0627\u0644\u062C\u0648\u0644\u0629 \u0627\u0644\u0633\u0627\u0628\u0642\u0629 \u0641\u0642\u0637" }, 403);
+      /* [RondaBet] روندا: الرهان غير متماثل (الموزع ×2/×3) ويُسوّى جولةً بجولة عبر /settle —
+         لا خصم موحد عند البدء؛ يُتحقق فقط من كفاية رصيد كل لاعب لرهان الجولة */
       const payers = room.players.filter((x) => !x.spectate && x.id > 0);
-        const golds = [];
+      if (room.game_id === "rn") {
         for (const pl of payers) {
+          const u = await this.env.royalcoin.prepare("SELECT id, gold FROM users WHERE id = ?").bind(pl.id).first();
+          if (u && (u.gold || 0) < room.bet) return Response.json({ ok: false, error: "insufficient_funds", user: pl.username }, 400);
+        }
+      } else {
+      const golds = [];
+      for (const pl of payers) {
         const u = await this.env.royalcoin.prepare("SELECT id, gold FROM users WHERE id = ?").bind(pl.id).first();
         if (!u) continue;
         if ((u.gold || 0) < room.bet) {
           return Response.json({ ok: false, error: "insufficient_funds", user: pl.username }, 400);
         }
-        golds.push({ id: pl.id, username: pl.username, after: (u.gold || 0) - room.bet });
+        golds.push(pl.id);
       }
-      for (const g of golds) {
-        await this.env.royalcoin.prepare("UPDATE users SET gold = gold - ? WHERE id = ?").bind(room.bet, g.id).run();
+      for (const id of golds) {
+        await this.env.royalcoin.prepare("UPDATE users SET gold = gold - ? WHERE id = ?").bind(room.bet, id).run();
       }
-      /* [TxLog v2.28] خصم رهان الجولة */
-      for (const g of golds) txLog(this.env, { id: g.id }, "bet", room.bet, { game_id: room.game_id, note: "\u0631\u0647\u0627\u0646 \u062C\u0648\u0644\u0629", balance_after: g.after });
+      }
       room.status = "playing";
       room.settled = null;
+      /* [SYNC-FIX] جولة جديدة تبدأ بسجل نظيف: التراكم عبر الجولات كان يجعل
+         room:replay يعيد تشغيل جولات منتهية (كرات تعود، بيادق ترجع للوراء) */
+      room.moveHistory = [];
+      room.dedupSeen = {};
       await this.save();
       this.updateRoom();
       return Response.json({ ok: true, room: serializeRoom(room) });
@@ -588,8 +622,6 @@ var RoomDO = class {
         for (const u of humanRows) {
           await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(pot, u.id).run();
           u.gold = (u.gold || 0) + pot;
-          /* [TxLog v2.28] إرجاع الرهان عند التعادل */
-          txLog(this.env, { id: u.id }, "win", pot, { game_id: room.game_id, note: "\u062A\u0639\u0627\u062F\u0644 \u2014 \u0625\u0631\u062C\u0627\u0639 \u0627\u0644\u0631\u0647\u0627\u0646", balance_after: u.gold });
         }
         refunds = humanRows.map(shape);
       } else {
@@ -602,11 +634,7 @@ var RoomDO = class {
         await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(stake - fee, winner.id).run();
         winner.gold = (winner.gold || 0) + (stake - fee);
         winnerOut = shape(winner);
-        const loserU = typeof loseId === "number" ? humanRows.find((u) => u.id === loseId) : null;
-        loserOut = shape(loserU);
-        /* [TxLog v2.28] فوز/خسارة الجولة مع الطرف الآخر */
-        txLog(this.env, { id: winner.id }, "win", stake - fee, { game_id: room.game_id, balance_after: winner.gold, counterparty_id: loserU ? loserU.id : null, counterparty_name: loserU ? loserU.username : null });
-        if (loserU) txLog(this.env, { id: loserU.id }, "bet", pot, { game_id: room.game_id, note: "\u062E\u0633\u0627\u0631\u0629 \u062C\u0648\u0644\u0629", balance_after: loserU.gold, counterparty_id: winner.id, counterparty_name: winner.username });
+        loserOut = typeof loseId === "number" ? shape(humanRows.find((u) => u.id === loseId)) : null;
         /* [Rotation] الرابح يحتفظ بمقعد 0 (حق الكسر)؛ الخاسر يعطي مكانه لصاحب الدور إن وُجد منتظر */
         const winPl = room.players.find((x) => x.id === winId);
         const losePl = room.players.find((x) => x.id === loseId);
@@ -642,19 +670,49 @@ var RoomDO = class {
       return Response.json(payload);
     }
     if (p === "/settle") {
+      /* [RondaBet] تسوية جولة روندا: المتخمن يدفع الرهان، الموزع يدفع ×2 (رقم) أو ×3 (رقم+رمز)،
+         الرابح يقبض الوعاء كاملاً، وتُقتطع رسوم المنصة 5% من الرابح في غرف النسبة. */
+      if (data.mode === "ronda") {
+        if (room.owner_id !== data.user_id) return Response.json({ ok: false, message: "\u0644\u0644\u0645\u0636\u064A\u0641 \u0641\u0642\u0637" }, 403);
+        const rid = String(data.round_id || "");
+        room.settleSeen = room.settleSeen || {};
+        if (rid && room.settleSeen[rid]) return Response.json({ ok: true, already: true });
+        if (rid) room.settleSeen[rid] = 1;
+        const wid = Number(data.winner_id), lid = Number(data.loser_id);
+        if (!isFinite(wid) || !isFinite(lid) || wid === lid) return Response.json({ ok: false, message: "bad ids" }, 400);
+        const inRoom = (id) => room.players.some((x) => x.id === id);
+        if (!inRoom(wid) || !inRoom(lid)) return Response.json({ ok: false, message: "not in room" }, 400);
+        const w = await this.env.royalcoin.prepare("SELECT id, username, gold FROM users WHERE id = ?").bind(wid).first();
+        const l = await this.env.royalcoin.prepare("SELECT id, username, gold FROM users WHERE id = ?").bind(lid).first();
+        if (!w || !l) return Response.json({ ok: false, message: "no user" }, 404);
+        let wStake = Math.max(0, Math.floor(Number(data.winner_stake) || 0));
+        let lStake = Math.max(0, Math.floor(Number(data.loser_stake) || 0));
+        lStake = Math.min(lStake, l.gold || 0);   /* لا دين: الخاسر يدفع ما بحوزته كحد أقصى */
+        wStake = Math.min(wStake, w.gold || 0);
+        const pot = wStake + lStake;
+        const fee = room.room_type === "percentage" ? Math.round(pot * 0.05) : 0;
+        /* الرابح: يدفع رهانه ويقبض الوعاء−الرسوم ⇒ صافي التغير = رهان الخاسر − الرسوم */
+        await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(lStake - fee, wid).run();
+        await this.env.royalcoin.prepare("UPDATE users SET gold = gold - ? WHERE id = ?").bind(lStake, lid).run();
+        w.gold = (w.gold || 0) + lStake - fee;
+        l.gold = (l.gold || 0) - lStake;
+        const shape = (u) => ({ id: u.id, username: u.username, gold: u.gold });
+        const payload = { ok: true, result: "rn", pot: lStake, fee, winner: shape(w), loser: shape(l), refunds: [], dissolved: false, payout: pot - fee };
+        await this.save();
+        this.broadcastRoom("room:settle", payload);
+        return Response.json(payload);
+      }
       if (room.settled) return Response.json({ ok: true, already: true });
       const payouts = data.payouts || [];
       for (const po of payouts) {
-        const amtPo = Math.max(0, Number(po.amount) || 0);
-        await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(amtPo, po.id).run();
-        /* [TxLog v2.28] تسوية الغرفة */
-        if (amtPo > 0) txLog(this.env, { id: po.id }, "win", amtPo, { game_id: room.game_id, note: "\u062A\u0633\u0648\u064A\u0629 \u063A\u0631\u0641\u0629" });
+        await this.env.royalcoin.prepare("UPDATE users SET gold = gold + ? WHERE id = ?").bind(Math.max(0, Number(po.amount) || 0), po.id).run();
       }
       room.settled = { at: Date.now(), payouts };
       room.status = data.next_status || "waiting";
       room.players.forEach((pl) => {
         pl.ready = false;
       });
+      if (room.status !== "playing") promoteQueued(room);   /* [RoomFlow] مقعد فرغ → متفرج الطابور يلعب */
       await this.save();
       this.updateRoom();
       return Response.json({ ok: true });
@@ -695,7 +753,14 @@ var RoomDO = class {
       return Response.json({ ok: true, room: serializeRoom(room) });
     }
     if (p === "/state") {
-      return Response.json({ ok: true, room: this.room ? serializeRoom(this.room) : null });
+      return Response.json({ ok: true, room: this.room ? serializeRoom(this.room) : null, conns: this.state.getWebSockets().length, lastTouch: this.room ? this.room.lastTouch || 0 : 0 });
+    }
+    if (p === "/dissolve") {
+      /* [RoomFlow] حل غرفة شبح (بلا متصلين ولا نشاط) من منظف القائمة */
+      this.broadcastRoom("room:update", null);
+      this.room = null;
+      await this.state.storage.delete("room");
+      return Response.json({ ok: true, dissolved: true });
     }
     return Response.json({ ok: false, message: "unknown" }, 404);
   }
@@ -809,52 +874,28 @@ function parseCookies(req) {
   return out;
 }
 __name(parseCookies, "parseCookies");
+function dbReady(env) { return !!(env && env.royalcoin && typeof env.royalcoin.prepare === 'function'); }
+__name(dbReady, "dbReady");
 async function dbOne(env, sql, params = []) {
+  if (!dbReady(env)) throw new Error("d1-unavailable");
   const stmt = env.royalcoin.prepare(sql);
   const r = params.length ? await stmt.bind(...params).first() : await stmt.first();
   return r || null;
 }
 __name(dbOne, "dbOne");
 async function dbRun(env, sql, params = []) {
+  if (!dbReady(env)) throw new Error("d1-unavailable");
   const stmt = env.royalcoin.prepare(sql);
   return params.length ? await stmt.bind(...params).run() : await stmt.run();
 }
 __name(dbRun, "dbRun");
 async function dbAll(env, sql, params = []) {
+  if (!dbReady(env)) throw new Error("d1-unavailable");
   const stmt = env.royalcoin.prepare(sql);
   const r = params.length ? await stmt.bind(...params).all() : await stmt.all();
   return r.results || [];
 }
 __name(dbAll, "dbAll");
-/* [TxLog v2.28] سجل معاملات المستخدمين — يطابق جدول transactions في server.js.
-   يُنشأ الجدول كسولاً إن لم تُشغَّل هجرة D1 بعد، وكل حركة رصيد (رهان/فوز/شحن/
-   خصم/ضبط/تحويل) تُكتب هنا ليطّلع عليها السوبر أدمن عبر /api/admin/transactions. */
-var __txReady = null;
-function ensureTx(env) {
-  if (!__txReady) __txReady = dbRun(env, "CREATE TABLE IF NOT EXISTS transactions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, type TEXT NOT NULL, amount INTEGER NOT NULL, balance_after INTEGER, counterparty_id INTEGER, counterparty_name TEXT, actor_id INTEGER, actor_name TEXT, game_id TEXT, note TEXT, created_at INTEGER NOT NULL)").catch(function () {});
-  return __txReady;
-}
-__name(ensureTx, "ensureTx");
-async function txLog(env, user, type, amount, extra) {
-  try {
-    await ensureTx(env);
-    const e = extra || {};
-    await dbRun(env, "INSERT INTO transactions (user_id, type, amount, balance_after, counterparty_id, counterparty_name, actor_id, actor_name, game_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)", [
-      user ? user.id : null,
-      type,
-      amount,
-      e.balance_after !== undefined ? e.balance_after : null,
-      e.counterparty_id !== undefined ? e.counterparty_id : null,
-      e.counterparty_name !== undefined ? e.counterparty_name : null,
-      e.actor_id !== undefined ? e.actor_id : null,
-      e.actor_name !== undefined ? e.actor_name : null,
-      e.game_id !== undefined ? e.game_id : null,
-      e.note !== undefined ? e.note : null,
-      Math.floor(Date.now() / 1e3)
-    ]);
-  } catch (err) {}
-}
-__name(txLog, "txLog");
 function publicUser(u) {
   if (!u) return null;
   return {
@@ -871,11 +912,17 @@ function publicUser(u) {
   };
 }
 __name(publicUser, "publicUser");
+var __corsOrigin = "";
 function json(data, status = 200, extraHeaders = {}) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { "Content-Type": "application/json", ...extraHeaders }
-  });
+  const h = { "Content-Type": "application/json", ...extraHeaders };
+  /* [v2.43.1] CORS موحّد لكل ردود JSON: بعض المسارات كانت تستدعي json() مباشرة
+     بلا رؤوس CORS ⇒ المتصفح يحجبها على dtsg.pages.dev (خطأ CORS في الكونسول). */
+  if (__corsOrigin && !h["Access-Control-Allow-Origin"]) {
+    h["Access-Control-Allow-Origin"] = __corsOrigin;
+    h["Access-Control-Allow-Credentials"] = "true";
+    h["Vary"] = "Origin";
+  }
+  return new Response(JSON.stringify(data), { status, headers: h });
 }
 __name(json, "json");
 function corsHeaders(req) {
@@ -885,8 +932,7 @@ function corsHeaders(req) {
   try {
     const o = new URL(origin);
     const h = o.hostname;
-    /* [v2.27] dtsg.pages.dev هو نطاق الإنتاج منذ v2.24 — كان ناقصاً فيسمح CORS */
-    if (o.protocol === "https:" && (h === "dtsg.pages.dev" || h.endsWith(".dtsg.pages.dev") || h === "casino-9xj.pages.dev" || h.endsWith(".casino-9xj.pages.dev") || h === "dmcasino.pages.dev" || h.endsWith(".dmcasino.pages.dev") || h === "casino-api.tarikc.workers.dev")) allowed = origin;
+    if (o.protocol === "https:" && (h === "casino-9xj.pages.dev" || h.endsWith(".casino-9xj.pages.dev") || h === "dmcasino.pages.dev" || h.endsWith(".dmcasino.pages.dev") || h === "dmgames.pages.dev" || h.endsWith(".dmgames.pages.dev") || h === "dtsg.pages.dev" || h.endsWith(".dtsg.pages.dev") || h === "casino-api.tarikc.workers.dev" || h === "casino-api.dmgames-api.workers.dev")) allowed = origin;
   } catch (e) {}
   const base = {
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Cookie",
@@ -914,12 +960,19 @@ __name(rateLimit, "rateLimit");
 var C = {
   async fetch(req, env, ctx) {
     const CORS = corsHeaders(req);
+    __corsOrigin = CORS["Access-Control-Allow-Origin"] || "";
     const _json = /* @__PURE__ */ __name((data, status = 200, extra = {}) => withCors(json(data, status, extra), CORS), "_json");
     const _raw = /* @__PURE__ */ __name((body, init) => withCors(new Response(body, init), CORS), "_raw");
     const url = new URL(req.url);
     const p = url.pathname;
     const method = req.method;
     if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
+    /* [v2.43.1] هذا الووركر السحابي احتياطي: قاعدة D1 الخاصة به محذوفة من الحساب
+       (0 قواعد) — نرد JSON واضحاً مع CORS بدل خطأ 1101/HTML، ونترك مسارات
+       الغرف (Durable Objects) والثوابت تعمل كالمعتاد. الباك الحقيقي = خادم المنصة. */
+    if (p.startsWith("/api/") && !dbReady(env) && !/^\/api\/(health|tournaments|rooms|live)/.test(p)) {
+      return _json({ ok: false, error: "no-db", message: "\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0633\u062D\u0627\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631\u0629 \u2014 \u064A\u064F\u0633\u062A\u062E\u062F\u0645 \u062E\u0627\u062F\u0645 \u0627\u0644\u0645\u0646\u0635\u0629" }, 503);
+    }
     /* [Sec] تقييد المعدل حسب حساسية المسار */
     const clientIp = req.headers.get("CF-Connecting-IP") || "0";
     if (p === "/api/login" || p === "/api/login/2fa" || p === "/api/admin/register") {
@@ -1216,33 +1269,6 @@ var C = {
       }));
       return _json({ ok: true, users: list, my_gold: me.gold });
     }
-    /* ═══ [TxLog v2.28] سجل معاملات المستخدمين — سوبر أدمن فقط (يطابق عقد server.js) ═══ */
-    if (p === "/api/admin/transactions" && method === "GET") {
-      if (!me || me.role !== "super") return _json({ ok: false, message: "\u0633\u0648\u0628\u0631 \u0623\u062F\u0645\u0646 \u0641\u0642\u0637" }, 403);
-      await ensureTx(env);
-      const where = [];
-      const params = [];
-      const uidS = url.searchParams.get("user_id");
-      if (uidS !== null && uidS !== "" && !isNaN(parseInt(uidS, 10))) { where.push("t.user_id = ?"); params.push(parseInt(uidS, 10)); }
-      const tyS = url.searchParams.get("type");
-      if (tyS) { where.push("t.type = ?"); params.push(String(tyS)); }
-      const whereSql = where.length ? " WHERE " + where.join(" AND ") : "";
-      const limit = Math.min(1000, Math.max(1, parseInt(url.searchParams.get("limit"), 10) || 200));
-      const offset = Math.max(0, parseInt(url.searchParams.get("offset"), 10) || 0);
-      const totalRow = await dbOne(env, "SELECT COUNT(*) AS c FROM transactions t" + whereSql, params);
-      const rows = await dbAll(env, "SELECT t.*, u.username AS username FROM transactions t LEFT JOIN users u ON u.id = t.user_id" + whereSql + " ORDER BY t.id DESC LIMIT " + limit + " OFFSET " + offset, params);
-      return _json({
-        ok: true,
-        total: totalRow ? totalRow.c : 0,
-        transactions: rows.map(function (t) {
-          return {
-            id: t.id, user_id: t.user_id, username: t.username || null, type: t.type, amount: t.amount,
-            balance_after: t.balance_after, counterparty_name: t.counterparty_name || null,
-            actor_name: t.actor_name || null, game_id: t.game_id || null, note: t.note || null, created_at: t.created_at
-          };
-        })
-      });
-    }
     /* ═══ [Admin] عمليات على مستخدم: شحن/خصم/ضبط، كلمة سر، حظر، دور، مسح، إسكات — نقل حرفي من server.js ═══ */
     let adm;
     if ((adm = /^\/api\/admin\/user\/(\d+)\/(balance|password|ban|role|delete|mute)$/.exec(p)) && method === "POST") {
@@ -1258,8 +1284,6 @@ var C = {
           if (!isSuper) return _json({ ok: false, message: "\u0633\u0648\u0628\u0631 \u0623\u062F\u0645\u0646 \u0641\u0642\u0637" }, 403);
           const g = Math.max(0, parseInt(data.gold, 10) || 0);
           await dbRun(env, "UPDATE users SET gold = ? WHERE id = ?", [g, target.id]);
-          /* [TxLog v2.28] */
-          txLog(env, { id: target.id }, "set_balance", g, { balance_after: g, actor_id: me.id, actor_name: me.username });
           return _json({ ok: true, gold: g });
         }
         const amt = parseInt(data.amount, 10);
@@ -1280,9 +1304,6 @@ var C = {
           await dbRun(env, "UPDATE users SET gold = gold + ?, first_topup_done = 1 WHERE id = ?", [amt, target.id]);
           const tg = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [target.id]);
           const mg = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [me.id]);
-          /* [TxLog v2.28] شحن + هدية إحالة، مع المنفِّذ */
-          txLog(env, { id: target.id }, "charge", amt, { balance_after: tg ? tg.gold : null, actor_id: me.id, actor_name: me.username });
-          if (refBonus > 0) txLog(env, { id: target.referred_by }, "referral_bonus", refBonus, { actor_id: me.id, actor_name: me.username, note: "\u0647\u062F\u064A\u0629 \u0625\u062D\u0627\u0644\u0629" });
           return _json({ ok: true, gold: tg.gold, admin_gold: mg.gold, referral_bonus: refBonus });
         }
         if (data.action === "deduct") {
@@ -1291,8 +1312,6 @@ var C = {
           const dec = await dbRun(env, "UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?", [amt, target.id, amt]);
           if (!dec.meta || !dec.meta.changes) return _json({ ok: false, message: "\u0631\u0635\u064A\u062F \u0627\u0644\u0639\u0645\u064A\u0644 \u063A\u064A\u0631 \u0643\u0627\u0641\u064D" }, 400);
           const tg = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [target.id]);
-          /* [TxLog v2.28] سحب مباشر */
-          txLog(env, { id: target.id }, "deduct", amt, { balance_after: tg ? tg.gold : null, actor_id: me.id, actor_name: me.username });
           return _json({ ok: true, gold: tg.gold });
         }
         return _json({ ok: false, message: "\u0639\u0645\u0644\u064A\u0629 \u063A\u064A\u0631 \u0645\u0639\u0631\u0648\u0641\u0629" }, 400);
@@ -1415,21 +1434,37 @@ var C = {
     const ROOMS = env.ROOMS;
     const wsMatch = p.match(/^\/api\/rooms\/([\w-]+)\/ws$/);
     if (wsMatch) {
-      const uid = url.searchParams.get("uid") || "0";
+      let uid = url.searchParams.get("uid") || "0";
       const rid = wsMatch[1];
+      /* [SEC-020] هوية WS من الجلسة الموثوقة لا من معامل URL القابل للانتحال:
+         غرف اللعب تتطلب جلسة صحيحة؛ قناة global للقراءة العامة (دردشة/جولات) تبقى مفتوحة */
+      if (rid !== "global") {
+        if (!me) return _json({ ok: false, message: "auth required" }, 401);
+        uid = String(me.id);
+      } else {
+        uid = me ? String(me.id) : "0";
+      }
       const doId = ROOMS.idFromName(rid);
       const stub = ROOMS.get(doId);
       const doUrl = "https://do/ws?uid=" + encodeURIComponent(uid) + "&rid=" + encodeURIComponent(rid);
       return stub.fetch(doUrl, req);
     }
     if (p === "/api/rooms" && method === "GET") {
-      const idx = await dbAll(env, "SELECT room_id, code, game_id, owner_name, max_players, bet, room_type, visibility, expires_at, created_at FROM room_index WHERE status = ?", ["waiting"]);
+      const idx = await dbAll(env, "SELECT room_id, code, game_id, owner_name, max_players, bet, room_type, visibility, expires_at, created_at FROM room_index", []);
       const now = Date.now();
       const alive = [];
       for (const r of idx) {
         if (r.room_type === "hour" && r.expires_at && now > Number(r.expires_at)) continue;
         const doId = ROOMS.idFromName(r.room_id);
         const st = await ROOMS.get(doId).fetch("https://do/state").then((x) => x.json()).catch(() => null);
+        /* [RoomFlow] غرفة محلولة → إزالة صفها من المؤشر كي لا تظهر شبحاً */
+        if (st && !st.room) { try { await dbRun(env, "DELETE FROM room_index WHERE room_id = ?", [r.room_id]); } catch (e) {} continue; }
+        /* [RoomFlow] غرفة مهجورة (صفر متصلين + بلا نشاط ≥ 30 دقيقة) → حل وتنظيف */
+        if (st && st.room && !st.conns && now - (st.lastTouch || Number(r.created_at) || 0) > 18e5) {
+          try { await ROOMS.get(doId).fetch("https://do/dissolve", { method: "POST", body: "{}" }); } catch (e) {}
+          try { await dbRun(env, "DELETE FROM room_index WHERE room_id = ?", [r.room_id]); } catch (e) {}
+          continue;
+        }
         if (st && st.room && st.room.visibility !== "private") {
           alive.push({
             id: st.room.id,
@@ -1478,7 +1513,8 @@ var C = {
           max_players: maxp,
           bet,
           room_type,
-          visibility
+          visibility,
+          game_opts: (data.game_opts && typeof data.game_opts === "object") ? data.game_opts : {}
         })
       });
       const created = await resp.json();
@@ -1546,7 +1582,38 @@ var C = {
       if (out.dissolved) await dbRun(env, "DELETE FROM room_index WHERE room_id = ?", [roomRow.room_id]);
       return _json(out, r2.status);
     }
-    if (p === "/api/tournaments" || p === "/api/rounds") {
+    /* ═══ [TicketFix] سجل جولات الرهان الدائم — كان stub يعيد {tournaments:[]} فقط:
+       التذاكر كانت محلية بالذاكرة وتختفي عند تجديد الصفحة ولا تصل سجل المعاملات ═══ */
+    if (p === "/api/rounds" && method === "POST") {
+      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
+      if (rateLimited("rounds:" + me.id, 30, 60000)) return _json({ ok: false, message: "too many" }, 429);
+      const data = await req.json().catch(() => ({}));
+      const gid = String(data.game_id || "").slice(0, 16);
+      if (!gid) return _json({ ok: false, message: "game_id required" }, 400);
+      const bet = Math.max(0, Math.min(1e9, parseInt(data.bet, 10) || 0));
+      const won = data.won ? 1 : 0;
+      const payout = Math.max(0, Math.min(1e9, parseInt(data.payout, 10) || 0));
+      await dbRun(env, "INSERT INTO rounds (user_id, username, game_id, bet, won, payout, created_at) VALUES (?,?,?,?,?,?,?)",
+        [me.id, me.username, gid, bet, won, payout, Math.floor(Date.now() / 1000)]);
+      /* تشذيب: أحدث 200 تذكرة لكل مستخدم */
+      await dbRun(env, "DELETE FROM rounds WHERE user_id = ? AND id NOT IN (SELECT id FROM rounds WHERE user_id = ? ORDER BY id DESC LIMIT 200)", [me.id, me.id]).catch(() => {});
+      return _json({ ok: true });
+    }
+    if (p === "/api/rounds" && method === "GET") {
+      if (!me) return _json({ ok: true, rounds: [] });
+      const rows = await dbAll(env, "SELECT game_id, bet, won, payout, created_at FROM rounds WHERE user_id = ? ORDER BY id DESC LIMIT 50", [me.id]);
+      return _json({ ok: true, rounds: rows });
+    }
+    /* [TicketFix] سجل جولات لعبة بعينها (تيكيتس داخل صفحة اللعبة) — خاص بالمستخدم */
+    {
+      const ghMatch = p.match(/^\/api\/games\/([\w-]+)\/history$/);
+      if (ghMatch && method === "GET") {
+        if (!me) return _json({ ok: true, rounds: [] });
+        const rows = await dbAll(env, "SELECT username, game_id, bet, won, payout, created_at FROM rounds WHERE user_id = ? AND game_id = ? ORDER BY id DESC LIMIT 25", [me.id, ghMatch[1]]);
+        return _json({ ok: true, rounds: rows });
+      }
+    }
+    if (p === "/api/tournaments") {
       return _json({ ok: true, tournaments: [] });
     }
     if (p === "/api/admin/games" && method === "GET") {
@@ -1576,9 +1643,6 @@ var C = {
         "INSERT INTO transfers (from_id, from_name, to_id, to_name, amount, created_at) VALUES (?,?,?,?,?,?)",
         [me.id, me.username, target.id, String(data.to).trim(), amt, Math.floor(Date.now() / 1e3)]
       );
-      /* [TxLog v2.28] تحويل صادر/وارد */
-      txLog(env, { id: me.id }, "transfer_out", amt, { balance_after: myGold, counterparty_id: target.id, counterparty_name: String(data.to).trim() });
-      txLog(env, { id: target.id }, "transfer_in", amt, { balance_after: tGold, counterparty_id: me.id, counterparty_name: me.username });
       return _json({ ok: true, amount: amt, to: data.to, gold: myGold });
     }
     if (p === "/api/transfers") {
@@ -1587,11 +1651,21 @@ var C = {
       return _json({ ok: true, transfers: rows });
     }
     if (p === "/api/chat" && method === "POST") {
-      if (me && me.muted_until && me.muted_until > Date.now()) {
+      /* [SEC-022] الدردشة للمسجلين فقط — الزوار كانوا يرسلون بلا مصادقة */
+      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
+      if (me.muted_until && me.muted_until > Date.now()) {
         return _json({ ok: false, message: "\u0645\u0648\u0642\u0648\u0641 \u0639\u0646 \u0627\u0644\u0645\u0631\u0627\u0633\u0644\u0629", muted_until: me.muted_until }, 403);
       }
+      /* [SEC-015] حد حجم الجسد قبل القراءة — رسائل 50KB كانت تُقبل */
+      const clen = parseInt(req.headers.get("content-length") || "0", 10);
+      if (clen > 4096) return _json({ ok: false, message: "\u0637\u0648\u064A\u0644 \u062C\u062F\u0627\u064B" }, 413);
+      /* [SEC-RL] حد معدل بسيط: 10 رسائل/دقيقة لكل مستخدم (لكل نسخة worker) */
+      if (rateLimited("chat:" + me.id, 10, 60000)) return _json({ ok: false, message: "\u0645\u0647\u0644\u0627\u064B \u2014 \u0631\u0633\u0627\u0626\u0644 \u0643\u062B\u064A\u0631\u0629" }, 429);
       const data = await req.json();
-      const msg = { username: me ? me.username : "\u0632\u0627\u0626\u0631", message: String(data.message || "").slice(0, 300), created_at: Date.now() };
+      const rawMsg = String(data.message || "").slice(0, 300);
+      if (!rawMsg.trim()) return _json({ ok: false, message: "\u0631\u0633\u0627\u0644\u0629 \u0641\u0627\u0631\u063A\u0629" }, 400);
+      /* [SEC-013] تعقيم HTML في الخادم — دفاع في العمق فوق esc() عند العرض */
+      const msg = { username: me.username, message: sanitizeHtml(rawMsg), created_at: Date.now() };
       const doId = env.ROOMS.idFromName("global");
       const stub = env.ROOMS.get(doId);
       await stub.fetch("https://do/broadcast-chat", {
@@ -1635,6 +1709,13 @@ var C = {
 function withCors(res, cors) {
   const h = new Headers(res.headers);
   for (const [k, v] of Object.entries(cors)) h.set(k, v);
+  /* [SEC-016] رؤوس أمان إلزامية على كل استجابات API */
+  h.set("Strict-Transport-Security", "max-age=15768000; includeSubDomains");
+  h.set("X-Content-Type-Options", "nosniff");
+  h.set("X-Frame-Options", "DENY");
+  h.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
+  h.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  if (!h.has("Cache-Control")) h.set("Cache-Control", "no-store");
   return new Response(res.body, { status: res.status, headers: h });
 }
 __name(withCors, "withCors");
@@ -1644,3 +1725,4 @@ export {
   worker_default as default
 };
 //# sourceMappingURL=worker.js.map
+
