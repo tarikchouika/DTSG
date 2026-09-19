@@ -185,6 +185,8 @@ async function adminActOnTransaction(env, db, txId, act) {
   }
   if (act === 'wapp') {
     if (!(await claimTx(db, txId, 'completed'))) return { ok: false, error: 'already-handled' };
+    /* [v2.44-LEDGER] سطر السحب المقبول: بلا هذا يبقى السجل يعرضه «قيد المراجعة» للأبد */
+    if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(tx.user_id, 'withdrawal', Number(tx.amount_usd), 0, 'approved', txId); } catch (e) {} }
     if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
     return { ok: true, done: 'withdrawal-approved', amount_usd: Number(tx.amount_usd) };
   }
