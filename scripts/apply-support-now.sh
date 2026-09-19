@@ -87,7 +87,7 @@ else
   echo "   (تخطّي إعادة التشغيل)"
 fi
 H="http://127.0.0.1:${DTSG_PORT:-3000}"
-printf '   %-40s ' "/api/support/webhook"; C="$(curl -s -m 15 -o /dev/null -w '%{http_code}' -X POST "$H/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:-dtsgsup_k9Qz7mW3xR5tB1nY}" -d '{"update_id":9}')"
+printf '   %-40s ' "/api/support/webhook"; C="$(curl -s -m 15 -o /dev/null -w '%{http_code}' -X POST "$H/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:-${SUPPORT_WEBHOOK_SECRET_MISSING}}" -d '{"update_id":9}')"
 [ "$C" = "200" ] && ok "يعمل (200)" || bad "code=$C"
 printf '   %-40s ' "/api/support/status"; C2="$(curl -s -m 15 -o /dev/null -w '%{http_code}' "$H/api/support/status")"
 [ "$C2" = "401" ] && ok "محمي (401)" || bad "code=$C2"
@@ -107,7 +107,7 @@ cat <<EOF
   curl -s -o /dev/null -w '%{http_code}\n' -X POST \\
     https://casino-phone.dmgames-api.workers.dev/api/support/webhook \\
     -H 'content-type: application/json' \\
-    -H 'x-telegram-bot-api-secret-token: dtsgsup_k9Qz7mW3xR5tB1nY' -d '{"update_id":1}'
+    -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:?}" -d '{"update_id":1}'
   # المتوقع: 200
 
 ثم جرّب البوت: https://t.me/dtsgsupports_bot  ←  /whoami  ←  /start

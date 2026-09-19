@@ -56,7 +56,7 @@ bash scripts/update-phone-server.sh             # يثبّت التبعيات و
 W=https://casino-phone.dmgames-api.workers.dev
 curl -s $W/api/health ; echo                      # المتوقع: "build":"2.42.1"
 curl -s -o /dev/null -w '%{http_code}\n' -X POST $W/api/support/webhook \
-  -H 'content-type: application/json' -H 'x-telegram-bot-api-secret-token: dtsgsup_k9Qz7mW3xR5tB1nY' -d '{"update_id":1}'
+  -H 'content-type: application/json' -H 'x-telegram-bot-api-secret-token: <SUPPORT_WEBHOOK_SECRET>' -d '{"update_id":1}'
                                                   # المتوقع: 200
 curl -s -o /dev/null -w '%{http_code}\n' $W/api/admin/payments/pending
                                                   # المتوقع: 401 (بدل 404) ⇒ المسار الجديد موجود

@@ -123,8 +123,8 @@ export CIH_SWIFT="${CIH_SWIFT:-CIHMMAMC}"
 export BINANCE_TRC20="${BINANCE_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ}"
 export CRYPTO_USDT_TRC20="${CRYPTO_USDT_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ}"
 # [v2.41] بوت دعم العملاء @dtsgsupports_bot — التوكن والسرّ متطابقان مع setWebhook في Telegram
-export SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-8993467901:AAEUXgLqDB_-UKqnw8OGU-4OQNbQbuXhxlM}"
-export SUPPORT_WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-dtsgsup_k9Qz7mW3xR5tB1nY}"
+export SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-}"   # [v2.44-أمن] من البيئة فقط — لا يُكتب في المستودع
+export SUPPORT_WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-}"
 export SUPPORT_BOT_USERNAME="${SUPPORT_BOT_USERNAME:-dtsgsupports_bot}"
 export SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-${TELEGRAM_ADMIN_CHAT_ID:-5700612979}}"
 echo "   CRYPTOMUS: $([ -n "$CRYPTOMUS_MERCHANT_ID" ] && echo مضبوط || echo 'فارغ (وسيلة الكريبتو ستبقى soon)')"

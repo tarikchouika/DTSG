@@ -89,7 +89,7 @@
 
 **متغيرات البيئة على خادم الهاتف:**
 ```
-SUPPORT_BOT_TOKEN=8993467901:AAEUX…      # توكن @dtsgsupports_bot
+SUPPORT_BOT_TOKEN=<TOKEN_FROM_BOTFATHER>   # توكن @dtsgsupports_bot (من BotFather، لا يُكتب في المستودع)
 SUPPORT_WEBHOOK_SECRET=dtsgsup_k9Qz…     # يجب أن يطابق ما ضُبط في setWebhook
 SUPPORT_BOT_USERNAME=dtsgsupports_bot
 SUPPORT_SUPER_TG=5700612979              # سوبر أدمن الدعم (يُزرع كمالك تلقائياً)
@@ -124,7 +124,7 @@ bash scripts/phone-doctor.sh        # يعرض قسم «5.b) بوت خدمة ا�
 
 # 3) تأكيد خارجي من أي جهاز
 curl -s -o /dev/null -w '%{http_code}\n' -X POST https://casino-phone.dmgames-api.workers.dev/api/support/webhook \
-  -H 'x-telegram-bot-api-secret-token: dtsgsup_k9Qz7mW3xR5tB1nY' -H 'content-type: application/json' -d '{"update_id":9}'
+  -H 'x-telegram-bot-api-secret-token: <SUPPORT_WEBHOOK_SECRET>' -H 'content-type: application/json' -d '{"update_id":9}'
 #    المتوقع: 200
 curl -s "https://api.telegram.org/bot<SUPPORT_BOT_TOKEN>/getWebhookInfo"
 #    last_error_message يجب أن يكون فارغاً

@@ -15,9 +15,21 @@
 # ═══════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
-SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-8993467901:AAEUXgLqDB_-UKqnw8OGU-4OQNbQbuXhxlM}"
+SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-}"
+# [v2.44-أمن] لا تُكتب التوكنات في المستودع (المستودع عام) — تُقرأ من البيئة فقط:
+#   export SUPPORT_BOT_TOKEN="<توكن @BotFather للبوت>"  ثم أعد تشغيل السكربت.
+if [ -z "$SUPPORT_BOT_TOKEN" ]; then
+  echo "✖ SUPPORT_BOT_TOKEN غير مضبوط. صدّره من البيئة (BotFather → API Token) ثم أعد المحاولة."
+  echo "  مثال:  export SUPPORT_BOT_TOKEN='<TOKEN>'; bash $0"
+  exit 1
+fi
 PLATFORM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
-WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-dtsgsup_k9Qz7mW3xR5tB1nY}"
+WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-}"
+if [ -z "$WEBHOOK_SECRET" ]; then
+  # سرّ الويبهوك يمكن توليده محلياً بلا أي خدمة خارجية
+  WEBHOOK_SECRET="dtsgsup_$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
+  echo "ℹ️  وُلّد سرّ ويبهوك جديد (صدّره للهاتف): SUPPORT_WEBHOOK_SECRET=$WEBHOOK_SECRET"
+fi
 BASE="${DTSG_PUBLIC_BASE:-https://casino-phone.dmgames-api.workers.dev}"
 TG="https://api.telegram.org"
 
