@@ -625,10 +625,19 @@ function getUser(req) {
   const uid = sid ? sessions[sid] : null;
   return (uid != null && users[uid]) ? users[uid] : null;
 }
+/* [v2.44-MONEY] مرجع الرصيد: يزداد مع كل تعديل خادمي على ذهب الحساب.
+   العميل يرسله مع /api/sync؛ يُقبل رصيده فقط إن لم يتغيّر المرجع (بلا تعديل خادمي)،
+   وإلا فرصيد الخادم هو المصدر الوحيد للحقيقة (كان العميل القديم يطمس الشحن). */
+const goldRev = new Map();
+function bumpGoldRev(u) {
+  try { if (u) goldRev.set(String(u.id), (goldRev.get(String(u.id)) || 0) + 1); } catch (e) {}
+}
+function getGoldRev(u) { return u ? (goldRev.get(String(u.id)) || 0) : 0; }
 function publicUser(u) {
   if (!u) return null;
   return {
     id: u.id, username: u.username, role: u.role, gold: u.gold, lang: u.lang,
+    gold_rev: getGoldRev(u),
     twofa_enabled: !!u.twofaEnabled,
     /* [v2.43] تاريخ الانضمام وآخر نشاط (بالثواني — العميل يضرب ×1000)
        كانا مفقودين فظهر «غير متوفر» دائماً في سجل الحساب */
@@ -734,11 +743,51 @@ function pushWallet(userId, extra) {
       coins: u.gold || 0,
       usd: Math.round(((u.gold || 0) / rate) * 100) / 100
     }, extra || {});
+    bumpGoldRev(u);
+    payload.gold_rev = getGoldRev(u);
     sendToUser(Number(u.id), 'wallet', payload);
+    /* [v2.44] إشعار فوري لكل الأدمنز/السوبر (حدث adminpay) ليتابعوا الحركة في الداشبورد */
+    try {
+      const ev = Object.assign({}, payload, extra || {});
+      sseClients.forEach(function (c) {
+        const cu = c.userId != null ? users[c.userId] : null;
+        if (cu && (cu.role === 'admin' || cu.role === 'super')) sendSSE(c.res, 'adminpay', ev);
+      });
+    } catch (e) {}
     return true;
   } catch (e) { return false; }
 }
 global.__DTSG_PUSH_WALLET = pushWallet;
+/* ═══ [v2.44-MONEY] سجل المال العام: كل حركة رصيد (إيداع/سحب/كوبون/بونص/لعبة) تُسجَّل هنا
+   ويُبثّ حدث adminpay لكل الأدمنز ⇒ داشبورد السوبر أدمن يعرض السجل لحظياً. */
+try {
+  db.prepare(`CREATE TABLE IF NOT EXISTS money_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT, kind TEXT, amount_usd REAL, coins INTEGER,
+    status TEXT, ref TEXT, note TEXT, actor TEXT, created_at INTEGER)`).run();
+} catch (e) {}
+function moneyLog(userId, kind, amountUsd, coins, status, ref, note, actor) {
+  /* لا تسجّل ضجيجاً: تسوية بلا مبلغ ولا كوينز ولا ملاحظة = لا شيء يستحق العرض */
+  if ((!kind || kind === 'adjust') && !Number(coins || 0) && !String(note || '').trim()) return;
+  try {
+    db.prepare('INSERT INTO money_log (user_id, kind, amount_usd, coins, status, ref, note, actor, created_at) VALUES (?,?,?,?,?,?,?,?,?)')
+      .run(String(userId), String(kind || ''), Number(amountUsd || 0), Math.round(Number(coins || 0)),
+           String(status || ''), String(ref || ''), String(note || ''), String(actor || 'system'), Date.now());
+  } catch (e) {}
+  try {
+    const u = users[Number(userId)] || Object.values(users).find(function (x) { return String(x.id) === String(userId); });
+    const ev = { user_id: String(userId), username: u ? u.username : '', kind: kind, usd: Number(amountUsd || 0),
+      coins: Math.round(Number(coins || 0)), status: status, ref: ref || '', note: note || '', ts: Date.now() };
+    sseClients.forEach(function (c) {
+      const cu = c.userId != null ? users[c.userId] : null;
+      if (cu && (cu.role === 'admin' || cu.role === 'super')) sendSSE(c.res, 'adminpay', ev);
+    });
+  } catch (e) {}
+}
+global.__DTSG_MONEY_LOG = moneyLog;
+global.__DTSG_MONEY_NOTE = function (id, note) { if (note) moneyLog(id, 'adjust', 0, 0, 'note', '', note, 'hook'); };
+global.__DTSG_GOLD_REV = function (id) { return goldRev.get(String(id)) || 0; };
+global.__DTSG_MONEYHOOK_READY = true;
 
 /* [Friends] إرسال حدث SSE لمستخدم محدّد (يطابق بنية sseClients الموجودة) */
 function sendToUser(userId, event, data) {
@@ -1098,11 +1147,21 @@ const server = http.createServer((req, res) => {
             const r = rooms[rid];
             if (r && r.status === 'playing' && r.players.some(function (p) { return p.id === me.id && !p.spectate; })) { inActiveRoom = true; break; }
           }
-          if (!inActiveRoom && data.gold !== undefined) me.gold = data.gold;
+          /* [v2.44-MONEY] لا يقبل رصيداً من العميل إلا إن كان مرجعه (gold_rev) مطابقاً
+             ⇒ لا يمكن لعميل قديم/مجمّد أن يطمس شحناً حدث على الخادم. */
+          /* [v2.44-MONEY] صرامة كاملة: يُقبل رصيد العميل فقط إذا طابق مرجعه مرجع الخادم
+             (أي لا شحن/تعديل خادمي حدث). أي اختلاف ⇒ رصيد الخادم هو الحقيقة والعميل يتبنّاه.
+             (قبل: كان العميل يستطيع رفع رصيده القديم فوق رصيد الخادم.) */
+          const clientRev = (data.gold_rev != null) ? Number(data.gold_rev) : null;
+          const serverRev = getGoldRev(me);
+          const revOk = (clientRev != null) && (clientRev === serverRev);
+          if (!inActiveRoom && data.gold !== undefined && revOk) {
+            me.gold = data.gold; bumpGoldRev(me);
+          }
           if (data.lang) me.lang = data.lang;
           try { db.prepare('UPDATE users SET gold = ?, lang = ? WHERE id = ?').run(me.gold, me.lang, me.id); } catch (e) {}
         }
-        json({ ok: true, gold: me ? me.gold : 0 });
+        json({ ok: true, gold: me ? me.gold : 0, gold_rev: me ? getGoldRev(me) : 0, server_side: true });
         return;
       }
       if (pathname === '/api/change-password') {
@@ -1578,6 +1637,25 @@ const server = http.createServer((req, res) => {
            • إسكات لاعب عن التعليق الصوتي والمراسلة 24 ساعة أو أكثر */
 
       /* ── [v2.41.1] المعاملات المالية المعلّقة (واجهة المحفظة) + الموافقة/الرفض من اللوحة ── */
+      /* [v2.44-MONEY] سجل المال: المستخدم يرى حركاته · الأدمن/السوبر يرى الكل */
+      if (pathname === '/api/money/log' && req.method === 'GET') {
+        if (!me) { json({ ok: false, message: 'غير مسجّل' }, 401); return; }
+        const isAdm = (me.role === 'admin' || me.role === 'super');
+        const wantAll = (me.role === 'super') && ((parsedUrl.query && parsedUrl.query.scope) === 'all');
+        const limit = Math.min(300, Math.max(1, Number((parsedUrl.query && parsedUrl.query.limit) || 60)));
+        let rows = [];
+        try {
+          rows = wantAll
+            ? db.prepare('SELECT m.*, u.username FROM money_log m LEFT JOIN users u ON u.id = CAST(m.user_id AS INTEGER) ORDER BY m.id DESC LIMIT ?').all(limit)
+            : db.prepare('SELECT * FROM money_log WHERE user_id = ? ORDER BY id DESC LIMIT ?').all(String(me.id), limit);
+        } catch (e) { rows = []; }
+        json({ ok: true, scope: wantAll ? 'all' : 'self', is_admin: isAdm, log: rows.map(function (r) {
+          return { id: r.id, user_id: r.user_id, username: r.username || null, kind: r.kind, usd: r.amount_usd,
+            coins: r.coins, status: r.status, ref: r.ref, note: r.note, actor: r.actor,
+            at: Math.floor((r.created_at || 0) / 1000) };
+        }) });
+        return;
+      }
       if (pathname === '/api/admin/payments/pending') {
         if (!isAdmin(me)) { json({ ok: false, message: 'غير مصرح' }, 403); return; }
         json({ ok: true, pending: pay.listPending(60) });

@@ -130,6 +130,22 @@ function creditGoldLocal(userId, coins) {
   try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
   pushWalletLocal(u, { delta: Math.round(coins) });
 }
+/* [v2.44-MONEY] تسوية ذرية واحدة لكل عملية مالية على الكوينز (إيداع/سحب/كوبون):
+   - كتابة واحدة للتخزين (لا نكتب مرتين فيَختلف العرض عن القاعدة)
+   - تحديث الذاكرة + مرجع الرصيد + بثّ لحظي لصاحب الحساب
+   - تُرجع الرصيد الناتج أو null عند الفشل */
+function settleGoldLocal(userId, deltaCoins, opts) {
+  const o = opts || {};
+  const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
+  const delta = Math.round(Number(deltaCoins) || 0);
+  if (!u || !delta) return null;
+  if (delta < 0 && (u.gold || 0) + delta < 0) return null;      /* لا رصيد سالب */
+  u.gold = (u.gold || 0) + delta;
+  if (typeof global.__DTSG_MONEY_NOTE === 'function') { try { global.__DTSG_MONEY_NOTE(u.id, o.note || ''); } catch (e) {} }
+  try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
+  pushWalletLocal(u, { delta: delta, note: o.note || '', coins: u.gold });
+  return u.gold;
+}
 /* دور الجلسة الحالية (لكوبونات لوحة السوبر أدمن) */
 function roleOfRequest(req) {
   if (!CTX) return null;
@@ -235,28 +251,38 @@ function buildEnv(req) {
       } catch (e) { return null; }
     },
     __balance: function (id) {
-      const u = CTX.users[Number(id)];
-      const gold = u ? (u.gold || 0) : 0;
-      if (!u) return null;
       const rate = Number(process.env.USD_GOLD_RATE || 100);
-      return { usd: Math.round((gold / rate) * 100) / 100, coins: gold };
+      let u = CTX.users[Number(id)] || Object.values(CTX.users).find(x => String(x.id) === String(id));
+      if (!u) {
+        /* [v2.44-MONEY] احتياط: اقرأ من القاعدة وربط الذاكرة (كان null ⇒ الواجهة تعرض 0) */
+        try {
+          const row = CTX.db.prepare('SELECT id, username, role, gold, lang FROM users WHERE id = ?').get(Number(id));
+          if (row) { u = { id: row.id, username: row.username, role: row.role, gold: row.gold, lang: row.lang }; CTX.users[row.id] = u; }
+        } catch (e) {}
+      }
+      if (!u) return null;
+      const gold = u.gold || 0;
+      return { usd: Math.round((gold / rate) * 100) / 100, coins: gold, gold_rev: (typeof global.__DTSG_GOLD_REV === 'function' ? global.__DTSG_GOLD_REV(u.id) : undefined) };
     },
     __creditUsd: function (id, usd) {
       const rate = Number(process.env.USD_GOLD_RATE || 100);
-      creditGoldLocal(id, Math.round(Number(usd) * rate));
+      return settleGoldLocal(id, Math.round(Number(usd) * rate), { note: 'credit-usd' });
     },
     __debitUsd: function (id, usd) {
       const rate = Number(process.env.USD_GOLD_RATE || 100);
       const coins = Math.round(Number(usd) * rate);
       const u = CTX.users[Number(id)] || Object.values(CTX.users).find(x => String(x.id) === String(id));
       if (!u || (u.gold || 0) < coins) return false;
-      u.gold -= coins;
-      try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-      pushWalletLocal(u, { delta: -coins });
-      return true;
+      return settleGoldLocal(id, -coins, { note: 'debit-usd' }) !== null;
+    },
+    /* [v2.44-MONEY] تسوية كوينز مباشرة (أكواد التعبئة بالبونص/التسويات اليدوية) */
+    __settleGold: function (id, coins, note) { return settleGoldLocal(id, coins, { note: note || 'settle' }); },
+    /* [v2.44] سجل المال (يظهر للمستخدم والسوبر أدمن في الداشبورد) */
+    __moneyLog: function (userId, kind, usd, coins, status, ref) {
+      try { if (typeof global.__DTSG_MONEY_LOG === 'function') global.__DTSG_MONEY_LOG(userId, kind, usd, coins, status, ref, '', 'payments'); } catch (e) {}
     },
     /* [Codes] شحن كوينز مباشر (أكواد التعبئة بالبونص) */
-    __creditGold: function (userId, coins) { creditGoldLocal(userId, coins); },
+    __creditGold: function (userId, coins) { return settleGoldLocal(userId, coins, { note: 'credit-gold' }); },
     __authRole: function (req) { return roleOfRequest(req); },
     /* شحن الذهب مباشرة في نفس القاعدة عند اكتمال إيداع */
     __platformCredit: function (userId, usd) {
@@ -264,9 +290,7 @@ function buildEnv(req) {
       const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
       if (!u || !(usd > 0)) return;
       const gold = Math.round(usd * rate);
-      u.gold = (u.gold || 0) + gold;
-      try { CTX.db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (err) {}
-      pushWalletLocal(u, { delta: gold, message: '✅ تم شحن رصيدك: +' + gold + ' 🪙' });
+      settleGoldLocal(u.id, gold, { note: 'platform-credit' });
     },
   };
 }
@@ -275,7 +299,9 @@ const PAY_PATHS = [
   '/api/payments/methods', '/api/payments/crypto', '/api/payments/p2p',
   '/api/webhooks/cryptomus', '/api/webhooks/sellix',
   '/api/vouchers/redeem', '/api/vouchers/create',
-  '/api/withdrawals/request', '/api/wallet/balance', '/api/telegram/webhook'
+  '/api/withdrawals/request', '/api/wallet/balance', '/api/telegram/webhook',
+  /* [v2.44] بوابة بوت الشحن/الفوتشير (بلا جلسة) + ربط تيليغرام */
+  '/api/bot/request', '/api/bot/link'
 ];
 function isPaymentsPath(p) { return PAY_PATHS.indexOf(p) >= 0; }
 

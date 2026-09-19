@@ -118,6 +118,14 @@
       try { if (typeof window.RC_groupEvent === 'function') window.RC_groupEvent('av', JSON.parse(e.data)); }
       catch (err) { console.error('[live] gr:av', err); }
     });
+    /* [v2.44] حركة مالية جديدة ⇒ للأدمنز/السوبر (تبويب المال لحظياً) */
+    _source.addEventListener('adminpay', function (e) {
+      try {
+        var d = JSON.parse(e.data);
+        if (typeof window.RC_adminpay === 'function') window.RC_adminpay(d);
+        else window.dispatchEvent(new CustomEvent('RC_adminpay', { detail: d }));
+      } catch (err) { console.error('[live] adminpay', err); }
+    });
     /* [v2.43] دفعة رصيد لحظية (اعتماد إيداع/سحب/كوبون من الأدمن أو البوت) */
     _source.addEventListener('wallet', function (e) {
       try {

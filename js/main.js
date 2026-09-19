@@ -549,7 +549,32 @@ function renderAccountLog() {
         ? '<tr><th>🎁 ' + T('admin.myRefCode') + '</th><td><b dir="ltr" style="font-family:monospace;color:var(--gold);letter-spacing:1px">' + esc(u.ref_code) + '</b>' +
           '<div style="font-size:.75rem;color:var(--t3);margin-top:4px">' + T('admin.refCodeShare') + '</div></td></tr>'
         : '') +
-    '</tbody></table>';
+    '</tbody></table>' +
+    /* [v2.44-MONEY] سجل المال الفعلي (إيداع/سحب/كوبون/بونص) — يُملأ لحظياً */
+    '<div class="note" style="margin-top:14px">' + (T('acct.moneyLog') || '💰 سجل الشحن والسحب') + '</div>' +
+    '<div id="acctMoneyLog"><div class="note">…</div></div>';
+  loadAccountMoneyLog();
+}
+/* [v2.44-MONEY] سجل حركات المال للمستخدم (يُحدَّث عند كل دفعة رصيد لحظية) */
+function loadAccountMoneyLog() {
+  const box = document.getElementById('acctMoneyLog');
+  if (!box || !AUTH.user) return;
+  API.get('/api/money/log?limit=40').then(function (r) {
+    if (!r.ok) { box.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; return; }
+    const rows = (r.data && r.data.log) || [];
+    if (!rows.length) { box.innerHTML = '<div class="note">' + (T('acct.noTx') || 'لا حركات مالية بعد') + '</div>'; return; }
+    const kindLbl = { deposit: '📥 إيداع', withdrawal: '💸 سحب', voucher: '🎟️ كوبون', adjust: '⚙️ تسوية', note: '📝' };
+    const stLbl = { completed: '✅ مكتمل', pending: '⏳ قيد المراجعة', rejected: '❌ مرفوض', approved: '✅ مصادَق', note: 'ℹ️' };
+    box.innerHTML = '<div class="atable-wrap"><table class="atable"><thead><tr><th>النوع</th><th>المبلغ</th><th>كوينز</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>' +
+      rows.map(function (t) {
+        const c = Number(t.coins || 0);
+        return '<tr><td>' + (kindLbl[t.kind] || esc(t.kind)) + '</td>' +
+          '<td>' + (Number(t.usd || 0) ? Number(t.usd).toFixed(2) + ' USD' : '—') + '</td>' +
+          '<td>' + (c ? ((c > 0 ? '+' : '') + fmt(c) + ' 🪙') : '—') + '</td>' +
+          '<td class="st-' + esc(t.status) + '">' + (stLbl[t.status] || esc(t.status)) + '</td>' +
+          '<td style="font-size:.75rem;opacity:.75">' + (t.at ? new Date(t.at * 1000).toLocaleString('ar-MA') : '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>';
+  }).catch(function () { box.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; });
 }
 /* خريطة محرك التهيئة — تُستدعى بعد رسم واجهة اللعبة */
 function initFor(eng) {
@@ -1325,6 +1350,7 @@ function renderAdmin() {
       '<button class="atab' + (ADMIN_TAB === 'rewards' ? ' active' : '') + '" role="tab" onclick="adminTab(\'rewards\')">' + T('admin.rewardsTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'fin' ? ' active' : '') + '" role="tab" onclick="adminTab(\'fin\')">' + T('admin.finTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'codes' ? ' active' : '') + '" role="tab" onclick="adminTab(\'codes\')">🎟️ أكواد الشحن</button>' +
+      '<button class="atab' + (ADMIN_TAB === 'money' ? ' active' : '') + '" role="tab" onclick="adminTab(\'money\')">💰 ' + (T('admin.moneyTab') || 'سجل المال') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'botpl' ? ' active' : '') + '" role="tab" onclick="adminTab(\'botpl\')">📊 ' + T('admin.botPL') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'logs' ? ' active' : '') + '" role="tab" id="logs" onclick="adminTab(\'logs\')"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ' + T('admin.logsTab') + '</button>'
     : '<button class="atab' + (ADMIN_TAB === 'users' ? ' active' : '') + '" role="tab" onclick="adminTab(\'users\')">👥 ' + T('admin.myPlayers') + '</button>' +
@@ -1341,6 +1367,7 @@ function renderAdmin() {
   else if (ADMIN_TAB === 'codes') adminLoadCodes();
   else if (ADMIN_TAB === 'botpl') adminLoadBotPL();
   else if (ADMIN_TAB === 'logs') adminLoadTransactions();
+  else if (ADMIN_TAB === 'money') adminLoadMoneyLog();
   else adminLoadFinance();
 }
 
@@ -2031,6 +2058,52 @@ function adminPayAct(txId, action) {
    رصيد الآلي = مؤشر نسبي لأرباح/خسائر المنصة (توضيح المالك): كل دفع للاعب
    الفائز ضد الآلي = خسارة منصة (−)، وكل رهان خاسر = ربح منصة (+).
    المصدر: BotsLedger (state.js) — localStorage rc_bots_pl. */
+/* ═══ [v2.44-MONEY] سجل المال الكامل: كل حركة رصيد لكل المستخدمين (سوبر أدمن) ═══ */
+function adminLoadMoneyLog() {
+  const c = document.getElementById('adminContent');
+  if (!c) return;
+  c.innerHTML = '<div class="note">…</div>';
+  API.get('/api/money/log?scope=all&limit=200').then(function (r) {
+    if (!r.ok) { c.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; return; }
+    const rows = (r.data && r.data.log) || [];
+    const kindLbl = {
+      deposit: '📥 إيداع', withdrawal: '💸 سحب', voucher: '🎟️ كوبون',
+      adjust: '⚙️ تسوية', note: '📝 ملاحظة', game: '🎮 لعبة'
+    };
+    const stLbl = { completed: '✅ مكتمل', pending: '⏳ قيد المراجعة', rejected: '❌ مرفوض', approved: '✅ مصادَق', note: 'ℹ️' };
+    const body = rows.length ? rows.map(function (t) {
+      const usd = Number(t.usd || 0), coins = Number(t.coins || 0);
+      const sign = coins > 0 ? '+' : (coins < 0 ? '' : '');
+      return '<tr>' +
+        '<td><b>' + esc(t.username || ('#' + t.user_id)) + '</b><div style="opacity:.6;font-size:.72rem">#' + esc(t.user_id) + '</div></td>' +
+        '<td>' + (kindLbl[t.kind] || esc(t.kind || '—')) + '</td>' +
+        '<td>' + (usd ? (usd.toFixed(2) + ' USD') : '—') + '</td>' +
+        '<td>' + (coins ? (sign + fmt(coins) + ' 🪙') : '—') + '</td>' +
+        '<td>' + (stLbl[t.status] || esc(t.status || '—')) + '</td>' +
+        '<td style="max-width:180px;word-break:break-all;opacity:.8">' + esc(t.ref || t.note || '—') + '</td>' +
+        '<td style="opacity:.7;font-size:.75rem">' + (t.at ? new Date(t.at * 1000).toLocaleString('ar-MA') : '—') + '</td>' +
+        '</tr>';
+    }).join('') : '<tr><td colspan="7" style="text-align:center;opacity:.7">لا حركات مالية بعد</td></tr>';
+    const totals = rows.reduce(function (a, t) {
+      const c = Number(t.coins || 0);
+      if (t.kind === 'deposit' && t.status === 'completed') a.dep += Number(t.usd || 0);
+      if (t.kind === 'withdrawal' && t.status === 'completed') a.wd += Number(t.usd || 0);
+      if (c > 0) a.in += c; if (c < 0) a.out += c;
+      return a;
+    }, { dep: 0, wd: 0, in: 0, out: 0 });
+    c.innerHTML =
+      '<div class="grid g3" style="margin-bottom:12px">' +
+        '<div class="stat"><div class="si">📥</div><div><div class="sv">' + totals.dep.toFixed(2) + ' $</div><div class="sl">إيداعات مكتملة</div></div></div>' +
+        '<div class="stat"><div class="si">💸</div><div><div class="sv">' + totals.wd.toFixed(2) + ' $</div><div class="sl">سحوبات منفَّذة</div></div></div>' +
+        '<div class="stat"><div class="si">🪙</div><div><div class="sv">' + fmt(totals.in) + ' / ' + fmt(Math.abs(totals.out)) + '</div><div class="sl">كوينز داخلة / خارجة</div></div></div>' +
+      '</div>' +
+      '<div class="note">آخر ' + rows.length + ' حركة — تُحدَّث لحظياً عند أي شحن/سحب/كوبون.</div>' +
+      '<div class="atable-wrap"><table class="atable"><thead><tr>' +
+        '<th>المستخدم</th><th>النوع</th><th>المبلغ</th><th>كوينز</th><th>الحالة</th><th>المرجع</th><th>التاريخ</th>' +
+      '</tr></thead><tbody>' + body + '</tbody></table></div>';
+  }).catch(function () { c.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; });
+}
+
 function adminLoadBotPL() {
   const c = document.getElementById('adminContent');
   if (!c) return;
@@ -2121,6 +2194,14 @@ if (typeof window !== 'undefined') {
   window.addEventListener('RC_admin_msg', function (e) {
     if (ADMIN_TAB === 'coord') loadAdminCoordinationMessages();
   });
+  window.RC_adminpay = function (d) { window.dispatchEvent(new CustomEvent('RC_adminpay', { detail: d })); };
+  /* [v2.44-MONEY] حدث مالي جديد (شحن/سحب/كوبون) ⇒ حدّث تبويب المال والمعلّقات لحظياً */
+  window.addEventListener('RC_adminpay', function () {
+    try {
+      if (ADMIN_TAB === 'money') adminLoadMoneyLog();
+      if (ADMIN_TAB === 'fin') { adminLoadFinance(); adminLoadPendingPayments(); }
+    } catch (e) {}
+  });
 }
 
 /* [v2.43] وصول دفعة رصيد من الخادم (إيداع مُعتمد/كوبون/طلب سحب/إعادة رصيد):
@@ -2132,10 +2213,12 @@ window.RC_wallet = function (d) {
     const coins = Number(d.coins);
     if (isFinite(coins)) {
       ST.gold = coins;
+      if (typeof d.gold_rev === 'number') window.GOLD_REV = d.gold_rev;   /* [v2.44] مرجع الرصيد للخادم */
       if (AUTH && AUTH.user) AUTH.user.gold = coins;
       if (typeof window.wallet === 'function') window.wallet();
       const acct = document.getElementById('accountInfo');
       if (acct) renderAccountLog();
+      try { loadAccountMoneyLog(); } catch (e) {}
       try { save(); } catch (e) {}
     }
     if (d.message) toast(String(d.message), 'ok');

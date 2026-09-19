@@ -512,9 +512,17 @@ function authSync() {
   const now = Date.now();
   if (now - AUTH._lastSync < 5000) return;
   AUTH._lastSync = now;
-  /* مزامنة أحادية الاتجاه: الرصيد المحلي هو مصدر الحقيقة أثناء اللعب.
-     الخادم مجرد مرآة — لا نعيد ضبط الرصيد من رده (يُمسح أي ربح حديث داخل نافذة الـ5 ثواني). */
-  return API.post('/api/sync', { gold: ST.gold, lang: ST.lang }).catch(function () {});
+  /* [v2.44-MONEY] نرسل الرصيد مع مرجع الخادم (gold_rev): الخادم يقبل رصيد العميل فقط
+     إن لم يتغيّر مرجعه (أي لا شحن/تعديل خادمي جديد) ⇒ لا يمكن لعميل قديم أن يطمس شحناً.
+     وإن ردّ الخادم رصيداً مختلفاً (شحن مُعتمد) نتبنّاه فوراً. */
+  return API.post('/api/sync', { gold: ST.gold, lang: ST.lang, gold_rev: (typeof window.GOLD_REV === 'number' ? window.GOLD_REV : undefined) })
+    .then(function (r) {
+      if (r && r.ok && typeof r.gold === 'number') {
+        if (typeof r.gold_rev === 'number') window.GOLD_REV = r.gold_rev;
+        if (r.gold !== ST.gold) { ST.gold = r.gold; if (AUTH.user) AUTH.user.gold = r.gold; try { if (typeof wallet === 'function') wallet(); } catch (e) {} try { save(); } catch (e) {} }
+      }
+      return r;
+    }).catch(function () {});
 }
 function authSyncNow() {
   if (!AUTH.user) return;

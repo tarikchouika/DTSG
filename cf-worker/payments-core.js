@@ -148,7 +148,9 @@ async function adminActOnTransaction(env, db, txId, act) {
   }
   if (act === 'wrej') {
     await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
-    await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd));  /* إعادة الرصيد */
+    if (typeof env.__settleGold === 'function') await env.__settleGold(tx.user_id, Math.round(Number(tx.amount_usd) * ((typeof env.__rate === 'function') ? Number(env.__rate()) : 100)), 'withdrawal-refund');
+    else await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd));  /* إعادة الرصيد */
+    if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(tx.user_id, 'withdrawal', Number(tx.amount_usd), 0, 'rejected', txId); } catch (e) {} }
     if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ رُفض طلب سحبك وأُعيد المبلغ إلى رصيدك.');
     return { ok: true, done: 'withdrawal-rejected', amount_usd: Number(tx.amount_usd) };
   }
@@ -174,9 +176,34 @@ async function uEnsure(db, env, id, email) {
   if (typeof env.__creditUsd === 'function') return; /* مستخدمو المنصة موجودون سلفاً */
   await ensureUser(db, id, email);
 }
+/* [v2.44-MONEY] بونص الشحن التلقائي حسب الشريحة:
+   100$→+25% · 1000$→+30% · 10000$→+35% · 100000$→+40% (وما بينها: أعلى شريحة محقَّقة)
+   البونص كوينز إضافية تُمنح مرة واحدة عند تأكيد الإيداع (السوبر أدمن) — نفس جداول /codes. */
+function depositBonusPct(usd) {
+  var t = Number(usd) || 0, best = 0;
+  Object.keys(ADMIN_TIERS).forEach(function (k) {
+    var tier = Number(k);
+    if (t >= tier && ADMIN_TIERS[k] > best) best = ADMIN_TIERS[k];
+  });
+  return best;
+}
 async function uCreditUsd(db, env, id, usd) {
   if (typeof env.__creditUsd === 'function') return env.__creditUsd(id, usd);
   await creditUser(db, id, usd);
+}
+/* منح الإيداع كاملاً: كوينز الأساس + البونص (عبر تسوية واحدة قدر الإمكان) */
+async function creditDepositWithBonus(db, env, id, usd) {
+  const rate = (typeof env.__rate === 'function') ? Number(env.__rate()) : 100;
+  const pct = depositBonusPct(usd);
+  const base = Math.round(Number(usd) * rate);
+  const bonus = Math.round(base * pct / 100);
+  if (typeof env.__settleGold === 'function') {
+    const r = await env.__settleGold(id, base + bonus, 'deposit' + (pct ? '(+' + pct + '% bonus)' : ''));
+    return { coins: base + bonus, base: base, bonus: bonus, pct: pct, viaSettle: true, result: r };
+  }
+  await uCreditUsd(db, env, id, usd);
+  if (bonus > 0 && typeof env.__creditGold === 'function') await env.__creditGold(id, bonus);
+  return { coins: base + bonus, base: base, bonus: bonus, pct: pct };
 }
 async function uDebitUsd(db, env, id, usd) {
   if (typeof env.__debitUsd === 'function') return !!(await env.__debitUsd(id, usd));
@@ -227,12 +254,19 @@ async function platformCredit(env, userId, usd, txId) {
 async function completeDeposit(env, db, txId, paidUsd) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx || tx.status !== 'pending' || tx.type !== 'deposit') return { ok: false, reason: 'not-pending' };
-  await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1").bind(txId, paidUsd || tx.amount_usd).run();
-  await uCreditUsd(db, env, tx.user_id, paidUsd || Number(tx.amount_usd));
-  await platformCredit(env, tx.user_id, paidUsd || Number(tx.amount_usd), txId);
+  const amount = Number(paidUsd || tx.amount_usd);
+  await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1").bind(txId, amount).run();
+  /* [v2.44] شحن واحد يشمل البونص — كان platformCredit يُضيف فوق __creditUsd (شحن مزدوج) */
+  const cr = await creditDepositWithBonus(db, env, tx.user_id, amount);
+  if (!cr.viaSettle) await platformCredit(env, tx.user_id, amount, txId);
   const tgId = await uGetTelegram(db, env, tx.user_id);
-  if (tgId) await tg(env, 'sendMessage', { chat_id: tgId, text: '✅ تم شحن رصيدك بنجاح: +' + (paidUsd || tx.amount_usd) + ' USD' });
-  return { ok: true };
+  const msg = '✅ تم شحن رصيدك بنجاح: ' + amount + ' USD = ' + cr.coins.toLocaleString('ar-MA') + ' 🪙'
+    + (cr.bonus > 0 ? ('\n🎁 بونص الشريحة: +' + cr.bonus.toLocaleString('ar-MA') + ' 🪙 (' + cr.pct + '%)') : '');
+  if (tgId) await tg(env, 'sendMessage', { chat_id: tgId, text: msg });
+  if (typeof env.__notifyUser === 'function') { try { await env.__notifyUser(tx.user_id, msg); } catch (e) {} }
+  /* [v2.44] تسجيل في سجل المال العام (يظهر في داشبورد السوبر أدمن) */
+  if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(tx.user_id, 'deposit', amount, cr.coins, 'approved', txId); } catch (e) {} }
+  return { ok: true, coins: cr.coins, bonus: cr.bonus };
 }
 
 /* ── Cryptomus ── */
@@ -501,6 +535,77 @@ function payDebug(env, entry) {
     return json({ ok: true, tx: txId, status: 'pending' });
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     [v2.44] POST /api/bot/request — بوابة بوت الشحن/الفوتشير (بلا جلسة):
+     البوت يمرّر هوية المستخدم (tg_id/username/user_id) + النوع + المبلغ + الدليل،
+     فيُنشأ طلب معلّق + إشعار سوبر أدمن للمصادقة الحصرية. لا شحن بلا موافقته.
+     body: { user_id|username|tg_id, kind: 'topup'|'deposit'|'withdraw', amount_usd, method, details }
+     ═══════════════════════════════════════════════════════════════════════ */
+  if (p === '/api/bot/request' && request.method === 'POST') {
+    let b = {};
+    try { b = await request.json(); } catch (e) { b = {}; }
+    const kindRaw = pickStr(b.kind, b.action, b.op, b.request_type, b.type).toLowerCase();
+    const kind = /with|سحب|pull/.test(kindRaw) ? 'withdrawal' : 'deposit';
+    const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.total, b.mad_amount, b.price);
+    const method = normMethod(pickStr(b.method, b.pay_method, b.payment_method, b.gateway, b.way));
+    const details = pickStr(b.details, b.proof_details, b.reference, b.ref, b.proof, b.receipt, b.code,
+      b.txid, b.tx_id, b.hash, b.phone, b.account, b.account_number, b.iban, b.rib, b.wallet, b.address, b.note);
+    const uidResolved = await resolveUid(db, env, b);
+    const identityGiven = pickStr(b.user_id, b.uid, b.username, b.name, b.tg_id, b.telegram_id, b.chat_id, b.from_id);
+    const missing = [];
+    /* [v2.44] فرّق: «لم تُرسل هوية» ≠ «أُرسلت هوية غير معروفة» (البوت يحتاج رسالة دقيقة) */
+    if (!identityGiven) missing.push('user_id|username|tg_id');
+    else if (!uidResolved) {
+      return json({ ok: false, error: 'user-not-found',
+        hint: 'لا حساب بهذه الهوية. اربط حسابك أولاً: المنصة ← المحفظة ← ربط تيليغرام، أو أرسل اسم المستخدم المسجَّل في المنصة' }, 404);
+    }
+    if (!(amt >= 1)) missing.push('amount_usd');
+    if (!details) missing.push('details|proof_details|reference');
+    if (missing.length) {
+      payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}), missing });
+      return json({ ok: false, error: 'bad-input', missing: missing,
+        hint: 'أرسل: هوية المستخدم (user_id أو username أو tg_id) + المبلغ + دليل الدفع (رقم/كود التحويل)',
+        example: { tg_id: '123456789', kind: 'topup', amount_usd: 100, method: 'cash_plus', details: '643797_569735' } }, 400);
+    }
+    if (!(await userExists(db, env, uidResolved))) {
+      return json({ ok: false, error: 'user-not-found',
+        hint: 'اربط حسابك أولاً: افتح المنصة ← المحفظة ← ربط تيليغرام، أو أرسل اسم المستخدم المسجَّل' }, 404);
+    }
+    await uEnsure(db, env, uidResolved, b.email);
+    const txId = uid(kind === 'deposit' ? 'p2p' : 'wd');
+    if (kind === 'withdrawal') {
+      const upOk = await uDebitUsd(db, env, uidResolved, amt);
+      if (!upOk) return json({ ok: false, error: 'insufficient-balance', balance: await uBalance(db, env, uidResolved) }, 402);
+    }
+    await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,?3,?4,?5,\'pending\',?6)')
+      .bind(txId, String(uidResolved), kind, amt, method || 'cash_plus', (details || '').slice(0, 2000)).run();
+    const who = pickStr(b.username, b.name) || ('#' + uidResolved);
+    const head = kind === 'deposit' ? '📥 <b>طلب شحن بانتظار مصادقة السوبر أدمن</b>' : '💸 <b>طلب سحب بانتظار مصادقة السوبر أدمن</b>';
+    const pct = kind === 'deposit' ? depositBonusPct(amt) : 0;
+    const rate0 = (typeof env.__rate === 'function') ? Number(env.__rate()) : 100;
+    await tgNotifyAdmin(env,
+      head + '\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + who + ' (' + uidResolved + ')' +
+      '\nالمبلغ: <b>' + amt + ' USD</b>' + (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
+      '\nالمحصّل: ' + Math.round(amt * rate0 * (1 + pct / 100)).toLocaleString('ar-MA') + ' 🪙' +
+      '\nالوسيلة: ' + (method || 'cash_plus') + '\nالدليل: ' + (details || '').slice(0, 220),
+      kind === 'deposit'
+        ? [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]
+        : [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
+    return json({ ok: true, tx: txId, status: 'pending', kind: kind, amount_usd: amt, bonus_pct: pct,
+      coins_on_approve: Math.round(amt * rate0 * (1 + pct / 100)) });
+  }
+
+  /* ── ربط حساب تيليغرام بالمنصة من البوت (بلا جلسة): /api/bot/link ── */
+  if (p === '/api/bot/link' && request.method === 'POST') {
+    let b = {}; try { b = await request.json(); } catch (e) { b = {}; }
+    const tg = pickStr(b.tg_id, b.telegram_id, b.chat_id, b.from_id);
+    const uidResolved = await resolveUid(db, env, b);
+    if (!tg || !uidResolved) return json({ ok: false, error: 'bad-input', hint: 'أرسل tg_id + (username أو user_id)' }, 400);
+    if (!(await userExists(db, env, uidResolved))) return json({ ok: false, error: 'user-not-found' }, 404);
+    await uSetTelegram(db, env, uidResolved, tg);
+    return json({ ok: true, user_id: uidResolved, tg_id: tg });
+  }
+
   /* ── استبدال كوبون (Atomic) ── */
   if (p === '/api/vouchers/redeem' && request.method === 'POST') {
     const b = await request.json();
@@ -521,7 +626,9 @@ function payDebug(env, entry) {
       const v = await db.prepare('SELECT amount_usd, coins, kind FROM vouchers WHERE code = ?1').bind(code).first();
       if (Number(v.coins) > 0) {
         /* كود كوينز (أدمنز/مباشر): شحن الذهب مباشرة + سجل */
-        if (typeof env.__creditGold === 'function') await env.__creditGold(ub, Number(v.coins));
+        if (typeof env.__settleGold === 'function') await env.__settleGold(ub, Number(v.coins), 'voucher:' + code);
+        else if (typeof env.__creditGold === 'function') await env.__creditGold(ub, Number(v.coins));
+        if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(ub, 'voucher', Number(v.amount_usd), Number(v.coins), 'completed', code); } catch (e) {} }
         const txId = uid('vch');
         try {
           await db.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,'deposit',?3,'voucher','completed',?4)")
@@ -598,6 +705,7 @@ function payDebug(env, entry) {
     const txId = uid('wd');
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'withdrawal\',?3,?4,\'pending\',?5)')
       .bind(txId, String(uidResolved), amt, method, details.slice(0, 2000)).run();
+    if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(uidResolved, 'withdrawal', amt, -Math.round(amt * ((typeof env.__rate === 'function') ? Number(env.__rate()) : 100)), 'pending', txId); } catch (e) {} }
     await tgNotifyAdmin(env,
       '💸 <b>طلب سحب بانتظار الموافقة</b>\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || uidResolved) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + method + '\nالتفاصيل: ' + details.slice(0, 300),
       [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
