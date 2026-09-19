@@ -1,0 +1,183 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DTSG — [v2.44-EDGE] ملء الشاشة حافة-لحافة (طلب المالك 2026-09-19)
+   ───────────────────────────────────────────────────────────────────────────
+   ١) إزالة الشريط الذهبي المحيط بحاويتي الشطرنج/ضاما، وإزالة إطار اللوحة الذهبي.
+   ٢) الحاويات (الإعدادات + اللعب) تملأ الشاشة 100% بلا فراغ.
+   ٣) اللوحة = البعد الملائم بالضبط:
+        بورتريه  ⇒ ضلع اللوحة الأيمن/الأيسر على حدّ الشاشة (بلا فاصل)
+        لاندسكيب ⇒ ضلع اللوحة الأعلى/الأسفل على حدّ الشاشة (بلا فاصل)
+   ٤) منع أي تمرير أو سحب داخل الحاوية (لا شريط زالق؛ اللوحة والأزرار ثابتة).
+   ملاحظة: القياس هنا بالـCSS وحده (fitGameStage مُستثنى لهاتين المرحلتين في JS)
+   ⇒ هندسة حتمية لا تعتمد على تحجيم transform.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root { --dtsg-square: min(100vw, 100dvh); }
+
+/* ── 1) المرحلة: ملء الشاشة تماماً، بلا إطار ذهبي ولا حشو ولا تحجيم ── */
+#gamePageBody { position: relative; }
+#gamePageBody #chessStage.stage,
+#gamePageBody #damaStage.stage {
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important;
+  height: auto !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;          /* إلغاء تحجيم fitGameStage — نتحكّم بالحجم بالـCSS */
+  overflow: hidden !important;
+  box-sizing: border-box;
+  background: linear-gradient(180deg, #3f2814, #211008);
+}
+
+/* ── 2) صفر حشو/هامش/حدّ في كل الأسلاف المباشرة للوحة (لا فاصل بين اللوحة والشاشة) ── */
+#chessStage .ch-wrap, #damaStage .dama-wrap,
+#chessStage .dama-play, #damaStage .dama-play,
+#chessStage .ch-boardbox, #damaStage .dama-boardbox {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  max-width: none !important;
+  box-shadow: none !important;
+}
+/* شاشتا الإعداد: تملآن المرحلة كاملة (الشطرنج/ضاما تشتركان في .dama-setup) */
+#chessStage .dama-setup, #damaStage .dama-setup,
+#chessStage > .dama-play > .dama-setup { width: 100% !important; max-width: none !important; }
+
+/* ── 3) لا تمرير/سحب داخل الحاوية (طلب: اللوحة والأيقونات ثابتة، لا شريط زالق) ── */
+#chessStage .ch-wrap, #damaStage .dama-wrap {
+  height: 100% !important;         /* الحاوية تملأ الشاشة 100% (كانت 569px من 915) */
+  align-self: stretch !important;
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  width: 100% !important;
+}
+/* شاشة الإعداد وحدها قد تتمرّر عمودياً على الشاشات القصيرة جداً — بلا تمرير أفقي أبداً */
+#chessStage .dama-setup, #damaStage .dama-setup { overflow-x: hidden !important; }
+
+/* ── 4) لوحة الشطرنج/ضاما بالحجم الملائم بالضبط ── */
+#chessStage .dama-play, #damaStage .dama-play {
+  height: 100% !important;
+  align-self: stretch !important;
+}
+#chessStage .ch-boardbox, #damaStage .dama-boardbox {
+  flex: 0 0 auto !important;
+  aspect-ratio: auto !important;
+  /* مهم: يتجاوز ضبط damaFitBoard في JS (كان 392px = أقصر بُعد ناقص هامش) */
+  width: var(--dtsg-square) !important;
+  height: var(--dtsg-square) !important;
+  max-width: none !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+#chessStage .ch-board, #damaStage .dama-board {
+  width: var(--dtsg-square) !important;
+  height: var(--dtsg-square) !important;
+  max-width: none !important;
+  max-height: none !important;
+  flex: 0 0 auto !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  /* إزالة حلقات الشريط الذهبي المحيطة باللوحة (كانت 4px #3a2a12 + 6px #d9b45c) */
+  box-shadow: inset 0 0 0 1px rgba(255, 227, 150, 0.16) !important;
+}
+
+/* ── 5) بورتريه: اللوحة بعرض الشاشة، والزرّان الدائريان على الطرفين
+      كي لا يتراكبا مع أيقونة اللاعب المتمركزة على حافة اللوحة ── */
+@media (orientation: portrait) {
+  #chessStage .dama-play, #damaStage .dama-play { align-items: center; }
+  #chessStage .dama-ctrls, #damaStage .dama-ctrls {
+    justify-content: space-between !important;
+    width: 100% !important;
+    padding: 0 26px !important;
+    box-sizing: border-box;
+  }
+}
+
+/* ── 6) لاندسكيب: عمود اللوحة يأخذ ما بقي، والأزرار/الحالة في العمود الجانبي ── */
+@media (orientation: landscape) {
+  #chessStage .dama-play, #damaStage .dama-play {
+    grid-template-columns: minmax(150px, 240px) minmax(0, 1fr) !important;
+    /* 4 صفوف صريحة كي يمتدّ صندوق اللوحة (1/-1) على كامل الارتفاع 412 بلا فائض */
+    grid-template-rows: auto minmax(0, 1fr) auto auto !important;
+    gap: 0 8px !important;
+  }
+  /* توزيع العمود الجانبي: الحالة أعلى · المؤقّت فاصل مرن · الرهان/التعادل أعلاه · الأزرار أسفل */
+  #chessStage .dama-status, #damaStage .dama-status { grid-row: 1 !important; }
+  #chessStage .dama-timer, #damaStage .dama-timer { grid-row: 2 !important; }
+  #chessStage .dama-stake, #damaStage .dama-stake,
+  #chessStage .dama-drawbar, #damaStage .dama-drawbar { grid-row: 3 !important; align-self: end !important; z-index: 5; }
+  #chessStage .dama-ctrls, #damaStage .dama-ctrls { grid-row: 4 !important; align-self: end !important; }
+  #chessStage .ch-boardbox, #damaStage .dama-boardbox {
+    grid-column: 2 !important;
+    grid-row: 1 / -1 !important;
+    align-self: center !important;
+  }
+  /* أزرار/حالة شطرنج اللاندسكيب في العمود الجانبي مثل ضاما */
+  #chessStage .ch-side, #chessStage .dama-status, #chessStage .dama-ctrls,
+  #chessStage .dama-timer, #chessStage .dama-stake, #chessStage .dama-spectators {
+    grid-column: 1 !important;
+    align-self: start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+  #chessStage .ch-side { grid-row: 1 !important; overflow: hidden !important; }
+}
+
+/* ── 7) أزرار الاستسلام/التعادل: شكل محسّن (قرص ذهبي + أيقونة SVG واضحة) ── */
+.dama-ctrls .dama-mini.dama-round {
+  /* مهم: أزرار دائرة — نلغي تمديد الشبكة الذي كان يجعلها بيضاوية (.ch-side > .dama-ctrls .dama-mini { flex:1; min-width:84px }) */
+  flex: 0 0 auto !important;
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 44px !important;
+  padding: 0 !important;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(120% 120% at 32% 22%, rgba(255, 231, 160, 0.30), rgba(120, 80, 20, 0.22) 70%),
+    rgba(28, 16, 6, 0.55);
+  border: 1.5px solid rgba(255, 215, 94, 0.55);
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  color: #ffe9a8;
+  transition: border-color 0.15s, box-shadow 0.15s, color 0.15s, transform 0.12s;
+}
+.dama-ctrls { gap: 14px !important; }   /* فاصل يمنع تراكب الزرّين مع أيقونة اللاعب في البورتريه */
+.dama-ctrls .dama-mini.dama-round:hover {
+  border-color: #ffd75e;
+  color: #fff6d8;
+  box-shadow: 0 0 0 3px rgba(255, 215, 94, 0.20), 0 3px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.dama-ctrls .dama-mini.dama-round:active { transform: translateY(1px) scale(0.97); }
+.dama-ctrls .dama-mini.dama-round .dm-ico { width: 22px; height: 22px; display: block; }
+/* زر الاستسلام بلمسة حمراء خفيفة تمييزاً عن التعادل */
+.dama-ctrls .dama-mini.dama-round.dm-resign { border-color: rgba(255, 150, 120, 0.55); color: #ffd9c9; }
+.dama-ctrls .dama-mini.dama-round.dm-resign:hover { border-color: #ff9f80; box-shadow: 0 0 0 3px rgba(255, 120, 90, 0.18), 0 3px 12px rgba(0, 0, 0, 0.5); }
+
+/* ── 8) بارتشي: بلا حشو حول منطقة اللوحة والمكان المخصص لها ⇒
+      حدّ الخانات على حدّ الشاشة (بورتريه: يمين/يسار · لاندسكيب: أعلى/أسفل)
+      وإزالة «الفاصل الخشبي» المحيط — الرسم نفسه بلا هامش (تحويل الحدّ في parchisi.js) ── */
+#parchisiGame { padding: 0 !important; }
+#parchisiGame > .pr-boardarea, #parchisiBoardArea { padding: 0 !important; margin: 0 !important; }
+#parchisiBoardWrap.pr-boardwrap {
+  padding: 0 !important;
+  margin: 0 auto !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  max-width: none !important;
+  width: auto;
+}
+#parchisiCanvas { display: block; border: 0 !important; box-shadow: none !important; }

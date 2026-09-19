@@ -810,7 +810,8 @@ function fitGameStage() {
   var stage = body.querySelector('.stage');
   if (!stage) return;
   /* الرامي له تحجيمه الخاص عبر --card-w ؛ الرندا (فلات دوغ) وضاما يملأون الشاشة 100% */
-  if (stage.id === 'rnContainer' || stage.id === 'damaStage' || stage.id === 'rdStage' || stage.querySelector('#ramiContainer')) return;
+  /* [v2.44-EDGE] الشطرنج أيضاً يملأ الشاشة بالـCSS (حافة-لحافة) — لا تحجيم transform */
+  if (stage.id === 'rnContainer' || stage.id === 'damaStage' || stage.id === 'chessStage' || stage.id === 'rdStage' || stage.querySelector('#ramiContainer')) return;
   _observeStage(stage);
   var availW = body.clientWidth;
   var availH = body.clientHeight;

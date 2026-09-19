@@ -58,6 +58,14 @@ const PR_CTR0 = (PR_BOARD - PR_CTR) / 2;            /* 230 */
 const PR_CTR1 = PR_BOARD - PR_CTR0;                 /* 370 */
 const PR_RUN = PR_MARGIN + PR_PITCH * 8;            /* 230 = نهاية الجريان (8 خانات) */
 const PR_OFF = [4, 21, 38, 55];                     /* ساليدة كل مقعد (خانات 5/22/39/56) */
+/* [v2.44-EDGE] ملء الشاشة حافة-لحافة: الرسم كان يترك هامشاً خشبياً (PR_MARGIN=10) حول
+   اللوحة؛ نُزيله بتحويل مقياس/إزاحة فيصبح حدّ الخانات على حدّ الكانفس بالضبط
+   (بورتريه: يمين/يسار = حدّ الشاشة · لاندسكيب: أعلى/أسفل = حدّ الشاشة).
+   التحويل مطبَّق في الرسم، وعكسه مطبَّق في قراءة النقر ⇒ دقّة اللمس محفوظة. */
+const PR_EDGE_SCALE = PR_BOARD / (PR_BOARD - 2 * PR_MARGIN);   /* 600/580 */
+const PR_EDGE_OFF = -PR_MARGIN * PR_EDGE_SCALE;                /* إزاحة نقطة الصفر */
+function prEdgeTransform(ctx) { ctx.translate(PR_EDGE_OFF, PR_EDGE_OFF); ctx.scale(PR_EDGE_SCALE, PR_EDGE_SCALE); }
+function prEdgeInverse(x) { return x / PR_EDGE_SCALE + PR_MARGIN; }   /* كانفس ← لوحة */
 const PR_STARS = [11, 28, 45, 62];                  /* نجوم آمنة (خانات 12/29/46/63) */
 const PR_HEADS = [67, 16, 33, 50];                  /* رؤوس الأذرع = مداخل الممرات */
 const PR_SAFE = PR_OFF.concat(PR_STARS, PR_HEADS);  /* الساليدات + النجوم + الرؤوس = آمن */
@@ -1783,6 +1791,9 @@ const ParchisiApp = {
       mx = cx + dx * cs - dy * sn;
       my = cy + dx * sn + dy * cs;
     }
+    /* [v2.44-EDGE] عكس تحويل الحدّ: إحداثيات الكانفس ← إحداثيات اللوحة */
+    mx = prEdgeInverse(mx);
+    my = prEdgeInverse(my);
     const layout = this.pieceLayout();
     let best = null, bd = 26;
     for (const pc of opts) {
@@ -2371,14 +2382,19 @@ const ParchisiApp = {
       ctx.rotate(-Math.PI / 2 * rot);
       ctx.translate(-W / 2, -W / 2);
     }
-    /* [v2.43] لا هوامش ولا إطار ذهبي: اللوحة الخشبية تملأ الكانفاس إلى حافته
-       (حافة اللوحة = حدّ الشاشة في الاتجاه المستوفى) */
+    /* [v2.44-EDGE] تحويل الحدّ: يمحو الهامش الخشبي (10) فيلمس حدّ الخانات حدّ الكانفس
+       تماماً — بلا «فاصل خشبي» محيط باللوحة.
+       مهم: داخل save/restore لأن draw() يُستدعى كل إطار و translate/scale تراكميّان
+       (بدونهما يتضاعف التحويل كل إطار حتى يختفي الرسم تماماً). */
+    ctx.save();
+    prEdgeTransform(ctx);
+    /* خلفية خشبية تغطّي كل الكانفس (تُرسم بلا حدود مرئية حول الخانات بعد التحويل) */
     const wg = ctx.createLinearGradient(0, 0, 0, W);
     wg.addColorStop(0, '#98603f');
     wg.addColorStop(0.5, PR_COLORS.wood.frame);
     wg.addColorStop(1, '#6f4128');
     ctx.fillStyle = wg;
-    ctx.fillRect(0, 0, W, W);
+    ctx.fillRect(-PR_MARGIN - 2, -PR_MARGIN - 2, W + 2 * PR_MARGIN + 4, W + 2 * PR_MARGIN + 4);
 
     /* قواعد الزوايا */
     this.drawBases(ctx);
@@ -2392,6 +2408,8 @@ const ParchisiApp = {
     this.drawBarriers(ctx);
     /* القطع */
     this.drawPieces(ctx, now);
+    /* [v2.44-EDGE] استرجاع تحويل الحدّ (نقطة الهوية لكل إطار) */
+    ctx.restore();
     /* [Rotate] استرجاع الحالة بعد التدوير */
     if (rot) ctx.restore();
   },
