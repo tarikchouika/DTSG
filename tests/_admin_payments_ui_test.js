@@ -7,6 +7,14 @@ let chromium;
 try { chromium = require('playwright').chromium; }
 catch (e) { chromium = require('/tmp/pw/node_modules/playwright').chromium; }
 const BASE = process.env.BASE || 'http://127.0.0.1:3971';   /* خادم اختبار كامل (server.js) */
+/* [v2.44] كان الاختبار يفترض user_id=18 ثابتاً؛ نستخرجه من القاعدة كي لا يعتمد على ترتيب الإدراج */
+let QA_ID = 18;
+try {
+  const { DatabaseSync } = require('node:sqlite');
+  const QA_DB = process.env.QA_DB || '/tmp/full/data/royalcoin.db';
+  const row = new DatabaseSync(QA_DB).prepare("SELECT id FROM users WHERE username='qa_player'").get();
+  if (row && row.id) QA_ID = row.id;
+} catch (e) { console.log('  ℹ️  تعذّر قراءة id من القاعدة — سأستعمل 18 (بيئة مختلفة؟)'); }
 let pass = 0, fail = 0;
 const ok = m => { pass++; console.log('  ✅ ' + m); };
 const bad = m => { fail++; console.log('  ❌ ' + m); };
@@ -28,9 +36,9 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   const REF1 = 'TX-ADMIN-UI-' + RUN, REF2 = 'CP-568409-' + RUN, REFWD = 'TX-ADMIN-UI-WD-' + RUN;
   console.log('\n═══ أ) تجهيز: إيداعان معلّقان (بنفس بيانات بوت الشحن) ═══');
   const mk = async (body) => await page.request.post(BASE + '/api/payments/p2p', { data: body });
-  const dep1 = await mk({ user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 25, proof_details: REF1 });
+  const dep1 = await mk({ user_id: QA_ID, username: 'qa_player', method: 'binance', amount_usd: 25, proof_details: REF1 });
   const j1 = await dep1.json();
-  const dep2 = await mk({ user_id: 18, username: 'qa_player', method: 'cash_plus', amount_usd: 12, details: REF2 });
+  const dep2 = await mk({ user_id: QA_ID, username: 'qa_player', method: 'cash_plus', amount_usd: 12, details: REF2 });
   const j2 = await dep2.json();
   (j1.ok && j2.ok) ? ok('إنشاء إيداعين معلّقين: ' + j1.tx + ' · ' + j2.tx) : bad('فشل الإنشاء: ' + JSON.stringify([j1, j2]));
 
@@ -87,7 +95,7 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
 
   console.log('\n═══ ج) الموافقة على إيداع من الواجهة ═══');
   const coins = async () => {
-    const r = await page.request.get(BASE + '/api/wallet/balance?user_id=18');
+    const r = await page.request.get(BASE + '/api/wallet/balance?user_id=' + QA_ID + '');
     const j = await r.json(); return j.coins || 0;
   };
   const before = await coins();
@@ -110,7 +118,7 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   (new RegExp('قيد|pending|' + REF1)).test(refreshed) ? ok('القائمة أُعيد تحميلها (الطلب المؤكد غادر المعلّق)') : ok('القائمة أُعيد تحميلها');
 
   console.log('\n═══ د) سحب + رفضه من الواجهة (إعادة الرصيد) ═══');
-  const wd = await page.request.post(BASE + '/api/withdrawals/request', { data: { user_id: 18, username: 'qa_player', method: 'binance', amount_usd: 9, details: REFWD } });
+  const wd = await page.request.post(BASE + '/api/withdrawals/request', { data: { user_id: QA_ID, username: 'qa_player', method: 'binance', amount_usd: 9, details: REFWD } });
   const wj = await wd.json();
   wj.ok ? ok('إنشاء طلب سحب: ' + wj.tx) : bad('فشل السحب: ' + JSON.stringify(wj));
   await page.evaluate(() => adminLoadPendingPayments());

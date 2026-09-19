@@ -285,8 +285,11 @@ DamaEngine.prototype.obligationInfo = function (s) {
   var hit = DAMA_OBLIG_CACHE.get(key);
   if (hit !== undefined) return hit;
   var ob = (this.rules.souffler) ? this.obligationPiece(s) : null;
+  /* [v2.44-FIX2] نخزّن **الموقع** لا المعرّف: المعرّفات تُعاد ترقيمها بين الحالات المختلفة
+     (اختبار الرشّ/المباريات الجديدة) وكانت الذاكرة تُعيد معرّفاً بائداً فيُنفخ حجر خاطئ
+     أو لا يقع النفخ أصلاً. الموقع + تخطيط اللوح = مفتاح الذاكرة نفسه ⇒ صحيح دائماً. */
   var info = {
-    id: ob ? s.grid[ob[0]][ob[1]].id : null,
+    pos: ob ? [ob[0], ob[1]] : null,
     need: ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0,
     max: this.maxChainOverall(s)
   };
@@ -351,7 +354,7 @@ DamaEngine.prototype.applyMove = function (s, mv) {
   if (!s.cont) {
     /* [v2.44-ENGINE-FIX] حساب واحد مُذاكَر لكل موضع بدل تكراره في كل عقدة بحث */
     var oi = this.obligationInfo(s);
-    s.obligedId = oi.id;
+    s.obligedId = (oi.pos && s.grid[oi.pos[0]][oi.pos[1]]) ? s.grid[oi.pos[0]][oi.pos[1]].id : null;
     s.obligedNeed = oi.need;
     /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله: إتمامها بأي قطعة
        يُبرّئ الالتزام (كان الالتزام مربوطاً بقطعة واحدة فقط فيُعاقَب لاعب صحيح) */
