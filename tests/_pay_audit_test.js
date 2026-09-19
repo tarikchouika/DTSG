@@ -108,7 +108,8 @@ const auditRows = (where, args) => db.prepare('SELECT * FROM pay_audit' + (where
   ok('الرفض نجح', w1r && w1r.ok);
   eq('أُعيد الرصيد كاملاً', goldOf(1), g1);
   const wRej = auditRows("kind='withdrawal' AND action='reject'")[0];
-  ok('تدقيق الرفض يعرض refunded', !!wRej && wRej.status === 'rejected' && wRej.note === 'refunded' && wRej.actor === 'qa_super');
+  /* [e0c11d6] الملاحظة تُبنى كـ '0612345678 · refunded' لأن الطلب يحمل details ⇒ التوكيد الجزئي */
+  ok('تدقيق الرفض يعرض refunded', !!wRej && wRej.status === 'rejected' && String(wRej.note).includes('refunded') && wRej.actor === 'qa_super');
 
   const w2 = await call('POST', '/api/withdrawals/request', { user_id: 1, amount_usd: 10, method: 'binance', details: 'TADDR' }, 'user');
   const w2a = await pay.adminActOnPlatformTx(w2.tx, 'approve', 'qa_admin');
