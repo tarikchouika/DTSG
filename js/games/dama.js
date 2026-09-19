@@ -35,12 +35,16 @@ function DamaEngine(rules) {
     flyingKing: true,
     promoteImmediately: true,
     maxChain: true,
-    /* [v2.44-RULES-MODE] قانون الإلزام/النفخ — وضعان متبادلان بلا تغيير في السلوك الافتراضي:
-         · 'overall' (الافتراضي والمنشور): الواجب = أطول سلسلة متاحة في الدور كله؛
-            إتمامها بأي قطعة يُبرّئ صاحب الدور.
-         · 'piece'   : الواجب على القطعة المُلزَمة نفسها — يجب الأكل بها وإتمام سلسلتها.
-       يُبدَّل بسطر واحد عند اللزوم: DAMA.eng.rules.obligation = 'piece' */
-    obligation: 'overall'
+    /* [v2.44-RULES-MODE] قانون الإلزام/النفخ — ثلاثة أوضاع:
+         · 'ladder' (الافتراضي — قانون المالك المُعلن 2026-09-19):
+             ١) الأولوية في الإلزام للضائم (الملك) عند تساوي طول السلسلتين؛
+             ٢) ثم صاحب السلسلة الأكبر؛
+             ٣) الضائم المُلزَم يجب أن يأكل **وأن يُتمّ سلسلته** وإلا نُفخ؛
+             ٤) وإن كانت السلسلتان لبيدقين عاديين فإتمام إحداهما يُسقط الإلزام عن الأخرى.
+         · 'overall' : الواجب = أطول سلسلة في الدور كله، وإتمامها بأي قطعة يُبرّئ (ومنها الضائم).
+         · 'piece'   : الواجب على القطعة المُلزَمة نفسها دائماً — بلا استثناء.
+       يُبدَّل بسطر واحد: DAMA.eng.rules.obligation = 'overall' | 'piece' */
+    obligation: 'ladder'
   };
 }
 DamaEngine.prototype.opponent = function (p) { return p === WHITE ? BLACK : WHITE; };
@@ -82,6 +86,7 @@ DamaEngine.prototype.cloneState = function (s) {
     /* [v2.44-ENGINE-FIX] كان النسخ يُسقط هذه الحقول الثلاثة، فيرى البحث وسط السلسلة
        أن لا واجب عليه وأن عدّاد أكله صفر ⇒ يظنّ أن التقصير بلا عقوبة (نفخ) فيلعب
        خطوطاً خاسرة داخلياً ويقصر السلاسل الواجبة = «الذكاء الاصطناعي غبي». */
+    obligedIsKing: !!s.obligedIsKing,
     obligedNeed: (s.obligedNeed != null) ? s.obligedNeed : 0,
     obligedMax: (s.obligedMax != null) ? s.obligedMax : 0,
     turnCaptures: (s.turnCaptures != null) ? s.turnCaptures : 0,
@@ -294,10 +299,12 @@ DamaEngine.prototype.obligationInfo = function (s) {
   /* [v2.44-FIX2] نخزّن **الموقع** لا المعرّف: المعرّفات تُعاد ترقيمها بين الحالات المختلفة
      (اختبار الرشّ/المباريات الجديدة) وكانت الذاكرة تُعيد معرّفاً بائداً فيُنفخ حجر خاطئ
      أو لا يقع النفخ أصلاً. الموقع + تخطيط اللوح = مفتاح الذاكرة نفسه ⇒ صحيح دائماً. */
+  var obPiece = ob ? s.grid[ob[0]][ob[1]] : null;
   var info = {
     pos: ob ? [ob[0], ob[1]] : null,
     need: ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0,
-    max: this.maxChainOverall(s)
+    max: this.maxChainOverall(s),
+    isKing: !!(obPiece && obPiece.king)     /* [v2.44-LADDER] الضائم له حكم خاص */
   };
   if (DAMA_OBLIG_CACHE.size > 30000) DAMA_OBLIG_CACHE.clear();   /* حماية الذاكرة */
   DAMA_OBLIG_CACHE.set(key, info);
@@ -362,6 +369,7 @@ DamaEngine.prototype.applyMove = function (s, mv) {
     var oi = this.obligationInfo(s);
     s.obligedId = (oi.pos && s.grid[oi.pos[0]][oi.pos[1]]) ? s.grid[oi.pos[0]][oi.pos[1]].id : null;
     s.obligedNeed = oi.need;
+    s.obligedIsKing = !!oi.isKing;      /* [v2.44-LADDER] هل المُلزَم ضائم؟ */
     /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله: إتمامها بأي قطعة
        يُبرّئ الالتزام (كان الالتزام مربوطاً بقطعة واحدة فقط فيُعاقَب لاعب صحيح) */
     s.obligedMax = oi.max;
@@ -412,15 +420,26 @@ DamaEngine.prototype.applyMove = function (s, mv) {
   /* [v2.43 RULES-FIX] النفخ فقط عند تقصير الأكل: من نفّذ أطول سلسلة متاحة
      (ولو بقطعة أخرى، أو بأقل من القطعة "الأولى") أدّى الواجب ولا يُعاقب. */
   /* [v2.44-RULES-MODE] المرجع يتبع الوضع المختار (انظر rules.obligation في المُنشئ) */
-  var obligMode = (this.rules.obligation === 'piece') ? 'piece' : 'overall';
-  var need, shortCapture;
+  var obligMode = (this.rules.obligation === 'piece' || this.rules.obligation === 'ladder') ? this.rules.obligation : 'overall';
+  var need, shortCapture, capsDone = (s.turnCaptures || 0);
   if (obligMode === 'piece') {
     need = Math.max(s.obligedNeed || 0, 0);
     /* لم يأكل بالقطعة المُلزَمة أصلاً، أو أكل بها ولم يُتمّ سلسلتها */
-    shortCapture = (!s.obligedFulfilled) || ((s.turnCaptures || 0) < need);
+    shortCapture = (!s.obligedFulfilled) || (capsDone < need);
+  } else if (obligMode === 'ladder') {
+    /* [v2.44-LADDER — قانون المالك] الضائم المُلزَم لا يُبرّئه إلا أكلُه هو وإتمامُ سلسلته،
+       أما البيدق المُلزَم فيُبرّئه إتمامُ سلسلة مساوية (ولو ببيدق آخر): إتمام واحدة
+       يُسقط الإلزام عن الثانية. */
+    if (s.obligedIsKing) {
+      need = Math.max(s.obligedNeed || 0, 0);
+      shortCapture = (!s.obligedFulfilled) || (capsDone < need);
+    } else {
+      need = Math.max(s.obligedMax || 0, 0);
+      shortCapture = capsDone < need;
+    }
   } else {
     need = Math.max(s.obligedMax || 0, 0);
-    shortCapture = (s.turnCaptures || 0) < need;
+    shortCapture = capsDone < need;
   }
   if (this.rules.souffler && s.obligedId != null && shortCapture) {
     for (var r = 0; r < 8 && !info.souffled; r++) {
@@ -430,7 +449,7 @@ DamaEngine.prototype.applyMove = function (s, mv) {
       }
     }
   }
-  s.obligedId = null; s.obligedFulfilled = false; s.obligedNeed = 0; s.obligedMax = 0; s.turnCaptures = 0;
+  s.obligedId = null; s.obligedFulfilled = false; s.obligedNeed = 0; s.obligedMax = 0; s.turnCaptures = 0; s.obligedIsKing = false;
   s.cont = null; s.chainNeed = null;
   s.turn = this.opponent(s.turn);
   /* [B9] الترقية المؤجلة: تُحسم بعد مرور الدور — يُتوَّج الآن ما استحق من صاحب الدور الجديد */

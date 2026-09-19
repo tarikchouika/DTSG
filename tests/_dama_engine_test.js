@@ -159,10 +159,11 @@ console.log('\n[2d] King-row stop & deferred promotion');
 })();
 
 /* ── 2d. [توضيح المالك 2026-09-16] أولوية الإلزام: الضائم ← السلسلة الأطول ← إتمام السلسلة وإلا نفخ ── */
-console.log('\n[2e][v2.43] إصلاح: إتمام أطول أكل بقطعة أخرى لا يُنفخ لاعباً صحيحاً');
+console.log('\n[2e][v2.44-LADDER] قانون المالك: الضائم المُلزَم لا يُبرّئه أداءُ غيره');
 {
-  /* بيدق أبيض له سلسلة أكل 2، وملك أبيض له سلسلة 2 أيضاً ⇒ المُلزَم كان يُختار
-     بالملكية أولاً؛ لاعب يُتمّ الأطول بالبيدق كان يُنفخ ملكه ظلماً. */
+  /* بيدق أبيض له سلسلة أكل 2، وملك أبيض (ضائم) له سلسلة 2 أيضاً ⇒ السلسلتان متساويتان
+     ⇒ القانون: **الإلزام أولاً على الضائم**، ولا يُبرّئه أن يُتمّ البيدق سلسلة مساوية.
+     (كان قبل v2.44 يُبرَّأ — وهذا ما عدّله المالك صراحةً.) */
   const mk = () => { const g = []; for (let r = 0; r < 8; r++) g.push([null, null, null, null, null, null, null, null]); return g; };
   const st = { grid: mk(), turn: WHITE, over: false, half: 0 };
   st.grid[5][1] = { owner: WHITE, king: false, id: 1 };
@@ -171,15 +172,43 @@ console.log('\n[2e][v2.43] إصلاح: إتمام أطول أكل بقطعة أ�
   st.grid[6][6] = { owner: WHITE, king: true, id: 4 };
   st.grid[5][5] = { owner: BLACK, king: false, id: 5 };
   ok('أطول سلسلة عامة = 2', eng.maxChainOverall(st) === 2);
+  ok('سلسلتا البيدق والضائم متساويتان (2)', eng.maxChainAt(st.grid, 5, 1) === 2 && eng.maxChainAt(st.grid, 6, 6) === 2);
+  const obp = eng.obligationPiece(st);
+  ok('المُلزَم هو الضائم [6,6] (التساوي ⇒ الأولوية للضائم)', obp && obp[0] === 6 && obp[1] === 6);
   const first = eng.capturesAt(st.grid, 5, 1)[0];
   let i1 = eng.applyMove(st, first);
   ok('بداية السلسلة بطول 2 مُتاحة', !!(i1.continued || i1.souffled === null));
   if (i1.continued) {
     const cont = eng.continuationMoves(st);
     const i2 = eng.applyMove(st, cont[0]);
-    ok('إتمام الأطول (2 أسر) ⇒ لا نفخ', i2.souffled === null);
-    ok('القطعتان الأبيضتان باقيتان (ملك + بيدق)', st.grid.flat().filter(p => p && p.owner === WHITE).length === 2);
+    ok('البيدق أتمّ سلسلة مساوية لكنه ليس المُلزَم ⇒ يُنفخ الضائم', JSON.stringify(i2.souffled) === JSON.stringify([6, 6]));
+    ok('بقيت قطعة بيضاء واحدة (البيدق) بعد نفخ الضائم', st.grid.flat().filter(p => p && p.owner === WHITE).length === 1);
   }
+  /* الحالة المقابلة: الضائم نفسه يؤدّي واجبه ⇒ لا نفخ ولا تُمسّ القطعة الأخرى */
+  const st1b = { grid: mk(), turn: WHITE, over: false, half: 0 };
+  st1b.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+  st1b.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+  st1b.grid[2][4] = { owner: BLACK, king: false, id: 3 };
+  st1b.grid[6][6] = { owner: WHITE, king: true, id: 4 };
+  st1b.grid[5][5] = { owner: BLACK, king: false, id: 5 };
+  /* الملك الطائر له عدّة مواضع هبوط؛ اللاعب الصائب يختار ما يُكمل السلسلة.
+     النتيجة تُchemia: الهبوط الأمثل ⇒ لا نفخ · هبوط ناقص ⇒ نفخ (اختيار خاطئ). */
+  let bestSt = null, badSt = null;
+  for (const kc of eng.capturesAt(st1b.grid, 6, 6)) {
+    const trial = { grid: mk(), turn: WHITE, over: false, half: 0 };
+    trial.grid[5][1] = { owner: WHITE, king: false, id: 1 };
+    trial.grid[4][2] = { owner: BLACK, king: false, id: 2 };
+    trial.grid[2][4] = { owner: BLACK, king: false, id: 3 };
+    trial.grid[6][6] = { owner: WHITE, king: true, id: 4 };
+    trial.grid[5][5] = { owner: BLACK, king: false, id: 5 };
+    let info = eng.applyMove(trial, kc), gK = 0;
+    while (trial.cont && gK++ < 20) { const cc = eng.continuationMoves(trial); if (!cc.length) break; info = eng.applyMove(trial, cc[0]); }
+    if (info.souffled === null && !bestSt) bestSt = trial;
+    if (info.souffled && !badSt) badSt = { trial: trial, pos: info.souffled };
+  }
+  ok('الضائم أتمّ سلسلته (2 أسر بالهبوط الأمثل) ⇒ لا نفخ', !!bestSt);
+  ok('الضائم أتمّ سلسلته وبقيت القطعتان (ضائم + بيدق)', !!bestSt && bestSt.grid.flat().filter(p => p && p.owner === WHITE).length === 2);
+  ok('هبوط ناقص (اختيار خاطئ للملك الطائر) ⇒ يُنفخ — لا مكافأة على التقصير', !!badSt && JSON.stringify(badSt.pos) === JSON.stringify(badSt.pos));
   /* التقصير ما زال يُنفخ: أسر واحد فقط ثم تُرك الدور */
   const st2 = { grid: mk(), turn: WHITE, over: false, half: 0 };
   st2.grid[5][1] = { owner: WHITE, king: false, id: 1 };

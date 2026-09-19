@@ -1,7 +1,10 @@
 /* ═══ [v2.44-RULES-MODE] اختبار فارق قانونَي الإلزام/النفخ في ضاما (بلا متصفح) ═══
    الوضعان:
-     · overall (الافتراضي/المنشور) — الواجب = أطول سلسلة متاحة في الدور كله؛ إتمامها بأي قطعة يُبرّئ.
-     · piece  (الأصرم)            — الواجب على القطعة المُلزَمة نفسها: لا بد أن تأكل وتُتمّ سلسلتها.
+     · ladder (الافتراضي — قانون المالك 2026-09-19):
+          ١) الأولوية للضائم (الملك) عند تساوي طول السلسلتين · ٢) ثم صاحب السلسلة الأكبر
+          ٣) الضائم المُلزَم يأكل ويُتمّ سلسلته وإلا نُفخ · ٤) بيدقان بسلسلتين متساويتين: إتمام إحداهما يُسقط الإلزام عن الأخرى
+     · overall — الواجب = أطول سلسلة متاحة في الدور كله؛ إتمامها بأي قطعة يُبرّئ (ومنها الضائم).
+     · piece   — الواجب على القطعة المُلزَمة نفسها دائماً بلا استثناء.
    يُشغّل: node tests/_dama_obligation_mode_test.js
    الغرض: إثبات أن المفتاح rules.obligation **يغيّر السلوك فعلاً** وأن الافتراضي لم يتغيّر. */
 const fs = require('fs');
@@ -52,14 +55,15 @@ const BOARD = ['........', '........', '........', '........', '....b.b.', '...w
 
 console.log('\n═══ 1) الافتراضي لم يتغيّر (توافق خلفي) ═══');
 const engDefault = new Engine();
-engDefault.rules.obligation === 'overall'
-  ? ok("الوضع الافتراضي 'overall' (المنشور)")
-  : bad("الافتراضي تغيّر إلى: " + engDefault.rules.obligation);
+engDefault.rules.obligation === 'ladder'
+  ? ok("الوضع الافتراضي 'ladder' (قانون المالك: الضائم أولاً)")
+  : bad("الافتراضي غير متوقع: " + engDefault.rules.obligation);
 const engLegacy = new Engine({ mandatoryCapture: true, souffler: true, multiCapture: true });   /* قواعد قديمة بلا المفتاح */
 const legacy = playChain(engLegacy, mk(BOARD), 5, 7);
+/* القواعد القديمة (بلا المفتاح) = ladder: الإلزام على (5,3) وهو **بيدق** ⇒ إتمام بيدق آخر مساوٍ يُبرّئ */
 legacy.souffled === false || legacy.err
-  ? ok('قواعد بلا المفتاح تعمل كـoverall (لا نفخ عند إتمام سلسلة مساوية)')
-  : bad('قواعد بلا المفتاح نفخت ظلماً');
+  ? ok('قواعد بلا المفتاح تعمل كـladder (بيدقان متساويان: إتمام أحدهما يُبرّئ)')
+  : bad('قواعد بلا المفتاح نفخت بيدقاً بريئاً');
 
 console.log('\n═══ 2) الفارق الفعلي: الإتمام بقطعة أخرى ═══');
 const eA = new Engine(); eA.rules.obligation = 'overall';
@@ -84,6 +88,75 @@ console.log('\n═══ 4) الوضعان يعطيان نتائج مختلفة 
 (ra.souffled !== rb.souffled)
   ? ok('نفس النقلة: overall=' + ra.souffled + ' ⟷ piece=' + rb.souffled + ' ⇒ المفتاح مؤثّر فعلاً')
   : bad('المفتاح بلا أثر (صوري)!');
+
+console.log('\n═══ 5) قانون المالك: الضائم (الملك) له الأولوية عند تساوي السلسلتين ═══');
+/* لوح: ملك أبيض (7,7) يأكل (5,5) · بيدق أبيض (5,1) يأكل (4,2) — السلسلتان = 1 */
+const KING_BOARD = ['........', '........', '........', '........', '..b.....', '.w...b..', '........', '.......W'];
+function analyse(rows) {
+  const e = new Engine();
+  const st = mk(rows);
+  const ob = e.obligationPiece(st);
+  const p = ob ? st.grid[ob[0]][ob[1]] : null;
+  return { ob: ob, isKing: !!(p && p.king), chainOb: ob ? e.maxChainAt(st.grid, ob[0], ob[1]) : 0, max: e.maxChainOverall(st) };
+}
+const an = analyse(KING_BOARD);
+(an.ob && an.isKing && an.chainOb === an.max)
+  ? ok('المُلزَم هو الضائم [' + an.ob + '] رغم تساوي السلسلتين (' + an.max + ')')
+  : bad('المُلزَم ' + JSON.stringify(an) + ' — المتوقع ملك بسلسلة مساوية');
+function play(eng, rows, r, c) {
+  const st = eng.cloneState(mk(rows));
+  const caps = eng.capturesAt(st.grid, r, c);
+  if (!caps.length) return { err: 'no-capture' };
+  let info = eng.applyMove(st, caps[0]), g = 0;
+  while (st.cont && g++ < 20) { const cont = eng.continuationMoves(st); if (!cont.length) break; info = eng.applyMove(st, cont[0]); }
+  return { souffled: !!info.souffled, took: caps[0] };
+}
+const eOver = new Engine(); eOver.rules.obligation = 'overall';
+const eLad = new Engine();  eLad.rules.obligation = 'ladder';
+const ePiece = new Engine(); ePiece.rules.obligation = 'piece';
+const pawnTakes_over = play(eOver, KING_BOARD, 5, 1);      /* إتمام سلسلة **البيدق** (مساوية) */
+const pawnTakes_lad  = play(eLad,  KING_BOARD, 5, 1);
+const pawnTakes_pc   = play(ePiece, KING_BOARD, 5, 1);
+(pawnTakes_over.souffled === false && pawnTakes_lad.souffled === true)
+  ? ok('البيدق أتمّ سلسلة مساوية: overall لا ينفخ · ladder **ينفخ الضائم** (لا يُبرّئه غيرُه)')
+  : bad('سلوك غير مطابق: overall=' + pawnTakes_over.souffled + ' ladder=' + pawnTakes_lad.souffled);
+const kingTakes_lad = play(eLad, KING_BOARD, 7, 7);        /* إتمام سلسلة **الضائم** */
+const kingTakes_over = play(eOver, KING_BOARD, 7, 7);
+(kingTakes_lad.souffled === false && kingTakes_over.souffled === false)
+  ? ok('الضائم أتمّ سلسلته ⇒ لا نفخ (في الوضعين)')
+  : bad('نفخ خاطئ عند إتمام الضائم: ladder=' + kingTakes_lad.souffled + ' overall=' + kingTakes_over.souffled);
+
+console.log('\n═══ 6) بيدقان عاديان بسلسلتين متساويتين: إتمام إحداهما يُسقط الإلزام عن الأخرى ═══');
+/* بيدقان أبيضان (5,1) و(5,5) — لكل واحد أسر واحد ⇒ سلسلتان متساويتان */
+const TWO_PAWNS = ['........', '........', '........', '........', '..b.b...', '.w...w..', '........', '........'];
+const an2 = analyse(TWO_PAWNS);
+(an2.ob && !an2.isKing) ? ok('المُلزَم بيدق عادي [' + an2.ob + '] (بحسب ترتيب المسح)') : bad('المُلزَم ' + JSON.stringify(an2));
+const otherPawn = (an2.ob && an2.ob[1] === 1) ? [5, 5] : [5, 1];
+const lad2 = play(eLad, TWO_PAWNS, otherPawn[0], otherPawn[1]);
+const pc2 = play(ePiece, TWO_PAWNS, otherPawn[0], otherPawn[1]);
+const ov2 = play(eOver, TWO_PAWNS, otherPawn[0], otherPawn[1]);
+(lad2.souffled === false)
+  ? ok('ladder: إتمام سلسلة البيدق الآخر (بنفس الطول) يُبرّئ — لا نفخ')
+  : bad('ladder نفخ بيدقاً بريئاً: ' + JSON.stringify(lad2));
+(pc2.souffled === true)
+  ? ok('piece: كان ينفخ ظلماً في هذه الحالة (يوضّح الفرق)')
+  : bad('piece لم ينفخ — راجع الوضع: ' + JSON.stringify(pc2));
+(ov2.souffled === false) ? ok('overall: لا نفخ أيضاً (مطابق لـladder هنا)') : bad('overall نفخ: ' + JSON.stringify(ov2));
+
+console.log('\n═══ 7) حصانة الطرفين: قطع صحيحة لا تُنفخ في أي وضع ═══');
+const cleanBoards = [
+  ['........','........','........','........','..b.b...','.w...w..','........','........'],
+  ['........','........','........','........','..b.....','.w...b..','........','.......W']
+];
+let cleanOk = true;
+for (const b of cleanBoards) {
+  const st = mk(b);
+  const ob = eLad.obligationPiece(st);
+  if (!ob) continue;
+  const res = play(eLad, b, ob[0], ob[1]);          /* الواجب نفسه يؤدّيه */
+  if (res.souffled !== false) cleanOk = false;
+}
+cleanOk ? ok('من أدّى واجبه (الضائم أو البيدق المُلزَم) لا يُنفخ — في كل الألواح') : bad('نفخ خاطئ لقطعة أدّت واجبها');
 
 console.log('\n═══ النتيجة: ' + pass + ' ناجح / ' + fail + ' فاشل ═══');
 process.exit(fail ? 1 : 0);

@@ -13,7 +13,7 @@ const { DamaEngine, damaNewState, WHITE, BLACK } = sb({}, undefined, _perf);
 
 /* [v2.44-RULES-MODE] الوضع تحت الاختبار: overall (افتراضي/منشور) أو piece (الأصرم)
    التشغيل:  DAMA_OBLIGATION=piece node tests/_dama_fuzz_test.js */
-const MODE = (process.env.DAMA_OBLIGATION === 'piece') ? 'piece' : 'overall';
+const MODE = ['overall', 'piece', 'ladder'].indexOf(process.env.DAMA_OBLIGATION) >= 0 ? process.env.DAMA_OBLIGATION : 'ladder';
 let pass = 0, fail = 0;
 function ok(name, cond) {
   if (cond) { pass++; }
@@ -42,12 +42,12 @@ function idsUnique(s) {
 
 /* ── 1) مباريات عشوائية: ثوابت المحرك ── */
 const eng = new DamaEngine();
-if (MODE === 'piece') eng.rules.obligation = 'piece';   /* [v2.44-RULES-MODE] الوضع الأصرم */
+eng.rules.obligation = MODE;   /* [v2.44-RULES-MODE] overall | piece | ladder */
 let games = 0, capturesTotal = 0, soufflesTotal = 0, chains = 0;
 for (let g = 0; g < 400; g++) {
   const s = damaNewState();
   let guard = 0, bad = false;
-  let turnObId = null, turnObDone = false, turnObNeed = 0, turnCaps = 0, turnMax = 0;   /* تتبّع التزام الدور (قاعدة النفخ) */
+  let turnObId = null, turnObDone = false, turnObNeed = 0, turnCaps = 0, turnMax = 0, turnObKing = false;   /* تتبّع التزام الدور (قاعدة النفخ) */
   while (!s.over && guard++ < 400) {
     const moves = eng.legalMoves(s, s.turn);
     if (!moves.length) { s.over = true; s.outcome = eng.opponent(s.turn); break; }
@@ -62,9 +62,12 @@ for (let g = 0; g < 400; g++) {
       turnObId = ob ? s.grid[ob[0]][ob[1]].id : null;
       turnObDone = false;
       turnObNeed = ob ? eng.maxChainAt(s.grid, ob[0], ob[1]) : 0;
+      turnObKing = !!(ob && s.grid[ob[0]][ob[1]] && s.grid[ob[0]][ob[1]].king);
       /* [v2.44-RULES-MODE] المرجع يتبع الوضع: overall = أطول سلسلة في الدور كله ·
          piece = سلسلة القطعة المُلزَمة نفسها (الوضع الأصرم) */
       turnMax = (MODE === 'piece') ? turnObNeed : (eng.maxChainOverall ? eng.maxChainOverall(s) : turnObNeed);
+      /* ladder: الضائم لا يُبرّئه إلا سلسلته هو؛ والبيدق يُبرّئه إتمام سلسلة مساوية */
+      if (MODE === 'ladder' && turnObKing) turnMax = turnObNeed;
       turnCaps = 0;
     }
     const info = eng.applyMove(s, mv);
@@ -73,7 +76,8 @@ for (let g = 0; g < 400; g++) {
     if (!s.cont) {
       /* [v2.43] النفخ حتمي فقط عند تقصير الأكل عن أطول سلسلة متاحة في الدور
          (إتمامها بأي قطعة يُبرّئ الالتزام — كان مربوطاً بقطعة واحدة فيُعاقَب لاعب صحيح) */
-      const mustSouffle = turnObId != null && ((MODE === 'piece')
+      const strict = (MODE === 'piece') || (MODE === 'ladder' && turnObKing);
+      const mustSouffle = turnObId != null && (strict
         ? (!turnObDone || turnCaps < Math.max(turnMax, 0))
         : (turnCaps < Math.max(turnMax, 0)));
       if (mustSouffle !== (info.souffled !== null)) { bad = true; break; }
