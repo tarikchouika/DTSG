@@ -42,7 +42,7 @@ const login = async (page, u, p) => await page.evaluate(async (a) => {
   ok('الرصيد الابتدائي: ' + coins0 + ' 🪙 (' + Number(bal0.balance_usd || 0).toFixed(2) + ' USD)');
 
   /* ── الطلب من "البوت": tg_id فقط، بلا جلسة ── */
-  console.log('\n═══ ب) بوت الشحن يطلب تعبئة 100$ (tg_id فقط) ═══');
+  console.log('\n═══ ب) بوت الشحن يطلب إيداعاً مباشراً 100$ (tg_id فقط) ═══');
   const reqOne = async (amount, kind) => {
     return await page.evaluate(async (a) => {
       const r = await fetch('/api/bot/request', {
@@ -52,7 +52,7 @@ const login = async (page, u, p) => await page.evaluate(async (a) => {
       return { status: r.status, body: await r.json() };
     }, { amount, kind });
   };
-  const r1 = await reqOne(100, 'topup');
+  const r1 = await reqOne(100, 'deposit');
   (r1.status === 200 && r1.body && r1.body.ok && r1.body.tx)
     ? ok('أُنشئ طلب معلّق: ' + r1.body.tx + ' · بونص الشريحة ' + r1.body.bonus_pct + '% · كوينز عند المصادقة ' + r1.body.coins_on_approve)
     : bad('فشل إنشاء الطلب: ' + JSON.stringify(r1));

@@ -15,3 +15,6 @@ server.log
 screenshots/
 shot_*.png
 _shot_*.png
+
+# [v2.44] مخرجات تشغيل محلية (بوت الفوتشير/قاعدة الاختبار)
+data/

@@ -301,7 +301,9 @@ const PAY_PATHS = [
   '/api/vouchers/redeem', '/api/vouchers/create',
   '/api/withdrawals/request', '/api/wallet/balance', '/api/telegram/webhook',
   /* [v2.44] بوابة بوت الشحن/الفوتشير (بلا جلسة) + ربط تيليغرام */
-  '/api/bot/request', '/api/bot/link'
+  '/api/bot/request', '/api/bot/link',
+  /* [v2.44] مصادقة الطلبات من بوت السوبر أدمن (بلا جلسة) */
+  '/api/bot/admin-act'
 ];
 function isPaymentsPath(p) { return PAY_PATHS.indexOf(p) >= 0; }
 

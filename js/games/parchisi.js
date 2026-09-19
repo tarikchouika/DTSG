@@ -37,59 +37,61 @@ const PR_COLORS = {
   track: { normal: '#FFFFFF', normalBorder: '#C9CED6', safe: '#C2C9D1', safeBorder: '#939DA9' }
 };
 
-/* ── هندسة اللوحة [v2.43]: قواعد الزوايا الملوّنة مُصغَّرة والخانات المستطيلة
-   مُكبَّرة إلى أقصى حد هندسي ممكن، واللوحة 600×600 بلا أي هامش (حافتها = حدّ الشاشة).
-   القاعدة 160×160 (كانت 194) • الذراع 3 أعمدة × 280 عرضاً و8 صفوف × 240 طولاً
-   ⇒ الخانة المستطيلة 93.33×30 (كانت 64×27.5) = +46% عرضاً. المركز 120×120.
-   المسار 68 خانة عكس عقارب الساعة؛ الساليدات 5/22/39/56 والآمنات 12/17/29/34/46/51/63/68 */
+/* ── هندسة اللوحة [v2.44-FIX] استُرجعت هندسة v2.42 المُتحقَّق منها (خانة 64×27.5 = 2.33:1)
+   بعد أن تبيّن أن هندسة v2.43 (93.33×30 = 3.11:1 وذراع 280 مقابل قاعدة 160) لا تُبلّط
+   المربعات فنتج 36 تداخلاً زوجياً ⇒ «خانات مشوّهة/محشورة فوق بعضها».
+   القاعدة 194 (10..204) · الأذرع 3×64 = 192 · المركز 140 · المسار 68 خانة عكس عقارب الساعة
+   الساليدات 5/22/39/56 والآمنات 12/17/29/34/46/51/63/68 */
 const PR_BOARD = 600;
-const PR_B = 160;                                   /* ضلع مربع القاعدة الملوّن */
-const PR_ARM = (PR_BOARD - 2 * PR_B) / 3;           /* عرض الخانة الطويلة */
-const PR_PITCH = ((PR_BOARD - 120) / 2) / 8;        /* طول الخانة القصيرة (30) */
-const PR_ARM_LEN = PR_PITCH * 8;                    /* طول الذراع (240) */
-const PR_BASE_INSET = 4;                            /* مربع القاعدة من حدّ اللوحة */
-const PR_BASE_SIZE = PR_B - PR_BASE_INSET;          /* 156 داخل الإطار */
-const PR_MID0 = PR_B + PR_ARM;                      /* بداية عمود الممر */
-const PR_MID1 = PR_MID0 + PR_ARM;
-const PR_CTR = 120;                                 /* ضلع المركز */
-const PR_CTR0 = (PR_BOARD - PR_CTR) / 2;            /* 240 */
-const PR_CTR1 = PR_BOARD - PR_CTR0;                 /* 360 */
-const PR_CW = PR_ARM, PR_CH = PR_PITCH;             /* أسماء تاريخية: الطويل/القصير */
+const PR_MARGIN = 10;                               /* هامش اللوحة حول المسار */
+const PR_CW = 64, PR_CH = 27.5;                     /* الخانة: طويل 64 × قصير 27.5 */
+const PR_PITCH = PR_CH;                             /* الاسم المستعمل في بقية الشيفرة */
+const PR_B = 204;                                   /* الإحداثي الداخلي للقاعدة (10..204) */
+const PR_BASE_INSET = PR_MARGIN;                    /* 10 */
+const PR_BASE_SIZE = PR_B - PR_BASE_INSET;          /* 194 = ضلع مربع القاعدة */
+const PR_ARM = PR_CW;                               /* عرض حزمة الذراع (64) */
+const PR_ARM_LEN = PR_CW * 3;                       /* امتداد الذراع (192) */
+const PR_MID0 = PR_B + PR_ARM;                      /* 268 = بداية عمود الممر */
+const PR_MID1 = PR_MID0 + PR_ARM;                   /* 332 */
+const PR_CTR = 140;                                 /* ضلع المركز */
+const PR_CTR0 = (PR_BOARD - PR_CTR) / 2;            /* 230 */
+const PR_CTR1 = PR_BOARD - PR_CTR0;                 /* 370 */
+const PR_RUN = PR_MARGIN + PR_PITCH * 8;            /* 230 = نهاية الجريان (8 خانات) */
 const PR_OFF = [4, 21, 38, 55];                     /* ساليدة كل مقعد (خانات 5/22/39/56) */
 const PR_STARS = [11, 28, 45, 62];                  /* نجوم آمنة (خانات 12/29/46/63) */
 const PR_HEADS = [67, 16, 33, 50];                  /* رؤوس الأذرع = مداخل الممرات */
 const PR_SAFE = PR_OFF.concat(PR_STARS, PR_HEADS);  /* الساليدات + النجوم + الرؤوس = آمن */
 const PR_TRACK = [];                                 /* 68 خانة مستطيلة (عكس عقارب الساعة) */
 (function () {
-  const L = PR_ARM, P = PR_PITCH, A = PR_ARM_LEN, F = PR_BOARD - PR_ARM_LEN;
-  const V = (x, y) => ({ x: x, y: y, w: L, h: P });
-  const H = (x, y) => ({ x: x, y: y, w: P, h: L });
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_B, P * i));                 /* 0-7   أعلى·يسار نزولاً */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(A - P * (i + 1), PR_B));       /* 8-15  يسار·أعلى للخارج */
-  PR_TRACK.push(H(0, PR_B + L));                                            /* 16    رأس اليسرى */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(P * i, PR_B + 2 * L));         /* 17-24 يسار·أسفل للداخل */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_B, F + P * i));             /* 25-32 أسفل·يسار نزولاً */
-  PR_TRACK.push(V(PR_MID0, F + A - P));                                      /* 33    رأس السفلية */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_MID1, F + A - P * (i + 1))); /* 34-41 أسفل·يمين صعوداً */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(F + P * i, PR_B + 2 * L));     /* 42-49 يمين·أسفل للخارج */
-  PR_TRACK.push(H(F + A - P, PR_B + L));                                     /* 50    رأس اليمنى */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(H(F + A - P * (i + 1), PR_B));   /* 51-58 يمين·أعلى للداخل */
-  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_MID1, A - P * (i + 1)));    /* 59-66 أعلى·يمين صعوداً */
-  PR_TRACK.push(V(PR_MID0, 0));                                             /* 67    رأس العلوية */
+  const P = PR_PITCH, M = PR_MARGIN;
+  const V = (x, y) => ({ x: x, y: y, w: PR_CW, h: P });   /* خانة أفقية (طويلة أفقياً) */
+  const H = (x, y) => ({ x: x, y: y, w: P, h: PR_CW });   /* خانة عمودية */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_B, M + P * i));                  /* 0-7   أعلى·يسار نزولاً */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(PR_RUN - P - P * i, PR_B));         /* 8-15  يسار·أعلى للخارج */
+  PR_TRACK.push(H(M, PR_B + PR_CW));                                             /* 16    رأس اليسرى */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(M + P * i, PR_MID1));               /* 17-24 يسار·أسفل للداخل */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_B, PR_CTR1 + P * i));            /* 25-32 أسفل·يسار نزولاً */
+  PR_TRACK.push(V(PR_MID0, PR_BOARD - M - P));                                   /* 33    رأس السفلية */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_MID1, PR_BOARD - M - P - P * i)); /* 34-41 أسفل·يمين صعوداً */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(PR_CTR1 + P * i, PR_MID1));         /* 42-49 يمين·أسفل للخارج */
+  PR_TRACK.push(H(PR_BOARD - M - P, PR_MID0));                                   /* 50    رأس اليمنى */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(H(PR_BOARD - M - P - P * i, PR_B));   /* 51-58 يمين·أعلى للداخل */
+  for (let i = 0; i < 8; i++) PR_TRACK.push(V(PR_MID1, PR_RUN - P - P * i));      /* 59-66 أعلى·يمين صعوداً */
+  PR_TRACK.push(V(PR_MID0, M));                                                  /* 67    رأس العلوية */
 })();
 /* ممرات الوصول: 7 خانات لكل مقعد من بعد رأس ذراعه نحو المركز (ثم الميتا بالمثلث) */
 const PR_CORRIDOR = [
-  Array.from({ length: 7 }, (_, i) => ({ x: PR_MID0, y: PR_PITCH * (i + 1), w: PR_ARM, h: PR_PITCH })),          /* 0 أحمر: العلوية نزولاً */
-  Array.from({ length: 7 }, (_, i) => ({ x: PR_PITCH * (i + 1), y: PR_MID0, w: PR_PITCH, h: PR_ARM })),          /* 1 أخضر: اليسرى يميناً */
-  Array.from({ length: 7 }, (_, i) => ({ x: PR_MID0, y: PR_BOARD - PR_ARM_LEN + PR_PITCH * (6 - i), w: PR_ARM, h: PR_PITCH })), /* 2 أصفر: السفلية صعوداً */
-  Array.from({ length: 7 }, (_, i) => ({ x: PR_BOARD - PR_ARM_LEN + PR_PITCH * (6 - i), y: PR_MID0, w: PR_PITCH, h: PR_ARM }))  /* 3 أزرق: اليمنى يساراً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_MID0, y: PR_MARGIN + PR_PITCH * (i + 1), w: PR_CW, h: PR_PITCH })),   /* 0 أحمر: العلوية نزولاً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_MARGIN + PR_PITCH * (i + 1), y: PR_MID0, w: PR_PITCH, h: PR_CW })),   /* 1 أخضر: اليسرى يميناً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_MID0, y: PR_BOARD - PR_MARGIN - PR_PITCH * (i + 2), w: PR_CW, h: PR_PITCH })), /* 2 أصفر: السفلية صعوداً */
+  Array.from({ length: 7 }, (_, i) => ({ x: PR_BOARD - PR_MARGIN - PR_PITCH * (i + 2), y: PR_MID0, w: PR_PITCH, h: PR_CW }))  /* 3 أزرق: اليمنى يساراً */
 ];
 /* أعشاش الانتظار: ربع دوائر بزوايا اللوحة + فتحات القطع الأربع */
 const PR_NEST = [
-  { cx: PR_B, cy: PR_B, nx: PR_BASE_INSET + PR_BASE_SIZE * 0.464, ny: PR_BASE_INSET + PR_BASE_SIZE * 0.464 },                                  /* 0 أحمر: أعلى اليسار */
-  { cx: PR_B, cy: PR_BOARD - PR_B, nx: PR_BASE_INSET + PR_BASE_SIZE * 0.464, ny: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464 },            /* 1 أخضر: أسفل اليسار */
-  { cx: PR_BOARD - PR_B, cy: PR_BOARD - PR_B, nx: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464, ny: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464 }, /* 2 أصفر: أسفل اليمين */
-  { cx: PR_BOARD - PR_B, cy: PR_B, nx: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.464, ny: PR_BASE_INSET + PR_BASE_SIZE * 0.464 }             /* 3 أزرق: أعلى اليمين */
+  { cx: PR_B, cy: PR_B, nx: PR_BASE_INSET + PR_BASE_SIZE * 0.552, ny: PR_BASE_INSET + PR_BASE_SIZE * 0.552 },                                  /* 0 أحمر: أعلى اليسار */
+  { cx: PR_B, cy: PR_BOARD - PR_B, nx: PR_BASE_INSET + PR_BASE_SIZE * 0.552, ny: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.552 },            /* 1 أخضر: أسفل اليسار */
+  { cx: PR_BOARD - PR_B, cy: PR_BOARD - PR_B, nx: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.552, ny: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.552 }, /* 2 أصفر: أسفل اليمين */
+  { cx: PR_BOARD - PR_B, cy: PR_B, nx: PR_BOARD - PR_BASE_INSET - PR_BASE_SIZE * 0.552, ny: PR_BASE_INSET + PR_BASE_SIZE * 0.552 }             /* 3 أزرق: أعلى اليمين */
 ];
 const PR_NEST_R = PR_BASE_SIZE * 0.98;
 /* فتحات القطع الأربع داخل كل قاعدة (شبكة 2×2 داخل المربع) */
@@ -103,7 +105,7 @@ const PR_BASE = (function () {
     sq(PR_BOARD - b, a, PR_BOARD - a, b)                /* 3 أزرق: أعلى اليمين */
   ];
 })();
-/* قصّات الزوايا الداخلية حيث تلتقي الأذرع */
+/* قصّات الزوايا الداخلية حيث تلتقي الأذرع (26×26 عند كل زاوية داخلية) */
 const PR_CHAMFER = [
   [PR_B, PR_B, PR_CTR0, PR_CTR0],
   [PR_BOARD - PR_B, PR_B, PR_CTR1, PR_CTR0],

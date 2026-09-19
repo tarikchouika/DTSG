@@ -129,6 +129,28 @@ async function adminActOnTransaction(env, db, txId, act) {
   if (!tx) return { ok: false, error: 'not-found' };
   if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
   if (act === 'dapp') {
+    /* [v2.44-BOT] طلب كود تعبئة: المصادقة تُنشئ كوداً = مبلغ الشحن (بالكوينز + البونص)،
+       والرصيد يُشحن عند تفعيل الكود — لا شحن مزدوج. */
+    const isKodFlow = String(tx.proof_details || '').indexOf('[KOD]') === 0;
+    if (String(tx.type) === 'topup' || isKodFlow) {
+      const rate = (typeof env.__rate === 'function') ? Number(env.__rate()) : COINS_PER_USD;
+      const pct = depositBonusPct(Number(tx.amount_usd));
+      const coins = Math.round(Number(tx.amount_usd) * rate * (1 + pct / 100));
+      const code = newCode();
+      await db.prepare('INSERT INTO vouchers (code, amount_usd, kind, coins, bonus_pct) VALUES (?1, ?2, ?3, ?4, ?5)')
+        .bind(code, Number(tx.amount_usd), 'topup', coins, pct).run();
+      await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
+      const msg = '🎟️ <b>كود التعبئة جاهز</b>\nالمبلغ: ' + tx.amount_usd + ' USD' +
+        (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
+        '\nالكود: <code>' + code + '</code>\nالقيمة عند التفعيل: ' + coins.toLocaleString('ar-MA') + ' 🪙' +
+        '\nفعّله من: المنصة ← المحفظة ← تفعيل كود';
+      if (typeof env.__notifyUser === 'function') { try { await env.__notifyUser(tx.user_id, msg); } catch (e) {} }
+      if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(tx.user_id, 'voucher_issued', Number(tx.amount_usd), coins, 'issued', code); } catch (e) {} }
+      let userTg = null;
+      try { userTg = await uGetTelegram(db, env, tx.user_id); } catch (e) {}
+      return { ok: true, done: 'topup-voucher-created', code: code, coins: coins, bonus_pct: pct,
+        amount_usd: Number(tx.amount_usd), user_id: String(tx.user_id), user_tg: userTg };
+    }
     const r = await completeDeposit(env, db, txId, Number(tx.amount_usd));
     if (r && r.ok) {
       if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تأكيد إيداعك وشحن رصيدك (' + tx.amount_usd + ' USD).');
@@ -179,6 +201,7 @@ async function uEnsure(db, env, id, email) {
 /* [v2.44-MONEY] بونص الشحن التلقائي حسب الشريحة:
    100$→+25% · 1000$→+30% · 10000$→+35% · 100000$→+40% (وما بينها: أعلى شريحة محقَّقة)
    البونص كوينز إضافية تُمنح مرة واحدة عند تأكيد الإيداع (السوبر أدمن) — نفس جداول /codes. */
+/* [v2.44] نسبة البونص للمبلغ (أعلى شريحة محقَّقة) */
 function depositBonusPct(usd) {
   var t = Number(usd) || 0, best = 0;
   Object.keys(ADMIN_TIERS).forEach(function (k) {
@@ -545,7 +568,9 @@ function payDebug(env, entry) {
     let b = {};
     try { b = await request.json(); } catch (e) { b = {}; }
     const kindRaw = pickStr(b.kind, b.action, b.op, b.request_type, b.type).toLowerCase();
-    const kind = /with|سحب|pull/.test(kindRaw) ? 'withdrawal' : 'deposit';
+    /* [v2.44-BOT] ثلاث مسارات: سحب · كود تعبئة (Bot topup ⇒ كود بعد المصادقة) · إيداع مباشر */
+    const kind = /with|سحب|pull/.test(kindRaw) ? 'withdrawal'
+      : (/top-?up|voucher|كود|تعبئة|شحن سريع|fast/.test(kindRaw) ? 'topup' : 'deposit');
     const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.total, b.mad_amount, b.price);
     const method = normMethod(pickStr(b.method, b.pay_method, b.payment_method, b.gateway, b.way));
     const details = pickStr(b.details, b.proof_details, b.reference, b.ref, b.proof, b.receipt, b.code,
@@ -572,16 +597,22 @@ function payDebug(env, entry) {
         hint: 'اربط حسابك أولاً: افتح المنصة ← المحفظة ← ربط تيليغرام، أو أرسل اسم المستخدم المسجَّل' }, 404);
     }
     await uEnsure(db, env, uidResolved, b.email);
-    const txId = uid(kind === 'deposit' ? 'p2p' : 'wd');
+    const txId = uid(kind === 'withdrawal' ? 'wd' : (kind === 'topup' ? 'kod' : 'p2p'));
+    /* [v2.44-BOT] جدول المعاملات يقبل deposit/withdrawal فقط ⇒ نعلّم طلبات كود التعبئة
+       ببادئة [KOD] في الدليل ليصادق عليها مسار الكود بدل الشحن المباشر */
+    const proof = (kind === 'topup' ? '[KOD] ' : '') + String(details || '');
     if (kind === 'withdrawal') {
       const upOk = await uDebitUsd(db, env, uidResolved, amt);
       if (!upOk) return json({ ok: false, error: 'insufficient-balance', balance: await uBalance(db, env, uidResolved) }, 402);
     }
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,?3,?4,?5,\'pending\',?6)')
-      .bind(txId, String(uidResolved), kind, amt, method || 'cash_plus', (details || '').slice(0, 2000)).run();
+      .bind(txId, String(uidResolved), (kind === 'withdrawal' ? 'withdrawal' : 'deposit'), amt, method || 'cash_plus', proof.slice(0, 2000)).run();
     const who = pickStr(b.username, b.name) || ('#' + uidResolved);
-    const head = kind === 'deposit' ? '📥 <b>طلب شحن بانتظار مصادقة السوبر أدمن</b>' : '💸 <b>طلب سحب بانتظار مصادقة السوبر أدمن</b>';
-    const pct = kind === 'deposit' ? depositBonusPct(amt) : 0;
+    const head = kind === 'deposit' ? '📥 <b>طلب شحن بانتظار مصادقة السوبر أدمن</b>'
+      : kind === 'topup' ? '🎟️ <b>طلب كود تعبئة بانتظار مصادقة السوبر أدمن</b>'
+      : '💸 <b>طلب سحب بانتظار مصادقة السوبر أدمن</b>';
+    /* [v2.44-BOT] البونص يُحسب للمسارين: الإيداع المباشر وكود التعبئة (السحب بلا بونص) */
+    const pct = (kind === 'withdrawal') ? 0 : depositBonusPct(amt);
     const rate0 = (typeof env.__rate === 'function') ? Number(env.__rate()) : 100;
     await tgNotifyAdmin(env,
       head + '\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + who + ' (' + uidResolved + ')' +
@@ -604,6 +635,32 @@ function payDebug(env, entry) {
     if (!(await userExists(db, env, uidResolved))) return json({ ok: false, error: 'user-not-found' }, 404);
     await uSetTelegram(db, env, uidResolved, tg);
     return json({ ok: true, user_id: uidResolved, tg_id: tg });
+  }
+
+  /* ═══ [v2.44-BOT] POST /api/bot/admin-act — مصادقة/رفض الطلبات من بوت السوبر أدمن (بلا جلسة):
+     body: { tx, act: 'dapp'|'drej'|'wapp'|'wrej', tg_id }
+     الصلاحية حصرية: شات السوبر أدمن (TELEGRAM_ADMIN_CHAT_ID) أو أدمن دعم مسجَّل أو ADMIN_API_SECRET. */
+  if (p === '/api/bot/admin-act' && request.method === 'POST') {
+    let b = {};
+    try { b = await request.json(); } catch (e) { b = {}; }
+    const txId = pickStr(b.tx, b.tx_id, b.id, b.ref, b.reference);
+    const act = pickStr(b.act, b.action, b.op).toLowerCase();
+    const who = pickStr(b.tg_id, b.telegram_id, b.chat_id, b.from_id);
+    const secretOk = env.ADMIN_API_SECRET && (pickStr(b.admin_secret, b.secret) === env.ADMIN_API_SECRET);
+    let okActor = secretOk;
+    if (!okActor) {
+      /* جلسة super عبر الكوكي */
+      if (typeof roleOfRequest === 'function' && roleOfRequest(request) === 'super') okActor = true;
+      /* سوبر أدمن تيليغرام */
+      if (!okActor && env.TELEGRAM_ADMIN_CHAT_ID && who && String(who) === String(env.TELEGRAM_ADMIN_CHAT_ID)) okActor = true;
+      if (!okActor && who && typeof env.__adminCanAct === 'function') { try { okActor = !!env.__adminCanAct(String(who)); } catch (e) {} }
+    }
+    if (!okActor) { payDebug(env, { path: p, status: 403, act: act }); return json({ ok: false, error: 'forbidden', hint: 'مصادقة السوبر أدمن فقط' }, 403); }
+    if (!txId || ['dapp', 'drej', 'wapp', 'wrej'].indexOf(act) < 0) {
+      return json({ ok: false, error: 'bad-input', hint: 'أرسل tx + act ∈ dapp|drej|wapp|wrej + tg_id' }, 400);
+    }
+    const r = await adminActOnTransaction(env, db, txId, act);
+    return json(Object.assign({ tx: txId, act: act }, r), r.ok ? 200 : 409);
   }
 
   /* ── استبدال كوبون (Atomic) ── */

@@ -563,7 +563,7 @@ function loadAccountMoneyLog() {
     if (!r.ok) { box.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; return; }
     const rows = (r.data && r.data.log) || [];
     if (!rows.length) { box.innerHTML = '<div class="note">' + (T('acct.noTx') || 'لا حركات مالية بعد') + '</div>'; return; }
-    const kindLbl = { deposit: '📥 إيداع', withdrawal: '💸 سحب', voucher: '🎟️ كوبون', adjust: '⚙️ تسوية', note: '📝' };
+    const kindLbl = { deposit: '📥 إيداع', withdrawal: '💸 سحب', voucher: '🎟️ كوبون', voucher_issued: '🎟️ كود تعبئة صادر', adjust: '⚙️ تسوية', note: '📝' };
     const stLbl = { completed: '✅ مكتمل', pending: '⏳ قيد المراجعة', rejected: '❌ مرفوض', approved: '✅ مصادَق', note: 'ℹ️' };
     box.innerHTML = '<div class="atable-wrap"><table class="atable"><thead><tr><th>النوع</th><th>المبلغ</th><th>كوينز</th><th>الحالة</th><th>التاريخ</th></tr></thead><tbody>' +
       rows.map(function (t) {
@@ -2068,9 +2068,10 @@ function adminLoadMoneyLog() {
     const rows = (r.data && r.data.log) || [];
     const kindLbl = {
       deposit: '📥 إيداع', withdrawal: '💸 سحب', voucher: '🎟️ كوبون',
+      voucher_issued: '🎟️ كود تعبئة صادر',
       adjust: '⚙️ تسوية', note: '📝 ملاحظة', game: '🎮 لعبة'
     };
-    const stLbl = { completed: '✅ مكتمل', pending: '⏳ قيد المراجعة', rejected: '❌ مرفوض', approved: '✅ مصادَق', note: 'ℹ️' };
+    const stLbl = { completed: '✅ مكتمل', pending: '⏳ قيد المراجعة', rejected: '❌ مرفوض', approved: '✅ مصادَق', issued: '🎟️ صادر', note: 'ℹ️' };
     const body = rows.length ? rows.map(function (t) {
       const usd = Number(t.usd || 0), coins = Number(t.coins || 0);
       const sign = coins > 0 ? '+' : (coins < 0 ? '' : '');

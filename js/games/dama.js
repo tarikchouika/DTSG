@@ -39,6 +39,9 @@ function DamaEngine(rules) {
 }
 DamaEngine.prototype.opponent = function (p) { return p === WHITE ? BLACK : WHITE; };
 
+/* [v2.44] تفريغ ذاكرة الواجب عند أي حالة جديدة (لا تسرّب بين المباريات) */
+function damaClearCaches() { try { DAMA_OBLIG_CACHE.clear(); } catch (e) {} }
+
 function damaNewState() {
   var grid = [];
   for (var r = 0; r < 8; r++) grid.push([null, null, null, null, null, null, null, null]);
@@ -70,6 +73,12 @@ DamaEngine.prototype.cloneState = function (s) {
     cont: s.cont ? [s.cont[0], s.cont[1]] : null,
     half: s.half, moves: s.moves, over: s.over, outcome: s.outcome,
     obligedId: s.obligedId, obligedFulfilled: !!s.obligedFulfilled,
+    /* [v2.44-ENGINE-FIX] كان النسخ يُسقط هذه الحقول الثلاثة، فيرى البحث وسط السلسلة
+       أن لا واجب عليه وأن عدّاد أكله صفر ⇒ يظنّ أن التقصير بلا عقوبة (نفخ) فيلعب
+       خطوطاً خاسرة داخلياً ويقصر السلاسل الواجبة = «الذكاء الاصطناعي غبي». */
+    obligedNeed: (s.obligedNeed != null) ? s.obligedNeed : 0,
+    obligedMax: (s.obligedMax != null) ? s.obligedMax : 0,
+    turnCaptures: (s.turnCaptures != null) ? s.turnCaptures : 0,
     chainNeed: (s.chainNeed != null) ? s.chainNeed : null
   };
 };
@@ -243,13 +252,47 @@ DamaEngine.prototype.legalMovesForPiece = function (s, r, c) {
    المرجع الصحيح للإلزام: من نفّذ أطول أكل (بأي قطعة) أدّى الواجب. */
 DamaEngine.prototype.maxChainOverall = function (s) {
   var m = 0;
-  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+  /* [v2.44-ENGINE-FIX] سقف منطقي: لا يمكن أن تتجاوز السلسلة عدد قطع الخصم ⇒ إيقاف مبكر */
+  var enemy = 0;
+  for (var er = 0; er < 8; er++) for (var ec = 0; ec < 8; ec++) {
+    var ep = s.grid[er][ec];
+    if (ep && ep.owner !== s.turn) enemy++;
+  }
+  for (var r = 0; r < 8 && m < enemy; r++) for (var c = 0; c < 8; c++) {
     var p = s.grid[r][c];
     if (!p || p.owner !== s.turn) continue;
     var ch = this.maxChainAt(s.grid, r, c);
     if (ch > m) m = ch;
+    if (m >= enemy) break;
   }
   return m;
+};
+
+/* [v2.44-ENGINE-FIX] ذاكرة مؤقتة لمعلومات الواجب (قطعة/طول) بمفتاح (الدور + تخطيط اللوح):
+   كانت تُحسب لكل عقدة بحث بكلفة أسّية ⇒ تُقصّر العمق فيبدو البوت غبياً.
+   التكرار (iterative deepening) يعيد زيارة المواضع نفسها فتستفيد الذاكرة كثيراً. */
+var DAMA_OBLIG_CACHE = new Map();
+function damaGridKey(grid) {
+  var k = '';
+  for (var r = 0; r < 8; r++) for (var c = 0; c < 8; c++) {
+    var p = grid[r][c];
+    k += !p ? '.' : (p.owner === WHITE ? (p.king ? 'W' : 'w') : (p.king ? 'B' : 'b'));
+  }
+  return k;
+}
+DamaEngine.prototype.obligationInfo = function (s) {
+  var key = (s.turn === WHITE ? 'w' : 'b') + damaGridKey(s.grid);
+  var hit = DAMA_OBLIG_CACHE.get(key);
+  if (hit !== undefined) return hit;
+  var ob = (this.rules.souffler) ? this.obligationPiece(s) : null;
+  var info = {
+    id: ob ? s.grid[ob[0]][ob[1]].id : null,
+    need: ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0,
+    max: this.maxChainOverall(s)
+  };
+  if (DAMA_OBLIG_CACHE.size > 30000) DAMA_OBLIG_CACHE.clear();   /* حماية الذاكرة */
+  DAMA_OBLIG_CACHE.set(key, info);
+  return info;
 };
 
 /* أطول سلسلة أكل متاحة لقطعة عند مربع معيّن (قفزة أولى + أقصى استمرارية). */
@@ -306,12 +349,13 @@ DamaEngine.prototype.applyMove = function (s, mv) {
   /* [Souffler] عند بداية الدور نُسجّل الحجر المُلزَم بالأكل (الأكبر أولوية) بهويّته
      وطول سلسلة الأكل المطلوبة منه (توضيح المالك: السلسلة الأكبر إلزاماً وإتمامها واجب) */
   if (!s.cont) {
-    var ob = (this.rules.souffler) ? this.obligationPiece(s) : null;
-    s.obligedId = ob ? s.grid[ob[0]][ob[1]].id : null;
-    s.obligedNeed = ob ? this.maxChainAt(s.grid, ob[0], ob[1]) : 0;
+    /* [v2.44-ENGINE-FIX] حساب واحد مُذاكَر لكل موضع بدل تكراره في كل عقدة بحث */
+    var oi = this.obligationInfo(s);
+    s.obligedId = oi.id;
+    s.obligedNeed = oi.need;
     /* [v2.43 RULES-FIX] المرجع = أطول سلسلة متاحة في الدور كله: إتمامها بأي قطعة
        يُبرّئ الالتزام (كان الالتزام مربوطاً بقطعة واحدة فقط فيُعاقَب لاعب صحيح) */
-    s.obligedMax = this.maxChainOverall(s);
+    s.obligedMax = oi.max;
     s.turnCaptures = 0;
     s.obligedFulfilled = false;
   }
@@ -791,7 +835,7 @@ function damaStart() {
   DAMA.mode = 'ai';
   DAMA.oppBot = false;
   DAMA.isSpectator = false;
-  DAMA.state = damaNewState();
+  damaClearCaches(); DAMA.state = damaNewState();
   DAMA.sel = null; DAMA.legal = []; DAMA.busy = false;
   DAMA.flipped = (human === BLACK);
   DAMA.lastFrom = null; DAMA.lastTo = null;
@@ -1493,7 +1537,7 @@ function damaStartRoom(myColor, oppBot, spec, broadcastNew) {
   /* [RS-GameOpts] مؤقت الدور من إعدادات الغرفة (اختيار المالك) */
   if (typeof window !== 'undefined' && window.DM_ROOM_TIMER != null) DAMA.timeLimit = window.DM_ROOM_TIMER || 0;
   DAMA.eng = new DamaEngine();
-  DAMA.state = damaNewState();
+  damaClearCaches(); DAMA.state = damaNewState();
   DAMA.human = myColor;                 /* لوني (null للمتفرج) */
   DAMA.ai = myColor === WHITE ? BLACK : WHITE;
   DAMA.mode = 'room';
@@ -1618,7 +1662,7 @@ function damaApplyRemoteMove(mv) {
 /* استقبال «مباراة جديدة» من الخصم: إعادة التهيئة محلياً */
 function damaResetBoardOnly() {
   if (!DAMA) return;
-  DAMA.state = damaNewState();
+  damaClearCaches(); DAMA.state = damaNewState();
   DAMA.sel = null; DAMA.legal = []; DAMA.busy = false;
   DAMA.lastFrom = null; DAMA.lastTo = null;
   var over = document.getElementById('damaOver'); if (over) over.hidden = true;
@@ -1689,12 +1733,12 @@ function damaApplyReplay(d) {
   try {
     if (!d || !d.history || !d.history.length) return;
     if (!DAMA || DAMA.mode !== 'room' || !DAMA.state) return;
-    DAMA.state = damaNewState();
+    damaClearCaches(); DAMA.state = damaNewState();
     var resignedBy = null;
     for (var i = 0; i < d.history.length; i++) {
       var h = d.history[i];
       if (!h || !h.action) continue;
-      if (h.action === 'newgame') { DAMA.state = damaNewState(); resignedBy = null; continue; }
+      if (h.action === 'newgame') { damaClearCaches(); DAMA.state = damaNewState(); resignedBy = null; continue; }
       if (h.action === 'resign') { resignedBy = h.by; continue; }   /* نهاية بالاستسلام */
       if (h.action === 'move' && h.data && h.data.mv) DAMA.eng.applyMove(DAMA.state, h.data.mv);
     }

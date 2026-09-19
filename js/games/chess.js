@@ -1238,7 +1238,7 @@ var CHESS_GLYPH = { K: '♚', Q: '♛', R: '♜', B: '♝', N: '♞', P: '♟' }
 /* [UI-Pro 2026-09-16] طقم قطع SVG احترافي (ظلال موحّدة + تدرّج عاجي/فحمي
    بحواف ذهبية) بدل المحارف المسطّحة — يُحقن defs واحد للوثيقة ثم تُرسم القطع. */
 var CHESS_SVG_PATHS = {
-  P: '<circle cx="22.5" cy="13.5" r="5"/><path d="M17.5 21h10l-1.6 11.5h-6.8L17.5 21z"/><path d="M13.5 36.5h18l2.5 4.5H11l2.5-4.5z"/>',
+  P: '<circle cx="22.5" cy="13" r="5.2"/><path class="ch-cut" d="M18.6 19.04a1.5 1.5 0 0 1 0-1.4"/><path d="M18.1 19.4h8.8l-.95 3.1h-6.9l-.95-3.1z"/><path d="M19.7 23.4h5.6l2.5 9.9H17.2l2.5-9.9z"/><path d="M14.9 33.2h15.2l2.3 4.3H12.6l2.3-4.3z"/><path d="M11.9 37.7h21.2c.9 0 1.6.7 1.6 1.6v1.1H10.3v-1.1c0-.9.7-1.6 1.6-1.6z"/>',
   R: '<path d="M13 39.5h19v-3.5h-2.5V25.5l2.5-4.5v-7h-3.5v3h-3.5v-3h-5v3h-3.5v-3H13v7l2.5 4.5V36H13v3.5z"/>',
   N: '<path d="M14.5 39.5h17v-2.5c0-5.5-2.2-8.8-5.2-11.8 3.8 1 7-.2 8-3.2 1.2-3.8-.8-7.8-3.8-10.8l-2.2 2.2-2.8-4.4c-6.5 2.2-10.5 7.5-10.5 13.5 0 2.8.9 5 2.2 6.8-1.6 3-2.7 6.2-2.7 8.7v1.5z"/><circle class="ch-cut" cx="24.5" cy="14.5" r="1.1"/>',
   B: '<circle cx="22.5" cy="8" r="2.6"/><path d="M22.5 12c4.5 4.2 7.5 8.5 7.5 12.5 0 3-1.6 5.6-4.2 7.2h-6.6c-2.6-1.6-4.2-4.2-4.2-7.2 0-4 3-8.3 7.5-12.5z"/><path d="M22.5 15.5v8" class="ch-cut"/><path d="M17.5 33.5h10l1.6 4H15.9l1.6-4z"/><path d="M14.5 39.5h16v2h-16z"/>',
@@ -1248,13 +1248,25 @@ var CHESS_SVG_PATHS = {
 function chessPieceSVG(t, side) {
   return '<svg class="ch-svg ' + side + '" viewBox="0 0 45 45" aria-hidden="true">' + (CHESS_SVG_PATHS[t] || '') + '</svg>';
 }
+/* [v2.44-FIX] كان الـdefs داخل div بـdisplay:none ⇒ المتصفح لا يحلّ fill:url(#chGradW)
+   فتُرسم القطع بحدود فقط (شفافة/غريبة). الحل: حاوية بلا حجم مرئي (width:0;height:0)
+   وليست display:none — يبقى التعريف قابلاً للحل ويختفي بصرياً. */
 function chessInjectDefs() {
   if (document.getElementById('chSvgDefs')) return;
   var d = document.createElement('div');
-  d.style.display = 'none';
-  d.innerHTML = '<svg id="chSvgDefs" xmlns="http://www.w3.org/2000/svg"><defs>' +
-    '<linearGradient id="chGradW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffbee"/><stop offset="0.55" stop-color="#f0e2c0"/><stop offset="1" stop-color="#c9a86a"/></linearGradient>' +
-    '<linearGradient id="chGradB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4a4a52"/><stop offset="0.5" stop-color="#232327"/><stop offset="1" stop-color="#0c0c0e"/></linearGradient>' +
+  d.id = 'chDefsHost';
+  d.setAttribute('aria-hidden', 'true');
+  d.style.position = 'absolute';
+  d.style.width = '0';
+  d.style.height = '0';
+  d.style.overflow = 'hidden';
+  d.style.opacity = '0';
+  d.style.pointerEvents = 'none';
+  d.innerHTML = '<svg id="chSvgDefs" xmlns="http://www.w3.org/2000/svg" width="0" height="0" focusable="false"><defs>' +
+    '<linearGradient id="chGradW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fffdf6"/><stop offset="0.45" stop-color="#f2e4c4"/><stop offset="1" stop-color="#c39a54"/></linearGradient>' +
+    '<linearGradient id="chGradB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5b5b66"/><stop offset="0.45" stop-color="#26262c"/><stop offset="1" stop-color="#08080a"/></linearGradient>' +
+    /* ضوء علوي + ظل سفلي (يزيد الحسّ الحجمي ويمنع إحساس الشفافية) */
+    '<linearGradient id="chGradShine" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/><stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/></linearGradient>' +
     '</defs></svg>';
   document.body.appendChild(d);
 }
