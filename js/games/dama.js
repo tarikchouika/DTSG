@@ -34,7 +34,13 @@ function DamaEngine(rules) {
     multiCapture: true,
     flyingKing: true,
     promoteImmediately: true,
-    maxChain: true
+    maxChain: true,
+    /* [v2.44-RULES-MODE] قانون الإلزام/النفخ — وضعان متبادلان بلا تغيير في السلوك الافتراضي:
+         · 'overall' (الافتراضي والمنشور): الواجب = أطول سلسلة متاحة في الدور كله؛
+            إتمامها بأي قطعة يُبرّئ صاحب الدور.
+         · 'piece'   : الواجب على القطعة المُلزَمة نفسها — يجب الأكل بها وإتمام سلسلتها.
+       يُبدَّل بسطر واحد عند اللزوم: DAMA.eng.rules.obligation = 'piece' */
+    obligation: 'overall'
   };
 }
 DamaEngine.prototype.opponent = function (p) { return p === WHITE ? BLACK : WHITE; };
@@ -405,8 +411,17 @@ DamaEngine.prototype.applyMove = function (s, mv) {
      (توضيح المالك 2026-09-16: إتمام السلسلة واجب وإلا نفخ). */
   /* [v2.43 RULES-FIX] النفخ فقط عند تقصير الأكل: من نفّذ أطول سلسلة متاحة
      (ولو بقطعة أخرى، أو بأقل من القطعة "الأولى") أدّى الواجب ولا يُعاقب. */
-  var need = Math.max(s.obligedMax || 0, 0);
-  var shortCapture = (s.turnCaptures || 0) < need;
+  /* [v2.44-RULES-MODE] المرجع يتبع الوضع المختار (انظر rules.obligation في المُنشئ) */
+  var obligMode = (this.rules.obligation === 'piece') ? 'piece' : 'overall';
+  var need, shortCapture;
+  if (obligMode === 'piece') {
+    need = Math.max(s.obligedNeed || 0, 0);
+    /* لم يأكل بالقطعة المُلزَمة أصلاً، أو أكل بها ولم يُتمّ سلسلتها */
+    shortCapture = (!s.obligedFulfilled) || ((s.turnCaptures || 0) < need);
+  } else {
+    need = Math.max(s.obligedMax || 0, 0);
+    shortCapture = (s.turnCaptures || 0) < need;
+  }
   if (this.rules.souffler && s.obligedId != null && shortCapture) {
     for (var r = 0; r < 8 && !info.souffled; r++) {
       for (var c = 0; c < 8; c++) {
