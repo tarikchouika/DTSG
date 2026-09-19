@@ -13,7 +13,7 @@
 |---|---|---|
 | HEAD | `1d3cbcd` | `bdb6769` (6900d30 + إصلاح اختبار pay_audit) |
 | المنشور | **dtsg.pages.dev = 46e87aca** (v2.44) | غير منشور |
-| الأجنحة | **705 ناجح / 0 فاشل** (11 ملفاً — أُضيف اختبار وضع القانون) | engine 85/0 · fuzz 459/0 · pay_audit 39/0 · cf 60/0 |
+| الأجنحة | **721 ناجح / 0 فاشل** (12 ملفاً) | engine 85/0 · fuzz 459/0 · pay_audit 39/0 · cf 60/0 |
 | البوت (فوتشير/[KOD]) | ✅ منفَّذ ومختبَر حيّاً (16/16) | ❌ غير موجود على الفرع |
 | pay_audit | ❌ غير موجود | ✅ جدول + دالة + فلاتر |
 | شطرنج | تدرّج + حقن defs (متحقَّق حياً) | تعبئة صلبة (بلا تدرّج) |
@@ -38,6 +38,7 @@ _dama_v244_test.js          10/0
 _dama_browser_v244_test.js   8/0 حيّ
 _admin_payments_ui_test.js  19/0     ← كان 11/8 قبل الإصلاح
 _dama_obligation_mode_test.js 7/0    ← جديد: مفتاح قانون النفخ مؤثّر (overall ⟷ piece)
+_money_idempotency_test.js  16/0     ← جديد: لا شحن/استرداد/كود مزدوج تحت تزامن حقيقي
 ```
 > **وتحت الوضعين**: `DAMA_OBLIGATION=piece node tests/_dama_fuzz_test.js` ⇒ **459/0** (مثل الافتراضي).
 
@@ -110,8 +111,9 @@ export PATH=$HOME/.cache/node24/bin:$PATH NODE_PATH=$HOME/.cache/pw/node_modules
        PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright
 
 # الأجنحة (698 تأكيداً)
-for t in _dama_engine_test _dama_fuzz_test _cf_payments_test _money_v244_test _bot_v244_test \
-         _chess_v244_test _parchisi_v244_test _dama_v244_test _dama_browser_v244_test _admin_payments_ui_test; do
+for t in _dama_engine_test _dama_fuzz_test _dama_obligation_mode_test _cf_payments_test \
+         _money_v244_test _money_idempotency_test _bot_v244_test _chess_v244_test \
+         _parchisi_v244_test _dama_v244_test _dama_browser_v244_test _admin_payments_ui_test; do
   node tests/$t.js | tail -1
 done
 

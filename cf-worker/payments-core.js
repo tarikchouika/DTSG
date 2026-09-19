@@ -124,6 +124,20 @@ async function tgNotifyAdmin(env, text, buttons) {
 
 /* [v2.41.1] تنفيذ إجراء أدمن على معاملة معلّقة — نواة واحدة للبوت وللوحة المنصة.
    act: 'dapp' تأكيد إيداع | 'drej' رفض إيداع | 'wapp' تأكيد سحب | 'wrej' رفض سحب (مع إعادة الرصيد) */
+/* [v2.44-ATOMIC] مطالبة ذرّية بالمعاملة: UPDATE واحد بشرط status='pending' —
+   يضمن أن عملية واحدة فقط (موافقة/رفض) تنفذ آثارها الجانبية مهما تزامنت الطلبات
+   (نفس نمط is_used=0 في تفعيل الفوتشير). يعيد true إن كان هذا الطلب هو الفائز. */
+async function claimTx(db, txId, toStatus) {
+  try {
+    const r = await db.prepare("UPDATE transactions SET status = ?2 WHERE id = ?1 AND status = 'pending'").bind(txId, toStatus).run();
+    const n = (r && r.meta) ? Number(r.meta.changes) : 0;
+    return n === 1;
+  } catch (e) { return false; }
+}
+async function unclaimTx(db, txId) {   /* إرجاع للمعلّق عند فشل خطوة لاحقة (تعويض) */
+  try { await db.prepare("UPDATE transactions SET status = 'pending' WHERE id = ?1 AND status IN ('completed','rejected')").bind(txId).run(); } catch (e) {}
+}
+
 async function adminActOnTransaction(env, db, txId, act) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx) return { ok: false, error: 'not-found' };
@@ -133,13 +147,19 @@ async function adminActOnTransaction(env, db, txId, act) {
        والرصيد يُشحن عند تفعيل الكود — لا شحن مزدوج. */
     const isKodFlow = String(tx.proof_details || '').indexOf('[KOD]') === 0;
     if (String(tx.type) === 'topup' || isKodFlow) {
+      /* [v2.44-ATOMIC] الفائز الأول فقط يُنشئ الكود — لا كودان لطلب واحد */
+      if (!(await claimTx(db, txId, 'completed'))) return { ok: false, error: 'already-handled' };
       const rate = (typeof env.__rate === 'function') ? Number(env.__rate()) : COINS_PER_USD;
       const pct = depositBonusPct(Number(tx.amount_usd));
       const coins = Math.round(Number(tx.amount_usd) * rate * (1 + pct / 100));
       const code = newCode();
-      await db.prepare('INSERT INTO vouchers (code, amount_usd, kind, coins, bonus_pct) VALUES (?1, ?2, ?3, ?4, ?5)')
-        .bind(code, Number(tx.amount_usd), 'topup', coins, pct).run();
-      await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
+      try {
+        await db.prepare('INSERT INTO vouchers (code, amount_usd, kind, coins, bonus_pct) VALUES (?1, ?2, ?3, ?4, ?5)')
+          .bind(code, Number(tx.amount_usd), 'topup', coins, pct).run();
+      } catch (e) {
+        await unclaimTx(db, txId);              /* لا نُتلف الطلب إن فشل إنشاء الكود */
+        return { ok: false, error: 'voucher-insert-failed' };
+      }
       const msg = '🎟️ <b>كود التعبئة جاهز</b>\nالمبلغ: ' + tx.amount_usd + ' USD' +
         (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
         '\nالكود: <code>' + code + '</code>\nالقيمة عند التفعيل: ' + coins.toLocaleString('ar-MA') + ' 🪙' +
@@ -159,17 +179,18 @@ async function adminActOnTransaction(env, db, txId, act) {
     return { ok: false, error: (r && r.error) || 'failed' };
   }
   if (act === 'drej') {
-    await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
+    if (!(await claimTx(db, txId, 'rejected'))) return { ok: false, error: 'already-handled' };
     if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '❌ تم رفض عملية إيداعك (' + tx.amount_usd + ' USD). إن كان خطأً تواصل مع الدعم.');
     return { ok: true, done: 'deposit-rejected', amount_usd: Number(tx.amount_usd) };
   }
   if (act === 'wapp') {
-    await db.prepare("UPDATE transactions SET status='completed' WHERE id=?1").bind(txId).run();
+    if (!(await claimTx(db, txId, 'completed'))) return { ok: false, error: 'already-handled' };
     if (typeof env.__notifyUser === 'function') await env.__notifyUser(tx.user_id, '✅ تم تنفيذ سحبك بنجاح: ' + tx.amount_usd + ' USD');
     return { ok: true, done: 'withdrawal-approved', amount_usd: Number(tx.amount_usd) };
   }
   if (act === 'wrej') {
-    await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1").bind(txId).run();
+    /* [v2.44-ATOMIC] الرفض + إعادة المبلغ: الفائز الأول فقط يعيد الرصيد (لا استرداد مزدوج) */
+    if (!(await claimTx(db, txId, 'rejected'))) return { ok: false, error: 'already-handled' };
     if (typeof env.__settleGold === 'function') await env.__settleGold(tx.user_id, Math.round(Number(tx.amount_usd) * ((typeof env.__rate === 'function') ? Number(env.__rate()) : 100)), 'withdrawal-refund');
     else await uCreditUsd(db, env, tx.user_id, Number(tx.amount_usd));  /* إعادة الرصيد */
     if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(tx.user_id, 'withdrawal', Number(tx.amount_usd), 0, 'rejected', txId); } catch (e) {} }
@@ -278,7 +299,10 @@ async function completeDeposit(env, db, txId, paidUsd) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx || tx.status !== 'pending' || tx.type !== 'deposit') return { ok: false, reason: 'not-pending' };
   const amount = Number(paidUsd || tx.amount_usd);
-  await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1").bind(txId, amount).run();
+  /* [v2.44-ATOMIC] المطالبة داخل الدالة: مصدر واحد للحقيقة ⇒ لا شحن مزدوج من أي مسار
+     (داشبورد/بوت/ويبهوك) مهما تزامنت الطلبات. */
+  const cl = await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1 AND status='pending'").bind(txId, amount).run();
+  if (!(cl && cl.meta && Number(cl.meta.changes) === 1)) return { ok: false, reason: 'already-claimed' };
   /* [v2.44] شحن واحد يشمل البونص — كان platformCredit يُضيف فوق __creditUsd (شحن مزدوج) */
   const cr = await creditDepositWithBonus(db, env, tx.user_id, amount);
   if (!cr.viaSettle) await platformCredit(env, tx.user_id, amount, txId);
