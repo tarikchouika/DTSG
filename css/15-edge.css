@@ -44,6 +44,9 @@
   max-width: none !important;
   box-shadow: none !important;
 }
+/* .ch-wrap عمود flex كي تتمدّد شاشة الإعداد/اللعب لكامل الارتفاع (كانت block فتبقى 585px من 915) */
+#chessStage .ch-wrap { display: flex !important; flex-direction: column; }
+#chessStage .ch-wrap > * { flex: 1 1 auto !important; min-height: 0; }
 /* شاشتا الإعداد: تملآن المرحلة كاملة (الشطرنج/ضاما تشتركان في .dama-setup) */
 #chessStage .dama-setup, #damaStage .dama-setup,
 #chessStage > .dama-play > .dama-setup { width: 100% !important; max-width: none !important; }
@@ -129,6 +132,13 @@
     min-width: 0 !important;
   }
   #chessStage .ch-side { grid-row: 1 !important; overflow: hidden !important; }
+}
+
+/* ── 6.b) بورتريه (ضاما): أيقونة اللاعب السفلية تتمركز على حافة اللوحة،
+      فنُبعد شريط الرهان/الحالة أسفلها كي لا يتراكب النص مع الأيقونة ── */
+@media (orientation: portrait) {
+  #damaStage .dama-stake, #damaStage .dama-status, #damaStage .dama-ctrls { margin-top: 22px !important; }
+  #damaStage .dama-ctrls { margin-top: 10px !important; }
 }
 
 /* ── 7) أزرار الاستسلام/التعادل: شكل محسّن (قرص ذهبي + أيقونة SVG واضحة) ── */
