@@ -1,0 +1,497 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   DTSG — [v2.45-LOOK] إعادة تصميم ضومينو + طاولة (مطابقة المراجع المرفقة)
+   ───────────────────────────────────────────────────────────────────────────
+   المبادئ المطبَّقة (من الصور المرجعية للمالك 2026-09-19):
+     • ملء حافة-لحافة بلا إطار ذهبي سميك ولا فراغ (نفس مبدأ v2.44-EDGE).
+     • اللوحة/المسار في الوسط دائماً، واليد/النرد على الحافة السفلية.
+     • الضومينو: جوخ أخضر في البورتريه وخشب في اللاندسكيب (كما في المرجعين).
+       القطعة القابلة للّعب صفراء متوهّجة · خصوم على الحواف · أنا بحلقة خضراء.
+     • الطاولة: بطاقات لاعبين بإطار ذهبي (Score ذهبي / Pips فاتح)، نرد كبير،
+       زر رمي بارز، وتلميحات الحركة القانونية بالأخضر (كما في المرجع).
+   يُحمَّل أخيراً ⇒ يتجاوز قواعد اللعبتين الأصلية بلا تعديل ملفاتها.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ════════════════════════ 0) ملء الشاشة للعبتين ════════════════════════════ */
+#gamePageBody #dmStage.stage, #gamePageBody #bwStage.stage,
+#dmStage.stage, #bwStage.stage {
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important; height: auto !important;
+  max-width: none !important; max-height: none !important;
+  margin: 0 !important; padding: 0 !important;
+  border: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  overflow: hidden !important;
+}
+#dmStage .dm-screen, #bwStage .bw-screen {
+  position: absolute !important; inset: 0 !important;
+  width: auto !important; height: auto !important;
+  max-width: none !important; max-height: none !important;
+  padding: 0 !important; margin: 0 !important;
+  border: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important;
+  display: flex; flex-direction: column;
+}
+#dmStage .dm-screen:not(.dm-screen-active), #bwStage .bw-screen:not(.bw-screen-active) { display: none !important; }
+
+/* شاشة الإعداد تتمرّر داخلياً فقط (لا تقصّ زر البدء على الشاشات القصيرة) */
+#dmStage #dmMenu, #bwStage #bwMenu { overflow-y: auto; overflow-x: hidden; }
+
+/* ═════════════════════════ 1) الضومينو — الطاولة ═════════════════════════ */
+#dmStage #dmPlay { display: flex; flex-direction: column; }
+
+/* الطاولة تملأ ما تحت الشريط العلوي */
+#dmStage .dm-table {
+  flex: 1 1 auto; min-height: 0;
+  margin: 0 !important;
+  border: 0 !important; border-radius: 0 !important;
+  box-shadow: inset 0 0 90px rgba(0, 0, 0, .45) !important;
+}
+#dmStage .dm-felt {
+  border-radius: 0 !important;
+  background:
+    radial-gradient(120% 90% at 50% 45%, var(--dm-felt-1) 0%, var(--dm-felt-2) 78%, #0c2a1e 100%) !important;
+}
+/* خط داخلي رفيع أنيق بدل الإطار النحاسي السميك (كما في المرجع) */
+#dmStage .dm-felt::after {
+  content: ''; position: absolute; inset: 10px;
+  border: 1px solid rgba(255, 255, 255, .10);
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+/* ── شريط الحالة والمقاعد: أفاتارات دائرية في الزوايا ── */
+#dmStage .dm-hud {
+  flex: 0 0 auto;
+  position: absolute; top: 0; left: 0; right: 0;
+  z-index: 9;
+  padding: 6px 10px 0 !important;
+  margin: 0 !important;
+  background: none !important; border: 0 !important;
+  pointer-events: none;
+}
+#dmStage .dm-hud > * { pointer-events: auto; }
+#dmStage .dm-seat {
+  background: rgba(10, 28, 20, .55);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  padding: 4px 10px 4px 4px;
+  backdrop-filter: blur(4px);
+}
+#dmStage .dm-seat .dm-avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: radial-gradient(circle at 35% 30%, #6f5a2e, #2c2113);
+  border: 2px solid rgba(255, 255, 255, .28);
+  color: #ffe9a8; font-size: 17px;
+}
+/* أنا: حلقة خضراء (كما في المرجع) */
+#dmStage .dm-seat.me .dm-avatar {
+  border-color: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, .35), 0 0 16px rgba(52, 211, 153, .45);
+}
+#dmStage .dm-seatname { color: #eafff4; font-size: 11.5px; }
+#dmStage .dm-seatscore { color: #ffd75e; font-size: 16px; }
+#dmStage .dm-hudmid {
+  background: rgba(10, 28, 20, .55);
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 999px; padding: 3px 12px;
+  backdrop-filter: blur(4px);
+  flex: 0 1 auto !important;
+}
+#dmStage .dm-hudstatus { color: #fdf6e3 !important; font-size: 12.5px; }
+
+/* ── أيدي الخصوم: رزم رأسية على حافتي الشاشة (بورتريه · كما في المرجع) ── */
+#dmStage .dm-opprow {
+  position: absolute; top: 50%; left: 0; right: 0;
+  transform: translateY(-50%);
+  z-index: 8;
+  display: flex !important;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 !important; padding: 0 5px !important;
+  background: none !important; border: 0 !important;
+  pointer-events: none;
+}
+#dmStage .dm-opprow { flex-direction: column !important; align-items: flex-start !important; justify-content: center !important; padding: 0 6px 0 0 !important; }
+#dmStage .dm-opprow > .dm-back { margin: 0 0 3px !important; }
+#dmStage .dm-opprow > * { background: none !important; border: 0 !important; }
+#dmStage .dm-opprow .dm-back {
+  width: 20px !important; height: 38px !important; border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(255, 255, 255, .18) !important;
+}
+
+/* ── ساحة اللعب: المسار في الوسط ── */
+#dmStage .dm-chain { inset: 20% 15% !important; }   /* متمركز: السلسلة تنمو في وسط الطاولة */
+#dmStage .dm-chain .dm-tile,
+#dmStage .dm-chain .dm-dtile {
+  border-radius: 9px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(0, 0, 0, .18);
+}
+/* القطعة الطرفية القابلة للّعب: صفراء متوهّجة (كما في المرجع) */
+#dmStage .dm-chain .dm-tile.can,
+#dmStage .dm-chain .dm-dtile.can {
+  background: linear-gradient(150deg, #ffe873, #e8c531) !important;
+  box-shadow: 0 0 18px rgba(255, 220, 80, .55), 0 4px 12px rgba(0, 0, 0, .4) !important;
+}
+
+/* ── البنك (المخزون): صندوق مربّع على اليسار (كما في المرجع) ── */
+#dmStage .dm-boneyard {
+  top: 52% !important; left: 8px !important;
+  transform: translateY(-50%);
+  width: 62px !important; height: 84px !important;
+  border-radius: 12px !important;
+  background: linear-gradient(160deg, #3a2a16, #241708) !important;
+  border: 1px solid rgba(242, 212, 137, .35) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .5) !important;
+}
+#dmStage .dm-by-count { font-size: 19px !important; color: #ffe9a8 !important; }
+#dmStage .dm-by-label { font-size: 9.5px !important; color: #d8c79b !important; }
+
+/* ── يد اللاعب: قطع كبيرة على الحافة السفلية ── */
+#dmStage .dm-handwrap {
+  flex: 0 0 auto;
+  position: relative;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  background: linear-gradient(180deg, rgba(12, 30, 22, .35), rgba(8, 20, 15, .82));
+  border: 0 !important;
+}
+#dmStage .dm-hand {
+  display: flex; justify-content: center; align-items: flex-end;
+  gap: 8px !important;
+  background: none !important; border: 0 !important; box-shadow: none !important;
+  padding: 0 !important; width: auto !important;
+}
+#dmStage .dm-hand .dm-htile {
+  flex: 1 1 0 !important; min-width: 0 !important; max-width: 62px !important;
+  height: auto !important; aspect-ratio: 27 / 50 !important;
+  border-radius: 10px !important;
+  background: linear-gradient(165deg, #fffdf5, #f0e6cc) !important;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(0, 0, 0, .12) !important;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+#dmStage .dm-hand .dm-htile:disabled { opacity: .96 !important; filter: none !important; border-color: rgba(90, 66, 30, .35) !important; }
+#dmStage .dm-hand .dm-htile.can {
+  background: linear-gradient(165deg, #ffe873, #e9c62f) !important;
+  box-shadow: 0 0 20px rgba(255, 219, 74, .6), 0 8px 20px rgba(0, 0, 0, .5), inset 0 0 0 1px rgba(120, 90, 10, .35) !important;
+  transform: translateY(-6px);
+}
+#dmStage .dm-hand .dm-htile.forced { box-shadow: 0 0 20px rgba(255, 140, 90, .6), 0 8px 20px rgba(0, 0, 0, .5) !important; }
+#dmStage .dm-hand .dm-htile:active { transform: translateY(-2px) scale(.98); }
+#dmStage .dm-hand .dm-htile .dm-pip,
+#dmStage .dm-hand .dm-htile .dm-face { }
+/* أدوات اللعب: زر انسحاب دائري في الزاوية السفلية */
+#dmStage .dm-handwrap { flex-direction: column !important; align-items: stretch !important; gap: 6px; padding-top: 8px !important; padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important; }
+#dmStage .dm-tools {
+  position: static !important; order: 1;
+  flex-direction: row !important; justify-content: flex-start !important;
+  padding: 0 10px !important; gap: 8px !important;
+}
+#dmStage .dm-hand { order: 2; }
+@media (orientation: landscape) { #dmStage .dm-handwrap { padding-top: 10px !important; } }
+#dmStage .dm-tool {
+  border-radius: 999px !important;
+  width: 42px !important; height: 42px !important; min-width: 42px;
+  display: inline-flex !important; align-items: center; justify-content: center;
+  padding: 0 !important; font-size: 0 !important;   /* أيقونة فقط */
+  background: rgba(12, 26, 20, .72) !important;
+  border: 1px solid rgba(255, 255, 255, .16) !important;
+  backdrop-filter: blur(4px);
+}
+#dmStage .dm-tool.danger { border-color: rgba(255, 130, 100, .5) !important; color: #ffd9c9 !important; }
+#dmStage .dm-tool i { font-size: 16px !important; }
+#dmStage .dm-tool span { display: none !important; }
+
+/* ═══════════════════ 2) الضومينو — اللاندسكيب (خشب + رفّ) ═══════════════════ */
+@media (orientation: landscape) {
+  /* الطاولة خشبية كما في مرجع اللاندسكيب */
+  #dmStage .dm-felt {
+    background:
+      linear-gradient(180deg, rgba(140, 92, 44, .96), rgba(96, 58, 24, .97)),
+      repeating-linear-gradient(92deg, rgba(255, 226, 168, .05) 0 3px, rgba(60, 32, 10, .07) 3px 7px) !important;
+  }
+  #dmStage .dm-felt::after { inset: 8px; border-color: rgba(255, 226, 168, .16); }
+  #dmStage .dm-chain { inset: 16% 26% !important; }   /* اللاندسكيب: المسار في وسط الطاولة */
+
+  /* المقاعد: أنا أسفل-يسار · الخصم أعلى-يمين (كما في المرجع) */
+  #dmStage .dm-hud { padding: 8px 12px 0 !important; }
+  #dmStage .dm-seat { flex-direction: row; }
+  #dmStage .dm-seat .dm-avatar { width: 46px; height: 46px; font-size: 20px; }
+  #dmStage .dm-hudmid { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); }
+
+  /* اليد على رفّ خشبي في منتصف الأسفل */
+  #dmStage .dm-handwrap {
+    padding: 24px 12px 12px !important;
+    background: none !important;
+  }
+  #dmStage .dm-handwrap::before {
+    content: ''; position: absolute; inset: 12px 8% 6px;
+    background: linear-gradient(180deg, #6b4423, #3a2410);
+    border-radius: 16px 16px 10px 10px;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 226, 168, .25);
+  }
+  #dmStage .dm-hand { position: relative; z-index: 2; gap: 10px !important; }
+  #dmStage .dm-hand .dm-htile { max-width: 56px !important; }
+  #dmStage .dm-tools { inset-inline-start: 10px; bottom: 12px; }
+  #dmStage .dm-opprow { padding: 0 8px !important; }
+}
+
+/* ════════════════════════ 3) الطاولة — ملء وتخطيط ════════════════════════ */
+#bwStage #bwPlay { display: flex; flex-direction: column; gap: 0 !important; padding: 0 !important; }
+#bwStage .bw-board {
+  flex: 1 1 auto; min-height: 0;
+  margin: 0 auto !important;
+  border-radius: 0 !important;
+  box-shadow: 0 0 40px rgba(0, 0, 0, .5), inset 0 0 0 4px rgba(60, 34, 12, .9) !important;
+}
+
+/* ── بطاقات اللاعبين: إطار ذهبي + Score ذهبي / Pips فاتح (كما في المرجع) ── */
+#bwStage .bw-hud {
+  flex: 0 0 auto;
+  padding: 8px 10px !important;
+  background: linear-gradient(180deg, rgba(30, 16, 6, .92), rgba(20, 10, 4, .55)) !important;
+  border: 0 !important; border-bottom: 1px solid rgba(242, 212, 137, .18) !important;
+}
+#bwStage .bw-seat {
+  background: linear-gradient(160deg, rgba(58, 36, 16, .92), rgba(32, 18, 6, .92)) !important;
+  border: 1.5px solid rgba(242, 212, 137, .45) !important;
+  border-radius: 14px !important;
+  padding: 7px 12px !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(255, 226, 168, .10) !important;
+  min-width: 0;
+}
+#bwStage .bw-avatar {
+  width: 44px; height: 44px; border-radius: 10px !important;
+  border: 2px solid rgba(242, 212, 137, .55) !important;
+  display: grid; place-items: center; font-size: 20px;
+  background: radial-gradient(circle at 35% 30%, #7a5a2c, #2b1d0c) !important;
+  color: #ffe9a8;
+}
+#bwStage .bw-seat.me .bw-avatar { border-color: #34d399 !important; box-shadow: 0 0 0 2px rgba(52, 211, 153, .3); }
+#bwStage .bw-seatname { color: #fff8e6 !important; font-weight: 800 !important; font-size: 12.5px !important; }
+#bwStage .bw-seatrow { display: flex; align-items: baseline; gap: 6px; }
+#bwStage .bw-seatrow::before { content: 'Score:'; color: #ffd75e; font-size: 11px; font-weight: 800; }
+#bwStage .bw-seatscore { color: #ffd75e !important; font-size: 26px !important; font-weight: 900 !important; line-height: 1 !important; }
+#bwStage .bw-seatpip { color: #f3ead6 !important; font-size: 14px !important; font-weight: 700 !important; }
+#bwStage .bw-seatpip::before { content: 'Pips: '; color: #cfc3a5; font-size: 11px; font-weight: 700; }
+#bwStage .bw-hudmid { background: none !important; border: 0 !important; }
+#bwStage .bw-hudmatch { color: #ffe9a8 !important; font-size: 13px !important; font-weight: 900 !important; }
+#bwStage .bw-hudstatus { color: #d9cba8 !important; font-size: 11.5px !important; }
+
+/* ── النرد وشريط الأدوات ── */
+#bwStage .bw-dicebar {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 10px !important;
+  background: linear-gradient(180deg, rgba(20, 10, 4, .35), rgba(12, 6, 2, .75)) !important;
+  border-top: 1px solid rgba(242, 212, 137, .16) !important;
+}
+#bwStage .bw-dice {
+  transform: scale(1.18);
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, .5));
+}
+#bwStage .bw-rollbtn {
+  border-radius: 999px !important;
+  padding: 11px 22px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(135deg, #ffd75e, #d9a441) !important;
+  color: #241305 !important;
+  border: 0 !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .45), 0 0 0 2px rgba(255, 255, 255, .12) inset !important;
+}
+#bwStage .bw-tools { position: absolute; inset-inline-end: 10px; bottom: 12px; }
+#bwStage .bw-tool {
+  border-radius: 999px !important;
+  background: rgba(30, 18, 8, .78) !important;
+  border: 1px solid rgba(242, 212, 137, .3) !important;
+}
+
+/* ── تلميحات الحركة القانونية بالأخضر (كما في المرجع) ── */
+#bwStage .bw-points .bw-col.src,
+#bwStage [data-point].src { box-shadow: inset 0 0 0 2px rgba(52, 211, 153, .75) !important; border-radius: 6px; }
+#bwStage .bw-col.src::after { border: 2px solid rgba(52, 211, 153, .9) !important; }
+#bwStage .bw-col.dst::after {
+  border: 2px solid #4ade80 !important;
+  box-shadow: 0 0 14px rgba(74, 222, 128, .55) !important;
+  animation: bwDstPulse 1.3s infinite;
+}
+#bwStage .bw-col.selc::after { border: 2px solid #34d399 !important; box-shadow: 0 0 16px rgba(52, 211, 153, .6) !important; }
+@keyframes bwDstPulse { 50% { box-shadow: 0 0 22px rgba(74, 222, 128, .8) !important; } }
+#bwStage .bw-points .bw-col.dst,
+#bwStage [data-point].dst {
+  box-shadow: inset 0 0 0 2px rgba(74, 222, 128, .95), 0 0 16px rgba(74, 222, 128, .45) !important;
+  border-radius: 6px;
+}
+#bwStage .bw-points .bw-col.selc,
+#bwStage [data-point].selc { background: rgba(52, 211, 153, .14) !important; border-radius: 6px; }
+/* الحجر المختار: حلقة خضراء + الحجر في الشريط الوسطي */
+#bwStage .bw-chk.sel {
+  box-shadow: 0 0 0 3px #34d399, 0 0 14px rgba(52, 211, 153, .6) !important;
+}
+#bwStage .bw-bar.src { box-shadow: inset 0 0 0 2px rgba(52, 211, 153, .8) !important; border-radius: 8px; }
+/* عدّاد التكديس ×N: دائرة داكنة بنصّ فاتح (كما في المرجع) */
+#bwStage .bw-chk span {
+  background: rgba(12, 10, 8, .92) !important;
+  color: #ffe9a8 !important;
+  border-radius: 999px !important;
+  font-weight: 900 !important;
+  font-size: 10px !important;
+  padding: 1px 5px !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .6);
+}
+#bwStage .bw-bar-cnt { background: rgba(12, 10, 8, .92) !important; color: #ffe9a8 !important; border-radius: 999px; }
+
+/* ── اللاندسكيب: البطاقات يساراً واللوحة يميناً بكامل الارتفاع (كما في المرجع) ── */
+@media (orientation: landscape) {
+  #bwStage #bwPlay {
+    display: grid !important;
+    grid-template-columns: minmax(190px, 30%) minmax(0, 1fr);
+    grid-template-rows: 1fr auto;
+    gap: 0 6px;
+    align-items: stretch;
+  }
+  #bwStage .bw-hud {
+    grid-column: 1; grid-row: 1;
+    display: flex !important; flex-direction: column !important;
+    justify-content: space-between; align-items: stretch;
+    padding: 8px !important;
+    background: none !important; border: 0 !important;
+  }
+  #bwStage .bw-hudmid { order: 2; text-align: center; padding: 6px 0; }
+  #bwStage .bw-seat { width: 100%; }
+  #bwStage .bw-board { grid-column: 2; grid-row: 1 / -1; height: 100%; }
+  #bwStage .bw-dicebar {
+    grid-column: 1; grid-row: 2;
+    flex-direction: column; gap: 8px;
+    background: none !important; border: 0 !important;
+    padding: 6px !important;
+  }
+  #bwStage .bw-tools { grid-column: 1; grid-row: 2; justify-content: center; inset: auto; position: static; margin-top: 4px; }
+  #bwStage #bwPlay > .bw-dicebar { align-self: end; }
+}
+
+
+/* ══════════════ 4) شاشتا الإعداد (ضومينو/طاولة): بلا إطار ذهبي ══════════════ */
+#dmStage #dmMenu, #bwStage #bwMenu {
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(36, 87, 65, .55), rgba(10, 26, 19, .96));
+  padding: 10px 10px calc(14px + env(safe-area-inset-bottom, 0px));
+  gap: 0;
+}
+#bwStage #bwMenu { background: radial-gradient(120% 80% at 50% 0%, rgba(107, 68, 35, .5), rgba(24, 14, 6, .97)); }
+#dmStage #dmMenu .dm-menu-card, #bwStage #bwMenu .bw-menu-card {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: none !important;
+  padding: 8px 4px 0 !important;
+  margin: 0 auto !important;
+  width: 100% !important; max-width: 520px;
+}
+/* الحقول: بطاقات داكنة أنيقة بحدود رفيعة (بلا ذهب سميك) */
+#dmStage #dmMenu .dm-field, #bwStage #bwMenu .bw-field {
+  background: rgba(10, 22, 16, .62) !important;
+  border: 1px solid rgba(255, 255, 255, .10) !important;
+  border-radius: 14px !important;
+  padding: 8px 10px !important;
+}
+#bwStage #bwMenu .bw-field { background: rgba(26, 16, 6, .62) !important; }
+#dmStage #dmMenu .dm-seg, #bwStage #bwMenu .bw-seg { background: rgba(0, 0, 0, .22) !important; border-radius: 11px !important; }
+#dmStage #dmMenu .dm-segbtn, #bwStage #bwMenu .bw-segbtn {
+  border: 0 !important; background: none !important; color: #d8e8dd !important;
+  border-radius: 9px !important; font-weight: 700 !important;
+}
+#bwStage #bwMenu .bw-segbtn { color: #eadfc4 !important; }
+#dmStage #dmMenu .dm-segbtn.selected, #bwStage #bwMenu .bw-segbtn.selected {
+  background: linear-gradient(135deg, #ffd75e, #d9a441) !important;
+  color: #241305 !important; font-weight: 900 !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .35) !important;
+}
+#dmStage #dmMenu .dm-go, #bwStage #bwMenu .bw-go {
+  border-radius: 999px !important;
+  background: linear-gradient(135deg, #ffd75e, #d9a441) !important;
+  color: #241305 !important; font-weight: 900 !important;
+  border: 0 !important; padding: 14px !important;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, .45) !important;
+}
+#dmStage #dmMenu .dm-title, #bwStage #bwMenu .bw-title { color: #ffe9a8 !important; }
+#dmStage #dmMenu .dm-flabel, #bwStage #bwMenu .bw-flabel { color: #a8bcae !important; }
+#bwStage #bwMenu .bw-flabel { color: #c9b48a !important; }
+#dmStage #dmMenu .dm-ruleslink, #bwStage #bwMenu .bw-ruleslink {
+  border: 0 !important; background: none !important; color: #cfd8cd !important;
+}
+
+
+/* ══════════ 5) الطاولة: تفاصيل المطابقة للمرجع (النرد · البطاقات · الشريط) ══════════ */
+
+/* ── بطاقة اللاعب: الاسم ثم Score (ذهبي كبير) ثم Pips (فاتح) — كلٌّ في سطر ── */
+#bwStage .bw-seatmeta { display: flex !important; flex-direction: column !important; align-items: flex-start !important; gap: 2px; }
+#bwStage .bw-seatmeta.end { align-items: flex-end !important; }
+#bwStage .bw-seatrow { order: 2; }
+#bwStage .bw-seatpip { order: 3; }
+#bwStage .bw-seatname { order: 1; }
+#bwStage .bw-seatrow::before { content: 'Score: '; color: #ffd75e; font-size: 12.5px; font-weight: 900; }
+#bwStage .bw-seatpip::before { content: 'Pips: '; color: #cfc3a5; font-size: 12.5px; font-weight: 800; }
+
+/* ── النرد: أبيض عاجي بنقاط داكنة واضحة وحجم كبير (كما في المرجع) ── */
+#bwStage .bw-dice { gap: 10px !important; }
+#bwStage .bw-die {
+  width: 48px !important; height: 48px !important;
+  border-radius: 11px !important;
+  background: linear-gradient(165deg, #fffdf7, #ece2cd) !important;
+  border: 1px solid rgba(90, 66, 30, .45) !important;
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .9) !important;
+  padding: 15% !important;
+}
+#bwStage .bw-die i { background: rgba(70, 45, 20, .10) !important; }
+#bwStage .bw-die i.on { background: radial-gradient(circle at 38% 32%, #4a3a22, #2b1d0c) !important; box-shadow: inset 0 1px 1px rgba(255, 255, 255, .25) !important; }
+#bwStage .bw-die.dbl { outline: 2px solid rgba(52, 211, 153, .7) !important; outline-offset: 2px; }
+
+/* ── شريط المنتصف: خشبي رفيع (كما في المرجع) ── */
+#bwStage .bw-bar {
+  border-radius: 6px !important;
+  background: linear-gradient(180deg, #6b4423, #3a2410) !important;
+  border: 1px solid rgba(255, 226, 168, .28) !important;
+  box-shadow: inset 0 0 8px rgba(0, 0, 0, .5) !important;
+  margin: 0 1px !important;
+}
+/* ── صواني الخارج: صناديق خشبية صغيرة ── */
+#bwStage .bw-tray { border-radius: 8px !important; background: rgba(58, 36, 16, .5) !important; }
+#bwStage .bw-tray-lbl { color: #d9c7a0 !important; font-size: 9.5px !important; }
+
+/* ── البورتريه: بطاقتان جنباً إلى جنب ثم سطر المباراة تحتهما، واللوحة في الوسط ── */
+@media (orientation: portrait) {
+  #bwStage #bwPlay { display: flex !important; }
+  #bwStage .bw-board { width: 100% !important; }
+  #bwStage .bw-dicebar { gap: 16px; }
+  #bwStage .bw-die { width: 54px !important; height: 54px !important; }
+  #bwStage .bw-rollbtn { font-size: 15px !important; padding: 13px 26px !important; }
+
+  #bwStage .bw-hud {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px !important;
+    padding: 6px 8px 8px !important;
+  }
+  #bwStage .bw-seat { padding: 6px 9px !important; border-radius: 12px !important; }
+  #bwStage .bw-seat .bw-avatar { width: 34px !important; height: 34px !important; font-size: 15px !important; }
+  #bwStage .bw-seatname { font-size: 11px !important; }
+  #bwStage .bw-seatrow::before, #bwStage .bw-seatpip::before { font-size: 10.5px !important; }
+  #bwStage .bw-seatscore { font-size: 20px !important; }
+  #bwStage .bw-seatpip { font-size: 12px !important; }
+  #bwStage .bw-hudmid {
+    grid-column: 1 / -1; order: 3;
+    text-align: center; padding: 2px 0 0;
+    border-top: 1px solid rgba(242, 212, 137, .18);
+  }
+  #bwStage .bw-hudmatch { font-size: 12.5px !important; }
+  #bwStage .bw-hudstatus { font-size: 11px !important; }
+}
+
+
+/* شريط المنتصف رفيع أنيق (كان عريضاً بملء عمود الشبكة) */
+#bwStage .bw-bar { max-width: 34px !important; margin: 0 auto !important; }
+/* صواني الخارج: أعمدة خشبية رفيعة على الحافتين */
+#bwStage .bw-traycol { max-width: 40px; }
+#bwStage .bw-tray { border: 1px solid rgba(255, 226, 168, .16) !important; }

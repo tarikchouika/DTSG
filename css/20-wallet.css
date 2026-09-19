@@ -74,3 +74,70 @@
 .wl-qr img { width: 180px; height: 180px; max-width: 62vw; max-height: 62vw; border-radius: 14px; background: #fff; padding: 8px; border: 1px solid rgba(34, 211, 238, .45); }
 .wl-qr span { font-size: .76rem; color: var(--t3, #94a3b8); }
 @media (max-width: 420px) { .wl-qr img { width: 148px; height: 148px; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [v2.44-RADIANT] المحفظة في الوضع المشع 🌟
+   المشكلة المُبلَّغ عنها: النافذة كانت داكنة مثبّتة (#101c30) بينما النصوص تأخذ
+   متغيّرات الثيم — وفي «المشع» تصير هذه داكنة (--t1:#1E1B16) ⇒ نصّ داكن على
+   خلفية داكنة = غير مقروء. الحل: ثيم كامل للنافذة يناسب الوضع المشع (عاجي/كريمي
+   + ذهبي العلامة #b8892f) مع تباين واضح لكل عنصر (حقول، شرائح، قوائم، حالات).
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="radiant"] #walletOverlay { background: rgba(60, 48, 28, .38); }
+html[data-theme="radiant"] .wl-sheet {
+  background: linear-gradient(168deg, #ffffff 0%, #faf5e9 55%, #f3ecdb 100%);
+  border-color: #e6dcc2;
+  color: #1e1b16;
+  box-shadow: 0 -12px 44px rgba(90, 70, 30, .22);
+}
+html[data-theme="radiant"] .wl-head h3 { color: #1e1b16; }
+html[data-theme="radiant"] .wl-x { color: #6e6a60; }
+html[data-theme="radiant"] .wl-x:hover { color: #1e1b16; }
+html[data-theme="radiant"] .wl-bal {
+  background: linear-gradient(135deg, rgba(184, 137, 47, .13), rgba(217, 180, 92, .07));
+  border-color: rgba(184, 137, 47, .38);
+}
+html[data-theme="radiant"] .wl-bal .usd { color: #9c6f16; }
+html[data-theme="radiant"] .wl-bal .gold { color: #6b5b34; }
+html[data-theme="radiant"] .wl-tabs button {
+  background: #ffffff; border-color: #e6dcc2; color: #4a453b;
+}
+html[data-theme="radiant"] .wl-tabs button.on {
+  background: linear-gradient(135deg, #f7e6b6, #efd894);
+  border-color: #c79a2e; color: #6b4a06; font-weight: 800;
+  box-shadow: 0 2px 10px rgba(184, 137, 47, .25);
+}
+html[data-theme="radiant"] .wl-method {
+  background: #ffffff; border-color: #e6dcc2; color: #1e1b16;
+}
+html[data-theme="radiant"] .wl-method:hover { border-color: #c79a2e; background: #fffdf6; }
+html[data-theme="radiant"] .wl-method .soon { color: #8a7c5e; border-color: #e0d5b8; }
+html[data-theme="radiant"] .wl-row label { color: #6e6a60; }
+html[data-theme="radiant"] .wl-row input,
+html[data-theme="radiant"] .wl-row select {
+  background: #ffffff; border-color: #ddd2b4; color: #1e1b16;
+}
+html[data-theme="radiant"] .wl-row input::placeholder { color: #a49a80; }
+html[data-theme="radiant"] .wl-row input:focus,
+html[data-theme="radiant"] .wl-row select:focus {
+  outline: none; border-color: #b8892f; box-shadow: 0 0 0 3px rgba(184, 137, 47, .18);
+}
+html[data-theme="radiant"] .wl-cta {
+  background: linear-gradient(135deg, #d9b45c, #b8892f); color: #ffffff;
+  box-shadow: 0 4px 16px rgba(184, 137, 47, .3);
+}
+html[data-theme="radiant"] .wl-note { color: #6e6a60; }
+html[data-theme="radiant"] .wl-acct {
+  background: rgba(13, 148, 136, .10); border-color: rgba(13, 148, 136, .45); color: #1e1b16;
+}
+html[data-theme="radiant"] .wl-acct b { color: #0f766e; }
+html[data-theme="radiant"] .wl-copy { background: rgba(13, 148, 136, .16); color: #0f766e; }
+html[data-theme="radiant"] .wl-tx {
+  background: #ffffff; border-color: #e6dcc2; color: #2b2620;
+}
+html[data-theme="radiant"] .wl-tx .st-pending { color: #a16207; }
+html[data-theme="radiant"] .wl-tx .st-completed { color: #047857; }
+html[data-theme="radiant"] .wl-tx .st-rejected { color: #b91c1c; }
+html[data-theme="radiant"] .wl-msg.ok { color: #047857; }
+html[data-theme="radiant"] .wl-msg.err { color: #b91c1c; }
+html[data-theme="radiant"] .wl-qr img { border-color: rgba(184, 137, 47, .5); }
+html[data-theme="radiant"] .wl-qr span { color: #6e6a60; }
