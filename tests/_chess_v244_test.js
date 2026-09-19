@@ -89,6 +89,27 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
   opaque && opaque.ratio > 0.35 ? ok('القطعة معتمة فعلاً: ' + (opaque.ratio * 100).toFixed(1) + '% بكسل صلب (كانت شفافة قبل الإصلاح)')
     : bad('نسبة البكسل الصلب ضعيفة: ' + JSON.stringify(opaque));
 
+  /* [v2.44-RECONCILE] فحص شامل لكل القطع: لا مرجع تدرّج معلّق ولا صندوق صفري —
+     يعمّم فكرة «القطع الشفافة» التي أبلغ عنها المستخدم على 32 قطعة، بلا فرض تعبئة صلبة
+     (التصميم يبقى تدرّجياً كما هو مُتفق عليه). */
+  const pieces = await page.evaluate(() => {
+    const els = Array.from(document.querySelectorAll('.ch-svg'));
+    let dangling = 0, zero = 0, opaque = 0, ids = [];
+    for (const el of els) {
+      const cs = getComputedStyle(el);
+      const f = String(cs.fill || '');
+      const m = f.match(/url\(["']?#([^"')]+)/);
+      if (m && !document.getElementById(m[1])) { dangling++; ids.push(m[1]); }
+      const bb = el.getBoundingClientRect();
+      if (bb.width < 8 || bb.height < 8) zero++;
+      if (Number(cs.opacity) >= 0.99) opaque++;
+    }
+    return { n: els.length, dangling: dangling, zero: zero, opaque: opaque, ids: ids.slice(0, 3) };
+  });
+  pieces.n >= 32 && pieces.dangling === 0 ? ok('لا مراجع تدرّج معلّقة على ' + pieces.n + ' قطعة') : bad('مراجع تدرّج معلّقة: ' + JSON.stringify(pieces));
+  pieces.zero === 0 ? ok('كل القطع لها صندوق مرسوم غير صفري') : bad(pieces.zero + ' قطعة بصندوق صفري (قطع غير مرئية)');
+  pieces.opaque === pieces.n ? ok('شفافية كل القطع = 1 (' + pieces.opaque + ')') : bad((pieces.n - pieces.opaque) + ' قطعة شفافة');
+
   await page.screenshot({ path: SHOTS + '/chess-fixed-full.png' });
   const board = await page.$('#chessBoard, .ch-board');
   if (board) await board.screenshot({ path: SHOTS + '/chess-fixed-board.png' });

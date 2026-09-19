@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# ═══════════════════════════════════════════════════════════════════════════
+#  DTSG — تحقق آلي من خادم الهاتف بعد تحديث v2.44
+#  شغّله على الهاتف/الخادم بعد: git pull + إعادة تشغيل الخادم
+#      bash scripts/verify-phone-v244.sh                 # يفحص localhost:3000
+#      bash scripts/verify-phone-v244.sh http://127.0.0.1:3971
+#  لا يحتاج أي مكتبة — curl فقط.
+# ═══════════════════════════════════════════════════════════════════════════
+BASE="${1:-http://127.0.0.1:${PORT:-3000}}"
+TG_ID="${2:-5700612979}"          # هوية تُستعمل في المعاينة (السوبر أدمن افتراضاً — موجود في قاعدة الهاتف)
+PASS=0; FAIL=0
+ok()  { PASS=$((PASS+1)); printf '  ✅ %s\n' "$1"; }
+bad() { FAIL=$((FAIL+1)); printf '  ❌ %s\n' "$1"; }
+
+j() { curl -s --max-time 15 -X POST "$BASE$1" -H 'content-type: application/json' -d "$2"; }
+jv() { curl -s --max-time 15 -X POST "$BASE$1" -H 'content-type: application/json' -d "$2"; }
+g() { curl -s --max-time 15 "$BASE$1"; }
+code() { curl -s --max-time 15 -o /dev/null -w '%{http_code}' -X POST "$BASE$1" -H 'content-type: application/json' -d "${2:-{}}"; }
+
+echo "── فحص خادم الهاتف: $BASE"
+H=$(g /api/health)
+echo "   الصحة: $H"
+echo "$H" | grep -q '"ok":true' && ok "الخادم يستجيب (/api/health)" || bad "الخادم لا يستجيب — تأكد من تشغيله والمنفذ"
+BUILD=$(echo "$H" | grep -o '"build":"[^"]*"' | cut -d'"' -f4)
+case "$BUILD" in
+  2.44*|2.45*|3.*) ok "إصدار الخادم محدَّث ($BUILD)" ;;
+  *) bad "الخادم على إصدار قديم ($BUILD) — نفّذ: git fetch origin main && git reset --hard origin main ثم أعِد التشغيل" ;;
+esac
+
+echo "── 1) مسار بوت الشحن (/api/bot/request)"
+R=$(j /api/bot/request "{\"tg_id\":\"$TG_ID\",\"kind\":\"topup\",\"amount_usd\":100,\"method\":\"cash_plus\",\"details\":\"VERIFY\"}")
+if echo "$R" | grep -q '"bonus_pct":25'; then
+  ok "معاينة الشحن 100\$: بونص 25% — $R"
+else
+  bad "معاينة الشحن لم تُرجع بونص 25% (المتوقع {\"bonus_pct\":25,\"coins_on_approve\":12500}) — الردّ: $R"
+fi
+echo "$R" | grep -q '"coins_on_approve":12500' && ok "الكوينز المتوقعة 12,500 (100\$×100×1.25)" || bad "coins_on_approve غير مطابق — $R"
+
+R2=$(j /api/bot/request "{\"tg_id\":\"$TG_ID\",\"kind\":\"withdrawal\",\"amount_usd\":9,\"method\":\"binance\",\"details\":\"VERIFY-WD\"}")
+echo "$R2" | grep -q '"ok":true' && ok "معاينة السحب تعمل: $R2" || bad "مسار السحب رفض الطلب: $R2"
+
+TX1=$(echo "$R"  | grep -o '"tx":"[^"]*"' | cut -d'"' -f4)
+TX2=$(echo "$R2" | grep -o '"tx":"[^"]*"' | cut -d'"' -f4)
+C=$(code /api/bot/admin-act "{\"tx\":\"$TX1\",\"act\":\"drej\"}")
+[ "$C" = "403" ] || [ "$C" = "401" ] && ok "admin-act محميّ بسرّ الإدارة (HTTP $C بلا سرّ)" || bad "admin-act غير محميّ (HTTP $C) — راجع ADMIN_API_SECRET"
+
+echo "── 2) مسارات الدفع"
+C=$(code /api/vouchers/create '{}')
+[ "$C" = "403" ] && ok "إنشاء الفوتشير يتطلب صلاحية (403)" || bad "ردّ /api/vouchers/create غير متوقع: HTTP $C"
+R=$(j /api/payments/p2p '{}')
+echo "$R" | grep -q 'missing' && ok "مسارات الدفع الحيّة (/api/payments/p2p يتحقق من الحقول)" || bad "ردّ /api/payments/p2p غير متوقع: $R"
+C=$(code /api/bot/request '{}')
+[ "$C" != "404" ] && ok "مسار البوت موجود (ليس 404)" || bad "مسار /api/bot/request غير موجود (404) ⇒ الخادم لم يُحدَّث لـv2.44"
+
+echo "── 3) تنظيف طلبات التحقق (لا تبقى معلّقة في الداشبورد)"
+if [ -n "${ADMIN_API_SECRET:-}" ] && [ -n "${TX1:-}" ]; then
+  C1=$(j /api/bot/admin-act "{\"tx\":\"$TX1\",\"act\":\"drej\",\"admin_secret\":\"$ADMIN_API_SECRET\"}")
+  C2=$(j /api/bot/admin-act "{\"tx\":\"$TX2\",\"act\":\"wrej\",\"admin_secret\":\"$ADMIN_API_SECRET\"}")
+  echo "$C1$C2" | grep -q '"ok":true' && ok "رُفض طلبا التحقق من الداشبورد (نفس مسار السوبر أدمن)" || bad "تعذّر رفض طلبات التحقق: $C1 / $C2"
+else
+  echo "   ℹ️  ADMIN_API_SECRET غير مضبوط — سيظهر طلبا تحقق معلّقان في الداشبورد (ارفضهما يدوياً)."
+fi
+
+echo "── 4) ملخص"
+if [ "$FAIL" = "0" ]; then
+  echo "✔ كل الفحوص نجحت ($PASS) — خادم الهاتف جاهز v2.44."
+  echo "  شغّل البوت: node scripts/voucher-bot.js مع VOUCHER_BOT_TOKEN + API_BASE=$BASE"
+else
+  echo "✖ $FAIL فحص/فحوص فشلت من $((PASS+FAIL)) — راجع الأعلى ثم راجع docs/PHONE_UPDATE_v244.md"
+fi
+exit $([ "$FAIL" = "0" ] && echo 0 || echo 1)
