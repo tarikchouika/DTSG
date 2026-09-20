@@ -50,13 +50,21 @@ const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  �
 
     const px = await p.evaluate(() => {
       const ctx = ParchisiApp.ctx;
-      const at = (x, y) => { const d = ctx.getImageData(x, y, 1, 1).data; return [d[0], d[1], d[2]]; };
-      /* [v2.43] الهندسة الجديدة: الخانة 93.33×30 والقاعدة 160 والمركز 120×120
-         (المراكز محسوبة من شبكة المسار الجديدة) */
+      const d = ctx.getImageData(0, 0, 600, 600).data;
+      /* [v2.44-FIX] التحويل الحقيقي للرسم: حافة-لحافة = translate(PR_EDGE_OFF)+scale(PR_EDGE_SCALE)
+         ⇒ نقطة كانفس = منطقي × PR_EDGE_SCALE + PR_EDGE_OFF. كانت الإحداثيات ثابتة على هندسة v2.43
+         (93.33×30) فصار أخذ اللون من موضع خاطئ بعد استرجاع 64×27.5. الآن كل النقاط مشتقّة من PR_TRACK. */
+      const at = (lx, ly) => {
+        const x = Math.round(lx * PR_EDGE_SCALE + PR_EDGE_OFF), y = Math.round(ly * PR_EDGE_SCALE + PR_EDGE_OFF);
+        const i = (y * 600 + x) * 4;
+        return [d[i], d[i + 1], d[i + 2]];
+      };
+      const center = g => { const t = PR_TRACK[g]; return at(t.x + t.w / 2, t.y + t.h / 2); };
+      const corner = g => { const t = PR_TRACK[g]; return at(t.x + 4, t.y + 4); };
       return {
-        vTrack: at(207, 75), hTrack: at(15, 207),
-        starV: at(135, 207), starH: at(207, 465),
-        salRed: at(207, 135), salGreen: at(135, 393), salYellow: at(393, 465), salBlue: at(465, 207),
+        vTrack: corner(2), hTrack: corner(10),
+        stars: PR_STARS.map(center), starCorners: PR_STARS.map(corner),
+        sal: PR_OFF.map(center),
         nest: at(40, 40), ctr: at(300, 255)
       };
     });
@@ -64,20 +72,25 @@ const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  �
     const isWood = c => c[0] > 243 && c[1] > 243 && c[2] > 238;   /* أبيض */
     const isSilver = c => Math.abs(c[0] - c[2]) <= 18 && c[0] >= 160 && c[0] <= 225 && c[1] >= 165 && c[2] >= 170;
     const isStar = c => c[0] > 90 && c[0] < 135 && c[1] > 60 && c[1] < 100 && c[2] > 55 && c[2] < 85;
-    ok('خانة عمودية بيضاء (93.33×30)', isWood(px.vTrack));
-    ok('خانة أفقية بيضاء (30×93.33)', isWood(px.hTrack));
-    ok('نجمة في عمود رأسي', isStar(px.starV));
-    ok('نجمة في صف أفقي', isStar(px.starH));
-    ok('ساليدة حمراء أعلى·يسار', px.salRed[0] > 190 && px.salRed[1] < 110);
-    ok('ساليدة خضراء يسار·أسفل', px.salGreen[1] > 150 && px.salGreen[0] < 90);
-    ok('ساليدة صفراء أسفل·يمين', px.salYellow[0] > 200 && px.salYellow[1] > 170);
-    ok('ساليدة زرقاء يمين·أعلى', px.salBlue[2] > 150 && px.salBlue[0] < 80);
+    ok('خانة مستطيلة بيضاء (64×27.5)', isWood(px.vTrack));
+    ok('خانة مستطيلة بيضاء (27.5×64)', isWood(px.hTrack));
+    ok('نجوم المسار الأربعة بلون النجمة', px.stars.length === 4 && px.stars.every(isStar));
+    ok('خانات النجوم رمادية فضية (عند حافة الخانة)', px.starCorners.every(isSilver));
+    ok('ساليدة حمراء (مقعد 0)', px.sal[0][0] > 190 && px.sal[0][1] < 110);
+    ok('ساليدة خضراء (مقعد 1)', px.sal[1][1] > 150 && px.sal[1][0] < 90);
+    ok('ساليدة صفراء (مقعد 2)', px.sal[2][0] > 200 && px.sal[2][1] > 170);
+    ok('ساليدة زرقاء (مقعد 3)', px.sal[3][2] > 150 && px.sal[3][0] < 80);
     ok('عش أحمر أعلى اليسار', px.nest[0] > 180 && px.nest[1] < 110);
     /* [B7] ألوان المسار الجديدة */
     {
       const cv = await p.evaluate(() => {
         const d = ParchisiApp.ctx.getImageData(0, 0, 600, 600).data;
-        const at = (x, y) => { const i = ((y|0) * 600 + (x|0)) * 4; return [d[i], d[i+1], d[i+2]]; };
+        /* [v2.44-FIX] مع تحويل الحافة-لحافة: نقطة كانفس = منطقي × PR_EDGE_SCALE + PR_EDGE_OFF */
+        const at = (lx, ly) => {
+          const x = Math.round(lx * PR_EDGE_SCALE + PR_EDGE_OFF), y = Math.round(ly * PR_EDGE_SCALE + PR_EDGE_OFF);
+          const i = (y * 600 + x) * 4;
+          return [d[i], d[i + 1], d[i + 2]];
+        };
         const corner = g => { const t = PR_TRACK[g]; return at(t.x + 4, t.y + 4); };
         const isWhite = c => c[0] > 243 && c[1] > 243 && c[2] > 238;
         const isSilver = c => Math.abs(c[0] - c[2]) <= 18 && c[0] >= 160 && c[0] <= 225 && c[1] >= 165 && c[2] >= 170;
