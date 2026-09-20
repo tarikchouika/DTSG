@@ -60,8 +60,12 @@
 
 ### 5) تشغيلياً (مهم)
 - المفاتيح أُدخلت في متغيرات بيئة pm2 للعملية `casino-server` (`pm2 restart casino-server --update-env`).
-- **شرط التفعيل الحي**: يجب أن يكون مفتاح Binance Pay مفعّلاً للـ Merchant API مع **السماح بعنوان IP للهاتف**
-  (أو مفتاح بلا قيود IP). قبل ذلك تردّ Binance: `400004 Invalid API-key, IP, or permissions for action`.
+- **شرط التفعيل الحي** (تأكد فعلياً في الاختبار الحي على الهاتف):
+  مفتاح Binance Pay يجب أن يكون مفعّلاً للـ Merchant API مع **السماح بعنوان IP للهاتف**
+  (أو مفتاح بلا قيود IP). قبل ذلك تردّ Binance:
+  `400004 Invalid API-key, IP, or permissions for action, request ip: 41.249.159.42`.
+- **إصلاح بعد الاختبار الحي (400100)**: `Nonce` يجب أن يطابق `^[a-zA-Z0-9]{32}$` —
+  كان يُولَّد أقصر من 32 ⇒ صار `crypto.randomUUID()` بلا شرطات (32 حرفاً).
 
 ---
 
