@@ -1828,7 +1828,27 @@ const server = http.createServer((req, res) => {
           /* مسح حساب: سوبر أدمن فقط */
           if (!isSuper(me)) { json({ ok: false, message: 'سوبر أدمن فقط' }, 403); return; }
           if (target.id === me.id) { json({ ok: false, message: 'لا يمكنك مسح حسابك' }, 400); return; }
-          try { db.prepare('DELETE FROM users WHERE id = ?').run(target.id); } catch (e) {}
+          /* [v2.45.1-FIX] كان الخطأ يُبتلع: مع foreign_keys=ON يفشل DELETE لوجود صفوف مالية مرتبطة،
+             فيُعاد {ok:true} والحساب باقٍ في القاعدة (يعود بعد إعادة التشغيل). نُبلّغ الحقيقة،
+             ونسمح بالمسح الصريح عبر force (يحذف معاملات المستخدم المالية أولاً داخل معاملة واحدة). */
+          try {
+            if (data.force) {
+              db.exec('BEGIN');
+              try {
+                /* user_id في جداول المحفظة نصّي (TEXT) — الربط برقم لا يطابق شيئاً */
+                db.prepare('DELETE FROM pay_transactions WHERE user_id = ?').run(String(target.id));
+                db.prepare('DELETE FROM pay_vouchers WHERE used_by_user_id = ?').run(String(target.id));
+              } catch (e2) { /* جدول غير موجود في نسخة قديمة */ }
+              db.prepare('DELETE FROM users WHERE id = ?').run(target.id);
+              db.exec('COMMIT');
+            } else {
+              db.prepare('DELETE FROM users WHERE id = ?').run(target.id);
+            }
+          } catch (e) {
+            try { db.exec('ROLLBACK'); } catch (e2) {}
+            json({ ok: false, message: 'تعذّر مسح الحساب: توجد سجلات مالية/كوبونات مرتبطة به. أعد المحاولة بـ force لحذف سجلاته المالية معه.', error: String((e && e.message) || '') }, 409);
+            return;
+          }
           delete users[target.id];
           Object.keys(sessions).forEach(function (sid) { if (sessions[sid] === target.id) delete sessions[sid]; });
           json({ ok: true });

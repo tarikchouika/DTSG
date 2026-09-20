@@ -141,6 +141,18 @@ window.PWAL = window.PWAL || {};
     overlay.querySelector('#wlVGo').onclick = wlRedeemVoucher;
     overlay.querySelector('#wlDepGo').onclick = wlSubmitDeposit;
     overlay.querySelector('#wlWdGo').onclick = wlSubmitWithdraw;
+    /* [v2.45.1] تلميح تفاصيل الاستلام يتغيّر بحسب الوسيلة
+       (Binance Pay بمعرّف Pay ID ≠ Binance TRC20 بعنوان المحفظة ≠ CIH بـRIB) */
+    var wdSel = overlay.querySelector('#wlWdMethod'), wdDet = overlay.querySelector('#wlWdDetails');
+    if (wdSel && wdDet) {
+      var WD_HINT = { binance_pay: 'wl.wdHBnbPay', binance: 'wl.wdHTrc20', cash_plus: 'wl.wdHCash', cih: 'wl.wdHCih', orange_money: 'wl.wdHOm' };
+      var wdHintSet = function () {
+        var k = WD_HINT[wdSel.value] || 'wl.wdHCash';
+        wdDet.placeholder = (typeof T === 'function') ? T(k) : '';
+      };
+      wdSel.addEventListener('change', wdHintSet);
+      wdHintSet();
+    }
     return overlay;
   }
   function tab(which) {
@@ -231,15 +243,31 @@ window.PWAL = window.PWAL || {};
     var url = r.checkoutUrl || r.universalUrl || r.deeplink || '';
     var qrData = r.qrContent || r.qrcodeLink || url;
     var html = '';
-    if (qrData) html += '<img alt="Binance Pay QR" style="width:190px;height:190px;border-radius:12px;background:#fff;padding:6px" ' +
-      'src="https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=' + encodeURIComponent(qrData) + '">';
-    if (url) html += '<div style="margin-top:8px"><a class="wl-cta" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="' + esc(url) + '">🟡 ' +
-      (typeof T === 'function' ? T('wl.openBinance') : 'افتح Binance Pay') + '</a></div>';
+    if (qrData) {
+      /* [v2.45.1-FIX] توليد الرمز محلياً (QRMini) — كان يُبنى عبر api.qrserver.com
+         ⇒ رابط دفع المستخدم كان يُرسَل لطرف ثالث. لا نطلب أي مورد خارجي الآن. */
+      var svg = '';
+      try { if (typeof QRMini !== 'undefined') svg = QRMini.svg(String(qrData), { ecc: 'M', size: 190, margin: 2 }); } catch (e) { svg = ''; }
+      if (svg) html += '<div style="width:190px;height:190px;border-radius:12px;background:#fff;padding:6px;box-sizing:content-box">' + svg + '</div>';
+    }
+    if (url) html += '<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">' +
+      '<a class="wl-cta" id="wlOpenPay" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="' + esc(url) + '">🟡 ' +
+      (typeof T === 'function' ? T('wl.openBinance') : 'افتح Binance Pay') + '</a>' +
+      '<button type="button" class="wl-cta ghost" id="wlCopyPay">📋 ' + (typeof T === 'function' ? T('wl.copyLink') : 'نسخ رابط الدفع') + '</button></div>';
     html += '<div class="wl-note">' + (typeof T === 'function' ? T('wl.payRef') : 'مرجع الطلب') + ': <b>' + esc(r.order_id || '') + '</b> · ' +
       Number(r.amount || 0).toFixed(2) + ' ' + esc(r.currency || 'USDT') + ' — ' +
       (typeof T === 'function' ? T('wl.payAuto') : 'يُشحن رصيدك تلقائياً بعد تأكيد Binance.') + '</div>';
     box.innerHTML = html;
     box.hidden = false;
+    /* [v2.45.1] زر نسخ رابط الدفع (وتفادي فتح نافذة جديدة على الحاسوب) */
+    var cp = box.querySelector('#wlCopyPay');
+    if (cp) cp.onclick = function () {
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url);
+        else { var t = document.createElement('textarea'); t.value = url; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove(); }
+        msg(overlay.querySelector('#wlDepMsg'), '📋 ' + (typeof T === 'function' ? T('wl.copied') : 'نُسخ'), true);
+      } catch (e) {}
+    };
   }
 
   async function wlSubmitDeposit() {

@@ -323,6 +323,76 @@ function req(method, url, body, headers) {
   await core.completeDeposit(env, D1, 'tx-bridge', 7);
   ok('completeDeposit يشحن gold عبر __creditUsd', plat[42].gold === 5700);
 
+  /* ═══════════════════════════════════════════════════════════════
+     13) [v2.45.1-FIX] إصلاحات Binance Pay العشرة (مكتشَفة في مراجعة v2.44→v2.45):
+       معرّف طلب بلا شرطة · شرط live الحقيقي · binance_pay في P2P ·
+       إغلاق الطلبات المعلّقة · التحقق من التوقيع بـRSA-SHA256
+     ═══════════════════════════════════════════════════════════════ */
+  console.log('\n═══ v2.45.1 — إصلاحات Binance Pay ═══');
+  const nodeCrypto = require('node:crypto');
+  binanceState.createFail = null; binanceState.query = null; binanceState.paid = '10';
+
+  /* (أ) معرّف الطلب: Binance ترفض أي رمز غير حرف/رقم (400103/400201) — كان uid() يضع شرطة */
+  let rb = await H('POST', 'https://w/api/payments/crypto', { user_id: '42', amount_usd: 10 });
+  const cb = await rb.json();
+  ok('merchantTradeNo = حروف/أرقام فقط وبلا شرطة', /^[A-Z0-9]{1,32}$/.test(cb.order_id), cb.order_id);
+  ok('core.binanceOrderId مطابق للنمط', /^[A-Z0-9]{1,32}$/.test(core.binanceOrderId()));
+  const orderCall = captured.binance.filter(c => c.url.endsWith('/v2/order')).pop();
+  ok('نفس المعرّف أُرسل لـBinance + terminalType=WEB',
+    orderCall.body.merchantTradeNo === cb.order_id && orderCall.body.env && orderCall.body.env.terminalType === 'WEB');
+
+  /* (ب) حالة «live»: كانت تُعلن حيّة بمجرّد وجود API_KEY بينما الإنشاء يشترط SECRET_KEY أيضاً */
+  const savedSecret = env.BINANCE_PAY_SECRET_KEY;
+  env.BINANCE_PAY_SECRET_KEY = '';
+  r = await H('GET', 'https://w/api/payments/methods');
+  ok('methods: binance_pay=soon عند غياب SECRET_KEY', (await r.json()).methods.find(m => m.id === 'binance_pay').status === 'soon');
+  env.BINANCE_PAY_SECRET_KEY = savedSecret;
+  r = await H('GET', 'https://w/api/payments/methods');
+  ok('methods: binance_pay=live بالمفتاحين معاً', (await r.json()).methods.find(m => m.id === 'binance_pay').status === 'live');
+
+  /* (ج) P2P: بوت الشحن يحوّل «كريبتو/Binance Pay» إلى binance_pay وكان يُرفض bad-input */
+  /* ملاحظة: القسم 12 يجعل userExists صارماً (__balance لـ42 فقط) ⇒ نستعمل 42 */
+  r = await H('POST', 'https://w/api/payments/p2p', { user_id: '42', method: 'Binance Pay', amount_usd: 15, proof_details: 'PAY-ID-8891' });
+  const pjp = await r.json();
+  ok('p2p: binance_pay مقبول (مراجعة يدوية بالوصل)', pjp.ok && pjp.status === 'pending', JSON.stringify(pjp.missing || ''));
+
+  /* (د) التحقق من التوقيع: RSA-SHA256 بشهادة Binance (كان HMAC بسرّ التاجر ⇒ mismatch دائماً) */
+  ok('بلا شهادة ⇒ «unavailable» لا «mismatch» (لا تغيير في الأمان: الاستعلام هو الحاكم)',
+    (await core.binanceVerifyWebhook(env, '1', 'n', '{}', 'AAAA', 'SN')) === 'unavailable');
+  const kp = nodeCrypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
+  env.BINANCE_PAY_PUBLIC_KEY = kp.publicKey.export({ type: 'spki', format: 'pem' });
+  const ts2 = '1700000000123', n2 = 'nonce-rsa-1';
+  const raw2 = JSON.stringify({ bizType: 'PAY', bizStatus: 'PAY_SUCCESS', data: JSON.stringify({ merchantTradeNo: cb.order_id }) });
+  const sig2 = nodeCrypto.sign('sha256', Buffer.from(ts2 + '\n' + n2 + '\n' + raw2 + '\n'), kp.privateKey).toString('base64');
+  ok('توقيع RSA صحيح ⇒ ok', (await core.binanceVerifyWebhook(env, ts2, n2, raw2, sig2, 'SN')) === 'ok');
+  ok('توقيع مزوَّر ⇒ mismatch', (await core.binanceVerifyWebhook(env, ts2, n2, raw2, 'QUJD', 'SN')) === 'mismatch');
+  /* استعلام غير مؤكد: التوقيع ينعكس في الرسالة ولا شحن في الحالتين */
+  binanceState.query = { status: 'SUCCESS', code: '000000', data: { merchantTradeNo: cb.order_id, orderStatus: 'PENDING' } };
+  const whOk = { 'Binancepay-Timestamp': ts2, 'Binancepay-Nonce': n2, 'Binancepay-Signature': sig2 };
+  let rw = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: whOk, body: raw2 }), env);
+  ok('إشعار موقَّع + استعلام PENDING ⇒ FAIL مع sig=ok', /sig=ok/.test((await rw.json()).returnMessage || ''));
+  const whBad = { 'Binancepay-Timestamp': ts2, 'Binancepay-Nonce': n2, 'Binancepay-Signature': 'QUJD' };
+  rw = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: whBad, body: raw2 }), env);
+  ok('توقيع مزوَّر + استعلام غير مؤكد ⇒ لا شحن وsig=mismatch',
+    /sig=mismatch/.test((await rw.json()).returnMessage || '') &&
+    D1.prepare('SELECT status FROM transactions WHERE id=?1').bind(cb.order_id).first().status === 'pending');
+
+  /* (هـ) إشعار الإغلاق: كان يُهمَل فيبقى الطلب «معلّقاً» للأبد */
+  const rawC = JSON.stringify({ bizType: 'PAY', bizStatus: 'PAY_CLOSED', data: JSON.stringify({ merchantTradeNo: cb.order_id }) });
+  rw = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: whOk, body: rawC }), env);
+  ok('إشعار PAY_CLOSED ⇒ إغلاق الطلب المعلّق (rejected) بلا شحن',
+    (await rw.json()).returnCode === 'SUCCESS' &&
+    D1.prepare('SELECT status FROM transactions WHERE id=?1').bind(cb.order_id).first().status === 'rejected');
+  /* استعلام يقول CANCELED لطلب معلّق آخر ⇒ إغلاق أيضاً */
+  binanceState.query = null;
+  let rq2 = await H('POST', 'https://w/api/payments/crypto', { user_id: '42', amount_usd: 10 });
+  const cq2 = await rq2.json();
+  binanceState.query = { status: 'SUCCESS', code: '000000', data: { merchantTradeNo: cq2.order_id, orderStatus: 'CANCELED' } };
+  rw = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: whOk, body: raw2.replace(cb.order_id, cq2.order_id) }), env);
+  ok('استعلام CANCELED ⇒ إغلاق الطلب المعلّق',
+    D1.prepare('SELECT status FROM transactions WHERE id=?1').bind(cq2.order_id).first().status === 'rejected');
+  delete env.BINANCE_PAY_PUBLIC_KEY;
+
   console.log('\nالنتيجة: ' + pass + ' نجح / ' + fail + ' فشل');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

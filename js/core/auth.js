@@ -428,7 +428,14 @@ function init2fa() {
       if (!r.ok) { toast((r.data && r.data.message) || T('auth.error'), 'err'); return; }
       var secret = (r.data && r.data.secret) || '';
       var otpauth = (r.data && r.data.otpauth) || '';
-      if (qrEl) { qrEl.style.display = ''; qrEl.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(otpauth); }
+      /* [v2.45.1-FIX] رمز otpauth كان يُرسَل لـapi.qrserver.com ⇒ يُكشف سرّ 2FA لطرف ثالث.
+         الآن يُولَّد محلياً كـSVG داخل data: (محمي بـCSP: img-src data:) */
+      if (qrEl) {
+        var qsvg = '';
+        try { if (typeof QRMini !== 'undefined') qsvg = QRMini.svg(otpauth, { ecc: 'M', size: 200, margin: 2 }); } catch (e) { qsvg = ''; }
+        if (qsvg) { qrEl.style.display = ''; qrEl.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(qsvg); }
+        else { qrEl.style.display = 'none'; }
+      }
       if (secretEl) { secretEl.style.display = ''; secretEl.textContent = secret; }
       if (oaEl) oaEl.textContent = otpauth;
       if (codeInput) { codeInput.style.display = ''; codeInput.value = ''; codeInput.focus(); }

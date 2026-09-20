@@ -115,6 +115,13 @@
   pointer-events: none;
 }
 #dmStage .dm-opprow { flex-direction: column !important; align-items: flex-start !important; justify-content: center !important; padding: 0 6px 0 0 !important; }
+/* [FIX] «لاعبان — جهاز واحد»: يد اللاعب الثاني تُعرض هنا وتحتاج النقر ⇒ لا نمنع pointer-events على عناصرها */
+#dmStage .dm-opprow > * { pointer-events: auto; }
+/* [FIX] الرزمة على الحافة اليمنى دائماً (كانت تنقلب لليسار في LTR فتغطي البنك) */
+#dmStage .dm-opprow { left: auto !important; right: 0 !important; width: auto !important; align-items: flex-end !important; padding: 0 5px !important; }
+/* [FIX] لا تغطية لليد ولا للـHUD: الرزمة تنكمش بدل أن تفيض على 271px */
+#dmStage .dm-opprow { max-height: 46% !important; overflow: hidden; }
+#dmStage .dm-opprow > .dm-back { flex: 0 1 auto; min-height: 14px; }
 #dmStage .dm-opprow > .dm-back { margin: 0 0 3px !important; }
 #dmStage .dm-opprow > * { background: none !important; border: 0 !important; }
 #dmStage .dm-opprow .dm-back {
@@ -203,6 +210,8 @@
 #dmStage .dm-tool.danger { border-color: rgba(255, 130, 100, .5) !important; color: #ffd9c9 !important; }
 #dmStage .dm-tool i { font-size: 16px !important; }
 #dmStage .dm-tool span { display: none !important; }
+/* [FIX] زر «مرّر» يحمل السمة hidden — display:inline-flex !important أعلاه كان يُظهره دائماً */
+#dmStage .dm-tool[hidden] { display: none !important; }
 
 /* ═══════════════════ 2) الضومينو — اللاندسكيب (خشب + رفّ) ═══════════════════ */
 @media (orientation: landscape) {
@@ -235,7 +244,8 @@
   #dmStage .dm-hand { position: relative; z-index: 2; gap: 10px !important; }
   #dmStage .dm-hand .dm-htile { max-width: 56px !important; }
   #dmStage .dm-tools { inset-inline-start: 10px; bottom: 12px; }
-  #dmStage .dm-opprow { padding: 0 8px !important; }
+  /* [FIX] اللاندسكيب: الرفّ يأخذ ~45% من الارتفاع ⇒ نثبّت الرزمة تحت الـHUD داخل مساحة الطاولة لا في منتصف الشاشة */
+  #dmStage .dm-opprow { top: 58px !important; transform: none !important; max-height: 36% !important; justify-content: flex-start !important; padding: 0 8px !important; }
 }
 
 /* ════════════════════════ 3) الطاولة — ملء وتخطيط ════════════════════════ */
@@ -345,7 +355,7 @@
 
 /* ── اللاندسكيب: البطاقات يساراً واللوحة يميناً بكامل الارتفاع (كما في المرجع) ── */
 @media (orientation: landscape) {
-  #bwStage #bwPlay {
+  #bwStage #bwPlay.bw-screen-active {
     display: grid !important;
     grid-template-columns: minmax(190px, 30%) minmax(0, 1fr);
     grid-template-rows: 1fr auto;
@@ -462,7 +472,7 @@
 
 /* ── البورتريه: بطاقتان جنباً إلى جنب ثم سطر المباراة تحتهما، واللوحة في الوسط ── */
 @media (orientation: portrait) {
-  #bwStage #bwPlay { display: flex !important; }
+  #bwStage #bwPlay.bw-screen-active { display: flex !important; }
   #bwStage .bw-board { width: 100% !important; }
   #bwStage .bw-dicebar { gap: 16px; }
   #bwStage .bw-die { width: 54px !important; height: 54px !important; }

@@ -15,6 +15,15 @@ async function hmacSha256Hex(secret, data) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 function uid(prefix) { return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+/* [v2.45.1-FIX] Binance Pay: merchantTradeNo «حروف وأرقام فقط» وبحد أقصى 32 (وثيقة order/create-v2:
+   "letter or digit, no other symbol allowed") ⇒ لا نستعمل uid() لأنها تولّد «dtsg-…» بشرطة،
+   فكانت الطلبات تُرفض 400103 INVALID_PARAM_ILLEGAL_CHAR / 400201 INVALID_MERCHANT_TRADE_NO. */
+function binanceOrderId() {
+  let rnd = '';
+  try { rnd = crypto.randomUUID().replace(/-/g, '').slice(0, 8); }
+  catch (e) { rnd = Math.random().toString(36).slice(2, 10); }
+  return ('DTSG' + Date.now().toString(36) + rnd).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 32);
+}
 
 /* ── استجابات + CORS ── */
 function json(o, st) {
@@ -326,6 +335,55 @@ async function binancePayQueryOrder(env, merchantTradeNo) {
   return binancePayCall(env, BINANCE_PAY_QUERY, { merchantTradeNo: String(merchantTradeNo) });
 }
 
+/* ── التحقق من توقيع إشعارات Binance Pay (RSA-SHA256) ──
+   إشعارات Binance موقَّعة بـ RSA-SHA256 (PKCS#1 v1.5) بالمفتاح العام الآتي من
+   POST /binancepay/openapi/certificates، على النص: timestamp + "\n" + nonce + "\n" + body + "\n".
+   [v2.45.1-FIX] كان الكود يقارن HMAC-SHA512 بسرّ التاجر ⇒ «mismatch» دائماً (توقيع غير مطابق للمعيار).
+   أمان: لا يُشحن رصيد بناءً على الإشعار وحده — الاستعلام الموقَّع هو مصدر الحقيقة،
+   فحتى عند تعذّر جلب الشهادة (unavailable) لا يوجد مسار تزوير. */
+const BINANCE_PAY_CERT = '/binancepay/openapi/certificates';
+let _bpayCerts = { at: 0, list: [] };
+function pemToDer(pem) {
+  const b64 = String(pem || '').replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function b64ToBytes(s) {
+  const bin = atob(String(s || '').replace(/\s+/g, ''));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+async function binancePayCerts(env) {
+  const now = Date.now();
+  if (_bpayCerts.list.length && (now - _bpayCerts.at) < 21600000) return _bpayCerts.list;   /* ذاكرة 6 ساعات */
+  let j = null;
+  try { j = await binancePayCall(env, BINANCE_PAY_CERT, {}); } catch (e) { j = null; }
+  if (binanceOk(j) && Array.isArray(j.data) && j.data.length) _bpayCerts = { at: now, list: j.data };
+  return _bpayCerts.list;
+}
+async function binancePayPubKey(env, certSN) {
+  const direct = String((env && env.BINANCE_PAY_PUBLIC_KEY) || '');
+  if (direct) return direct;                                  /* تثبيت الشهادة في env (اختياري) */
+  const list = await binancePayCerts(env);
+  const hit = (list || []).find(function (c) { return String(c.certSerial) === String(certSN); }) || (list && list[0]);
+  return hit ? String(hit.certPublic || '') : '';
+}
+/* 'ok' | 'mismatch' | 'unavailable' | 'error' */
+async function binanceVerifyWebhook(env, timestamp, nonce, raw, signature, certSN) {
+  if (!timestamp || !nonce || !signature) return 'unavailable';
+  try {
+    const pub = await binancePayPubKey(env, certSN);
+    if (!pub) return 'unavailable';
+    const key = await crypto.subtle.importKey('spki', pemToDer(pub), { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['verify']);
+    const msg = new TextEncoder().encode(timestamp + '\n' + nonce + '\n' + raw + '\n');
+    const okSig = await crypto.subtle.verify('RSASSA-PKCS1-v1_5', key, b64ToBytes(signature), msg);
+    return okSig ? 'ok' : 'mismatch';
+  } catch (e) { return 'error'; }
+}
+
 /* ── [Codes 2026-09-17] شرائح أكواد الشحن — نوعان ──
    أدمنز (بونص): 100→25% | 1000→30% | 10000→35% | 100000→40%
    مباشر: 10$=1000كوين 0% | 100→5% | 1000→10% | 10000→15%
@@ -376,7 +434,7 @@ async function handleFetch(request, env) {
   /* وسائل الدفع المتاحة (علني — تعرض للواجهة) */
   if (p === '/api/payments/methods' && request.method === 'GET') {
     return json({ ok: true, methods: [
-      { id: 'binance_pay', label: 'Binance Pay', status: env.BINANCE_PAY_API_KEY ? 'live' : 'soon' },
+      { id: 'binance_pay', label: 'Binance Pay', status: (env.BINANCE_PAY_API_KEY && env.BINANCE_PAY_SECRET_KEY) ? 'live' : 'soon' },
       { id: 'cash_plus', label: 'Cash Plus', status: 'live',
         account: { name: env.CASH_PLUS_NAME || 'Tarik chouika', number: env.CASH_PLUS_ACCOUNT || '' } },
       { id: 'cih', label: 'CIH Bank / CIH Express', status: 'live',
@@ -395,7 +453,7 @@ async function handleFetch(request, env) {
     if (!b.user_id || !(amt >= 1)) return json({ ok: false, error: 'bad-input' }, 400);
     if (!env.BINANCE_PAY_API_KEY || !env.BINANCE_PAY_SECRET_KEY) return json({ ok: false, error: 'binance-not-configured' }, 503);
     await uEnsure(db, env, b.user_id, b.email);
-    const orderId = uid('dtsg');
+    const orderId = binanceOrderId();
     let result = null;
     try { result = await binancePayCreateOrder(env, orderId, amt); } catch (e) { result = null; }
     if (!binanceOk(result)) {
@@ -429,20 +487,37 @@ async function handleFetch(request, env) {
     if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { data = {}; } }
     data = data || {};
     const tradeNo = String(data.merchantTradeNo || payload.merchantTradeNo || '');
-    if (!(bizType === 'PAY' && /PAY_SUCCESS|PAID/.test(bizStatus))) return json({ returnCode: 'SUCCESS', returnMessage: null });
+    const isPaid = bizType === 'PAY' && /PAY_SUCCESS|PAID/.test(bizStatus);
+    /* [v2.45.1-FIX] إشعار الإغلاق/الإلغاء/الانتهاء كان يُهمَل ⇒ يبقى طلب الإيداع «معلّقاً» للأبد */
+    const isClosed = bizType === 'PAY' && /PAY_CLOSED|PAY_REJECT|PAY_CANCEL|PAY_EXPIRED/.test(bizStatus);
+    if (!isPaid && !isClosed) return json({ returnCode: 'SUCCESS', returnMessage: null });
     if (!tradeNo) return json({ returnCode: 'FAIL', returnMessage: 'missing-trade-no' });
     if (!env.BINANCE_PAY_SECRET_KEY) return json({ returnCode: 'FAIL', returnMessage: 'not-configured' }, 503);
-    let sigOk = false;
-    try { sigOk = !!timestamp && !!nonce && (await binancePaySign(timestamp, nonce, raw, env.BINANCE_PAY_SECRET_KEY)) === signature.toUpperCase(); } catch (e) { sigOk = false; }
+    /* [v2.45.1-FIX] توقيع الإشعار RSA-SHA256 بشهادة Binance (كان HMAC بسرّ التاجر ⇒ mismatch دائماً) */
+    const sig = await binanceVerifyWebhook(env, timestamp, nonce, raw, signature, hdr('Binancepay-Certificate-SN'));
     const tx = await db.prepare('SELECT amount_usd, status FROM transactions WHERE id = ?1').bind(tradeNo).first();
     if (!tx || tx.status !== 'pending') return json({ returnCode: 'SUCCESS', returnMessage: null }); /* لا يخصّنا أو مُشحون سابقاً */
+    if (isClosed) {
+      await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1 AND status='pending'").bind(tradeNo).run();
+      await tgNotifyAdmin(env, '🚫 Binance Pay: أُغلق الطلب ' + tradeNo + ' دون دفع (' + bizStatus + ') ⇒ أُلغي طلب الإيداع تلقائياً.');
+      return json({ returnCode: 'SUCCESS', returnMessage: null });
+    }
     let q = null; try { q = await binancePayQueryOrder(env, tradeNo); } catch (e) { q = null; }
     const qd = (q && q.data) || {};
     const qStatus = String(qd.orderStatus || qd.status || qd.bizStatus || '');
     if (!binanceOk(q) || !/^(PAID|PAY_SUCCESS)$/.test(qStatus)) {
-      return json({ returnCode: 'FAIL', returnMessage: 'not-confirmed ' + binanceFail(q) + (qStatus ? ' status=' + qStatus : '') + ' sig=' + (sigOk ? 'ok' : 'mismatch') });
+      /* إغلاق مؤكَّد من الاستعلام ⇒ إغلاق الطلب المعلّق (لا شحن) */
+      if (/CANCELED|CANCEL|EXPIRED|CLOSED|ERROR/.test(qStatus)) {
+        await db.prepare("UPDATE transactions SET status='rejected' WHERE id=?1 AND status='pending'").bind(tradeNo).run();
+        await tgNotifyAdmin(env, '🚫 Binance Pay: حالة الاستعلام ' + qStatus + ' للطلب ' + tradeNo + ' ⇒ أُلغي طلب الإيداع (لا شحن).');
+        return json({ returnCode: 'SUCCESS', returnMessage: null });
+      }
+      return json({ returnCode: 'FAIL', returnMessage: 'not-confirmed ' + binanceFail(q) + (qStatus ? ' status=' + qStatus : '') + ' sig=' + sig });
     }
-    const paid = Number(qd.totalFee || qd.orderAmount || 0);
+    /* [v2.45.1-FIX] المدفوع يُقرأ من ردّ الاستعلام الموقَّع فقط (orderAmount = مبلغ الطلب لدى Binance،
+       ثم totalFee احتياطاً) — لا من جسم الإشعار الذي يمكن تزويره.
+       المبلغ المشحون يبقى amount_usd المخزّن بالطلب ⇒ لا تضخيم. */
+    const paid = Number(qd.orderAmount || qd.totalFee || 0);
     if (!(paid >= Number(tx.amount_usd) - 0.01)) {
       await tgNotifyAdmin(env, '⚠️ Binance Pay: مبلغ ناقص للطلب ' + tradeNo + ' — المدفوع ' + paid + ' والمطلوب ' + tx.amount_usd + ' ⇒ لم يُشحن آلياً.');
       return json({ returnCode: 'SUCCESS', returnMessage: null });
@@ -582,7 +657,9 @@ function payDebug(env, entry) {
     /* [v2.43] مرادفات المبلغ والوسيلة والوصل + حلّ الهوية (username/tg_id) */
     const amt = pickNum(b.amount_usd, b.amount, b.usd, b.value, b.sum, b.total, b.mad_amount, b.price);
     const method = normMethod(pickStr(b.method, b.pay_method, b.payment_method, b.type, b.gateway, b.way));
-    const methods = ['cash_plus', 'cih', 'orange_money', 'binance', 'voucher'];
+    /* [v2.45.1-FIX] binance_pay نصير مقبولاً هنا أيضاً: بوت الشحن يحوّل «كريبتو/Binance Pay»
+       إلى binance_pay، وكان يُرفض bad-input؛ كما يخدم من دفع من محفظة أخرى ويرفع الوصل للمراجعة اليدوية. */
+    const methods = ['cash_plus', 'cih', 'orange_money', 'binance', 'binance_pay', 'voucher'];
     const proof = pickStr(b.proof_details, b.details, b.reference, b.ref, b.proof, b.receipt, b.code,
       b.txid, b.tx_id, b.transaction_id, b.hash, b.phone, b.account, b.account_number, b.receiver,
       b.recipient, b.note, b.comment, b.message, b.voucher, b.coupon, b.photo, b.image, b.receipt_image);
@@ -595,7 +672,7 @@ function payDebug(env, entry) {
     if (missing.length) {
       payDebug(env, { path: p, status: 400, keys: Object.keys(b || {}), missing });
       return json({ ok: false, error: 'bad-input', missing: missing,
-        hint: 'أرسل: user_id (أو username/tg_id) + amount_usd (أو amount) + method (binance/cash_plus/cih) + details (كود/مرجع التحويل)' }, 400);
+        hint: 'أرسل: user_id (أو username/tg_id) + amount_usd (أو amount) + method (binance_pay/binance/cash_plus/cih) + details (كود/مرجع التحويل)' }, 400);
     }
     if (!(await userExists(db, env, uidResolved))) {
       payDebug(env, { path: p, status: 404, uid: uidResolved, keys: Object.keys(b || {}) });
@@ -1014,5 +1091,7 @@ function payDebug(env, entry) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-module.exports = { handleFetch: handleFetch, hmacSha256Hex: hmacSha256Hex, binancePaySign: binancePaySign, binancePayCreateOrder: binancePayCreateOrder, binancePayQueryOrder: binancePayQueryOrder, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
+module.exports = { handleFetch: handleFetch, hmacSha256Hex: hmacSha256Hex, binancePaySign: binancePaySign, binancePayCreateOrder: binancePayCreateOrder, binancePayQueryOrder: binancePayQueryOrder,
+  /* [v2.45.1] للاختبارات: معرّف طلب مطابق لمواصفة Binance + التحقق من توقيع الإشعارات */
+  binanceOrderId: binanceOrderId, binanceVerifyWebhook: binanceVerifyWebhook, binancePayCertificates: binancePayCerts, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
 }
