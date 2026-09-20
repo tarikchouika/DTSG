@@ -70,7 +70,7 @@ node tests/_repo_hygiene_test.js       → exit 0
 node tests/_money_idempotency_test.js  → exit 0
 node tests/_money_invariants_test.js   → exit 0
 node tests/_bot_v244_test.js           → exit 0
-node tests/_ai_expert_test.js          → (طويل: ~26 فحص خبرة — يُشغَّل بمهلة ≥ 10 دقائق)
+node tests/_ai_expert_test.js          →  26 نجح / 0 فشل (طويل: مهلة ≥ 10 دقائق)
 ```
 > ملاحظة: `_blind_pair_test.js` و`_money_v244_test.js` يحتاجان خادماً حياً على المنفذ المعني؛
 > وأجنحة `/tmp/sweep` كاملة: **36 جناحاً أخضر**.
