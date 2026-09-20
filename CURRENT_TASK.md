@@ -244,3 +244,29 @@ server.js لا يبث `blindResult` إطلاقاً — ألعاب penalty/rps ف
 - **اختبارات**: تنظيف pw123 (5) · _rn_settle_test (رهان + سجل الفائز) 18/18 · عتبة do-expert 0.625 · _ai_expert 26/26.
 - **كاش**: dtsg5 · bgdo4 · lu5 (rdc/unified بلا تغيير) · package.json 2.27.0.
 - مؤجلات: توليد QR محلياً (بدل api.qrserver.com) · توحيد main بعد النشر · Flow-B في _botflow_test (تدفق زر الآلي — تقادم UI قديم، غير حرج).
+
+## 11) v2.45.1 + v2.45.2 (2026-09-20) — تثبيت الإصلاحات وقرارا المالك (وكيل Arena/cat)
+
+**الفرع `arena/01a0bd39-dtsg`** (الأساس `711fc10`): `75386b2` + `cf7e0ed` + `a1e7e0f` + `v2.45.2`.
+
+1. **ڤيرسيل = تجريبية فقط** (قرار المالك): الأساسي Cloudflare **Pages + Worker + KV** (بلا R2) مع SQLite محلية على خادم الهاتف.
+   `vercel.json`/`.vercelignore` في `.gitignore` (لا تُرفع) و`Dockerfile`/`.dockerignore` **أُعيدا**.
+2. **الشطرنج = تدريب مجاني بلا رهان** (قرار المالك، مرفوض إضافة الشريط): أُزيلت الكتلة الميتة
+   `#chessStake` من `js/games/chess.js`، وصُحّحت توقعات `tests/_chess_browser_test.js`
+   (SVG بدل ♛ · غياب عنصر الرهان · أرصدة بالفروق Δ · منع الخصم المزدوج عند إعادة المباراة).
+3. **ميثاق عدم الانحدار:** `docs/FIXES_FROZEN_v2451.md` — 17 إصلاحاً مُجمَّداً + الحارس لكل واحد
+   + الممنوعات (لا QR من `api.qrserver.com`، لا HMAC لإشعار Binance، لا `{ok:true}` فوق فشل الحذف…).
+4. **أجنحة تحتاج متصفحاً لم تُشغَّل في صندوق هذا الوكيل** — تُشغَّل بـ`bash scripts/qa-env.sh`:
+   `_chess_browser_test` · `_parchisi_browser_test` · `_iso_ui_test` · `_unified_ui_test` · `_layout_test` · `_do_visual_test`.
+   الأجنحة غير المتصفحية خضراء (36 جناحاً، منها cf 80/0 · parchisi 155/0 · chess engine 52/0).
+   التفاصيل الكاملة في `GITHUB_SYNC.md` قسم v2.45.1 + v2.45.2.
+
+## 12) v2.48 (2026-09-20) — إصلاح لعب الطاولة + تصميم الضومنة (وكيل Arena)
+
+1. **الطاولة**: كانت **غير قابلة للعب** لأن شاشة اللعب (display:grid/flex !important) تُظهر فوق شاشة
+   الإعدادات ⇒ كل نقرة تفشل. الإصلاح في `css/21-classic.css` (تقييد `.bw-screen-active`).
+2. **الضومنة**: القطع كانت تُقصّ (تمرير داخلي + `aspect-ratio` + `.dm-face` بلا `inset`) وتظهر في
+   منطقة بنّية (رفّ خشبي/جوخ بنّي) ⇒ الآن: جوخ أخضر في الوضعين، قطع كاملة بنقاط داخلها، بنك يساراً،
+   رزمة الخصم يميناً، أدوات دائرية فوق اليد.
+3. **المرجع الملزِم:** `docs/DESIGN_SPEC_dm_bw.md` · **الحارس:** `tests/_look_v248_test.js`.
+4. كاش CSS: `?v=look2` للملفين `21-classic.css` و`22-look.css` (أي تعديل ⇒ ارفعوا الرقم).

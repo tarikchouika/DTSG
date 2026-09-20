@@ -215,37 +215,35 @@
 
 /* ═══════════════════ 2) الضومينو — اللاندسكيب (خشب + رفّ) ═══════════════════ */
 @media (orientation: landscape) {
-  /* الطاولة خشبية كما في مرجع اللاندسكيب */
+  /* [v2.46] الطاولة جوخ أخضر مُشعّ في الوضعين (طلب المالك) — لا خشب بنّي */
   #dmStage .dm-felt {
     background:
-      linear-gradient(180deg, rgba(140, 92, 44, .96), rgba(96, 58, 24, .97)),
-      repeating-linear-gradient(92deg, rgba(255, 226, 168, .05) 0 3px, rgba(60, 32, 10, .07) 3px 7px) !important;
+      radial-gradient(130% 105% at 50% 40%, #2d6b50 0%, #17402e 60%, #0e2a1e 100%),
+      repeating-linear-gradient(45deg, rgba(255, 255, 255, .014) 0 2px, transparent 2px 10px) !important;
   }
-  #dmStage .dm-felt::after { inset: 8px; border-color: rgba(255, 226, 168, .16); }
+  #dmStage .dm-felt::after { inset: 8px; border-color: rgba(242, 212, 137, .22); }
   #dmStage .dm-chain { inset: 16% 26% !important; }   /* اللاندسكيب: المسار في وسط الطاولة */
 
   /* المقاعد: أنا أسفل-يسار · الخصم أعلى-يمين (كما في المرجع) */
-  #dmStage .dm-hud { padding: 8px 12px 0 !important; }
+  #dmStage .dm-hud { inset: 0 !important; padding: 0 !important; }
   #dmStage .dm-seat { flex-direction: row; }
   #dmStage .dm-seat .dm-avatar { width: 46px; height: 46px; font-size: 20px; }
   #dmStage .dm-hudmid { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); }
+  #dmStage #dmSeatOpp { position: absolute !important; top: 8px; right: 12px; }
+  #dmStage #dmSeatMe { position: absolute !important; left: 12px; bottom: calc(var(--dm-hand-h, 34%) + 10px); }
 
-  /* اليد على رفّ خشبي في منتصف الأسفل */
+  /* [v2.46] اليد على الطاولة الخضراء مباشرة — أُزيل الرفّ الخشبي البنّي */
   #dmStage .dm-handwrap {
-    padding: 24px 12px 12px !important;
-    background: none !important;
+    padding: 10px 12px 10px !important;
+    background: linear-gradient(180deg, rgba(10, 26, 19, .10), rgba(8, 20, 15, .62)) !important;
+    border-top: 1px solid rgba(242, 212, 137, .16) !important;
   }
-  #dmStage .dm-handwrap::before {
-    content: ''; position: absolute; inset: 12px 8% 6px;
-    background: linear-gradient(180deg, #6b4423, #3a2410);
-    border-radius: 16px 16px 10px 10px;
-    box-shadow: 0 10px 26px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 226, 168, .25);
-  }
-  #dmStage .dm-hand { position: relative; z-index: 2; gap: 10px !important; }
-  #dmStage .dm-hand .dm-htile { max-width: 56px !important; }
+  #dmStage .dm-handwrap::before { display: none !important; }
+  #dmStage .dm-hand { position: relative; z-index: 2; gap: 8px !important; }
+  #dmStage .dm-hand .dm-htile { max-width: min(56px, calc(var(--dm-tile-h) * 27 / 50)) !important; }
   #dmStage .dm-tools { inset-inline-start: 10px; bottom: 12px; }
-  /* [FIX] اللاندسكيب: الرفّ يأخذ ~45% من الارتفاع ⇒ نثبّت الرزمة تحت الـHUD داخل مساحة الطاولة لا في منتصف الشاشة */
-  #dmStage .dm-opprow { top: 58px !important; transform: none !important; max-height: 36% !important; justify-content: flex-start !important; padding: 0 8px !important; }
+  /* [FIX] اللاندسكيب: الرزمة تحت الـHUD داخل مساحة الطاولة لا في منتصف الشاشة */
+  #dmStage .dm-opprow { top: 66px !important; transform: none !important; max-height: 34% !important; justify-content: flex-start !important; padding: 0 8px !important; }
 }
 
 /* ════════════════════════ 3) الطاولة — ملء وتخطيط ════════════════════════ */
@@ -505,3 +503,53 @@
 /* صواني الخارج: أعمدة خشبية رفيعة على الحافتين */
 #bwStage .bw-traycol { max-width: 40px; }
 #bwStage .bw-tray { border: 1px solid rgba(255, 226, 168, .16) !important; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [v2.48-FIT] الطاولة والضومنة: ملء المسرح بلا تمرير ولا قصّ ليد اللاعب
+   ───────────────────────────────────────────────────────────────────────────
+   المشكلة المُثبتة (لقطات المالك 2026-09-20): `.dm-screen/.bw-screen` كانت
+   `position:absolute; inset:0; overflow-y:auto` مع `.dm-table{min-height:140px}`
+   ⇒ مجموع (الطاولة + اليد الكبيرة) يتجاوز ارتفاع الشاشة فيظهر شريط زالق
+     وتُقتطع قطع اليد من الأسفل، وتبقى الأيدي في منطقة بنّية منفصلة.
+   الحل: المرحلة تملأ `#gamePageBody` تماماً (كما chess/dama في 15-edge.css)،
+   الطاولة تتقلّص (flex/min-height:0)، واليد محدودة بارتفاع الشاشة ⇒ لا تمرير أبداً.
+   ═══════════════════════════════════════════════════════════════════════════ */
+#gamePageBody #dmStage.stage,
+#gamePageBody #bwStage.stage {
+  position: absolute !important;
+  inset: 0 !important;
+  width: auto !important; height: auto !important;
+  max-width: none !important; max-height: none !important;
+  margin: 0 !important; padding: 0 !important;
+  border: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important;
+  transform: none !important;          /* لا تحجيم transform — القياس بالـCSS */
+  overflow: hidden !important;
+  box-sizing: border-box;
+}
+/* شاشة اللعب فقط: بلا تمرير داخلي (شاشات الإعداد تبقى قابلة للتمرير على الشاشات الصغيرة) */
+#dmStage #dmPlay.dm-screen-active,
+#bwStage #bwPlay.bw-screen-active { overflow: hidden !important; }
+#dmStage #dmPlay.dm-screen-active { display: flex !important; flex-direction: column; height: 100%; }
+#bwStage #bwPlay.bw-screen-active { height: 100%; min-height: 0; }
+
+/* ميزانية ارتفاع قطع اليد: لا تتجاوز ~26% من الشاشة ⇒ تبقى كاملة على الحافة */
+#dmStage {
+  --dm-tile-h: clamp(52px, 24dvh, 104px);
+  --dm-hand-h: 30%;
+}
+#dmStage .dm-table { flex: 1 1 auto !important; min-height: 0 !important; }
+#dmStage .dm-handwrap { flex: 0 1 auto !important; max-height: var(--dm-hand-h); }
+#dmStage .dm-hand { align-items: flex-end !important; min-height: 0 !important; }
+#dmStage .dm-hand .dm-htile {
+  height: var(--dm-tile-h) !important;
+  max-height: 100% !important;
+  flex: 0 1 auto !important;
+  aspect-ratio: auto !important;
+  width: auto !important;
+  min-width: 22px !important;
+  max-width: min(62px, calc(var(--dm-tile-h) * 27 / 50)) !important;
+}
+/* الطاولة (bg): اللوحة تتقلّص ولا تدفع شريط النرد خارج الشاشة */
+#bwStage .bw-board { min-height: 0 !important; }
+#bwStage .bw-dicebar { flex: 0 0 auto !important; }
