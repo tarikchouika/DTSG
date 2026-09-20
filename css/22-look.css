@@ -38,7 +38,10 @@
   border-radius: 9px !important;
   overflow: hidden !important;              /* النقاط داخل القطعة — لا تسرّب للجوخ */
 }
-#dmStage .dm-opprow .dm-htile { height: auto !important; width: auto !important; }
+/* في «لاعبان — جهاز واحد» يعرض .dm-opprow يد اللاعب الثاني: حجم صغير صريح
+   (لا نتركه auto فينهار العرض إلى الصفر) */
+#dmStage .dm-opprow .dm-htile { width: 24px !important; height: 46px !important; }
+#dmStage .dm-opprow .dm-htile .dp-cell { border-radius: 50%; }
 /* النقاط: نسبية للقطعة (كانت تُرسم بمقاس ثابت فتفيض عند تصغير القطعة) */
 #dmStage .dm-hand .dm-htile .dm-face,
 #dmStage .dm-htile .dm-face { position: absolute; inset: 0; width: auto; height: auto; }
