@@ -42,7 +42,8 @@ function bad(l) { fail++; console.log('  ❌ ' + l); }
       await page.click('#btnEnable2fa');
       await PW.wait(page, () => {
         const q = document.getElementById('twofaQr');
-        return q && q.src && q.src.indexOf('qrserver') !== -1;
+        /* [v2.45.1] صار رمز 2FA يُولَّد محلياً ⇒ src = data:image/svg+xml (نقبل النمطين) */
+        return q && q.src && (q.src.indexOf('qrserver') !== -1 || q.src.indexOf('data:image/svg') === 0);
       }, 8000);
       await PW.wait(page, () => { const q = document.getElementById('twofaQr'); return q && q.complete && q.naturalWidth > 0; }, 10000);
       const qr = await page.evaluate(() => {
