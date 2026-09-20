@@ -13,7 +13,18 @@
   window.__dtsgBotChat = 1;
 
   var SUPPORT_BOT = 'https://t.me/dtsgsupports_bot';
+  /* [v2.47] بوت أكواد التعبئة (@dtsgvoucher_bot) — وصول سريع من المنصة.
+     الرابط يحمل معرّف المستخدم (/start plt_<id>) فيربط حسابه تلقائياً داخل البوت. */
+  var VOUCHER_BOT = 'https://t.me/dtsgvoucher_bot';
   var POLL_MS = 9000;
+
+  function myUid() {
+    try { return (window.AUTH && AUTH.user && AUTH.user.id) ? String(AUTH.user.id) : ''; } catch (e) { return ''; }
+  }
+  function voucherUrl() {
+    var u = myUid();
+    return VOUCHER_BOT + (u ? ('?start=plt_' + encodeURIComponent(u)) : '');
+  }
 
   function L(key, fallback) {
     try {
@@ -84,6 +95,12 @@
     '<span class="bc-cic"><i class="fa-brands fa-telegram" aria-hidden="true"></i></span>' +
     '<span><b>' + esc(L('bc.cardSupport', 'بوت خدمة العملاء')) + '</b><small>' + esc(L('bc.cardSupportSub', 'تذاكر وردود الفريق — @dtsgsupports_bot')) + '</small></span>' +
     '<i class="fa-solid fa-chevron-left bc-go" aria-hidden="true"></i></a>' +
+    /* [v2.47] بطاقة بوت أكواد التعبئة — دمج بوت الفوتشير في مركز المساعدة (طلب المالك):
+       وصول سريع من المنصة، والرابط يربط حساب المستخدم تلقائياً (plt_<id>). */
+    '<a class="bc-card" id="bcVoucher" href="' + voucherUrl() + '" target="_blank" rel="noopener" data-bcvoucher="1">' +
+    '<span class="bc-cic gold"><i class="fa-solid fa-ticket" aria-hidden="true"></i></span>' +
+    '<span><b>' + esc(L('bc.cardVoucher', 'بوت أكواد التعبئة')) + '</b><small>' + esc(L('bc.cardVoucherSub', 'اشترِ كود تعبئة — يصلك الكود بعد مصادقة الإدارة')) + '</small></span>' +
+    '<i class="fa-solid fa-chevron-left bc-go" aria-hidden="true"></i></a>' +
     '<a class="bc-card" href="#wallet" data-bcwallet="1">' +
     '<span class="bc-cic gold"><i class="fa-solid fa-coins" aria-hidden="true"></i></span>' +
     '<span><b>' + esc(L('bc.cardWallet', 'المحفظة — شحن وسحب')) + '</b><small>' + esc(L('bc.cardWalletSub', 'Binance · CIH · Cash Plus · كوبونات')) + '</small></span>' +
@@ -113,6 +130,11 @@
   var STATE = { open: false, logged: null, tickets: [], busy: false, timer: null, seen: 0 };
 
   function el(id) { return document.getElementById(id); }
+  /* [v2.47] رابط بوت أكواد التعبئة يُحدَّث بحسب الجلسة (قد تُعرف بعد بناء الواجهة) */
+  function syncVoucher() {
+    var a = el('bcVoucher');
+    if (a) a.setAttribute('href', voucherUrl());
+  }
   /* [v2.42] هل الجلسة معروفة محلياً؟ (يمنع طلباً بلا جلسة ⇒ خطأ 401 في الكونسول لكل زائر)
      AUTH.user يُضبط بعد authRestore في المنصة وفي الصفحات القانونية معاً. */
   function knownSession() {
@@ -123,6 +145,7 @@
     STATE.open = true;
     el('botFab').setAttribute('aria-expanded', 'true');
     el('botChat').hidden = false;
+    syncVoucher();                                   /* [v2.47] رابط بوت أكواد التعبئة بمعرّف المستخدم */
     try { sessionStorage.setItem('rc_botchat_open', '1'); } catch (e) { }
     if (!silent) { el('botFab').classList.remove('pulse'); }
     el('botFabDot').hidden = true;
@@ -294,6 +317,13 @@
       });
     });
     document.addEventListener('click', function (e) {
+      /* [v2.47] بطاقة بوت أكواد التعبئة: نُحدّث الرابط بمعرّف المستخدم قبل الفتح */
+      var v = e.target.closest ? e.target.closest('[data-bcvoucher]') : null;
+      if (v) {
+        syncVoucher();
+        if (!myUid()) bubble(esc(L('bc.cardVoucherLogin', 'سجّل الدخول أولاً ليتعرّف البوت على حسابك تلقائياً — أو اربطه بكود /start من الرسالة.')), 'sys');
+        return;
+      }
       var q = e.target.closest ? e.target.closest('[data-q]') : null;
       if (q) { quick(q.getAttribute('data-q')); return; }
       var w = e.target.closest ? e.target.closest('[data-bcwallet]') : null;

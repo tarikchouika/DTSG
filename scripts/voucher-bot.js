@@ -1,21 +1,25 @@
 #!/usr/bin/env node
 /* ═══════════════════════════════════════════════════════════════════════════
-   DTSG Voucher Bot — بوت تيليغرام للشحن السريع (v2.44 Phase B)
+   DTSG Voucher Bot — بوت تيليغرام لأكواد التعبئة فقط (v2.47)
    ───────────────────────────────────────────────────────────────────────────
-   المهمة: يشتري المستخدم/الأدمن كود تعبئة عبر وسائل دفع المنصة، بتحقق ومصادقة
-   حصرية من السوبر أدمن، ثم يُنشأ كود تعبئة = مبلغ الشحن ويُرسل للمستخدم،
-   وعند تفعيله يُضاف للرصيد بالدولار + ما يعادله كوينز مع بونص الشريحة تلقائياً.
+   [v2.47-NARROW] تخصيص البوت (طلب المالك): هذا البوت **مختصّ بأكواد التعبئة فقط**.
+   لا يعالج طلبات دعم، ولا طلبات سحب، ولا استعلام رصيد. مساره الوحيد:
+     1) يربط المستخدم حسابه بالبوت (أو عبر رابط /start plt_<معرّفك> من المنصة).
+     2) يسأله عن وسيلة الدفع ← المبلغ ← مرجع العملية ← دليل الدفع (نص/صورة).
+     3) يُرسل الطلب للسوبر أدمن للمصادقة، وبعد المصادقة يصله **كود التعبئة** هنا.
+   • السحب حصري في المحفظة (المنصة ← المحفظة): الطلب يصل أدمن حساب المستخدم.
+   • الدعم حصري في بوت خدمة العملاء (@dtsgsupports_bot) ومن مركز المساعدة في المنصة.
 
    التشغيل على الخادم/الهاتف:
      VOUCHER_BOT_TOKEN=123:ABC  API_BASE=http://127.0.0.1:8080 \
      SUPER_TG=5700612979  node scripts/voucher-bot.js
-   متغيرات اختيارية: ADMIN_API_SECRET (لتأكيد الطلبات من البوت)، CASH_PLUS_NAME،
-   BOT_POLL_MS (افتراضي 1200)، STATE_FILE (افتراضي data/voucher-bot-state.json)
+   متغيرات اختيارية: ADMIN_API_SECRET، CASH_PLUS_NAME، BOT_POLL_MS (افتراضي 1200)،
+   STATE_FILE (افتراضي data/voucher-bot-state.json)، SUPPORT_BOT_URL، PLATFORM_URL.
 
    ملاحظات معمارية:
    • يستخدم Long-Polling (getUpdates) ⇒ لا يتعارض مع بوت المنصة ذي الـwebhook.
-   • لا يحتفظ بالرصيد: كل الأرقام من المنصة عبر /api/bot/* و /api/wallet/balance.
-   • الصلاحية حصرية للسوبر أدمن (SUPER_TG أو TELEGRAM_ADMIN_CHAT_ID أو __adminCanAct).
+   • لا يحتفظ بالرصيد: كل الأرقام من المنصة عبر /api/bot/*.
+   • المصادقة حصرية للسوبر أدمن (SUPER_TG أو TELEGRAM_ADMIN_CHAT_ID أو ADMIN_API_SECRET).
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const fs = require('fs');
@@ -57,10 +61,10 @@ function say(chatId, text, extra) {
 function money(n) { return Number(n || 0).toLocaleString('ar-MA'); }
 function isSuper(id) { return SUPER_TG && String(id) === SUPER_TG; }
 
-/* ── لوحة المستخدم ── */
+/* ── لوحة المستخدم — أكواد التعبئة فقط (v2.47-NARROW) ── */
 const KB_USER = (linked) => ({
   keyboard: linked
-    ? [[{ text: '🎟️ شحن سريع (كود تعبئة)' }, { text: '💰 رصيدي' }], [{ text: '💸 طلب سحب' }, { text: '🛟 الدعم' }], [{ text: '🔗 تغيير الحساب المرتبط' }]]
+    ? [[{ text: '🎟️ شحن سريع (كود تعبئة)' }], [{ text: '🔗 تغيير الحساب المرتبط' }]]
     : [[{ text: '🔗 ربط حسابي' }], [{ text: '🎟️ شحن سريع (كود تعبئة)' }]],
   resize_keyboard: true
 });
@@ -132,28 +136,27 @@ async function startTopup(chatId) {
   await say(chatId, '🎟️ <b>شحن سريع — كود تعبئة</b>\nاختر وسيلة الدفع:' + lines, { reply_markup: METHOD_KB });
 }
 
-async function startWithdraw(chatId) {
-  const u = linkedUser(chatId);
-  if (!u) return startLink(chatId);
-  session(chatId).step = 'wd_amount';
-  await say(chatId, '💸 <b>طلب سحب</b>\nاكتب المبلغ بالدولار (مثال: 50) ثم نرسله للسوبر أدمن للمصادقة.', { reply_markup: { keyboard: [[{ text: '✖️ إلغاء' }]], resize_keyboard: true } });
-}
-
-async function showBalance(chatId) {
-  const u = linkedUser(chatId);
-  if (!u) return startLink(chatId);
-  const r = await api('/api/wallet/balance?username=' + encodeURIComponent(u.username), null, 'GET');
-  if (r.status === 200 && r.body) {
-    const b = r.body;
-    await say(chatId, '💰 <b>رصيدك</b>\nالحساب: <b>' + u.username + '</b>\nالرصيد: <b>' + money(b.coins || b.gold || 0) + ' 🪙</b>' +
-      (b.balance_usd != null ? '\nما يعادل: ' + Number(b.balance_usd).toFixed(2) + ' USD' : ''));
-  } else {
-    await say(chatId, '⚠️ تعذّر جلب الرصيد الآن، جرّب لاحقاً.');
-  }
+/* [v2.47-NARROW] نطاق البوت: أكواد التعبئة فقط — أي طلب آخر يُوجَّه إلى مكانه الصحيح */
+const SUPPORT_BOT_URL = process.env.SUPPORT_BOT_URL || 'https://t.me/dtsgsupports_bot';
+const PLATFORM_URL = (process.env.PLATFORM_URL || 'https://dmgames.pages.dev').replace(/\/+$/, '');
+function outOfScope(chatId) {
+  return say(chatId,
+    '🚫 <b>هذا البوت مخصص لأكواد التعبئة فقط.</b>\n' +
+    '• 🎟️ شراء كود تعبئة ⇒ اضغط «🎟️ شحن سريع (كود تعبئة)» — يصلك الكود هنا بعد مصادقة الإدارة.\n' +
+    '• ⬆️ السحب ⇒ حصري من المحفظة في المنصة (يصل الطلب أدمن حسابك).\n' +
+    '• 🛟 الدعم والتذاكر ⇒ <a href="' + SUPPORT_BOT_URL + '">بوت خدمة العملاء</a>.\n' +
+    '• 💰 الرصيد والمعاملات ⇒ المحفظة: ' + PLATFORM_URL + '/#wallet',
+    { reply_markup: KB_USER(!!linkedUser(chatId)) });
 }
 
 async function submitTopup(chatId, methodKey, amount, details) {
   const u = linkedUser(chatId);
+  /* [Bonus-tiers 2026-09-19] تحقق مبكر: مبلغ رقمي ضمن حدود معقولة قبل إرساله للخادم */
+  if (!(Number(amount) >= 1) || Number(amount) > 1000000) {
+    session(chatId).step = 'topup_amount';
+    await say(chatId, '❌ مبلغ غير صالح. اكتب المبلغ بالدولار (مثال: 100) — من 1$ إلى 1,000,000$.');
+    return false;
+  }
   const r = await api('/api/bot/request', {
     tg_id: String(chatId), user_id: u.user_id, username: u.username,
     kind: 'topup', amount_usd: amount, method: methodKey, details: details
@@ -164,7 +167,9 @@ async function submitTopup(chatId, methodKey, amount, details) {
       (r.body.bonus_pct ? ('\nبونص الشريحة: +' + r.body.bonus_pct + '%') : '') +
       '\nالقيمة عند التفعيل: <b>' + money(r.body.coins_on_approve) + ' 🪙</b>' +
       '\n\nبعد المصادقة سيصلك <b>كود التعبئة</b> هنا مباشرة.', { reply_markup: KB_USER(true) });
-    /* إشعار السوبر أدمن بأزرار المصادقة */
+    /* إشعار السوبر أدمن بأزرار المصادقة — طلب كود التعبئة يُصادق حصراً بمسار
+       الكود dapp_ (إصدار كود) وdrej_ (رفض). أزرار السحب wapp_/wrej_ لم تعد
+      تصدر من هذا البوت (v2.47-NARROW) — السحب من المحفظة ولوحة المنصة. */
     if (SUPER_TG) {
       await say(SUPER_TG, '🎟️ <b>طلب كود تعبئة</b>\nالمستخدم: <b>' + u.username + '</b> (<code>' + u.user_id + '</code>)\n' +
         'المبلغ: <b>' + amount + ' USD</b>' + (r.body.bonus_pct ? (' · بونص +' + r.body.bonus_pct + '%') : '') +
@@ -179,21 +184,9 @@ async function submitTopup(chatId, methodKey, amount, details) {
   return false;
 }
 
-async function submitWithdraw(chatId, amount) {
-  const u = linkedUser(chatId);
-  const r = await api('/api/bot/request', { tg_id: String(chatId), user_id: u.user_id, username: u.username, kind: 'withdraw', amount_usd: amount, method: 'cash_plus', details: 'طلب من البوت' });
-  if (r.status === 200 && r.body && r.body.ok) {
-    session(chatId).step = null;
-    await say(chatId, '📨 <b>وصل طلب سحبك للسوبر أدمن</b>\nالمرجع: <code>' + r.body.tx + '</code>\nالمبلغ: ' + amount + ' USD', { reply_markup: KB_USER(true) });
-    if (SUPER_TG) {
-      await say(SUPER_TG, '💸 <b>طلب سحب</b>\nالمستخدم: <b>' + u.username + '</b> (<code>' + u.user_id + '</code>)\nالمبلغ: <b>' + amount + ' USD</b>\nالمرجع: <code>' + r.body.tx + '</code>',
-        { reply_markup: { inline_keyboard: [[{ text: '✅ قبول', callback_data: 'wapp_' + r.body.tx }], [{ text: '❌ رفض وإعادة الرصيد', callback_data: 'wrej_' + r.body.tx }]] } });
-    }
-    return true;
-  }
-  await say(chatId, '⚠️ تعذّر الطلب: ' + JSON.stringify((r.body && (r.body.error || r.body.hint)) || r.status));
-  return false;
-}
+/* [v2.47-NARROW] أُزيل مسار السحب من البوت نهائياً (طلب المالك):
+   السحب حصري من المحفظة في المنصة، وطلبه يصل أدمن حساب المستخدم (users.admin_id)
+   عبر /api/withdrawals/request — راجع payments-core: notifyWithdrawalOwner(). */
 
 /* ── مصادقة السوبر أدمن على الطلبات (أزرار) ── */
 async function adminAct(cb, act, tx) {
@@ -223,11 +216,14 @@ async function onMessage(msg) {
     const link = text.match(/plt_(\w+)/);
     if (link) { await doLink(chatId, link[1]); return; }
     const u = linkedUser(chatId);
-    await say(chatId, '👋 <b>DTSG — بوت الشحن السريع</b>\n' +
+    await say(chatId, '👋 <b>DTSG — بوت أكواد التعبئة</b>\n' +
       (u ? ('حسابك المرتبط: <b>' + u.username + '</b>') : 'لم تربط حسابك بعد.') +
-      '\n\n• 🎟️ شحن سريع: تشتري كود تعبئة بوسائل دفع المنصة (مصادقة السوبر أدمن)\n' +
-      '• 💰 رصيدي: يعرض الكوينز الحالية\n• 💸 طلب سحب: يصل للسوبر أدمن\n' +
-      (isAdminChat ? '\n\n<b>أدوات السوبر أدمن:</b> الطلبات تصلك هنا بأزرار ✅/❌ · /codes لإنشاء كود · /balance <اسم>' : ''),
+      '\n\nهذا البوت <b>مختصّ بأكواد التعبئة فقط</b>:\n' +
+      '• 🎟️ شحن سريع: اختر وسيلة الدفع ← المبلغ ← مرجع العملية ← دليل الدفع،\n' +
+      '  وبعد مصادقة الإدارة يصلك <b>كود التعبئة</b> هنا.\n' +
+      '• ⬆️ السحب: من المحفظة في المنصة (يصل أدمن حسابك).\n' +
+      '• 🛟 الدعم: ' + SUPPORT_BOT_URL +
+      (isAdminChat ? '\n\n<b>أدوات السوبر أدمن:</b> طلبات الأكواد تصلك هنا بأزرار ✅/❌ · /codes <المبلغ> [العدد]' : ''),
       { reply_markup: KB_USER(!!u) });
     return;
   }
@@ -238,18 +234,9 @@ async function onMessage(msg) {
   }
   if (text === '🔗 ربط حسابي' || text === '🔗 تغيير الحساب المرتبط') return startLink(chatId);
   if (text === '🎟️ شحن سريع (كود تعبئة)') return startTopup(chatId);
-  if (text === '💸 طلب سحب') return startWithdraw(chatId);
-  if (text === '💰 رصيدي' || /^\/balance/.test(text)) {
-    const arg = text.split(/\s+/)[1];
-    if (arg) {
-      const r = await api('/api/wallet/balance?username=' + encodeURIComponent(arg), null, 'GET');
-      return say(chatId, r.status === 200 && r.body ? ('💰 ' + arg + ': <b>' + money(r.body.coins || 0) + ' 🪙</b>') : '⚠️ غير موجود');
-    }
-    return showBalance(chatId);
-  }
-  if (text === '🛟 الدعم') {
-    return say(chatId, '🛟 بوت الدعم: ' + (process.env.SUPPORT_BOT_URL || 'https://t.me/dtsgsupports_bot') + '\nحسابك المرتبط يعمل في البوتين معاً.');
-  }
+  /* [v2.47-NARROW] كل ما هو خارج نطاق أكواد التعبئة يُوجَّه لمكانه الصحيح:
+     لا سحب · لا استعلام رصيد · لا دعم (طلب المالك) */
+  if (/💸|💰|🛟|\/balance|\/support|سحب|withdraw|رصيد|دعم|balance|support/i.test(text)) return outOfScope(chatId);
 
   /* أدوات السوبر أدمن */
   if (isAdminChat && /^\/codes?/.test(text)) {
@@ -279,11 +266,6 @@ async function onMessage(msg) {
     if (!details) return say(chatId, 'أرسل نصاً أو صورة الإشعار.');
     return submitTopup(chatId, s.method, s.amount, details);
   }
-  if (s.step === 'wd_amount') {
-    const amt = Number(String(text).replace(/[^\d.]/g, ''));
-    if (!(amt >= 1)) return say(chatId, 'اكتب مبلغاً صحيحاً بالدولار.');
-    return submitWithdraw(chatId, amt);
-  }
 
   /* افتراضي */
   return say(chatId, 'اختر من القائمة 👇', { reply_markup: KB_USER(!!linkedUser(chatId)) });
@@ -291,7 +273,10 @@ async function onMessage(msg) {
 
 async function onCallback(cb) {
   const data = String(cb.data || '');
-  const m = data.match(/^(dapp|drej|wapp|wrej)_(.+)$/);
+  /* [v2.47-NARROW] البوت يصادق على طلبات أكواد التعبئة فقط (dapp_/drej_).
+     أزرار السحب (wapp_/wrej_) لم تعد تصل من هذا البوت: السحب من المحفظة،
+     وتصادق عليه من لوحة المنصة أو من بوت الدعم/المنصة. */
+  const m = data.match(/^(dapp|drej)_(.+)$/);
   if (!m) return;
   if (!isSuper(cb.from && cb.from.id)) {
     return tg('answerCallbackQuery', { callback_query_id: cb.id, text: 'مصادقة السوبر أدمن فقط', show_alert: true });
@@ -331,4 +316,4 @@ if (require.main === module) {
   process.on('SIGINT', () => { RUNNING = false; process.exit(0); });
 }
 
-module.exports = { onMessage, onCallback, submitTopup, submitWithdraw, doLink, methodKeyFromLabel, METHODS, api, state: () => STATE, _internals: { setLinks: (l) => { STATE.links = l; } , setSuper: (s) => { SUPER_TG = s; } } };
+module.exports = { onMessage, onCallback, submitTopup, outOfScope, doLink, methodKeyFromLabel, METHODS, api, state: () => STATE, _internals: { setLinks: (l) => { STATE.links = l; } , setSuper: (s) => { SUPER_TG = s; } } };

@@ -811,7 +811,7 @@ function fitGameStage() {
   if (!stage) return;
   /* الرامي له تحجيمه الخاص عبر --card-w ؛ الرندا (فلات دوغ) وضاما يملأون الشاشة 100% */
   /* [v2.44-EDGE] الشطرنج أيضاً يملأ الشاشة بالـCSS (حافة-لحافة) — لا تحجيم transform */
-  /* [v2.46-FIT] الضومنة والطاولة أيضاً تملآن الشاشة بالـCSS:transform من هنا كان
+  /* [v2.48-FIT] الضومنة والطاولة أيضاً تملآن الشاشة بالـCSS:transform من هنا كان
      يقيس صندوقاً متجاوزاً فيضيف scale/margin-bottom فوق CSS ويقتطع اليد أو يظهر تمرير */
   if (stage.id === 'rnContainer' || stage.id === 'damaStage' || stage.id === 'chessStage' ||
       stage.id === 'rdStage' || stage.id === 'dmStage' || stage.id === 'bwStage' ||

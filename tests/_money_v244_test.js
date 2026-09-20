@@ -56,7 +56,7 @@ const login = async (page, u, p) => await page.evaluate(async (a) => {
   (r1.status === 200 && r1.body && r1.body.ok && r1.body.tx)
     ? ok('أُنشئ طلب معلّق: ' + r1.body.tx + ' · بونص الشريحة ' + r1.body.bonus_pct + '% · كوينز عند المصادقة ' + r1.body.coins_on_approve)
     : bad('فشل إنشاء الطلب: ' + JSON.stringify(r1));
-  r1.body.bonus_pct === 25 ? ok('بونص 100$ = +25% (شريحة الأدمنز)') : bad('البونص غير صحيح: ' + r1.body.bonus_pct);
+  r1.body.bonus_pct === 5 ? ok('بونص 100$ لمستخدم عادي = +5% (شريحة المستخدمين)') : bad('البونص غير صحيح: ' + r1.body.bonus_pct);
 
   const rBad = await page.evaluate(async () => {
     const r = await fetch('/api/bot/request', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ tg_id: '555000111', amount_usd: 100, details: 'X' }) });
@@ -107,7 +107,7 @@ const login = async (page, u, p) => await page.evaluate(async (a) => {
 
   const bal1 = await page.evaluate(async () => (await (await fetch('/api/wallet/balance?username=qa_player')).json()));
   const coins1 = Number(bal1.coins || 0);
-  const expected = Math.round(100 * RATE * 1.25);          /* 100$ + 25% بونص = 12500 كوين */
+  const expected = Math.round(100 * RATE * 1.05);          /* 100$ + 5% بونص مستخدم عادي = 10500 كوين */
   (coins1 - coins0) === expected
     ? ok('الكوينز شُحنت مرة واحدة بالضبط: +' + (coins1 - coins0) + ' 🪙 (المتوقع ' + expected + ')')
     : bad('الكوينز: +' + (coins1 - coins0) + ' بدل ' + expected + ' (شحن مزدوج/ناقص؟)');

@@ -165,6 +165,7 @@ const TR = {
   'wl.wdHCih': [ 'اسم صاحب الحساب + RIB أو رقم الحساب البنكي', 'Nom du titulaire + RIB ou numéro de compte bancaire', 'Account holder name + RIB or bank account number', 'سمية صاحب الحساب + RIB ولا نمرة الحساب البنكي' ],
   'wl.wdHOm': [ 'رقم هاتف Orange Money', 'Numéro de téléphone Orange Money', 'Orange Money phone number', 'نمرة تيليفون Orange Money' ],
 
+  'wl.noteCash': [ '<b>Cash Plus</b>: حوِّل للحساب الظاهر ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.', '<b>Cash Plus</b> : transférez au compte affiché ← saisissez le code ← vérifié puis crédité.', '<b>Cash Plus</b>: transfer to the shown account ← enter code ← reviewed then credited.', '<b>Cash Plus</b>: حوِّل ← أدخل الكود ← مراجعة فشحن.' ],
   'wl.noteVoucher': [ '<b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).', '<b>Coupon</b> : saisissez le code ← crédit immédiat (une fois).', '<b>Coupon</b>: enter code ← instant credit (once).', '<b>كوبون</b>: أدخل الكود ← شحن فوري.' ],
   'wl.noteWd': [ '<b>⬆️ السحب:</b> طلب يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد تلقائياً.', '<b>⬆️ Retrait :</b> déduit aussitôt, exécuté sous 24 h ; si refusé, retour auto.', '<b>⬆️ Withdraw:</b> deducted at once, executed within 24 h; if refused, auto-refund.', '<b>السحب:</b> يُخصم فوراً ويُنفَّذ خلال 24س؛ إن رُفض رجع تلقائياً.' ],
   'wl.policyLink': [ 'سياسة الاسترداد وطرق الدفع بالتفصيل', 'Politique de remboursement et paiements en détail', 'Refund & payment policy in detail', 'سياسة الاسترداد بالتفصيل' ],
@@ -1757,6 +1758,18 @@ const TR = {
   'bc.send': [ 'إرسال', 'Envoyer', 'Send', 'صيفط' ],
   'bc.cardSupport': [ 'بوت خدمة العملاء', 'Bot support client', 'Customer support bot', 'بوت خدمة العملاء' ],
   'bc.cardSupportSub': [ 'تذاكر وردود الفريق — @dtsgsupports_bot', 'Tickets et réponses — @dtsgsupports_bot', 'Tickets & team replies — @dtsgsupports_bot', 'تذاكر وأجوبة الفريق — @dtsgsupports_bot' ],
+  /* [v2.47] بطاقة بوت أكواد التعبئة داخل مركز المساعدة (دمج بوت الفوتشير في المنصة) */
+  'bc.cardVoucher': [ 'بوت أكواد التعبئة', 'Bot des codes de recharge', 'Top-up voucher bot', 'بوت أكواد التعبئة' ],
+  'bc.cardVoucherSub': [ 'اشترِ كود تعبئة — يصلك الكود بعد مصادقة الإدارة — @dtsgvoucher_bot', 'Achetez un code de recharge — reçu après validation de l’administration — @dtsgvoucher_bot', 'Buy a top-up code — delivered after admin approval — @dtsgvoucher_bot', 'شري كود تعبئة — كيوصلك بعد مصادقة الإدارة — @dtsgvoucher_bot' ],
+  'bc.cardVoucherLogin': [ 'سجّل الدخول أولاً ليتعرّف البوت على حسابك تلقائياً — أو افتح البوت وأرسل /start.', 'Connectez-vous d’abord pour que le bot reconnaisse votre compte — ou ouvrez-le et envoyez /start.', 'Log in first so the bot recognises your account — or open it and send /start.', 'دخل لحسابك أولاً باش يعرف البوت حسابك — ولا حلو وصيفط /start.' ],
+  /* [v2.47] زر بوت أكواد التعبئة داخل المحفظة */
+  'wl.voucherBotBtn': [ '🎟️ بوت أكواد التعبئة', '🎟️ Bot des codes de recharge', '🎟️ Top-up voucher bot', '🎟️ بوت أكواد التعبئة' ],
+  'wl.voucherBotNote': [ 'اشترِ كود تعبئة من البوت وينتظر مصادقة الإدارة — ثم يصلك الكود هناك.', 'Achetez un code via le bot (validation par l’administration), le code arrive ensuite.', 'Buy a top-up code in the bot (admin approval) — the code arrives there.', 'شري كود تعبئة من البوت — كيتسنى مصادقة الإدارة — ومن بعد كيوصلك الكود.' ],
+  /* [v2.47-BNB-RO] الشحن بالتحقق التلقائي بوضع القراءة فقط (معرّف Pay / QR) */
+  'wl.mBnbRO': [ 'Binance Pay — تحقّق تلقائي', 'Binance Pay — vérification auto', 'Binance Pay — auto verify', 'Binance Pay — تحقق أوتوماتيكي' ],
+  'wl.roPayId': [ 'معرّف Binance Pay (Pay ID)', 'Identifiant Binance Pay (Pay ID)', 'Binance Pay ID', 'معرّف Binance Pay (Pay ID)' ],
+  'wl.roHint': [ 'حوِّل المبلغ إلى هذا المعرّف (أو امسح الرمز من تطبيق Binance) ثم اضغط «تحقّق من التحويل» — يُشحن رصيدك تلقائياً بعد وصول المبلغ.', 'Transférez le montant à cet identifiant (ou scannez le QR dans Binance) puis appuyez sur « Vérifier » — crédit automatique à réception.', 'Send the amount to this Pay ID (or scan the QR in Binance) then tap “Verify transfer” — your balance is credited automatically once received.', 'صيفط المبلغ لهاد المعرّف (ولا سكاني الرمز من تطبيق Binance) ومن بعد ضغط «تحقق من التحويل» — الرصيد كيتشحن أوتوماتيكياً ملي يوصل المبلغ.' ],
+  'wl.roVerify': [ '⚡ تحقّق من التحويل', '⚡ Vérifier le transfert', '⚡ Verify transfer', '⚡ تحقق من التحويل' ],
   'bc.cardWallet': [ 'المحفظة — شحن وسحب', 'Portefeuille — dépôt et retrait', 'Wallet — deposit & withdrawal', 'المحفظة — شحن وسحب' ],
   'bc.cardWalletSub': [ 'Binance · CIH · Cash Plus · كوبونات', 'Binance · CIH · Cash Plus · coupons', 'Binance · CIH · Cash Plus · vouchers', 'Binance · CIH · Cash Plus · كوبونات' ],
   'bc.cardStatus': [ 'تتبّع معاملة', 'Suivre une transaction', 'Track a transaction', 'تبع معاملة' ],

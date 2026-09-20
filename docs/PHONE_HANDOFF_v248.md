@@ -1,4 +1,4 @@
-# 📱 تكليف مساعد الهاتف — نشر DTSG v2.46 (الطاولة والضومنة)
+# 📱 تكليف مساعد الهاتف — نشر DTSG v2.48 (الطاولة والضومنة)
 
 > **من:** وكيل Arena (فرع `arena/01a0bd39-dtsg`)
 > **إلى:** مساعد خادم الهاتف (sam) وأي مساعد يملك صلاحية النشر
@@ -24,11 +24,11 @@
 # 1) اجلب أحدث main على شجرة النشر
 cd /root/dmgames-arena           # (أو مسار شجرة النشر عندك)
 git fetch origin && git checkout main && git pull --ff-only origin main
-git log --oneline -3             # يجب أن ترى كوميتات v2.46 (96d442b … 6d3aff4)
+git log --oneline -3             # يجب أن ترى كوميتات v2.48 (96d442b … 6d3aff4)
 
 # 2) تحقّق أن الإصلاحات فعلاً في الملفات قبل النشر
 grep -c "bw-screen-active" css/21-classic.css          # ≥ 3
-grep -c "v2.46-FIT\|v2.46-SEATS\|v2.46-LOOK" css/21-classic.css css/22-look.css   # > 0
+grep -c "v2.48-FIT\|v2.48-SEATS\|v2.48-LOOK" css/21-classic.css css/22-look.css   # > 0
 test -f css/22-look.css && echo "22-look موجود"
 grep -o "22-look.css?v=look3" index.html               # لازم يظهر
 
@@ -37,7 +37,7 @@ bash scripts/deploy-pages.sh
 ```
 
 **لا حاجة لإعادة تشغيل الخادم** ولا لترحيل قاعدة بيانات في هذه النسخة
-(v2.46 = CSS + index.html + اختبارات + توثيق فقط). إن شغّلت `update-phone-server.sh` فسيكون
+(v2.48 = CSS + index.html + اختبارات + توثيق فقط). إن شغّلت `update-phone-server.sh` فسيكون
 بلا مفعول تغيير — لكنه آمن.
 
 ### التحقق بعد النشر (إلزامي — 4 فحوص سريعة)
@@ -76,7 +76,7 @@ curl -s https://casino-phone.dmgames-api.workers.dev/api/health                 
 
 - **المواصفة الملزِمة:** `docs/DESIGN_SPEC_dm_bw.md` — عقد DOM + جدول المقاسات + **8 ممنوعات**.
 - **ميثاق الإصلاحات المجمّدة:** `docs/FIXES_FROZEN_v2451.md` — 17 إصلاحاً مع حارس لكل واحد.
-- **حارس التصميم (متصفح):** `node tests/_look_v246_test.js` عبر `bash scripts/qa-env.sh`.
+- **حارس التصميم (متصفح):** `node tests/_look_v248_test.js` عبر `bash scripts/qa-env.sh`.
 - **حارس الإصلاحات بلا متصفح:** `_repo_hygiene_test` · `_frontend_tx_test` · `_security_static_test` ·
   `_parchisi_engine_test` · `_cf_payments_test`.
 
@@ -92,7 +92,7 @@ curl -s https://casino-phone.dmgames-api.workers.dev/api/health                 
 
 ## 4) ما بعد النشر — التبليغ
 
-اكتب في تذكرة GitHub (Issue «نشر v2.46») سطراً واحداً بهذه الصيغة:
+اكتب في تذكرة GitHub (Issue «نشر v2.48») سطراً واحداً بهذه الصيغة:
 
 ```
 النشر: ✅ | look3: ✅ | 22-look: 200 | bw-screen-active: 3 | health: ok | بصري: 6/6 بنود
