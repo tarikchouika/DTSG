@@ -249,7 +249,7 @@ server.js لا يبث `blindResult` إطلاقاً — ألعاب penalty/rps ف
 
 **الفرع `arena/01a0bd39-dtsg`** (الأساس `711fc10`): `75386b2` + `cf7e0ed` + `a1e7e0f` + `v2.45.2`.
 
-1. **ڤيرسيل = تجريبية فقط** (قرار المالك): الأساسي Cloudflare (Pages + Worker + KV + R2).
+1. **ڤيرسيل = تجريبية فقط** (قرار المالك): الأساسي Cloudflare **Pages + Worker + KV** (بلا R2) مع SQLite محلية على خادم الهاتف.
    `vercel.json`/`.vercelignore` في `.gitignore` (لا تُرفع) و`Dockerfile`/`.dockerignore` **أُعيدا**.
 2. **الشطرنج = تدريب مجاني بلا رهان** (قرار المالك، مرفوض إضافة الشريط): أُزيلت الكتلة الميتة
    `#chessStake` من `js/games/chess.js`، وصُحّحت توقعات `tests/_chess_browser_test.js`

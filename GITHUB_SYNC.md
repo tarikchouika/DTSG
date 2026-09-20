@@ -402,7 +402,7 @@ dmgames.pages.dev (5c7e1d69)
 
 ### 1) قرار المالك: **ڤيرسيل مسار تجريبي فقط** (ليست أساس النشر)
 - الأساس الحقيقي: **Cloudflare Pages** (الواجهة) + **Worker** `casino-phone.dmgames-api.workers.dev`
-  (+ KV `url`) + النفق إلى خادم الهاتف، و**R2** للتخزين.
+  (+ KV `url`) + النفق إلى خادم الهاتف (`server.js` + SQLite محلية `data/royalcoin.db`). **لا R2** — المفاتيح المذكورة في `deploy-pages.sh` لحاوية R2 «إن استُعملت» فقط ولم تُستعمل.
 - `vercel.json`/`.vercelignore` **لا تُرفع إلى git** (أُضيفا إلى `.gitignore`) — و**لا يجوز** حذف
   `Dockerfile`/`.dockerignore` من أجل ڤيرسيل (أُعيدا في هذا الفرع بعد أن حُذفا محلياً).
 
