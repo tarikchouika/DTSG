@@ -3,8 +3,9 @@ process.chdir(require('path').resolve(__dirname, '..'));
 'use strict';
 const fs = require('fs');
 const src = fs.readFileSync(__dirname + '/../js/games/parchisi.js', 'utf8');
-const sandbox = new Function(src + '\n;return { ParchisiEngine, PR_MODES, PR_OFF, PR_SAFE, PR_STARS, PR_HEADS, PR_TRACK, PR_CORRIDOR, PR_BASE };');
-const { ParchisiEngine, PR_MODES, PR_OFF, PR_SAFE, PR_STARS, PR_HEADS, PR_TRACK } = sandbox();
+/* [v2.44-FIX] نُصدّر ثوابت الهندسة الحالية كي يتحقّق الاختبار من القيم الصحيحة (204/64×27.5/140) */
+const sandbox = new Function(src + '\n;return { ParchisiEngine, PR_MODES, PR_OFF, PR_SAFE, PR_STARS, PR_HEADS, PR_TRACK, PR_CORRIDOR, PR_BASE, PR_CW, PR_CH, PR_B, PR_CTR, PR_BASE_INSET, PR_PIECE_R, PR_EDGE_SCALE, prEdgeInverse };');
+const { ParchisiEngine, PR_MODES, PR_OFF, PR_SAFE, PR_STARS, PR_HEADS, PR_TRACK, PR_CW, PR_CH, PR_B, PR_CTR, PR_BASE_INSET, PR_PIECE_R, PR_EDGE_SCALE, prEdgeInverse } = sandbox();
 
 let pass = 0, fail = 0;
 function ok(name, cond) {
@@ -28,15 +29,19 @@ ok('4 نجوم + 4 رؤوس آمنة', PR_STARS.length === 4 && PR_HEADS.length 
 ok('12 خانة آمنة (4 ساليدات + 8 نجوم)', PR_SAFE.length === 12);
 ok('ساليدات المقاعد [4,21,38,55] (خانات 5/22/39/56)', JSON.stringify(PR_OFF) === JSON.stringify([4, 21, 38, 55]));
 ok('لا تكرار في خانات المسار', new Set(PR_TRACK.map(t => t.x + ',' + t.y)).size === 68);
-/* [v2.43] المواصفة الجديدة: القاعدة 160 (كانت 194) والخانة المستطيلة 93.33×30
-   (كانت 64×27.5) — الذراع 3 أعمدة × 280 و8 صفوف × 240 والمركز 120×120 */
-const PR_ARM_OK = (600 - 2 * 160) / 3, PR_PITCH_OK = ((600 - 120) / 2) / 8;
-ok('خانات مستطيلة (' + PR_ARM_OK.toFixed(2) + '×' + PR_PITCH_OK + ')',
+/* [v2.44-FIX] الهندسة المُسترجَعة بعد تشويه v2.43: القاعدة 204 (10..204) · الخانة 64×27.5
+   (نسبة 2.33:1) · المركز 140. والحافة-لحافة تُنجز بتحويل PR_EDGE_SCALE على الكانفس
+   لا بتقليص الهامش — لذلك يُفحص التحويل وعكسه (دقّة اللمس) بدل «هامش ≤ 4». */
+const PR_ARM_OK = 64, PR_PITCH_OK = 27.5;
+ok('خانات مستطيلة (' + PR_ARM_OK + '×' + PR_PITCH_OK + ')',
   PR_TRACK.every(t => (Math.abs(t.w - PR_ARM_OK) < 0.01 && Math.abs(t.h - PR_PITCH_OK) < 0.01) ||
                       (Math.abs(t.w - PR_PITCH_OK) < 0.01 && Math.abs(t.h - PR_ARM_OK) < 0.01)));
-ok('القاعدة الملوّنة 160', typeof PR_B === 'number' ? PR_B === 160 : true);
-ok('المركز 120×120', typeof PR_CTR === 'number' ? PR_CTR === 120 : true);
-ok('بلا هوامش: القواعد ملتصقة بالحواف', typeof PR_BASE_INSET === 'number' ? PR_BASE_INSET <= 4 : true);
+ok('ثوابت الخانة (PR_CW=64 · PR_CH=27.5)', PR_CW === 64 && PR_CH === 27.5);
+ok('القاعدة الملوّنة 204', PR_B === 204);
+ok('المركز 140×140', PR_CTR === 140);
+ok('هامش منطقي 10', PR_BASE_INSET === 10);
+ok('تحويل حافة-لحافة 600/580 وعكسه', Math.abs(PR_EDGE_SCALE - 600 / 580) < 1e-9 &&
+  Math.abs(prEdgeInverse(0) - 10) < 1e-9 && Math.abs(prEdgeInverse(600) - 590) < 1e-9);
 ok('البيادق مكبَّرة +15%', typeof PR_PIECE_R === 'number' ? Math.abs(PR_PIECE_R - 10.5 * 1.15) < 0.2 : true);
 
 console.log('═══ كلاسيك: الخروج التلقائي بالخمسة ═══');

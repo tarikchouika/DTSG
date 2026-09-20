@@ -66,9 +66,9 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 <div class="pay-steps">
 <h3 data-k="refund.c1t">🟡 1) Binance Pay — تلقائي 100%</h3>
 <ol>
-<li><span class="st">1</span> <span data-k="refund.c1s1">افتح المحفظة ← «شحن» ← اختر «كريبتو».</span></li>
+<li><span class="st">1</span> <span data-k="refund.c1s1">افتح المحفظة ← «شحن» ← اختر «Binance Pay».</span></li>
 <li><span class="st">2</span> <span data-k="refund.c1s2">أدخل المبلغ بالدولار ← يُفتح طلب دفع عبر Binance Pay.</span></li>
-<li><span class="st">3</span> <span data-k="refund.c1s3">حوِّل المبلغ (USDT/BTC…)؛ يُشحن رصيدك <b>تلقائياً</b> فور تأكيد الشبكة، ويصلك إشعار.</span></li>
+<li><span class="st">3</span> <span data-k="refund.c1s3">أكمل الدفع من تطبيق Binance (أو امسح رمز QR)؛ يُشحن رصيدك <b>تلقائياً</b> خلال ثوانٍ من تأكيد Binance، ويصلك إشعار.</span></li>
 </ol>
 </div>
 
@@ -131,7 +131,7 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 
 <h2><i class="fa-solid fa-arrow-up" aria-hidden="true"></i> <span data-k="refund.wdTitle">سحب الرصيد</span></h2>
 <ol>
-<li data-k="refund.wd1">افتح المحفظة ← «سحب» ← اختر الوسيلة (كريبتو بعنوان محفظتك، Cash Plus برقم هاتفك، تحويل CIH بحسابك البنكي، أو Binance بعنوان TRC20).</li>
+<li data-k="refund.wd1">افتح المحفظة ← «سحب» ← اختر الوسيلة (Binance Pay بمعرّف حسابك، Binance بعنوان TRC20، Cash Plus برقم هاتفك، أو تحويل CIH بحسابك البنكي).</li>
 <li data-k="refund.wd2">أدخل المبلغ ← يُخصم فوراً من رصيدك ويصبح الطلب «قيد المراجعة».</li>
 <li data-k="refund.wd3">ينفّذ الأدمن التحويل بعد التحقق ويصلك إشعار «مكتمل». مدة التنفيذ حتى 24 ساعة.</li>
 <li data-k="refund.wd4">إن رُفض الطلب (بيانات خاطئة مثلاً) <b>يُعاد المبلغ كاملاً لرصيدك تلقائياً</b>.</li>
@@ -150,7 +150,7 @@ if (t === 'radiant') { document.documentElement.setAttribute('data-theme', 'radi
 <h2><i class="fa-solid fa-table" aria-hidden="true"></i> <span data-k="refund.tableTitle">ملخص الحالات</span></h2>
 <table>
 <tr><th data-k="refund.th1">الحالة</th><th data-k="refund.th2">النتيجة</th><th data-k="refund.th3">المدة</th></tr>
-<tr data-k="refund.r1"><td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td></tr>
+<tr data-k="refund.r1"><td>إيداع Binance Pay مؤكد</td><td>شحن تلقائي فوري</td><td>ثوانٍ (تأكيد Binance)</td></tr>
 <tr data-k="refund.r2"><td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td></tr>
 <tr data-k="refund.r3"><td>تحويل بنكي CIH / CIH Express</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td></tr>
 <tr data-k="refund.r4"><td>Binance (TRC20)</td><td>تأكيد الشبكة ثم شحن</td><td>حسب الشبكة</td></tr>
@@ -182,9 +182,9 @@ var D = {
   "refund.intro": { "ar": "تشرح هذه الصفحة بشكل صريح ومبسط كيف تشحن رصيدك، كيف تسحبه، ومتى يحق لك الاسترداد. كل العمليات تمر عبر محفظة حسابك (زر المحفظة في الشاشة الرئيسية) وتُسجل في سجل المعاملات.", "da": "هاد الصفحة كتشرح بالواضح كيفاش تشحن الرصيد، كيفاش تسحبو، وإمتى عندك الحق فاسترداد. كلشي كيدوز من المحفظة ديالك وكيتسجل فالسجل.", "fr": "Cette page explique clairement comment recharger votre solde, le retirer, et quand vous avez droit à un remboursement. Toutes les opérations passent par votre portefeuille et sont journalisées.", "en": "This page clearly explains how to top up your balance, withdraw it, and when you are entitled to a refund. All operations go through your wallet and are logged." },
   "refund.depTitle": { "ar": "طرق شحن الرصيد", "da": "طرق شحن الرصيد", "fr": "Moyens de recharge", "en": "Deposit methods" },
   "refund.c1t": { "ar": "🟡 1) Binance Pay — تلقائي 100%", "da": "🟡 1) Binance Pay — تلقائي 100%", "fr": "🟡 1) Binance Pay — 100 % automatique", "en": "🟡 1) Binance Pay — 100% automatic" },
-  "refund.c1s1": { "ar": "افتح المحفظة ← «شحن» ← اختر «كريبتو».", "da": "حل المحفظة ← «شحن» ← اختار «كريبتو».", "fr": "Ouvrez le portefeuille ← « Recharger » ← choisissez « Crypto ».", "en": "Open the wallet ← “Top up” ← choose “Crypto”." },
+  "refund.c1s1": { "ar": "افتح المحفظة ← «شحن» ← اختر «Binance Pay».", "da": "حل المحفظة ← «شحن» ← اختار «Binance Pay».", "fr": "Ouvrez le portefeuille ← « Recharger » ← choisissez « Binance Pay ».", "en": "Open the wallet ← “Top up” ← choose “Binance Pay”." },
   "refund.c1s2": { "ar": "أدخل المبلغ بالدولار ← يُفتح طلب دفع عبر Binance Pay.", "da": "دخل المبلغ بالدولار ← غادي يتحل طلب الدفع عبر Binance Pay.", "fr": "Saisissez le montant en dollars ← une demande de paiement Binance Pay s'ouvre.", "en": "Enter the amount in USD ← a Binance Pay payment request opens." },
-  "refund.c1s3": { "ar": "حوِّل المبلغ (USDT/BTC…)؛ يُشحن رصيدك <b>تلقائياً</b> فور تأكيد الشبكة، ويصلك إشعار.", "da": "حوّل المبلغ (USDT/BTC…)؛ الرصيد كيتشحن <b>تلقائياً</b> ملي تأكد الشبكة، ويوصلك إشعار.", "fr": "Transférez (USDT/BTC…) ; votre solde est crédité <b>automatiquement</b> dès confirmation réseau, avec notification.", "en": "Transfer (USDT/BTC…); your balance is credited <b>automatically</b> upon network confirmation, with a notice." },
+  "refund.c1s3": { "ar": "أكمل الدفع من تطبيق Binance (أو امسح رمز QR)؛ يُشحن رصيدك <b>تلقائياً</b> خلال ثوانٍ من تأكيد Binance، ويصلك إشعار.", "da": "كمّل الدفع من تطبيق Binance (ولا سكاني كود QR)؛ الرصيد كيتشحن <b>تلقائياً</b> فثواني ملي تأكد Binance، وكيوصلك إشعار.", "fr": "Finalisez le paiement dans l’application Binance (ou scannez le QR) ; votre solde est crédité <b>automatiquement</b> quelques secondes après la confirmation Binance, avec notification.", "en": "Transfer (USDT/BTC…); your balance is credited <b>automatically</b> upon network confirmation, with a notice." },
   "refund.c2t": { "ar": "💵 2) Cash Plus — تحويل محلي بالمغرب (مراجعة يدوية سريعة)", "da": "💵 2) Cash Plus — تحويل محلي فالمغرب (مراجعة سريعة)", "fr": "💵 2) Cash Plus — transfert local au Maroc (vérification manuelle rapide)", "en": "💵 2) Cash Plus — local transfer in Morocco (fast manual review)" },
   "refund.c2s1": { "ar": "افتح المحفظة ← «شحن» ← «Cash Plus»: يظهر لك اسم ورقم حساب الاستلام داخل المنصة.", "da": "حل المحفظة ← «شحن» ← «Cash Plus»: كيبان ليك الاسم ورقم الحساب فالمنصة.", "fr": "Ouvrez le portefeuille ← « Recharger » ← « Cash Plus » : le nom et le numéro de compte s'affichent.", "en": "Open the wallet ← “Top up” ← “Cash Plus”: the receiver name and account number are shown in-app." },
   "refund.c2s2": { "ar": "حوِّل المبلغ عبر وكالة Cash Plus أو تطبيقها واحتفظ بكود/مرجع التحويل.", "da": "حوّل الفلوس عبر وكالة Cash Plus ولا التطبيق ديالها وحتفظ بالكود.", "fr": "Transférez via une agence Cash Plus ou son appli et gardez le code/référence.", "en": "Transfer via a Cash Plus agency or its app and keep the transfer code/reference." },
@@ -207,7 +207,7 @@ var D = {
   "refund.c3s1": { "ar": "أدخل كود الكوبون (شكل DTSG-XXXX-XXXX) في المحفظة ← «تفعيل الكوبون».", "da": "دخل كود الكوبون (DTSG-XXXX-XXXX) فالمحفظة ← «تفعيل الكوبون».", "fr": "Saisissez le code (format DTSG-XXXX-XXXX) dans le portefeuille ← « Activer le coupon ».", "en": "Enter the coupon code (DTSG-XXXX-XXXX) in the wallet ← “Redeem coupon”." },
   "refund.c3s2": { "ar": "يُضاف المبلغ فوراً؛ الكوبون يُستعمل مرة واحدة فقط.", "da": "المبلغ كيزاد فوراً؛ الكوبون كيستعمل مرة وحدة برك.", "fr": "Crédit immédiat ; coupon à usage unique.", "en": "Instant credit; each coupon works once." },
   "refund.wdTitle": { "ar": "سحب الرصيد", "da": "سحب الرصيد", "fr": "Retrait du solde", "en": "Withdrawing your balance" },
-  "refund.wd1": { "ar": "افتح المحفظة ← «سحب» ← اختر الوسيلة (كريبتو بعنوان محفظتك، Cash Plus برقم هاتفك، تحويل CIH بحسابك البنكي، أو Binance بعنوان TRC20).", "da": "حل المحفظة ← «سحب» ← اختار الوسيلة (كريبتو بالعنوان ديالك، Cash Plus بنمرة تيليفونك، CIH بالحساب البنكي، ولا Binance بعنوان TRC20).", "fr": "Ouvrez le portefeuille ← « Retirer » ← choisissez le moyen (crypto avec votre adresse, Cash Plus avec votre téléphone, CIH avec votre compte, ou Binance en TRC20).", "en": "Open the wallet ← “Withdraw” ← pick the method (crypto with your address, Cash Plus with your phone, CIH with your bank account, or Binance TRC20)." },
+  "refund.wd1": { "ar": "افتح المحفظة ← «سحب» ← اختر الوسيلة (Binance Pay بمعرّف حسابك، Binance بعنوان TRC20، Cash Plus برقم هاتفك، أو تحويل CIH بحسابك البنكي).", "da": "حل المحفظة ← «سحب» ← اختار الوسيلة (Binance Pay بمعرّف الحساب ديالك، Binance بعنوان TRC20، Cash Plus بنمرة تيليفونك، ولا CIH بالحساب البنكي).", "fr": "Ouvrez le portefeuille ← « Retirer » ← choisissez le moyen (crypto avec votre adresse, Cash Plus avec votre téléphone, CIH avec votre compte, ou Binance en TRC20).", "en": "Open the wallet ← “Withdraw” ← pick the method (crypto with your address, Cash Plus with your phone, CIH with your bank account, or Binance TRC20)." },
   "refund.wd2": { "ar": "أدخل المبلغ ← يُخصم فوراً من رصيدك ويصبح الطلب «قيد المراجعة».", "da": "دخل المبلغ ← كيتخصم فوراً والطلب كيبقى «قيد المراجعة».", "fr": "Saisissez le montant ← déduit aussitôt, demande « en vérification ».", "en": "Enter the amount ← deducted at once, request becomes “under review”." },
   "refund.wd3": { "ar": "ينفّذ الأدمن التحويل بعد التحقق ويصلك إشعار «مكتمل». مدة التنفيذ حتى 24 ساعة.", "da": "الأدمن كينفذ التحويل من بعد التحقق ويوصلك إشعار «مكتمل» — حتى 24 ساعة.", "fr": "L'admin exécute après vérification, notification « terminé ». Délai max 24 h.", "en": "The admin executes after verification; you get a “completed” notice. Up to 24 h." },
   "refund.wd4": { "ar": "إن رُفض الطلب (بيانات خاطئة مثلاً) <b>يُعاد المبلغ كاملاً لرصيدك تلقائياً</b>.", "da": "إلا ترفض الطلب (معلومات غالطة مثلاً) <b>كيرجع المبلغ كامل لرصيدك تلقائياً</b>.", "fr": "Si refusé (données erronées p. ex.), <b>le montant revient intégralement et automatiquement</b>.", "en": "If refused (wrong details, e.g.), <b>the full amount is automatically returned</b> to your balance." },
@@ -222,7 +222,7 @@ var D = {
   "refund.th1": { "ar": "الحالة", "da": "الحالة", "fr": "Cas", "en": "Case" },
   "refund.th2": { "ar": "النتيجة", "da": "النتيجة", "fr": "Résultat", "en": "Result" },
   "refund.th3": { "ar": "المدة", "da": "المدة", "fr": "Délai", "en": "Time" },
-  "refund.r1": { "ar": "<td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td>", "da": "<td>إيداع كريبتو مؤكد</td><td>شحن تلقائي فوري</td><td>حسب الشبكة</td>", "fr": "<td>Dépôt crypto confirmé</td><td>Crédit auto immédiat</td><td>Selon réseau</td>", "en": "<td>Confirmed crypto deposit</td><td>Instant auto credit</td><td>Per network</td>" },
+  "refund.r1": { "ar": "<td>إيداع Binance Pay مؤكد</td><td>شحن تلقائي فوري</td><td>ثوانٍ (تأكيد Binance)</td>", "da": "<td>إيداع Binance Pay مؤكد</td><td>شحن تلقائي فوري</td><td>ثوانٍ (تأكيد Binance)</td>", "fr": "<td>Dépôt Binance Pay confirmé</td><td>Crédit auto immédiat</td><td>Quelques secondes</td>", "en": "<td>Confirmed Binance Pay deposit</td><td>Instant auto credit</td><td>Seconds</td>" },
   "refund.r2": { "ar": "<td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "da": "<td>إيداع محلي (Cash Plus)</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "fr": "<td>Dépôt local (Cash Plus)</td><td>Vérification puis crédit</td><td>Minutes – 24 h</td>", "en": "<td>Local deposit (Cash Plus)</td><td>Review then credit</td><td>Minutes – 24 h</td>" },
   "refund.r3": { "ar": "<td>تحويل بنكي CIH / CIH Express</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "da": "<td>تحويل بنكي CIH / CIH Express</td><td>مراجعة ثم شحن</td><td>دقائق – 24 س</td>", "fr": "<td>Virement CIH / CIH Express</td><td>Vérification puis crédit</td><td>Minutes – 24 h</td>", "en": "<td>CIH / CIH Express transfer</td><td>Review then credit</td><td>Minutes – 24 h</td>" },
   "refund.r4": { "ar": "<td>Binance (TRC20)</td><td>تأكيد الشبكة ثم شحن</td><td>حسب الشبكة</td>", "da": "<td>Binance (TRC20)</td><td>تأكيد الشبكة ثم شحن</td><td>حسب الشبكة</td>", "fr": "<td>Binance (TRC20)</td><td>Confirmation puis crédit</td><td>Selon réseau</td>", "en": "<td>Binance (TRC20)</td><td>Confirmation then credit</td><td>Per network</td>" },

@@ -67,6 +67,14 @@ function initPaymentsTables(db) {
     const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pay_transactions'").get();
     if (ddl && ddl.sql && ddl.sql.indexOf('binance_pay') === -1) {
       const cols = db.prepare('PRAGMA table_info(pay_transactions)').all().map(function (c) { return c.name; }).join(', ');
+      /* [v2.45.1-FIX] إعادة بناء الجدول مع foreign_keys=ON تفشل كلها إذا وُجد صفّ واحد
+         يشير إلى مستخدم محذوف (DELETE FROM users في لوحة السوبر) ⇒ يرجع كل شيء للخلف بصمت
+         ويبقى CHECK القديم ⇒ كل INSERT بـ binance_pay يفشل. نُطفئ الجبر حول الترحيل ثم نُعيده. */
+      let fkWas = 0;
+      try { const r = db.prepare('PRAGMA foreign_keys').get(); fkWas = r ? Number(r.foreign_keys || 0) : 0; } catch (e) { fkWas = 0; }
+      let orphans = 0;
+      try { const o = db.prepare('SELECT COUNT(*) AS c FROM pay_transactions t LEFT JOIN users u ON u.id = t.user_id WHERE u.id IS NULL').get(); orphans = o ? Number(o.c || 0) : 0; } catch (e) { orphans = 0; }
+      try { db.exec('PRAGMA foreign_keys=OFF'); } catch (e) {}
       db.exec('BEGIN');
       db.exec(`
         CREATE TABLE pay_transactions__mig (
@@ -91,9 +99,15 @@ function initPaymentsTables(db) {
         CREATE INDEX IF NOT EXISTS idx_pay_tx_status ON pay_transactions(status);
       `);
       db.exec('COMMIT');
-      console.log('[payments] migrated pay_transactions.method → +binance +binance_pay');
+      try { if (fkWas) db.exec('PRAGMA foreign_keys=ON'); } catch (e) {}
+      console.log('[payments] migrated pay_transactions.method → +binance +binance_pay' + (orphans ? (' (صفوف بلا حساب: ' + orphans + ')') : ''));
     }
-  } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) {} console.log('[payments] migration skipped:', e.message); }
+  } catch (e) {
+    try { db.exec('ROLLBACK'); } catch (e2) {}
+    try { db.exec('PRAGMA foreign_keys=ON'); } catch (e2) {}
+    /* خطأ صريح (لا «skipped» صامت): بقاء المخطط القديم يُعطّل كل إيداع binance_pay */
+    console.error('[payments] MIGRATION FAILED pay_transactions.method ⇒ إيداع binance_pay سيفشل بـ CHECK constraint:', e.message);
+  }
 
   const vAlters = [
     "ALTER TABLE pay_vouchers ADD COLUMN kind TEXT DEFAULT 'std'",
@@ -172,6 +186,12 @@ function buildEnv(req) {
     BINANCE_PAY_MERCHANT_ID: e.BINANCE_PAY_MERCHANT_ID || '',
     BINANCE_PAY_API_KEY: e.BINANCE_PAY_API_KEY || '',
     BINANCE_PAY_SECRET_KEY: e.BINANCE_PAY_SECRET_KEY || '',
+    /* [v2.45.1-FIX] كانت تُقرأ في payments-core لكن لا تُمرَّر هنا ⇒ تُهمَل صامتة على مسار الهاتف/Node
+       (العملة · رقم الشهادة · مفتاح الإشعارات العام · مضيف API للاختبار) */
+    BINANCE_PAY_CURRENCY: e.BINANCE_PAY_CURRENCY || '',
+    BINANCE_PAY_CERT_SN: e.BINANCE_PAY_CERT_SN || '',
+    BINANCE_PAY_PUBLIC_KEY: e.BINANCE_PAY_PUBLIC_KEY || '',
+    BINANCE_PAY_API_BASE: e.BINANCE_PAY_API_BASE || '',
     SELLIX_WEBHOOK_SECRET: e.SELLIX_WEBHOOK_SECRET || '',
     TELEGRAM_BOT_TOKEN: e.TELEGRAM_BOT_TOKEN || '',
     TELEGRAM_ADMIN_CHAT_ID: e.TELEGRAM_ADMIN_CHAT_ID || '',

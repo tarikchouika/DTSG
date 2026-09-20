@@ -156,7 +156,15 @@ const TR = {
   /* [v2.45] صندوق الدفع Binance Pay داخل المحفظة */
   'wl.openBinance': [ 'افتح Binance Pay', 'Ouvrir Binance Pay', 'Open Binance Pay', 'افتح Binance Pay' ],
   'wl.payRef': [ 'مرجع الطلب', 'Référence de commande', 'Order reference', 'مرجع الطلب' ],
-  'wl.payAuto': [ 'يُشحن رصيدك تلقائياً بعد تأكيد Binance.', 'Votre solde est crédité automatiquement après confirmation Binance.', 'Your balance is credited automatically once Binance confirms.', 'الرصيد كيتشحن تلقائياً ملي تأكد Binance.' ],
+  'wl.copyLink': [ 'نسخ رابط الدفع', 'Copier le lien de paiement', 'Copy payment link', 'نسخ رابط الدفع' ],
+  'wl.copied': [ 'نُسخ الرابط', 'Lien copié', 'Link copied', 'تنسخ الرابط' ],
+  /* [v2.45.1] تلميحات تفاصيل الاستلام بحسب وسيلة السحب */
+  'wl.wdHBnbPay': [ 'معرّف Binance Pay (Pay ID) أو البريد/الهاتف المرتبط بحسابك', 'Identifiant Binance Pay (Pay ID) ou e-mail/téléphone lié au compte', 'Binance Pay ID (Pay ID) or the email/phone linked to your account', 'معرّف Binance Pay (Pay ID) ولا الإيميل/التيليفون المرتبط بالحساب' ],
+  'wl.wdHTrc20': [ 'عنوان محفظتك USDT على شبكة TRON (TRC20)', 'Votre adresse USDT sur le réseau TRON (TRC20)', 'Your USDT wallet address on the TRON (TRC20) network', 'عنوان المحفظة ديالك USDT على شبكة TRON (TRC20)' ],
+  'wl.wdHCash': [ 'الاسم الكامل + رقم الهاتف الذي أرسلت منه عبر Cash Plus', 'Nom complet + numéro de téléphone utilisé pour Cash Plus', 'Full name + the phone number you used with Cash Plus', 'السمية الكاملة + نمرة التيليفون اللي صيفطتي بها عبر Cash Plus' ],
+  'wl.wdHCih': [ 'اسم صاحب الحساب + RIB أو رقم الحساب البنكي', 'Nom du titulaire + RIB ou numéro de compte bancaire', 'Account holder name + RIB or bank account number', 'سمية صاحب الحساب + RIB ولا نمرة الحساب البنكي' ],
+  'wl.wdHOm': [ 'رقم هاتف Orange Money', 'Numéro de téléphone Orange Money', 'Orange Money phone number', 'نمرة تيليفون Orange Money' ],
+
   'wl.noteCash': [ '<b>Cash Plus</b>: حوِّل للحساب الظاهر ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.', '<b>Cash Plus</b> : transférez au compte affiché ← saisissez le code ← vérifié puis crédité.', '<b>Cash Plus</b>: transfer to the shown account ← enter code ← reviewed then credited.', '<b>Cash Plus</b>: حوِّل ← أدخل الكود ← مراجعة فشحن.' ],
   'wl.noteVoucher': [ '<b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).', '<b>Coupon</b> : saisissez le code ← crédit immédiat (une fois).', '<b>Coupon</b>: enter code ← instant credit (once).', '<b>كوبون</b>: أدخل الكود ← شحن فوري.' ],
   'wl.noteWd': [ '<b>⬆️ السحب:</b> طلب يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد تلقائياً.', '<b>⬆️ Retrait :</b> déduit aussitôt, exécuté sous 24 h ; si refusé, retour auto.', '<b>⬆️ Withdraw:</b> deducted at once, executed within 24 h; if refused, auto-refund.', '<b>السحب:</b> يُخصم فوراً ويُنفَّذ خلال 24س؛ إن رُفض رجع تلقائياً.' ],

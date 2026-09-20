@@ -23,7 +23,15 @@ BINANCE_PAY_MERCHANT_ID=132972522
 BINANCE_PAY_API_KEY=<API key من بوابة تجار Binance>
 BINANCE_PAY_SECRET_KEY=<Secret key>
 BINANCE_PAY_CURRENCY=USDT          # اختياري (افتراضي USDT)
+BINANCE_PAY_CERT_SN=<Certificate SN>   # اختياري — يُستعمل في ترويسة الطلب وترويسة الإشعار
+BINANCE_PAY_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n…"   # اختياري — للتحقق من توقيع الإشعارات (RSA)
+BINANCE_PAY_API_BASE=https://bpay.binanceapi.com          # اختياري — للاختبار على بيئة تجريبية
 ```
+
+> [v2.45.1] هذه المتغيّرات الأربعة تُقرأ في `cf-worker/payments-core.js`؛ كانت لا تُمرَّر في
+> `server-payments.js` فتُهمَل صامتةً على مسار الهاتف. صارت الآن ضمن `buildEnv`.
+> توقيع إشعارات Binance هو **RSA-SHA256** بشهادة البوابة (تُجلَب تلقائياً من
+> `/binancepay/openapi/certificates`) — لا HMAC بسرّ التاجر.
 
 > إن كانت لوحة Binance تُظهر «Certificate SN» مختلفاً عن الـ API Key فاضبط `BINANCE_PAY_CERT_SN` به.
 > ملف الأسرار المحلي على الهاتف: `/root/.secrets/dtsg-payments.txt` (صلاحيات 600).
@@ -52,8 +60,9 @@ pm2 logs casino-server --lines 40        # يجب أن يظهر: migrated pay_tr
 # 1) الوسائل: binance_pay يجب أن تكون live (لا soon)
 curl -s localhost:3000/api/payments/methods | head -c 400
 
-# 2) لم يبقَ أي مسار Cryptomus (يجب 404/405)
+# 2) لم يبقَ أي مسار Cryptomus (يجب 404/405) — وإشعار Binance يجب أن يُردّ بجسم Binance
 curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:3000/api/webhooks/cryptomus
+curl -s -X POST localhost:3000/api/webhooks/binance -H 'content-type: application/json' -d '{"bizType":"PAY","bizStatus":"PAY_SUCCESS","data":"{}"}'
 
 # 3) ملفات إثبات Cryptomus لم تعد تُخدَم (404)
 curl -s -o /dev/null -w '%{http_code}\n' localhost:3000/cryptomus_5bf79cae.html
