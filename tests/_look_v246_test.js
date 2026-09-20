@@ -12,8 +12,10 @@ process.chdir(require('path').resolve(__dirname, '..'));
      أ) الطاولة: شاشة اللعب وحدها ظاهرة (لا عناصر من القائمة فوقها) ونافذة اللعب غير قابلة للتمرير.
      ب) الطاولة: بطاقة اللاعب ثلاثة أسطر (الاسم/Score/Pips) · النرد كبير عاجي · بلا تمرير.
      ج) الضومنة: كل قطع اليد كاملة داخل الشاشة (لا قصّ) · نقاط كل قطعة داخل حدودها ·
-        النقاط داخل القطعة (لم تُرسم خارجها) · لا تمرير في شاشة اللعب ·
-        البنك يساراً · رزمة الخصم يميناً · القابل للّعب أصفر متوهّج · الجوخ أخضر (لا بنّي خشبي).
+        لا تمرير في شاشة اللعب · البنك يساراً · رزمة الخصم يميناً · القابل للّعب أصفر متوهّج ·
+        الجوخ أخضر (لا بنّي خشبي).
+     د) توزيع اللاعبين (v2.46-SEATS): الخصم على اليسار و«أنا» على اليمين في الوضعين،
+        وبطاقة كل لاعب لا تتقاطع مع الأخرى ولا مع شريط الحالة.
    ═══════════════════════════════════════════════════════════════════════════ */
 const { chromium } = require('playwright');
 const BASE = process.env.BASE || 'http://localhost:3000/';
@@ -110,6 +112,15 @@ const INSIDE = `(el, host) => {
       ok(label + ': شاشة اللعب وحدها ظاهرة (لا تراكب مع القائمة)', bgView.playVisible && !bgView.menuVisible);
       ok(label + ': اللوحة كاملة داخل الشاشة (لا قصّ)', !!bgView.boardInView);
       ok(label + ': شاشة اللعب بلا تمرير رأسي (' + bgView.playScroll + 'px)', bgView.playScroll !== null && bgView.playScroll <= 4);
+      /* بطاقتا الطاولة: الخصم يساراً و«أنا» يميناً (كانتا معكوستين في RTL) */
+      const bgSeats = await page.evaluate(() => {
+        const r = el => { const b = el && el.getBoundingClientRect(); return b ? { x: b.left, w: b.width } : null; };
+        return { top: r(document.getElementById('bwSeatTop')), bot: r(document.getElementById('bwSeatBot')) };
+      });
+      if (bgSeats.top && bgSeats.bot) {
+        ok(label + ': الطاولة — الخصم يساراً و«أنا» يميناً (' + Math.round(bgSeats.top.x) + ' / ' + Math.round(bgSeats.bot.x) + ')',
+          bgSeats.top.x < bgSeats.bot.x);
+      } else ok(label + ': (مقاعد الطاولة غير متاحة — تُخطّى)', true);
       const threeLines = bgView.nameY && bgView.scoreY && bgView.pipY &&
         bgView.scoreY.y > bgView.nameY.y + bgView.nameY.h - 2 && bgView.pipY.y > bgView.scoreY.y + 2;
       ok(label + ': بطاقة اللاعب ثلاثة أسطر (اسم/Score/Pips)', threeLines);
@@ -162,7 +173,17 @@ const INSIDE = `(el, host) => {
           byX: pick(by), oppX: pick(opp), tableW: table ? table.getBoundingClientRect().width : null,
           feltBg: feltBg, canCount: canTiles.length, canBg: canBg,
           chainC: chain ? (() => { const b = chain.getBoundingClientRect(); return { cx: b.left + b.width / 2, cy: b.top + b.height / 2 }; })() : null,
-          tableC: table ? (() => { const b = table.getBoundingClientRect(); return { cx: b.left + b.width / 2, cy: b.top + b.height / 2, w: b.width, h: b.height }; })() : null
+          tableC: table ? (() => { const b = table.getBoundingClientRect(); return { cx: b.left + b.width / 2, cy: b.top + b.height / 2, w: b.width, h: b.height }; })() : null,
+          seatOpp: pick(document.getElementById('dmSeatOpp')),
+          seatMe: pick(document.getElementById('dmSeatMe')),
+          hudMid: pick(document.querySelector('#dmPlay .dm-hudmid')),
+          tools: pick(document.querySelector('#dmPlay .dm-tools')),
+          toolsOverlapHand: (() => {
+            const t = document.querySelector('#dmPlay .dm-tools'), hh = document.querySelector('#dmPlay .dm-hand');
+            if (!t || !hh) return null;
+            const a = t.getBoundingClientRect(), b = hh.getBoundingClientRect();
+            return !(a.bottom <= b.top + 1 || a.top >= b.bottom - 1 || a.right <= b.left + 1 || a.left >= b.right - 1);
+          })()
         };
       });
 
@@ -186,6 +207,16 @@ const INSIDE = `(el, host) => {
         ok(label + ': المسار متمركز في الطاولة (Δx=' + Math.round(dm.chainC.cx - dm.tableC.cx) + ')',
           Math.abs(dm.chainC.cx - dm.tableC.cx) <= dm.tableC.w * 0.14);
       }
+      /* توزيع اللاعبين: الخصم يسار · أنا يمين · الشريط بينهما بلا تراكب */
+      const sp = dm.seatOpp, sm = dm.seatMe, hm = dm.hudMid;
+      if (sp && sm && hm) {
+        ok(label + ': الخصم يساراً و«أنا» يميناً (' + Math.round(sp.x) + ' / ' + Math.round(sm.x) + ')',
+          sp.x < sm.x);
+        ok(label + ': لا تراكب بين بطاقتَي اللاعبين', sp.x + sp.w <= sm.x + 1);
+        ok(label + ': شريط الحالة بينهما بلا تراكب',
+          hm.x + hm.w <= sm.x + 1 && hm.x >= sp.x + sp.w - 1);
+      } else ok(label + ': (مقاعد الضومنة غير متاحة — تُخطّى)', true);
+      ok(label + ': أدوات اللعب لا تغطي القطع', dm.toolsOverlapHand !== true);
       ok(label + ': 0 أخطاء صفحة (ضومنة)', page._errs.length === 0);
       if (page._errs.length) console.log('    errs:', page._errs.slice(0, 3));
     } catch (e) {

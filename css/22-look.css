@@ -245,3 +245,53 @@
   #bwStage .bw-board { flex: 1 1 auto; min-height: 0; }
   #bwStage .bw-dicebar { flex: 0 0 auto; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [v2.46-SEATS] المرحلة 3 — توزيع اللاعبين في الزوايا (لا حشر في الأعلى)
+   ───────────────────────────────────────────────────────────────────────────
+   العطل المُثبت: ترتيب DOM يضع الخصم أولاً و«أنا» ثانياً، وداخل حاوية RTL يصبح
+   الأول في **اليمين** ⇒ الخصم يميناً وأنا يساراً (معكوس عن المرجع: الخصم يساراً).
+   الإصلاح بالـ`order` فقط (لا تغيير DOM ⇒ لا كسر لأي منطق):
+     بورتريه  ⇒ الخصم أعلى-يسار · شريط الحالة في الوسط · أنا أعلى-يمين (متباعدان)
+     لاندسكيب ⇒ الخصم أعلى-يسار الطاولة · أنا أسفل-يمين فوق اليد
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (orientation: portrait) {
+  #dmStage .dm-hud {
+    display: flex !important;
+    align-items: flex-start !important;
+    justify-content: space-between !important;
+    gap: 8px !important;
+    padding: 8px 10px 0 !important;
+  }
+  #dmStage #dmSeatMe { order: 1; }                      /* RTL: الأول = اليمين = أنا */
+  #dmStage .dm-hudmid { order: 2; flex: 0 1 auto !important; max-width: 46vw; }
+  #dmStage #dmSeatOpp { order: 3; }                     /* الخصم: اليسار */
+  #dmStage .dm-hudround { font-size: 9.5px !important; }
+  #dmStage .dm-hudstatus { font-size: 11.5px !important; }
+  /* بطاقة لاعب أفقية مضغوطة: أفاتار دائري + (الاسم فوق النقاط) */
+  #dmStage .dm-seat { padding: 4px 10px 4px 4px !important; }
+  #dmStage .dm-seat.me { padding: 4px 4px 4px 10px !important; }
+  #dmStage .dm-seat .dm-avatar { width: 34px !important; height: 34px !important; font-size: 15px !important; }
+  #dmStage .dm-seatname { font-size: 11px !important; }
+
+  /* الطاولة الخضراء: تلميحا الطرفين لا يغطيان اليد */
+  #dmStage .dm-endhint { height: 28px !important; min-width: 30px !important; font-size: 13px !important; }
+}
+
+@media (orientation: landscape) {
+  /* تثبيت صريح للزوايا (كانا معكوسين بسبب ترتيب DOM في RTL) */
+  #dmStage #dmSeatOpp { position: absolute !important; top: 8px; left: 12px !important; right: auto !important; }
+  #dmStage #dmSeatMe  { position: absolute !important; right: 12px !important; left: auto !important;
+                        bottom: calc(var(--dm-hand-h, 34%) + 8px) !important; top: auto !important; }
+}
+
+/* ═══ الطاولة (bg): بطاقات اللاعبين في البورتريه — الخصم يساراً وأنا يميناً ═══ */
+@media (orientation: portrait) {
+  #bwStage .bw-hud { display: grid !important; grid-template-columns: 1fr 1fr !important; align-items: start !important; }
+  #bwStage #bwSeatBot { order: 1; }        /* RTL: العمود الأول = اليمين = أنا */
+  #bwStage #bwSeatTop { order: 2; }        /* الخصم: اليسار */
+  #bwStage .bw-hudmid { order: 3; grid-column: 1 / -1; }
+  #bwStage .bw-seat .bw-seatmeta { align-items: flex-start !important; }
+  #bwStage #bwSeatBot .bw-seatmeta.end { align-items: flex-end !important; }
+}
