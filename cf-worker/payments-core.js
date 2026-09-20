@@ -77,10 +77,81 @@ async function unclaimTx(db, txId) {   /* إرجاع للمعلّق عند فش�
   try { await db.prepare("UPDATE transactions SET status = 'pending' WHERE id = ?1 AND status IN ('completed','rejected')").bind(txId).run(); } catch (e) {}
 }
 
-async function adminActOnTransaction(env, db, txId, act) {
+/* ═══ [v2.47-WD-OWNER] طلبات السحب تُوجَّه لأدمن حساب المستخدم (users.admin_id) ═══
+   طلب المالك: «يفتح المستخدم محفظته ويحدّد طريقة وبيانات السحب والمبلغ، يرسل الطلب
+   وبيانات السحب للأدمن الذي سجّل حساب المستخدم، وينفّذ الأدمن العملية ويرسل المبلغ
+   ويصادق عليها». لذلك:
+   • الإشعار (بأزرار المصادقة) يذهب إلى تيليغرام أدمن التسجيل.
+   • المصادقة/الرفض حكرٌ على أدمن التسجيل أو السوبر أدمن. */
+
+/* أدمن التسجيل ومعرّف تيليغرامه. مسار المنصة عبر خطاف، ومسار الووركر عبر D1. */
+async function userOwnerAdmin(db, env, uid) {
+  try {
+    if (typeof env.__userAdminOf === 'function') { const r = await env.__userAdminOf(String(uid)); if (r && (r.id || r.tg)) return { id: r.id ? String(r.id) : null, tg: r.tg ? String(r.tg) : null }; }
+  } catch (e) {}
+  try {
+    const u = await db.prepare('SELECT admin_id FROM users WHERE id = ?1').bind(String(uid)).first();
+    const aid = u && u.admin_id;
+    if (!aid) return null;
+    let tg = null, uname = null;
+    try { const a = await db.prepare('SELECT telegram_id, username FROM users WHERE id = ?1').bind(String(aid)).first(); tg = a && a.telegram_id; uname = a && a.username; } catch (e) {}
+    return { id: String(aid), tg: tg ? String(tg) : null, username: uname || null };
+  } catch (e) { return null; }
+}
+
+/* هل هذا الشات هو أدمن حساب المستخدم؟ (أو سوبر أدمن/أدمن دعم مسجَّل = صلاحية عامة) */
+async function isOwnerAdminOf(env, db, tg, uid) {
+  if (!tg) return false;
+  try { if (typeof env.__isUserAdminOf === 'function') { const r = await env.__isUserAdminOf(String(tg), String(uid)); if (r) return true; } } catch (e) {}
+  const owner = await userOwnerAdmin(db, env, uid);
+  return !!(owner && owner.tg && String(owner.tg) === String(tg));
+}
+function isSuperTg(env, tg) {
+  if (!tg) return false;
+  if (env.TELEGRAM_ADMIN_CHAT_ID && String(tg) === String(env.TELEGRAM_ADMIN_CHAT_ID)) return true;
+  if (env.SUPER_TG && String(tg) === String(env.SUPER_TG)) return true;
+  if (typeof env.__adminCanAct === 'function') { try { return !!env.__adminCanAct(String(tg)); } catch (e) {} }
+  return false;
+}
+
+/* إشعار طلب السحب: لأدمن التسجيل بأزرار المصادقة + نسخة رقابية للسوبر أدمن */
+async function notifyWithdrawalOwner(env, db, txId, uid, who, amt, method, details) {
+  const buttons = [['✅ قبول وتنفيذ السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]];
+  const body = '💸 <b>طلب سحب بانتظار مصادقتك</b>\n' +
+    'المرجع: <code>' + txId + '</code>\n' +
+    'المستخدم: ' + who + ' (' + uid + ')\n' +
+    'المبلغ: <b>' + amt + ' USD</b>\n' +
+    'الوسيلة: ' + method + '\n' +
+    'بيانات الاستلام: ' + String(details || '').slice(0, 300) + '\n\n' +
+    'نفّذ التحويل ثم اضغط «✅ قبول» — الرفض يعيد المبلغ لرصيد اللاعب تلقائياً.';
+  const owner = await userOwnerAdmin(db, env, uid);
+  let dmOk = false;
+  if (owner && owner.tg) {
+    try {
+      const r = await tg(env, 'sendMessage', {
+        chat_id: owner.tg, text: '👤 <i>أنت أدمن حساب هذا المستخدم</i>\n' + body, parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: buttons.map(function (b) { return [{ text: b[0], callback_data: b[1] }]; }) }
+      });
+      dmOk = !!(r && r.ok);
+    } catch (e) {}
+  }
+  await tgNotifyAdmin(env, body +
+    '\n' + (dmOk ? 'ℹ️ أُرسل لأدمن الحساب — المصادقة له أو لك.' : '⚠️ لا معرّف تيليغرام لأدمن الحساب ⇒ المصادقة للسوبر أدمن.'), buttons);
+  return { owner: owner, dm_ok: dmOk };
+}
+
+async function adminActOnTransaction(env, db, txId, act, actorTg) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx) return { ok: false, error: 'not-found' };
   if (tx.status !== 'pending') return { ok: false, error: 'already-' + tx.status };
+  /* [v2.47-WD-OWNER] مصادقة السحب حكرٌ على أدمن حساب المستخدم (users.admin_id) أو السوبر أدمن.
+     actorTg يُمرَّر من مسار تيليغرام (زر/أمر). غيابه = مسار لوحة المنصة (جلسة أدمن مُتحقَّق منها هناك). */
+  if (actorTg && (act === 'wapp' || act === 'wrej')) {
+    const supOk = isSuperTg(env, actorTg);
+    if (!supOk && !(await isOwnerAdminOf(env, db, actorTg, tx.user_id))) {
+      return { ok: false, error: 'not-owner-admin', hint: 'مصادقة سحب هذا الحساب حكرٌ على أدمن التسجيل أو السوبر أدمن' };
+    }
+  }
   if (act === 'dapp') {
     /* [v2.44-BOT] طلب كود تعبئة: المصادقة تُنشئ كوداً = مبلغ الشحن (بالكوينز + البونص)،
        والرصيد يُشحن عند تفعيل الكود — لا شحن مزدوج. */
@@ -378,6 +449,65 @@ async function binancePayQueryOrder(env, merchantTradeNo) {
   return binancePayCall(env, BINANCE_PAY_QUERY, { merchantTradeNo: String(merchantTradeNo) });
 }
 
+/* ═══ [v2.47-BNB-RO] تحقّق «قراءة فقط» من التحويلات الواردة إلى حسابك ═══
+   طلب المالك: «لا أريد تفعيل السحب عبر API بايننس — أريد وضع القراءة فقط للتأكد من أن
+   المستخدم أرسل المبلغ إلى معرّفي (Pay ID/QR) فيُشحن رصيده تلقائياً».
+   • المسار: GET /sapi/v1/pay/transactions (سجل Binance Pay) موقَّعاً HMAC-SHA256
+     بترويسة X-MBX-APIKEY — لا نُرسل أمر سحب ولا تحويلاً ولا نُنشئ طلب دفع.
+   • المطابقة: المبلغ (±0.02) داخل نافذة زمنية + كون الصف وارداً وواصلاً لمعرّفنا.
+   • منع الاحتساب المزدوج: معرّف المعاملة يُسجَّل في proof_details فلا يُشحن مرتين.
+   • إن رفضت Binance المفتاح (قيد IP/صلاحية) ⇒ استجابة تشخيصية صريحة وتبقى المراجعة اليدوية. */
+const BINANCE_API_HOST_DEFAULT = 'https://api.binance.com';
+const BINANCE_PAY_HISTORY = '/sapi/v1/pay/transactions';
+function binanceApiHost(env) { return String((env && env.BINANCE_API_BASE) || BINANCE_API_HOST_DEFAULT).replace(/\/+$/, ''); }
+function binanceReadOnlyReady(env) { return !!(env && env.BINANCE_PAY_API_KEY && env.BINANCE_PAY_SECRET_KEY); }
+async function binanceSapiSilent(env, path, params) {
+  const qs = Object.keys(params || {})
+    .filter(function (k) { return params[k] !== undefined && params[k] !== null && params[k] !== ''; })
+    .map(function (k) { return k + '=' + encodeURIComponent(params[k]); }).join('&');
+  const payload = (qs ? qs + '&' : '') + 'timestamp=' + Date.now() + '&recvWindow=10000';
+  let sign = '';
+  try { sign = await hmacSha256Hex(String(env.BINANCE_PAY_SECRET_KEY || ''), payload); } catch (e) { sign = ''; }
+  let res = null, body = null;
+  try {
+    res = await _fetch(env)(binanceApiHost(env) + path + '?' + payload + '&signature=' + sign, {
+      method: 'GET', headers: { 'X-MBX-APIKEY': String(env.BINANCE_PAY_API_KEY || '') }
+    });
+    body = await res.json().catch(function () { return null; });
+  } catch (e) { return { ok: false, status: 0, code: 'network', msg: String((e && e.message) || e) }; }
+  const st = res ? res.status : 0;
+  const rows = Array.isArray(body) ? body : (body && Array.isArray(body.data) ? body.data : null);
+  const codeOk = body && (body.code === undefined || body.code === '000000' || body.code === 0 || body.code === '0');
+  if (st >= 200 && st < 300 && rows && codeOk) return { ok: true, data: rows };
+  const msg = String((body && (body.msg || body.message)) || 'unavailable');
+  const ipHit = msg.match(/request ip:\s*([\d.]+)/i);
+  return { ok: false, status: st, code: (body && body.code) || st, msg: msg, request_ip: ipHit ? ipHit[1] : null };
+}
+async function binancePayHistory(env, sinceMs, limit) {
+  return binanceSapiSilent(env, BINANCE_PAY_HISTORY, {
+    startTime: String(Math.max(0, Number(sinceMs) || (Date.now() - 7200000))),
+    endTime: String(Date.now()),
+    limit: String(Math.min(100, Math.max(1, Number(limit) || 50)))
+  });
+}
+/* صف وارد مطابق للمبلغ (مبلغ ±0.02 · وارد · واصل لمعرّفنا إن توفّر الحقل) */
+function binanceIncomingMatch(row, amount, ourPayId) {
+  if (!row || row.amount == null) return null;
+  const amt = Number(row.amount);
+  if (!isFinite(amt) || Math.abs(amt - Number(amount)) > 0.02) return null;
+  const kind = String(row.orderType || row.transactionType || '').toUpperCase();
+  if (!row.payerInfo && kind.indexOf('PAY') < 0 && kind.indexOf('C2C') < 0) return null;
+  const recv = row.receiverInfo || null;
+  const recvId = recv ? (recv.binanceId || recv.accountId || '') : '';
+  if (ourPayId && recvId && String(recvId) !== String(ourPayId)) return null;
+  return {
+    ref: String(row.transactionId || row.orderId || ''),
+    amount: amt, at: Number(row.transactionTime || 0), currency: String(row.currency || ''),
+    payer: row.payerInfo ? String(row.payerInfo.name || row.payerInfo.binanceId || '') : '',
+    receiver: recvId ? String(recvId) : ''
+  };
+}
+
 /* ── [Bonus-tiers 2026-09-19] شرائح البونص — نظام واحد بلا خلط ──
    أدمنز (أكواد خاصة بإصدار السوبر أدمن): 1000→30% | 10000→35% | 100000→40% — تُفعَّل من /codes admin.
    مباشر (أكواد خاصة): 10→0% | 100→5% | 1000→10% | 10000→15% — تُفعَّل من /codes direct.
@@ -481,7 +611,14 @@ async function handleFetch(request, env) {
 
   /* وسائل الدفع المتاحة (علني — تعرض للواجهة) */
   if (p === '/api/payments/methods' && request.method === 'GET') {
-    return json({ ok: true, methods: [
+    return json({ ok: true,
+      /* [v2.47-BNB-RO] معرّف Pay الخاص بالمالك + حالة مسار التحقق التلقائي (قراءة فقط) */
+      binance_pay_id: String(env.BINANCE_PAY_ID || env.BINANCE_PAY_MERCHANT_ID || ''),
+      binance_readonly: binanceReadOnlyReady(env) ? 'configured' : 'off',
+      methods: [
+      { id: 'binance_readonly', label: 'Binance Pay — تحقّق تلقائي (Pay ID/QR)',
+        status: binanceReadOnlyReady(env) ? 'live' : 'soon', readonly: true,
+        account: { pay_id: String(env.BINANCE_PAY_ID || env.BINANCE_PAY_MERCHANT_ID || ''), network: 'Binance Pay' } },
       { id: 'binance_pay', label: 'Binance Pay', status: (env.BINANCE_PAY_API_KEY && env.BINANCE_PAY_SECRET_KEY) ? 'live' : 'soon' },
       { id: 'cash_plus', label: 'Cash Plus', status: 'live',
         account: { name: env.CASH_PLUS_NAME || 'Tarik chouika', number: env.CASH_PLUS_ACCOUNT || '' } },
@@ -699,6 +836,88 @@ function payDebug(env, entry) {
   } catch (e) {}
 }
 
+/* ── [v2.47-BNB-RO] POST /api/payments/binance-verify ──
+   يتحقق (قراءة فقط) من وصول تحويل المستخدم إلى معرّفنا ثم يشحن الرصيد تلقائياً.
+   body: { user_id|username|tg_id, amount_usd, within_minutes? }
+   الاستجابات: verified/credited · not-found-yet (أعد المحاولة) · readonly-unavailable (تشخيص المفتاح). */
+  if (p === '/api/payments/binance-verify' && request.method === 'POST') {
+    let b = {};
+    try { b = await request.json(); } catch (e) { b = {}; }
+    const amt = Math.round(Number(pickNum(b.amount_usd, b.amount, b.usd, b.value)) * 100) / 100;
+    const uidResolved = await resolveUid(db, env, b);
+    const missing = [];
+    if (!uidResolved) missing.push('user_id|username|tg_id');
+    if (!(amt >= 1)) missing.push('amount_usd');
+    if (missing.length) return json({ ok: false, error: 'bad-input', missing: missing,
+      hint: 'أرسل user_id (أو username/tg_id) + amount_usd' }, 400);
+    if (!(await userExists(db, env, uidResolved))) return json({ ok: false, error: 'user-not-found' }, 404);
+    if (!binanceReadOnlyReady(env)) {
+      return json({ ok: false, error: 'readonly-unconfigured',
+        hint: 'اضبط BINANCE_PAY_API_KEY + BINANCE_PAY_SECRET_KEY (صلاحية قراءة فقط — بلا تفعيل السحب)' }, 503);
+    }
+    const winMin = Math.min(1440, Math.max(5, Number(b.within_minutes || b.window_minutes || env.BINANCE_VERIFY_WINDOW_MIN || 120)));
+    const ourId = String(env.BINANCE_PAY_ID || env.BINANCE_PAY_MERCHANT_ID || '');
+    const hist = await binancePayHistory(env, Date.now() - winMin * 60000, 60);
+    if (!hist.ok) {
+      await tgNotifyAdmin(env, '⚠️ تعذّر التحقق من Binance (قراءة فقط)\nالرمز: ' + hist.code + ' · ' + hist.msg +
+        (hist.request_ip ? ('\nIP الطلب: ' + hist.request_ip) : ''));
+      return json({ ok: false, error: 'readonly-unavailable', code: hist.code || null, message: hist.msg || null,
+        request_ip: hist.request_ip || null,
+        hint: 'مفتاح القراءة فقط مرفوض: أزل قيد IP من المفتاح أو أضف IP السيرفر — ولا تُفعّل صلاحية السحب' }, 502);
+    }
+    let hit = null;
+    for (const row of (hist.data || [])) { hit = binanceIncomingMatch(row, amt, ourId); if (hit) break; }
+    if (!hit) {
+      return json({ ok: false, error: 'not-found-yet', window_minutes: winMin,
+        hint: 'لم يظهر تحويل مطابق للمبلغ ' + amt + ' بعد — أعد المحاولة بعد لحظات (أو راجع المبلغ/المعرّف)' }, 404);
+    }
+    /* منع الاحتساب المزدوج على مستوى التحويل نفسه */
+    if (hit.ref) {
+      const dupQ = await db.prepare('SELECT id FROM transactions WHERE proof_details LIKE ?1 LIMIT 1').bind('%' + hit.ref + '%').first();
+      if (dupQ && dupQ.id) {
+        return json({ ok: true, verified: true, already: true, tx: dupQ.id, amount_usd: amt, ref: hit.ref });
+      }
+    }
+    const txId = uid('bnv');
+    const note = 'binance-readonly: ' + (hit.ref || 'no-ref') + ' · ' + (hit.currency || binanceCurrency(env)) +
+      (hit.payer ? (' · payer: ' + hit.payer) : '') + (hit.receiver ? (' · recv: ' + hit.receiver) : '');
+    try {
+      await db.prepare("INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,'deposit',?3,'binance_readonly','pending',?4)")
+        .bind(txId, String(uidResolved), amt, note.slice(0, 2000)).run();
+    } catch (e) {
+      return json({ ok: false, error: 'ledger-failed', message: String((e && e.message) || e) }, 500);
+    }
+    const cr = await completeDeposit(env, db, txId, amt);
+    if (!(cr && cr.ok)) {
+      /* لم يكتمل الشحن (سُبق أو فشل) ⇒ نُبقي الطلب للمراجعة اليدوية بلا تشويش */
+      await tgNotifyAdmin(env, '⚠️ تحويل Binance مطابق لكن تعذّر الشحن الآلي\nالمرجع: <code>' + txId + '</code> · ' + amt + ' USD · ' + note);
+      return json({ ok: false, error: 'credit-failed', tx: txId, reason: (cr && cr.reason) || 'unknown' }, 409);
+    }
+    return json({ ok: true, verified: true, credited: true, tx: txId, amount_usd: amt, coins: cr.coins,
+      bonus: cr.bonus || 0, ref: hit.ref, payer: hit.payer || '', mode: 'binance-readonly' });
+  }
+
+  /* ── [v2.47-BNB-RO] GET /api/payments/binance-probe — فحص حيّ للمفتاح (قراءة فقط) ──
+     للأدمن فقط: يحكي بالضبط هل يستجيب المفتاح أم أنه مرفوض (IP/صلاحية) وبأي رمز. */
+  if (p === '/api/payments/binance-probe' && request.method === 'GET') {
+    const secretOk = env.ADMIN_API_SECRET && (url.searchParams.get('admin_secret') === env.ADMIN_API_SECRET);
+    const tg = url.searchParams.get('tg_id') || url.searchParams.get('telegram_id') || '';
+    let okActor = secretOk || isSuperTg(env, tg);
+    if (!okActor && typeof roleOfRequest === 'function') { try { okActor = roleOfRequest(request) === 'super'; } catch (e) {} }
+    if (!okActor) return json({ ok: false, error: 'forbidden', hint: 'أرسل admin_secret أو tg_id لسوبر أدمن' }, 403);
+    if (!binanceReadOnlyReady(env)) return json({ ok: false, error: 'readonly-unconfigured',
+      hint: 'MISSING: BINANCE_PAY_API_KEY / BINANCE_PAY_SECRET_KEY' }, 503);
+    const probe = await binanceSapiSilent(env, BINANCE_PAY_HISTORY, { limit: '5', startTime: String(Date.now() - 3600000) });
+    return json({
+      ok: !!probe.ok, mode: 'read-only', endpoint: BINANCE_PAY_HISTORY, host: binanceApiHost(env),
+      pay_id: String(env.BINANCE_PAY_ID || env.BINANCE_PAY_MERCHANT_ID || ''),
+      code: probe.ok ? null : (probe.code || null), message: probe.ok ? 'المفتاح يستجيب للقراءة' : probe.msg,
+      request_ip: probe.request_ip || null, rows: probe.ok ? (probe.data || []).length : 0,
+      hint: probe.ok ? 'جاهز للتحقق التلقائي من التحويلات (لا صلاحية سحب مستعملة)'
+        : 'أعد ضبط قيود المفتاح: أزل قيد IP أو أضف IP السيرفر — مع إبقاء «قراءة فقط» بلا تفعيل السحب'
+    }, probe.ok ? 200 : 502);
+  }
+
 /* ── إيداع P2P محلي (وصل/كود تحويل) ── */
   if (p === '/api/payments/p2p' && request.method === 'POST') {
     const b = await request.json();
@@ -797,14 +1016,17 @@ function payDebug(env, entry) {
     const cur = (pickStr(b.currency, b.cur, b.mad).toLowerCase() === 'mad') ? 'mad' : 'usd';
     const pct = (kind === 'withdrawal') ? 0 : depositBonusPct(amt, role, cur);
     const coinsPer = (cur === 'mad') ? COINS_PER_MAD : COINS_PER_USD;
-    await tgNotifyAdmin(env,
-      head + '\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + who + ' (' + uidResolved + ')' +
-      '\nالمبلغ: <b>' + amt + ' ' + (cur === 'mad' ? 'MAD' : 'USD') + '</b>' + (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
-      '\nالمحصّل: ' + Math.round(amt * coinsPer * (1 + pct / 100)).toLocaleString('ar-MA') + ' 🪙' +
-      '\nالوسيلة: ' + (method || 'cash_plus') + '\nالدليل: ' + (details || '').slice(0, 220),
-      kind === 'withdrawal'
-        ? [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]
-        : [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
+    if (kind === 'withdrawal') {
+      /* [v2.47-WD-OWNER] السحب: الإشعار (وأزرار المصادقة) لأدمن حساب المستخدم */
+      await notifyWithdrawalOwner(env, db, txId, uidResolved, who, amt, method || 'cash_plus', details);
+    } else {
+      await tgNotifyAdmin(env,
+        head + '\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + who + ' (' + uidResolved + ')' +
+        '\nالمبلغ: <b>' + amt + ' ' + (cur === 'mad' ? 'MAD' : 'USD') + '</b>' + (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
+        '\nالمحصّل: ' + Math.round(amt * coinsPer * (1 + pct / 100)).toLocaleString('ar-MA') + ' 🪙' +
+        '\nالوسيلة: ' + (method || 'cash_plus') + '\nالدليل: ' + (details || '').slice(0, 220),
+        [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
+    }
     return json({ ok: true, tx: txId, status: 'pending', kind: kind, amount_usd: amt, currency: cur, bonus_pct: pct,
       coins_on_approve: Math.round(amt * coinsPer * (1 + pct / 100)) });
   }
@@ -838,11 +1060,19 @@ function payDebug(env, entry) {
       if (!okActor && env.TELEGRAM_ADMIN_CHAT_ID && who && String(who) === String(env.TELEGRAM_ADMIN_CHAT_ID)) okActor = true;
       if (!okActor && who && typeof env.__adminCanAct === 'function') { try { okActor = !!env.__adminCanAct(String(who)); } catch (e) {} }
     }
-    if (!okActor) { payDebug(env, { path: p, status: 403, act: act }); return json({ ok: false, error: 'forbidden', hint: 'مصادقة السوبر أدمن فقط' }, 403); }
     if (!txId || ['dapp', 'drej', 'wapp', 'wrej'].indexOf(act) < 0) {
       return json({ ok: false, error: 'bad-input', hint: 'أرسل tx + act ∈ dapp|drej|wapp|wrej + tg_id' }, 400);
     }
-    const r = await adminActOnTransaction(env, db, txId, act);
+    /* [v2.47-WD-OWNER] أدمن حساب المستخدم يصادق على سحب حسابه من البوت أيضاً
+       (ولو لم يكن ضمن أدمنز الدعم المسجَّلين) — والسوبر أدمن له دائماً. */
+    if (!okActor && (act === 'wapp' || act === 'wrej') && who) {
+      try {
+        const txRow = await db.prepare('SELECT user_id FROM transactions WHERE id = ?1').bind(txId).first();
+        if (txRow && (await isOwnerAdminOf(env, db, who, txRow.user_id))) okActor = true;
+      } catch (e) {}
+    }
+    if (!okActor) { payDebug(env, { path: p, status: 403, act: act }); return json({ ok: false, error: 'forbidden', hint: 'مصادقة أدمن حساب المستخدم أو السوبر أدمن' }, 403); }
+    const r = await adminActOnTransaction(env, db, txId, act, who);
     return json(Object.assign({ tx: txId, act: act }, r), r.ok ? 200 : 409);
   }
 
@@ -946,9 +1176,8 @@ function payDebug(env, entry) {
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'withdrawal\',?3,?4,\'pending\',?5)')
       .bind(txId, String(uidResolved), amt, method, details.slice(0, 2000)).run();
     if (typeof env.__moneyLog === 'function') { try { await env.__moneyLog(uidResolved, 'withdrawal', amt, -Math.round(amt * ((typeof env.__rate === 'function') ? Number(env.__rate()) : 100)), 'pending', txId); } catch (e) {} }
-    await tgNotifyAdmin(env,
-      '💸 <b>طلب سحب بانتظار الموافقة</b>\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + (b.username || uidResolved) + '\nالمبلغ: ' + amt + ' USD\nالوسيلة: ' + method + '\nالتفاصيل: ' + details.slice(0, 300),
-      [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
+    /* [v2.47-WD-OWNER] الطلب يذهب لأدمن حساب المستخدم (users.admin_id) بصورة أساسية */
+    await notifyWithdrawalOwner(env, db, txId, uidResolved, (b.username || uidResolved), amt, method, details);
     return json({ ok: true, tx: txId, status: 'pending' });
   }
 
@@ -988,14 +1217,22 @@ function payDebug(env, entry) {
         if (typeof env.__supportAction === 'function') await env.__supportAction(supM[1], supM[2], cq);
         return json({ ok: true });
       }
-      if (!adminOk) return json({ ok: false, error: 'not-admin' }, 403);
       const m = data.match(/^(dapp|drej|wapp|wrej)_(.+)$/);
-      if (!m) return json({ ok: true });
+      if (!m) { if (!adminOk) return json({ ok: false, error: 'not-admin' }, 403); return json({ ok: true }); }
       const txId = m[2], act = m[1];
       const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
+      /* [v2.47-WD-OWNER] أدمن حساب المستخدم (users.admin_id) يصادق على سحب حسابه
+         حتى لو لم يكن ضمن أدمنز الدعم المسجَّلين — والسوبر أدمن يبقى له دائماً.
+         لغير المصرَّح: لا نكشف حالة المعاملة (403 دائماً). */
+      if (!adminOk && (act === 'wapp' || act === 'wrej')) {
+        if (tx && tx.status === 'pending') {
+          try { adminOk = await isOwnerAdminOf(env, db, (cq.from && cq.from.id), tx.user_id); } catch (e) {}
+        }
+      }
+      if (!adminOk) return json({ ok: false, error: 'not-admin' }, 403);
       if (!tx || tx.status !== 'pending') { await tg(env, 'sendMessage', { chat_id: cq.from.id, text: '⚠️ المعاملة غير موجودة أو تمت معالجتها مسبقاً.' }); return json({ ok: true }); }
-      /* نواة موحّدة: نفس ما تستعمله لوحة المنصة */
-      const r = await adminActOnTransaction(env, db, txId, act);
+      /* نواة موحّدة: نفس ما تستعمله لوحة المنصة — وactorTg يفرض صلاحية أدمن الحساب */
+      const r = await adminActOnTransaction(env, db, txId, act, (cq.from && cq.from.id));
       const msgs = {
         dapp: ['✅ تم تأكيد الإيداع وشحن الرصيد.', '⚠️ تعذر التأكيد: '],
         drej: ['❌ تم رفض الإيداع.', '⚠️ '],

@@ -1666,6 +1666,16 @@ const server = http.createServer((req, res) => {
         const txId = String((data && data.tx_id) || '');
         const action = String((data && data.action) || '');
         const pendingRow = pay.listPending(60).filter(function (x) { return String(x.id) === txId; })[0] || null;
+        /* [v2.47-WD-OWNER] طلب السحب: المصادقة/التنفيذ لأدمن حساب المستخدم (users.admin_id)
+           أو السوبر أدمن — تنفيذاً لطلب المالك: «يرسل الطلب للأدمن الذي سجّل حساب المستخدم». */
+        if (pendingRow && String(pendingRow.type) === 'withdrawal' && !isSuper(me)) {
+          const target = users[Number(pendingRow.user_id)] ||
+            Object.values(users).find(function (u) { return String(u.id) === String(pendingRow.user_id); });
+          if (!target || Number(target.admin_id || 0) !== Number(me.id)) {
+            json({ ok: false, error: 'not-owner-admin', message: 'مصادقة السحب حكرٌ على أدمن حساب المستخدم أو السوبر أدمن' }, 403);
+            return;
+          }
+        }
         pay.adminActOnPlatformTx(txId, action, me.username).then(function (r) {
           json(r && r.ok ? { ok: true, result: r } : { ok: false, error: (r && r.error) || 'failed' }, r && r.ok ? 200 : 400);
           if (pendingRow && r && r.ok) {

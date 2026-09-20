@@ -96,6 +96,9 @@ window.PWAL = window.PWAL || {};
       '    </div>' +
       '    <div class="wl-row" id="wlVoucherRow" hidden><label data-i18n="wl.voucher">كود كوبون التعبئة</label><input id="wlVCode" type="text" placeholder="DTSG-XXXX-XXXX"></div>' +
       '    <button class="wl-cta" id="wlVGo" type="button" hidden data-i18n="wl.vGo">تفعيل الكوبون</button>' +
+      /* [v2.47] بوت أكواد التعبئة: وصول سريع من المحفظة (يُربط الحساب تلقائياً بـplt_<id>) */
+      '    <div class="wl-row"><button class="wl-cta ghost" id="wlVoucherBot" type="button" data-i18n="wl.voucherBotBtn">🎟️ بوت أكواد التعبئة</button>' +
+      '      <span class="wl-note" data-i18n="wl.voucherBotNote">اشترِ كود تعبئة من البوت وينتظر مصادقة الإدارة — ثم يصلك الكود هناك.</span></div>' +
       '    <div class="wl-msg" id="wlDepMsg"></div>' +
       '    <div id="wlPayBox" hidden></div>' +
       '    <div class="wl-note"><b data-i18n="wl.noteTitle">💡 طرق الشحن ببساطة:</b><br>' +
@@ -138,6 +141,12 @@ window.PWAL = window.PWAL || {};
       if (navigator.clipboard) navigator.clipboard.writeText(cmd).catch(function () {});
       msg(overlay.querySelector('#wlDepMsg'), '📋 نُسخ الأمر — ألصقه في بوت تيليغرام: ' + cmd, true);
     };
+    overlay.querySelector('#wlVoucherBot').onclick = function () {
+      /* [v2.47] فتح بوت أكواد التعبئة مع ربط الحساب تلقائياً */
+      var u = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user.id : '';
+      var url = 'https://t.me/dtsgvoucher_bot' + (u ? ('?start=plt_' + encodeURIComponent(u)) : '');
+      window.open(url, '_blank', 'noopener');
+    };
     overlay.querySelector('#wlVGo').onclick = wlRedeemVoucher;
     overlay.querySelector('#wlDepGo').onclick = wlSubmitDeposit;
     overlay.querySelector('#wlWdGo').onclick = wlSubmitWithdraw;
@@ -166,10 +175,10 @@ window.PWAL = window.PWAL || {};
   function renderMethods() {
     var box = overlay.querySelector('#wlMethods');
     if (!METHODS) { box.innerHTML = '<div class="wl-note">⏳ نظام الدفع غير موصول بعد — يضبط المشرف عنوان الووركر في payments-url.json.</div>'; return; }
-    var icons = { binance_pay: '🟡', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️', binance: '🟡' };
+    var icons = { binance_pay: '🟡', binance_readonly: '⚡', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️', binance: '🟡' };
     /* [i18n v2.39] أسماء الوسائل تُترجم محلياً بدل نص الخادم العربي */
     var lab = function (m) {
-      var k = { binance_pay: 'wl.mBnbPay', cih: 'wl.mCihLive', binance: 'wl.mBnb', voucher: 'wl.voucher', orange_money: 'wl.mOm' }[m.id];
+      var k = { binance_pay: 'wl.mBnbPay', binance_readonly: 'wl.mBnbRO', cih: 'wl.mCihLive', binance: 'wl.mBnb', voucher: 'wl.voucher', orange_money: 'wl.mOm' }[m.id];
       if (k && typeof T === 'function' && T(k) !== k) return T(k);
       return m.label;
     };
@@ -215,6 +224,23 @@ window.PWAL = window.PWAL || {};
     } else {
       acct.hidden = true; proof.hidden = true;
     }
+    /* [v2.47-BNB-RO] الوسيلة «تحقّق تلقائي»: نعرض معرّف Pay الخاص بالمالك + QR محلي
+       ثم يتحقق الخادم من وصول التحويل بوضع القراءة فقط (بلا أي صلاحية سحب). */
+    var goBtn = overlay.querySelector('#wlDepGo');
+    if (id === 'binance_readonly') {
+      var acc2 = (m && m.account) || {};
+      var pid = String(acc2.pay_id || '');
+      var qsvg = '';
+      try { if (typeof QRMini !== 'undefined' && pid) qsvg = QRMini.svg(pid, { ecc: 'M', size: 170, margin: 2 }); } catch (e) { qsvg = ''; }
+      acct.innerHTML = (qsvg ? '<div class="wl-qr" style="background:#fff;padding:6px;border-radius:12px">' + qsvg + '</div>' : '') +
+        '<div class="wl-acct">' + (typeof T === 'function' ? T('wl.roPayId') : 'معرّف Binance Pay (Pay ID)') + ': <b>' + esc(pid) + '</b>' +
+        (pid ? ' <button class="wl-copy" type="button" onclick="navigator.clipboard.writeText(\'' + esc(pid) + '\').catch(function(){})">' + (typeof T === 'function' ? T('wl.copy') : 'نسخ') + '</button>' : '') +
+        '<br><span class="wl-note">' + (typeof T === 'function' ? T('wl.roHint') : 'حوِّل المبلغ إلى هذا المعرّف ثم اضغط «تحقّق من التحويل» — يُشحن رصيدك تلقائياً.') + '</span></div>';
+      acct.hidden = false; proof.hidden = true;
+      if (goBtn) goBtn.textContent = (typeof T === 'function' ? T('wl.roVerify') : '⚡ تحقّق من التحويل');
+      return;
+    }
+    if (goBtn) goBtn.textContent = (typeof T === 'function' ? T('wl.confirm') : 'تأكيد العملية');
   }
 
   async function wlRefresh() {
@@ -277,7 +303,24 @@ window.PWAL = window.PWAL || {};
     var u = AUTH.user; var amt = Number(overlay.querySelector('#wlAmt').value);
     btn.disabled = true; msg(mm, '⏳ جارٍ التنفيذ…', true);
     try {
-      if (selMethod === 'binance_pay') {
+      if (selMethod === 'binance_readonly') {
+        /* [v2.47-BNB-RO] تحقّق من التحويل بوضع القراءة فقط ثم شحن تلقائي */
+        if (!(amt >= 1)) { msg(mm, '❌ أدخل مبلغاً صحيحاً (1 USD على الأقل)', false); btn.disabled = false; return; }
+        msg(mm, '⏳ جارٍ التحقق من التحويل في Binance (قراءة فقط)…', true);
+        const rv = await api('/api/payments/binance-verify', { user_id: u.id, username: u.username, amount_usd: amt });
+        if (rv && rv.ok && rv.credited) {
+          msg(mm, '✅ تم التحقق من التحويل وشحن رصيدك: ' + Number(rv.amount_usd).toFixed(2) + ' USD' +
+            (rv.bonus ? (' + بونص ' + rv.bonus + ' 🪙') : ''), true);
+        } else if (rv && rv.ok && rv.already) {
+          msg(mm, 'ℹ️ هذا التحويل مُحتسب مسبقاً (المرجع: ' + esc(rv.ref || '') + ')', true);
+        } else if (rv && rv.error === 'not-found-yet') {
+          msg(mm, '⏳ لم يظهر تحويل مطابق للمبلغ ' + amt + ' USD بعد — تأكّد من المبلغ والمعرّف ثم أعد المحاولة خلال دقائق.', false);
+        } else if (rv && rv.error === 'readonly-unavailable') {
+          msg(mm, '⚠️ تعذّر التحقق الآلي (' + (rv.code || '') + ') — أضف التحويل يدوياً من «Binance Pay» أو عبر بوت أكواد التعبئة.', false);
+        } else {
+          msg(mm, '❌ ' + ((rv && (rv.hint || rv.error)) || 'فشل التحقق'), false);
+        }
+      } else if (selMethod === 'binance_pay') {
         if (!(amt >= 1)) { msg(mm, '❌ أدخل مبلغاً صحيحاً (1 USD على الأقل)', false); btn.disabled = false; return; }
         const r = await api('/api/payments/crypto', { user_id: u.id, username: u.username, amount_usd: amt });
         if (r && r.ok) {

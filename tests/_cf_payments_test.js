@@ -416,6 +416,98 @@ function req(method, url, body, headers) {
     D1.prepare('SELECT status FROM transactions WHERE id=?1').bind(cq2.order_id).first().status === 'rejected');
   delete env.BINANCE_PAY_PUBLIC_KEY;
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     14) [v2.47] السحب يذهب لأدمن حساب المستخدم + Binance بوضع القراءة فقط
+     ═══════════════════════════════════════════════════════════════════════ */
+  console.log('\n═══ v2.47 — سحب لأدمن الحساب + Binance read-only ═══');
+  const WDOWNER_TG = '88001122';
+  const WDOTHER_TG = '999999';
+  D1.prepare('UPDATE users SET balance_usd = 50 WHERE id = ?1').bind('42').run();
+  env.__userAdminOf = async function () { return { id: '909', tg: WDOWNER_TG, username: 'owner_admin' }; };
+
+  captured.tg.length = 0;
+  const rowWdReq = await H('POST', 'https://w/api/withdrawals/request', { user_id: '42', amount_usd: 2, method: 'cash_plus', details: 'RIB 123456' });
+  const jWdReq = await rowWdReq.json();
+  ok('طلب سحب أُنشئ وخصم فوراً (pending)', jWdReq.ok && jWdReq.status === 'pending' && String(jWdReq.tx).indexOf('wd-') === 0);
+  const tgDmOwner = captured.tg.filter(c => c.method === 'sendMessage' && String(c.body.chat_id) === WDOWNER_TG).pop();
+  ok('إشعار السحب وصل تيليغرام أدمن الحساب مع زر المصادقة',
+    !!tgDmOwner && JSON.stringify(tgDmOwner.body.reply_markup || {}).indexOf('wapp_' + jWdReq.tx) >= 0);
+  ok('نسخة رقابية وصلت السوبر أدمن أيضاً',
+    captured.tg.some(c => String(c.body.chat_id) === '777' && String(c.body.text || '').indexOf('طلب سحب') >= 0));
+
+  let actRes = await H('POST', 'https://w/api/bot/admin-act', { tx: jWdReq.tx, act: 'wapp', tg_id: WDOTHER_TG });
+  let jAct = await actRes.json();
+  ok('أدمن آخر (ليس أدمن الحساب) ⇒ مرفوض', jAct.ok === false && (jAct.error === 'forbidden' || jAct.error === 'not-owner-admin'));
+  const stWdBefore = D1.prepare('SELECT status FROM transactions WHERE id=?1').bind(jWdReq.tx).first().status;
+  ok('الطلب بقي معلّقاً بعد محاولة غير مصرّح بها', stWdBefore === 'pending');
+  actRes = await H('POST', 'https://w/api/bot/admin-act', { tx: jWdReq.tx, act: 'wapp', tg_id: WDOWNER_TG });
+  jAct = await actRes.json();
+  ok('أدمن الحساب يصادق على السحب (wapp) ⇒ منفّذ',
+    jAct.ok === true && jAct.done === 'withdrawal-approved' &&
+    D1.prepare('SELECT status FROM transactions WHERE id=?1').bind(jWdReq.tx).first().status === 'completed');
+
+  /* ── Binance: تحقّق بوضع القراءة فقط (سجل Pay موقَّعاً بترويسة المفتاح) ── */
+  const bnApi = { rows: [], fail: null, calls: [] };
+  const prevFetchBn = env.__fetch;
+  env.__fetch = async function (url, opts) {
+    const u = String(url);
+    if (u.indexOf('/sapi/v1/pay/transactions') >= 0) {
+      bnApi.calls.push({ url: u, headers: (opts && opts.headers) || {} });
+      if (bnApi.fail) return { status: 401, json: async () => bnApi.fail };
+      return { status: 200, json: async () => bnApi.rows };
+    }
+    return prevFetchBn(url, opts);
+  };
+  env.BINANCE_PAY_ID = '132972522';
+  /* الرصيد عبر خطافات المنصة (gold) — نفس ما يقرأه المستخدم في الواجهة */
+  const balBnBefore = Number(env.__balance('42').usd);
+
+  bnApi.rows = [{ orderType: 'PAY', transactionId: 'TX-NONE', amount: '999', currency: 'USDT', transactionTime: Date.now(), receiverInfo: { binanceId: '132972522' } }];
+  let rBn = await H('POST', 'https://w/api/payments/binance-verify', { user_id: '42', amount_usd: 7 });
+  let jBn = await rBn.json();
+  ok('لا تحويل مطابق للمبلغ ⇒ not-found-yet (بلا شحن)', rBn.status === 404 && jBn.error === 'not-found-yet');
+  ok('لم يتغيّر الرصيد في حالة عدم المطابقة', Number(env.__balance('42').usd) === balBnBefore);
+
+  bnApi.rows = [{ orderType: 'C2C', transactionId: 'BTX-777', amount: '7.00', currency: 'USDT', transactionTime: Date.now(), payerInfo: { name: 'payer-A' }, receiverInfo: { binanceId: '132972522' } }];
+  rBn = await H('POST', 'https://w/api/payments/binance-verify', { user_id: '42', amount_usd: 7 });
+  jBn = await rBn.json();
+  const balBnAfter = Number(env.__balance('42').usd);
+  ok('تحويل مطابق ⇒ شحن تلقائي +7 USD', !!jBn.credited && Math.round((balBnAfter - balBnBefore) * 100) / 100 === 7);
+  const rowBnLedger = D1.prepare('SELECT method, status, proof_details FROM transactions WHERE id=?1').bind(jBn.tx).first();
+  ok('سُجّل الإيداع كـ binance_readonly مكتملاً مع مرجع التحويل',
+    !!rowBnLedger && rowBnLedger.method === 'binance_readonly' && rowBnLedger.status === 'completed' &&
+    String(rowBnLedger.proof_details).indexOf('BTX-777') >= 0);
+
+  rBn = await H('POST', 'https://w/api/payments/binance-verify', { user_id: '42', amount_usd: 7 });
+  jBn = await rBn.json();
+  ok('إعادة نفس التحويل ⇒ already بلا شحن مزدوج',
+    jBn.ok === true && jBn.already === true &&
+    Number(env.__balance('42').usd) === balBnAfter);
+
+  bnApi.fail = { code: -2015, msg: 'Invalid API-key, IP, or permissions for action. request ip: 41.140.47.188' };
+  rBn = await H('POST', 'https://w/api/payments/binance-verify', { user_id: '42', amount_usd: 3 });
+  jBn = await rBn.json();
+  ok('مفتاح مرفوض ⇒ 502 readonly-unavailable مع IP الطلب (تشخيص)',
+    rBn.status === 502 && jBn.error === 'readonly-unavailable' && jBn.request_ip === '41.140.47.188');
+  ok('الرصيد لم يتغيّر عند رفض المفتاح', Number(env.__balance('42').usd) === balBnAfter);
+  bnApi.fail = null;
+
+  let rProbe = await H('GET', 'https://w/api/payments/binance-probe');
+  ok('probe بلا صلاحية ⇒ 403', rProbe.status === 403);
+  rProbe = await H('GET', 'https://w/api/payments/binance-probe?admin_secret=' + env.ADMIN_API_SECRET);
+  const jProbe = await rProbe.json();
+  ok('probe للأدمن ⇒ وضع القراءة فقط + معرّف Pay',
+    rProbe.status === 200 && jProbe.ok === true && jProbe.mode === 'read-only' && jProbe.pay_id === '132972522');
+  ok('كل نداءات Binance على سجل Pay فقط بترويسة X-MBX-APIKEY (لا أمر سحب)',
+    bnApi.calls.length > 0 && bnApi.calls.every(c => c.headers['X-MBX-APIKEY'] && c.url.indexOf('/sapi/v1/pay/transactions') >= 0));
+
+  const rMeth = await H('GET', 'https://w/api/payments/methods');
+  const jMeth = await rMeth.json();
+  ok('methods يعرض وسيلة binance_readonly + binance_pay_id',
+    !!jMeth.methods.find(m => m.id === 'binance_readonly') && jMeth.binance_pay_id === '132972522');
+  env.__fetch = prevFetchBn;
+  delete env.__userAdminOf;
+
   console.log('\nالنتيجة: ' + pass + ' نجح / ' + fail + ' فشل');
   process.exit(fail ? 1 : 0);
 })().catch(e => { console.error('FATAL', e); process.exit(1); });

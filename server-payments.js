@@ -37,7 +37,7 @@ function initPaymentsTables(db) {
       amount_usd REAL NOT NULL,
       /* [v2.45] cryptomus قيمة تاريخية للصفوف القديمة فقط — لا مسار جديد ينشئها
          (البوابة التلقائية الآن binance_pay) */
-      method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
+      method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'binance_readonly', 'voucher')),
       status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
       proof_details TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -65,7 +65,7 @@ function initPaymentsTables(db) {
      — SQLite لا يعدّل CHECK على جدول قائم، فنعيد بناء الجدول مع نقل كل الصفوف كما هي. */
   try {
     const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pay_transactions'").get();
-    if (ddl && ddl.sql && ddl.sql.indexOf('binance_pay') === -1) {
+    if (ddl && ddl.sql && ddl.sql.indexOf('binance_readonly') === -1) {
       const cols = db.prepare('PRAGMA table_info(pay_transactions)').all().map(function (c) { return c.name; }).join(', ');
       /* [v2.45.1-FIX] إعادة بناء الجدول مع foreign_keys=ON تفشل كلها إذا وُجد صفّ واحد
          يشير إلى مستخدم محذوف (DELETE FROM users في لوحة السوبر) ⇒ يرجع كل شيء للخلف بصمت
@@ -82,7 +82,7 @@ function initPaymentsTables(db) {
           user_id TEXT NOT NULL,
           type TEXT CHECK(type IN ('deposit', 'withdrawal')),
           amount_usd REAL NOT NULL,
-          method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
+          method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'binance_readonly', 'voucher')),
           status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
           proof_details TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -100,7 +100,7 @@ function initPaymentsTables(db) {
       `);
       db.exec('COMMIT');
       try { if (fkWas) db.exec('PRAGMA foreign_keys=ON'); } catch (e) {}
-      console.log('[payments] migrated pay_transactions.method → +binance +binance_pay' + (orphans ? (' (صفوف بلا حساب: ' + orphans + ')') : ''));
+      console.log('[payments] migrated pay_transactions.method → +binance +binance_pay +binance_readonly' + (orphans ? (' (صفوف بلا حساب: ' + orphans + ')') : ''));
     }
   } catch (e) {
     try { db.exec('ROLLBACK'); } catch (e2) {}
@@ -177,6 +177,21 @@ function roleOfRequest(req) {
   const uid = CTX.sessions[decodeURIComponent(m[1])];
   const u = uid != null ? CTX.users[uid] : null;
   return u ? u.role : null;
+}
+
+/* [v2.47-WD-OWNER] أدمن حساب المستخدم (users.admin_id) + معرّف تيليغرامه */
+function userAdminOfLocal(uid) {
+  try {
+    const row = CTX.db.prepare('SELECT admin_id FROM users WHERE id = ?').get(Number(uid)) || null;
+    let aid = row && row.admin_id ? row.admin_id : null;
+    if (!aid) {
+      const u = CTX.users[Number(uid)] || Object.values(CTX.users).find(x => String(x.id) === String(uid));
+      if (u && u.admin_id) aid = u.admin_id;
+    }
+    if (!aid) return null;
+    const a = CTX.db.prepare('SELECT telegram_id, username FROM users WHERE id = ?').get(Number(aid)) || null;
+    return { id: String(aid), tg: (a && a.telegram_id) ? String(a.telegram_id) : null, username: (a && a.username) || null };
+  } catch (e) { return null; }
 }
 
 function buildEnv(req) {
@@ -260,6 +275,16 @@ function buildEnv(req) {
     __findUserRow: function (id) {
       try { return CTX.db.prepare('SELECT id, username, gold, telegram_id FROM users WHERE id = ?').get(Number(id)) || null; } catch (e) { return null; }
     },
+    /* ═══ [v2.47-WD-OWNER] أدمن حساب المستخدم (users.admin_id) لمسار السحب ═══
+       السحب يُوجَّه لأدمن التسجيل، والمصادقة عليه حكرٌ له أو للسوبر أدمن. */
+    __userAdminOf: function (uid) { return userAdminOfLocal(uid); },
+    __isUserAdminOf: function (tgId, uid) {
+      /* الصلاحية العامة (سوبر/أدمن دعم مسجَّل) تُفحص في النواة؛ هنا أدمن التسجيل فقط */
+      try {
+        const own = userAdminOfLocal(uid);
+        return !!(own && own.tg && String(own.tg) === String(tgId));
+      } catch (e) { return false; }
+    },
     __setTelegram: function (id, chat) {
       try { CTX.db.prepare('UPDATE users SET telegram_id = ? WHERE id = ?').run(String(chat), Number(id)); } catch (e) {}
       const u = CTX.users[Number(id)]; if (u) u.telegram_id = String(chat);
@@ -324,6 +349,8 @@ function buildEnv(req) {
 
 const PAY_PATHS = [
   '/api/payments/methods', '/api/payments/crypto', '/api/payments/p2p',
+  /* [v2.47-BNB-RO] التحقق من التحويل بوضع القراءة فقط + فحص المفتاح حيّاً */
+  '/api/payments/binance-verify', '/api/payments/binance-probe',
   '/api/webhooks/binance', '/api/webhooks/sellix',
   '/api/vouchers/redeem', '/api/vouchers/create',
   '/api/withdrawals/request', '/api/wallet/balance', '/api/telegram/webhook',
