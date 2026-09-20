@@ -48,7 +48,6 @@ cd "$REPO"
 cp -r js css assets ronda-game backgammon-game dominoes-game "$OUT/"
 
 for f in index.html admins.html about.html contact.html 2fa.html \
-         cryptomus_*.html \
          provably-fair.html fairness.html privacy.html terms.html \
          refund-policy.html support.html \
          _headers _redirects api-url2.json payments-url.json tunnel-live.json; do
@@ -62,8 +61,9 @@ for g in favicon*.png *.webp favicon.ico manifest.json robots.txt sitemap.xml; d
   done
 done
 
-# [v2.40] صفحة الاسترداد + ملف إثبات ملكية Cryptomus + payments-url.json
+# [v2.40→v2.45] صفحة الاسترداد + payments-url.json
 # (كانت refund-policy.html غائبة عن النشر رغم أنها مرتبطة من المحفظة والقوائم)
+# [v2.45] أُزيلت ملفات إثبات ملكية Cryptomus بعد الاستغناء عن بوابتها.
 # لا اختبارات ولا وثائق ولا قواعد بيانات ولا configs في النشر
 rm -rf "$OUT"/data 2>/dev/null || true
 rm -rf "$OUT"/ronda-game/tests "$OUT"/ronda-game/README.md 2>/dev/null || true

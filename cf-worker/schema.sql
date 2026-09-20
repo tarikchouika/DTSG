@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     user_id TEXT NOT NULL,
     type TEXT CHECK(type IN ('deposit', 'withdrawal')),
     amount_usd REAL NOT NULL,
-    method TEXT CHECK(method IN ('sellix', 'cryptomus', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
+    method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
     status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
     proof_details TEXT, -- رابط الوصل أو كود التحويل
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

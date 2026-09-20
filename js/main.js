@@ -1384,7 +1384,7 @@ function adminLoadCodes() {
   const tierOpts = Object.keys(CODE_TIERS[kind]).map(t =>
     '<option value="' + t + '">' + Number(t).toLocaleString('ar-MA') + ' — بونص ' + CODE_TIERS[kind][t] + '%</option>').join('');
   c.innerHTML =
-    '<div class="note">أنشئ أكواد شحن بالكوينز. أدمنز: بونص حسب الشريحة. مباشر: للمستخدمين (تيليغرام/Cryptomus). السعر: 100 كوين/$ و10 كوين/درهم.</div>' +
+    '<div class="note">أنشئ أكواد شحن بالكوينز. أدمنز: بونص حسب الشريحة. مباشر: للمستخدمين (تيليغرام/Binance Pay). السعر: 100 كوين/$ و10 كوين/درهم.</div>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:10px 0">' +
       '<label>النوع<br><select id="codeKind" onchange="window._codeKind=this.value;adminLoadCodes()">' +
         '<option value="admin"' + (kind === 'admin' ? ' selected' : '') + '>أدمنز (بونص)</option>' +

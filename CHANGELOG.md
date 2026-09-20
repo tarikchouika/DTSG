@@ -1,7 +1,67 @@
 # سجل التغييرات — DTSG (v2.27 → v2.37)
 
 توثيق رسمي لكل التحسينات المنفَّذة منذ الإصدار v2.27 وحتى الحالي.
-آخر تحديث: 2026-09-19 (v2.44).
+آخر تحديث: 2026-09-19 (v2.45).
+
+---
+
+## v2.45 (2026-09-19) — إزالة بوابة Cryptomus واستبدالها بـ **Binance Pay** (طلب المالك)
+
+### ما طُلب
+إزالة وسيلة الشحن التلقائي عبر **Cryptomus Gateway** وتعويضها ببوابة **Binance Pay** بمفاتيح التاجر الجديدة.
+
+### 1) الخادم والووركر (`cf-worker/payments-core.js` + `server-payments.js`)
+- **إزالة Cryptomus كلياً من المسارات**: حُذفت دوال `cryptomusSign`/`md5`/`b64`، ومسار الفاتورة
+  `POST /api/payments/crypto` لم يعد ينشئ فاتورة Cryptomus، وwebhook `/api/webhooks/cryptomus`
+  أُزيل من `PAY_PATHS` — لم يبقَ أي مسار يقبل أو ينشئ معاملة Cryptomus.
+- **Binance Pay (Merchant API v2)** في `payments-core.js`:
+  - `POST https://bpay.binanceapi.com/binancepay/openapi/v2/order` لإنشاء الطلب،
+    بترويسات `BinancePay-Timestamp` · `BinancePay-Nonce` · `BinancePay-Certificate-SN` (= **API Key**)
+    و`BinancePay-Signature = HMAC-SHA512(ts \n nonce \n body \n)` بست عشرية **UPPERCASE**.
+  - المبلغ يُرسل بالوحدة الصحيحة (`orderAmount: 10.00` لا `1000`) مع `goods` كائناً
+    (`goodsType/goodsCategory/goodsUnitAmount`) و`currency` قابلة للضبط (`BINANCE_PAY_CURRENCY`، افتراضياً USDT).
+  - `POST /api/payments/crypto` يعيد الآن `prepayId · checkoutUrl · universalUrl · deeplink · qrcodeLink · qrContent`،
+    وعند فشل البوابة يعيد **502** مع `detail` مختصر (رمز/رسالة Binance) ويُشعر الأدمن.
+- **تحصين webhook `/api/webhooks/binance`** (لا ثقة بالجسم وحده):
+  1) يقرأ `data` سواء وصل كائن JSON أو **نص JSON** (السلوك الموثّق) ليستخرج `merchantTradeNo`؛
+  2) يتحقق من التوقيع `HMAC-SHA512` (تسجيل فقط — Binance توقّع إشعاراتها بمفتاحها الخاص)؛
+  3) **يؤكّد الحالة من Binance نفسها** عبر استعلام موقَّع (`/binancepay/openapi/v2/order/query`) ⇒ الشحن فقط عند `PAID`؛
+  4) يقارن المبلغ المدفوع بالمطلوب — **المبلغ الناقص لا يُشحن آلياً** ويُرسل تنبيهاً للأدمن؛
+  5) يردّ `{"returnCode":"SUCCESS"}` كما تطلب Binance، ويعيد `FAIL` عند عدم التأكيد لتُعيد Binance الإرسال.
+  - **المطالبة الذرّية** في `completeDeposit` تمنع الشحن المزدوج عند تكرار الإشعارات.
+- **إصلاح `normMethod`**: كان `"Binance Pay"` يُطبَّع إلى `binance` قبل فحص `binance_pay` (ترتيب شروط معكوس) ⇒ صُحّح.
+- **ترحيل قاعدة البيانات** (`server-payments.js`): شرط إعادة بناء `pay_transactions` صار على غياب
+  `binance_pay` (كان `binance` فقط ⇒ القاعدة الحيّة لم تكن تقبل `binance_pay` أصلاً).
+  القيمة `cryptomus` أُبقيت في `CHECK` **للصفوف التاريخية فقط** (لا مسار جديد ينشئها).
+- **الأسرار من البيئة فقط** (لا تُكتب في المستودع): `BINANCE_PAY_MERCHANT_ID` · `BINANCE_PAY_API_KEY` ·
+  `BINANCE_PAY_SECRET_KEY` · `BINANCE_PAY_CURRENCY` (واختياري `BINANCE_PAY_CERT_SN` · `BINANCE_PAY_API_BASE`).
+
+### 2) الواجهة
+- المحفظة: وسيلة **Binance Pay** في الإيداع، وعند الطلب يظهر **QR** (عبر `api.qrserver.com`، مسموح في CSP)
+  + زر «افتح Binance Pay» + مرجع الطلب والمبلغ، مع رسالة «يُشحن تلقائياً بعد تأكيد Binance».
+- مفاتيح ترجمة جديدة (ar/fr/en/darija): `wl.openBinance` · `wl.payRef` · `wl.payAuto`، وتحديث نص
+  `wl.noteCrypto` إلى Binance Pay، وحذف مفتاح `wl.mCrypto` غير المستخدم.
+- **إزالة آثار إثبات ملكية Cryptomus**: ميتا `index.html`، وملفا `cryptomus_*.html` (محذوفان من الجذر)،
+  وسطورهما في `_headers`/`_redirects`/`scripts/deploy-pages.sh`، ونص داشبورد الأدمن في `js/main.js`.
+
+### 3) السكربتات والبوتات
+- `scripts/update-phone-server.sh`: تصدير `BINANCE_PAY_*` بدل `CRYPTOMUS_*`، وفحص وجود بوابة Binance
+  في `payments-core.js` بدل فحص ملف إثبات Cryptomus (كان يفشل بصوت عالٍ بعد الحذف).
+- `scripts/phone-doctor.sh`: فحص بوابة Binance Pay بدل ملف Cryptomus.
+- `scripts/voucher-bot.js`: وسيلة الشحن السريع صارت **Binance Pay**.
+
+### 4) الاختبارات
+- `tests/_cf_payments_test.js`: قسم Binance Pay كامل (توقيع مطابق للمعيار · Certificate-SN = API Key ·
+  المبلغ بالوحدة الصحيحة · سجل `binance_pay` معلّق · webhook موقَّع + تأكيد استعلام ⇒ شحن ·
+  إعادة الإرسال لا تشحن مرتين · استعلام غير مؤكد ⇒ FAIL · مبلغ ناقص ⇒ لا شحن + تنبيه أدمن ·
+  طلب مجهول ⇒ SUCCESS بلا شحن · فشل البوابة ⇒ 502 مع السبب).
+- `tests/_verify_v240.js` / `_verify_live_v240.js` / `_security_static_test.js`: فحوص «إزالة Cryptomus»
+  (404 للملفات + لا أثر في `index.html`) بدل فحوص ملف الملكية.
+
+### 5) تشغيلياً (مهم)
+- المفاتيح أُدخلت في متغيرات بيئة pm2 للعملية `casino-server` (`pm2 restart casino-server --update-env`).
+- **شرط التفعيل الحي**: يجب أن يكون مفتاح Binance Pay مفعّلاً للـ Merchant API مع **السماح بعنوان IP للهاتف**
+  (أو مفتاح بلا قيود IP). قبل ذلك تردّ Binance: `400004 Invalid API-key, IP, or permissions for action`.
 
 ---
 

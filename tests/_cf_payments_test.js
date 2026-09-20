@@ -1,7 +1,7 @@
 'use strict';
 /* ════════════════════════════════════════════════════════════════
    اختبارات ووركر المدفوعات — تُنفَّذ محلياً على Node عبر محاكي D1
-   (node:sqlite) ومحاكي fetch لتيليغرام/Cryptomus/المنصة.
+   (node:sqlite) ومحاكي fetch لتيليغرام/Binance Pay/المنصة.
    تُشغَّل مسارات الكود الحقيقية في cf-worker/payments-core.js.
    تشغيل: node --experimental-sqlite tests/_cf_payments_test.js
    ════════════════════════════════════════════════════════════════ */
@@ -32,7 +32,9 @@ function makeD1() {
 }
 
 /* ── محاكي fetch ── */
-const captured = { tg: [], platform: [], cryptomus: [] };
+const captured = { tg: [], platform: [], binance: [] };
+/* حالة بوابة Binance Pay في المحاكي — تُعدَّل داخل الاختبارات */
+const binanceState = { createFail: null, query: null, paid: '10' };
 function mockFetch(env) {
   return async function (url, opts) {
     opts = opts || {};
@@ -41,10 +43,18 @@ function mockFetch(env) {
       captured.tg.push({ method: String(url).split('/botx/')[1], body: body });
       return { json: async () => ({ ok: true, result: true }) };
     }
-    if (String(url).includes('api.cryptomus.com')) {
+    if (String(url).includes('bpay.binanceapi.com')) {
       const body = JSON.parse(opts.body || '{}');
-      captured.cryptomus.push({ headers: opts.headers, body: body });
-      return { json: async () => ({ result: 'true', order_id: body.order_id, uuid: 'cu-1', address: 'TTESTADDR', currency: 'USDT', amount: body.amount, url: 'https://pay.cryptomus.example/x' }) };
+      captured.binance.push({ url: String(url), headers: opts.headers || {}, body: body, raw: String(opts.body || '') });
+      if (String(url).includes('/order/query')) {
+        return { json: async () => (binanceState.query || { status: 'SUCCESS', code: '000000', data: {
+          merchantTradeNo: body.merchantTradeNo, orderStatus: 'PAID', totalFee: binanceState.paid, currency: 'USDT', transactionId: 'BTX-1' } }) };
+      }
+      if (binanceState.createFail) return { json: async () => binanceState.createFail };
+      return { json: async () => ({ status: 'SUCCESS', code: '000000', data: {
+        prepayId: 'PREPAY-1', terminalType: 'WEB', checkoutUrl: 'https://pay.binance.example/x',
+        universalUrl: 'https://app.binance.com/uni/x', deeplink: 'https://app.binance.com/dp/x',
+        qrcodeLink: 'https://qr.binance.example/x', qrContent: 'https://app.binance.com/uni/x' } }) };
     }
     if (env.PLATFORM_URL && String(url).indexOf(env.PLATFORM_URL) === 0) {
       captured.platform.push({ url: url, headers: opts.headers, body: JSON.parse(opts.body || '{}') });
@@ -68,8 +78,9 @@ function req(method, url, body, headers) {
   const D1 = makeD1();
   const env = {
     DATABASE_BINDING: D1,
-    CRYPTOMUS_PAYMENT_KEY: 'testkey',
-    CRYPTOMUS_MERCHANT_ID: 'merchant1',
+    BINANCE_PAY_MERCHANT_ID: '132972522',
+    BINANCE_PAY_API_KEY: 'test-api-key',
+    BINANCE_PAY_SECRET_KEY: 'testsecret',
     SELLIX_WEBHOOK_SECRET: 'sellixsec',
     TELEGRAM_BOT_TOKEN: 'x',
     TELEGRAM_ADMIN_CHAT_ID: '777',
@@ -92,14 +103,19 @@ function req(method, url, body, headers) {
 
   console.log('\n═══ DTSG Payments Worker ═══');
 
-  /* 1) MD5 قياسي (لازم لتوقيع Cryptomus) */
-  ok('md5("abc") قياسي', core.md5('abc') === '900150983cd24fb0d6963f7d28e17f72');
+  /* 1) توقيع Binance Pay: HMAC-SHA512(ts \n nonce \n body \n) بست عشرية كبيرة */
+  const sigPayload = '{"a":1}';
+  const sigGot = await core.binancePaySign('1700000000000', 'abcnonce', sigPayload, 'testsecret');
+  const sigWant = require('node:crypto').createHmac('sha512', 'testsecret')
+    .update('1700000000000\nabcnonce\n' + sigPayload + '\n').digest('hex').toUpperCase();
+  ok('توقيع Binance Pay مطابق للنمط الرسمي', sigGot === sigWant && /^[0-9A-F]{128}$/.test(sigGot), sigGot.slice(0, 12) + '…');
 
   /* 2) health + methods */
   let r = await H('GET', 'https://w/api/health');
   ok('health', (await r.json()).ok === true);
   r = await H('GET', 'https://w/api/payments/methods');
   let mj = await r.json();
+  ok('methods: binance_pay live عند ضبط المفاتيح', mj.methods.find(m => m.id === 'binance_pay') && mj.methods.find(m => m.id === 'binance_pay').status === 'live');
   ok('methods: cash_plus live', mj.methods.find(m => m.id === 'cash_plus').status === 'live');
   ok('methods: cih live بحساب كامل', mj.methods.find(m => m.id === 'cih').status === 'live' && /MA64/.test(mj.methods.find(m => m.id === 'cih').account.iban));
   ok('methods: حساب Cash Plus ظاهر', mj.methods.find(m => m.id === 'cash_plus').account.number === env.CASH_PLUS_ACCOUNT);
@@ -120,28 +136,62 @@ function req(method, url, body, headers) {
   r = await H('GET', 'https://w/api/wallet/balance?user_id=42');
   ok('رصيد المستخدم 42 = 25', (await r.json()).balance_usd === 25);
 
-  /* 4) Cryptomus: فاتورة + webhook موقّع + رفض توقيع سيئ */
+  /* 4) Binance Pay: إنشاء طلب موقَّع + webhook + تأكيد الاستعلام + منع الشحن المزدوج */
+  binanceState.paid = '10';
   r = await H('POST', 'https://w/api/payments/crypto', { user_id: '42', amount_usd: 10 });
   let cj = await r.json();
-  ok('فاتورة كريبتو منشأة', cj.ok && cj.address === 'TTESTADDR');
-  ok('توقيع Cryptomus md5(base64+key)', captured.cryptomus[0].headers.sign === core.cryptomusSign(captured.cryptomus[0].body, 'testkey'));
-  const payload = { order_id: cj.order_id, status: 'paid', amount: '10' };
-  const raw = JSON.stringify(payload);
-  const signGood = core.md5(btoa(raw) + 'testkey');
-  r = await core.handleFetch(new Request('https://w/api/webhooks/cryptomus', { method: 'POST', headers: { sign: signGood }, body: raw }), env);
-  ok('webhook كريبتو موقّع → شحن', (await r.json()).applied === true);
+  ok('طلب Binance Pay منشأ (checkoutUrl + prepayId)', cj.ok && cj.gateway === 'binance_pay' && !!cj.checkoutUrl && cj.prepayId === 'PREPAY-1', JSON.stringify({ e: cj.error, d: cj.detail }));
+  const call1 = captured.binance[0];
+  ok('Certificate-SN = API Key (لا Merchant ID)', call1.headers['BinancePay-Certificate-SN'] === 'test-api-key');
+  ok('توقيع الطلب = HMAC-SHA512 المعياري', call1.headers['BinancePay-Signature'] ===
+    (await core.binancePaySign(call1.headers['BinancePay-Timestamp'], call1.headers['BinancePay-Nonce'], call1.raw, 'testsecret')));
+  ok('المبلغ بالوحدة الصحيحة (10 لا 1000)', call1.body.orderAmount === 10 && call1.body.currency === 'USDT' && call1.body.goods.goodsUnitAmount.amount === 10);
+  const prow = D1.prepare('SELECT method, status FROM transactions WHERE id=?1').bind(cj.order_id).first();
+  ok('سُجّل إيداع binance_pay معلّق', prow && prow.method === 'binance_pay' && prow.status === 'pending');
+
+  /* webhook موقَّع + استعلام PAID ⇒ شحن تلقائي */
+  const wdata = JSON.stringify({ merchantTradeNo: cj.order_id, totalFee: '10', currency: 'USDT', transactionId: 'BTX-1' });
+  const wraw = JSON.stringify({ bizType: 'PAY', bizStatus: 'PAY_SUCCESS', bizId: '1', data: wdata });
+  const wts = String(Date.now()), wnonce = 'wnonce1';
+  const wsig = await core.binancePaySign(wts, wnonce, wraw, 'testsecret');
+  const wh = { 'Binancepay-Timestamp': wts, 'Binancepay-Nonce': wnonce, 'Binancepay-Signature': wsig };
+  r = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: wh, body: wraw }), env);
+  ok('webhook موقَّع + PAID من الاستعلام → شحن', (await r.json()).returnCode === 'SUCCESS' && captured.binance.some(c => c.url.includes('/order/query')));
   r = await H('GET', 'https://w/api/wallet/balance?user_id=42');
-  ok('الرصيد 35 بعد الشحن', (await r.json()).balance_usd === 35);
+  ok('الرصيد 35 بعد شحن Binance Pay', (await r.json()).balance_usd === 35);
   const pc = captured.platform[captured.platform.length - 1];
   ok('platform credit استُدعي بالسر المشترك', !!pc && pc.headers['x-pay-secret'] === 'shsec' && pc.body.usd === 10);
-  const raw2 = JSON.stringify({ order_id: cj.order_id, status: 'paid', amount: '10' });
-  r = await core.handleFetch(new Request('https://w/api/webhooks/cryptomus', { method: 'POST', headers: { sign: 'bad' }, body: raw2 }), env);
-  ok('توقيع كريبتو سيئ = 401', r.status === 401);
-  /* idempotency: إعادة webhook بنفس order_id لا تشحن مرتين */
-  r = await core.handleFetch(new Request('https://w/api/webhooks/cryptomus', { method: 'POST', headers: { sign: signGood }, body: raw }), env);
-  ok('إعادة webhook لا تشحن مرتين', (await r.json()).applied === false);
+  /* idempotency: إعادة نفس الإشعار لا تشحن مرتين */
+  r = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: wh, body: wraw }), env);
   r = await H('GET', 'https://w/api/wallet/balance?user_id=42');
-  ok('الرصيد ما زال 35', (await r.json()).balance_usd === 35);
+  ok('إعادة webhook لا تشحن مرتين', (await r.json()).balance_usd === 35);
+  /* استعلام غير مؤكد (PENDING) ⇒ لا شحن */
+  r = await H('POST', 'https://w/api/payments/crypto', { user_id: '43', amount_usd: 20 });
+  const cj2 = await r.json();
+  const w2data = JSON.stringify({ merchantTradeNo: cj2.order_id, totalFee: '20', currency: 'USDT' });
+  const w2raw = JSON.stringify({ bizType: 'PAY', bizStatus: 'PAY_SUCCESS', data: w2data });
+  binanceState.query = { status: 'SUCCESS', code: '000000', data: { merchantTradeNo: cj2.order_id, orderStatus: 'PENDING', totalFee: '20', currency: 'USDT' } };
+  r = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: wh, body: w2raw }), env);
+  ok('استعلام غير مؤكد ⇒ FAIL (بلا شحن)', (await r.json()).returnCode === 'FAIL');
+  r = await H('GET', 'https://w/api/wallet/balance?user_id=43');
+  ok('لم يُشحن (الرصيد 0)', (await r.json()).balance_usd === 0);
+  /* مبلغ ناقص ⇒ لا شحن آلي + تنبيه أدمن */
+  const before43 = captured.tg.length;
+  binanceState.query = null; binanceState.paid = '5';
+  r = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: wh, body: w2raw }), env);
+  r = await H('GET', 'https://w/api/wallet/balance?user_id=43');
+  ok('مبلغ ناقص ⇒ لا شحن آلي + تنبيه أدمن', (await r.json()).balance_usd === 0 && captured.tg.slice(before43).some(t => /مبلغ ناقص/.test(t.body.text || '')));
+  /* طلب لا يخصّنا ⇒ SUCCESS بلا شحن */
+  binanceState.paid = '20';
+  const fraw = JSON.stringify({ bizType: 'PAY', bizStatus: 'PAY_SUCCESS', data: JSON.stringify({ merchantTradeNo: 'dtsg-unknown', totalFee: '20' }) });
+  r = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: wh, body: fraw }), env);
+  ok('طلب مجهول ⇒ SUCCESS بلا شحن', (await r.json()).returnCode === 'SUCCESS');
+  /* فشل البوابة ⇒ 502 مع سبب مختصر (بلا أسرار) */
+  binanceState.createFail = { status: 'FAIL', code: '400004', errorMessage: 'Invalid API-key, IP, or permissions for action' };
+  r = await H('POST', 'https://w/api/payments/crypto', { user_id: '42', amount_usd: 10 });
+  const fj = await r.json();
+  ok('فشل البوابة ⇒ 502 + السبب', r.status === 502 && fj.error === 'order-failed' && /400004/.test(fj.detail || ''));
+  binanceState.createFail = null;
 
   /* 5) Sellix webhook HMAC */
   const sraw = JSON.stringify({ data: { status: 'COMPLETED', order: { uniqid: 'sx-1', amount: 5, custom: '42' } } });

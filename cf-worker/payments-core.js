@@ -3,81 +3,11 @@
    DTSG Payments — payments-core.js (منطق مالي مشترك، CommonJS)
    [تصحيح 2026-09-16] لا D1: يُركَّب داخل server.js عبر server-payments.js
    فوق قاعدة SQLite المحلية، ويُختبر في tests/_cf_payments_test.js.
-   مساران: تلقائي (Cryptomus/Sellix) وشبه آلي P2P للمغرب
+   مساران: تلقائي (Binance Pay/Sellix) وشبه آلي P2P للمغرب
    (Cash Plus / CIH / Orange Money) + كوبونات + سحب + بوت تيليغرام.
    لا تُكتب أي أسرار هنا — كلها من env (process.env في server-payments.js).
    ════════════════════════════════════════════════════════════════ */
 
-/* ── MD5 (نسخة مضغوطة معيارية — لازمة لتوقيع Cryptomus) ── */
-function md5(string) {
-  function md5cycle(x, k) {
-    var a = x[0], b = x[1], c = x[2], d = x[3];
-    a = ff(a, b, c, d, k[0], 7, -680876936); d = ff(d, a, b, c, k[1], 12, -389564586);
-    c = ff(c, d, a, b, k[2], 17, 606105819); b = ff(b, c, d, a, k[3], 22, -1044525330);
-    a = ff(a, b, c, d, k[4], 7, -176418897); d = ff(d, a, b, c, k[5], 12, 1200080426);
-    c = ff(c, d, a, b, k[6], 17, -1473231341); b = ff(b, c, d, a, k[7], 22, -45705983);
-    a = ff(a, b, c, d, k[8], 7, 1770035416); d = ff(d, a, b, c, k[9], 12, -1958414417);
-    c = ff(c, d, a, b, k[10], 17, -42063); b = ff(b, c, d, a, k[11], 22, -1990404162);
-    a = ff(a, b, c, d, k[12], 7, 1804603682); d = ff(d, a, b, c, k[13], 12, -40341101);
-    c = ff(c, d, a, b, k[14], 17, -1502002290); b = ff(b, c, d, a, k[15], 22, 1236535329);
-    a = gg(a, b, c, d, k[1], 5, -165796510); d = gg(d, a, b, c, k[6], 9, -1069501632);
-    c = gg(c, d, a, b, k[11], 14, 643717713); b = gg(b, c, d, a, k[0], 20, -373897302);
-    a = gg(a, b, c, d, k[5], 5, -701558691); d = gg(d, a, b, c, k[10], 9, 38016083);
-    c = gg(c, d, a, b, k[15], 14, -660478335); b = gg(b, c, d, a, k[4], 20, -405537848);
-    a = gg(a, b, c, d, k[9], 5, 568446438); d = gg(d, a, b, c, k[14], 9, -1019803690);
-    c = gg(c, d, a, b, k[3], 14, -187363961); b = gg(b, c, d, a, k[8], 20, 1163531501);
-    a = gg(a, b, c, d, k[13], 5, -1444681467); d = gg(d, a, b, c, k[2], 9, -51403784);
-    c = gg(c, d, a, b, k[7], 14, 1735328473); b = gg(b, c, d, a, k[12], 20, -1926607734);
-    a = hh(a, b, c, d, k[5], 4, -378558); d = hh(d, a, b, c, k[8], 11, -2022574463);
-    c = hh(c, d, a, b, k[11], 16, 1839030562); b = hh(b, c, d, a, k[14], 23, -35309556);
-    a = hh(a, b, c, d, k[1], 4, -1530992060); d = hh(d, a, b, c, k[4], 11, 1272893353);
-    c = hh(c, d, a, b, k[7], 16, -155497632); b = hh(b, c, d, a, k[10], 23, -1094730640);
-    a = hh(a, b, c, d, k[13], 4, 681279174); d = hh(d, a, b, c, k[0], 11, -358537222);
-    c = hh(c, d, a, b, k[3], 16, -722521979); b = hh(b, c, d, a, k[6], 23, 76029189);
-    a = hh(a, b, c, d, k[9], 4, -640364487); d = hh(d, a, b, c, k[12], 11, -421815835);
-    c = hh(c, d, a, b, k[15], 16, 530742520); b = hh(b, c, d, a, k[2], 23, -995338651);
-    a = ii(a, b, c, d, k[0], 6, -198630844); d = ii(d, a, b, c, k[7], 10, 1126891415);
-    c = ii(c, d, a, b, k[14], 15, -1416354905); b = ii(b, c, d, a, k[5], 21, -57434055);
-    a = ii(a, b, c, d, k[12], 6, 1700485571); d = ii(d, a, b, c, k[3], 10, -1894986606);
-    c = ii(c, d, a, b, k[10], 15, -1051523); b = ii(b, c, d, a, k[1], 21, -2054922799);
-    a = ii(a, b, c, d, k[8], 6, 1873313359); d = ii(d, a, b, c, k[15], 10, -30611744);
-    c = ii(c, d, a, b, k[6], 15, -1560198380); b = ii(b, c, d, a, k[13], 21, 1309151649);
-    a = ii(a, b, c, d, k[4], 6, -145523070); d = ii(d, a, b, c, k[11], 10, -1120210379);
-    c = ii(c, d, a, b, k[2], 15, 718787259); b = ii(b, c, d, a, k[9], 21, -343485551);
-    x[0] = add32(a, x[0]); x[1] = add32(b, x[1]); x[2] = add32(c, x[2]); x[3] = add32(d, x[3]);
-  }
-  function cmn(q, a, b, x, s, t) { a = add32(a, add32(q, add32(x, t))); return add32((a << s) | (a >>> (32 - s)), b); }
-  function ff(a, b, c, d, x, s, t) { return cmn((b & c) | ((~b) & d), a, b, x, s, t); }
-  function gg(a, b, c, d, x, s, t) { return cmn((b & d) | (c & (~d)), a, b, x, s, t); }
-  function hh(a, b, c, d, x, s, t) { return cmn(b ^ c ^ d, a, b, x, s, t); }
-  function ii(a, b, c, d, x, s, t) { return cmn(c ^ (b | (~d)), a, b, x, s, t); }
-  function md51(s) {
-    var n = s.length, state = [1732584193, -271733879, -1732584194, 271733878], i;
-    for (i = 64; i <= n; i += 64) md5cycle(state, md5blk(s.substring(i - 64, i)));
-    s = s.substring(i - 64);
-    var tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-    for (i = 0; i < s.length; i++) tail[i >> 2] |= s.charCodeAt(i) << ((i % 4) << 3);
-    tail[i >> 2] |= 0x80 << ((i % 4) << 3);
-    if (i > 55) { md5cycle(state, tail); tail = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]; }
-    tail[14] = n * 8;
-    md5cycle(state, tail);
-    return state;
-  }
-  function md5blk(s) {
-    var md5blks = [], i;
-    for (i = 0; i < 64; i += 4) md5blks[i >> 2] = s.charCodeAt(i) + (s.charCodeAt(i + 1) << 8) + (s.charCodeAt(i + 2) << 16) + (s.charCodeAt(i + 3) << 24);
-    return md5blks;
-  }
-  var hex_chr = '0123456789abcdef'.split('');
-  function rhex(n) { var s = '', j = 0; for (; j < 4; j++) s += hex_chr[(n >> (j * 8 + 4)) & 0x0F] + hex_chr[(n >> (j * 8)) & 0x0F]; return s; }
-  function hex(x) { for (var i = 0; i < x.length; i++) x[i] = rhex(x[i]); return x.join(''); }
-  function add32(a, b) { return (a + b) & 0xFFFFFFFF; }
-  /* UTF8-safe */
-  string = unescape(encodeURIComponent(string));
-  return hex(md51(string));
-}
-
-function b64(s) { return btoa(s); }
 async function hmacSha256Hex(secret, data) {
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', enc.encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
@@ -318,20 +248,78 @@ async function completeDeposit(env, db, txId, paidUsd) {
   return { ok: true, coins: cr.coins, bonus: cr.bonus };
 }
 
-/* ── Cryptomus ── */
-function cryptomusSign(bodyObj, paymentKey) { return md5(b64(JSON.stringify(bodyObj)) + paymentKey); }
-async function cryptomusCreateInvoice(env, orderId, amountUsd) {
-  const body = {
-    amount: String(amountUsd), currency: 'USD', order_id: orderId,
-    url_callback: (env.WORKER_PUBLIC_URL || '') + '/api/webhooks/cryptomus',
-    lifetime: 3600
-  };
-  const r = await _fetch(env)('https://api.cryptomus.com/v1/payment', {
+/* ── Binance Pay — بوابة الشحن التلقائي (بديل Cryptomus الذي أُزيل) ──
+   المستندات: https://developers.binance.com/docs/binance-pay/api-order-create-v2
+   الطلب: POST /binancepay/openapi/v2/order
+   الترويسات: BinancePay-Timestamp · BinancePay-Nonce
+              · BinancePay-Certificate-SN (= API Key)
+              · BinancePay-Signature = HMAC-SHA512(ts + "\n" + nonce + "\n" + body + "\n")
+                بست عشرية كبيرة (UPPERCASE).
+   الأسرار من env فقط: BINANCE_PAY_API_KEY · BINANCE_PAY_SECRET_KEY
+   (BINANCE_PAY_MERCHANT_ID للتوثيق · BINANCE_PAY_CERT_SN/BINANCE_PAY_CURRENCY/BINANCE_PAY_API_BASE اختيارية) */
+const BINANCE_PAY_HOST = 'https://bpay.binanceapi.com';
+const BINANCE_PAY_CREATE = '/binancepay/openapi/v2/order';
+const BINANCE_PAY_QUERY = '/binancepay/openapi/v2/order/query';
+function binanceHost(env) { return String((env && env.BINANCE_PAY_API_BASE) || BINANCE_PAY_HOST).replace(/\/+$/, ''); }
+function binanceCertSN(env) { return String((env && (env.BINANCE_PAY_CERT_SN || env.BINANCE_PAY_API_KEY)) || ''); }
+function binanceCurrency(env) { return String((env && env.BINANCE_PAY_CURRENCY) || 'USDT').toUpperCase(); }
+function binanceNonce() { return String(Math.random().toString(36).slice(2, 10) + Date.now().toString(36)); }
+async function binancePaySign(timestamp, nonce, bodyStr, secretKey) {
+  const enc = new TextEncoder();
+  const payload = timestamp + '\n' + nonce + '\n' + bodyStr + '\n';
+  const key = await crypto.subtle.importKey('raw', enc.encode(secretKey), { name: 'HMAC', hash: 'SHA-512' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(payload));
+  return Array.from(new Uint8Array(sig)).map(function (b) { return b.toString(16).padStart(2, '0'); }).join('').toUpperCase();
+}
+/* نداء موقَّع واحد لأي مسار — يعيد جسم Binance كما هو (بلا رمي استثناء) */
+async function binancePayCall(env, path, payload) {
+  const bodyStr = JSON.stringify(payload);
+  const timestamp = String(Date.now());
+  const nonce = binanceNonce();
+  let sign = '';
+  try { sign = await binancePaySign(timestamp, nonce, bodyStr, env.BINANCE_PAY_SECRET_KEY || ''); } catch (e) { sign = ''; }
+  const r = await _fetch(env)(binanceHost(env) + path, {
     method: 'POST',
-    headers: { merchant: env.CRYPTOMUS_MERCHANT_ID, sign: cryptomusSign(body, env.CRYPTOMUS_PAYMENT_KEY), 'content-type': 'application/json' },
-    body: JSON.stringify(body)
+    headers: {
+      'content-type': 'application/json',
+      'BinancePay-Timestamp': timestamp,
+      'BinancePay-Nonce': nonce,
+      'BinancePay-Certificate-SN': binanceCertSN(env),
+      'BinancePay-Signature': sign
+    },
+    body: bodyStr
   });
-  return await r.json();
+  let j = null;
+  try { j = await r.json(); } catch (e) { j = null; }
+  return j;
+}
+function binanceOk(j) { return !!(j && String(j.status || '').toUpperCase() === 'SUCCESS' && j.data); }
+/* سبب مختصر للفشل (يظهر للأدمن) — لا يحتوي أي أسرار */
+function binanceFail(j) {
+  if (!j) return 'gateway-unreachable';
+  return String(j.code || 'gateway-error') + (j.errorMessage ? ' ' + String(j.errorMessage) : '');
+}
+async function binancePayCreateOrder(env, orderId, amountUsd) {
+  const cur = binanceCurrency(env);
+  const amount = Math.round(Number(amountUsd) * 100) / 100;
+  const back = String(env.WORKER_PUBLIC_URL || '');
+  const body = {
+    env: { terminalType: 'WEB' },
+    merchantTradeNo: orderId,
+    orderAmount: amount,
+    currency: cur,
+    goods: {
+      goodsType: '01', goodsCategory: '0000', referenceGoodsId: orderId,
+      goodsName: 'DTSG Wallet Top-up', goodsDetail: 'DTSG platform wallet deposit',
+      goodsUnitAmount: { currency: cur, amount: amount }
+    }
+  };
+  if (back) { body.returnUrl = back; body.cancelUrl = back; }
+  return binancePayCall(env, BINANCE_PAY_CREATE, body);
+}
+/* استعلام حالة الطلب — مصدر الحقيقة قبل أي شحن آلي */
+async function binancePayQueryOrder(env, merchantTradeNo) {
+  return binancePayCall(env, BINANCE_PAY_QUERY, { merchantTradeNo: String(merchantTradeNo) });
 }
 
 /* ── [Codes 2026-09-17] شرائح أكواد الشحن — نوعان ──
@@ -384,7 +372,7 @@ async function handleFetch(request, env) {
   /* وسائل الدفع المتاحة (علني — تعرض للواجهة) */
   if (p === '/api/payments/methods' && request.method === 'GET') {
     return json({ ok: true, methods: [
-      { id: 'cryptomus', label: 'كريبتو (USDT/BTC…)', status: env.CRYPTOMUS_MERCHANT_ID ? 'live' : 'soon' },
+      { id: 'binance_pay', label: 'Binance Pay', status: env.BINANCE_PAY_API_KEY ? 'live' : 'soon' },
       { id: 'cash_plus', label: 'Cash Plus', status: 'live',
         account: { name: env.CASH_PLUS_NAME || 'Tarik chouika', number: env.CASH_PLUS_ACCOUNT || '' } },
       { id: 'cih', label: 'CIH Bank / CIH Express', status: 'live',
@@ -396,33 +384,67 @@ async function handleFetch(request, env) {
     ] });
   }
 
-  /* ── إنشاء فاتورة كريبتو ── */
+/* ── إنشاء طلب Binance Pay (الشحن التلقائي — بديل Cryptomus) ── */
   if (p === '/api/payments/crypto' && request.method === 'POST') {
     const b = await request.json();
-    const amt = Number(b.amount_usd);
+    const amt = Math.round(Number(b.amount_usd) * 100) / 100;
     if (!b.user_id || !(amt >= 1)) return json({ ok: false, error: 'bad-input' }, 400);
-    if (!env.CRYPTOMUS_MERCHANT_ID || !env.CRYPTOMUS_PAYMENT_KEY) return json({ ok: false, error: 'crypto-not-configured' }, 503);
+    if (!env.BINANCE_PAY_API_KEY || !env.BINANCE_PAY_SECRET_KEY) return json({ ok: false, error: 'binance-not-configured' }, 503);
     await uEnsure(db, env, b.user_id, b.email);
     const orderId = uid('dtsg');
-    const inv = await cryptomusCreateInvoice(env, orderId, amt);
-    if (!inv || inv.error || !inv.address) return json({ ok: false, error: 'invoice-failed', detail: inv }, 502);
-    await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,\'cryptomus\',\'pending\',?4)')
-      .bind(inv.order_id || orderId, String(b.user_id), amt, JSON.stringify({ uuid: inv.uuid, address: inv.address })).run();
-    return json({ ok: true, order_id: inv.order_id || orderId, address: inv.address, currency: inv.currency, url: inv.url, amount: inv.amount });
+    let result = null;
+    try { result = await binancePayCreateOrder(env, orderId, amt); } catch (e) { result = null; }
+    if (!binanceOk(result)) {
+      const detail = binanceFail(result);
+      await tgNotifyAdmin(env, '⚠️ تعذّر إنشاء طلب Binance Pay\nالمستخدم: ' + String(b.user_id) + ' · المبلغ: ' + amt + ' ' + binanceCurrency(env) + '\nالسبب: ' + detail);
+      return json({ ok: false, error: 'order-failed', gateway: 'binance_pay', detail: detail }, 502);
+    }
+    const data = result.data;
+    await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,\'binance_pay\',\'pending\',?4)')
+      .bind(orderId, String(b.user_id), amt, JSON.stringify({ gateway: 'binance_pay', prepayId: data.prepayId || '', tradeNo: orderId })).run();
+    return json({
+      ok: true, order_id: orderId, gateway: 'binance_pay', amount: amt, currency: binanceCurrency(env),
+      prepayId: data.prepayId || '', checkoutUrl: data.checkoutUrl || '', universalUrl: data.universalUrl || '',
+      deeplink: data.deeplink || '', qrcodeLink: data.qrcodeLink || '', qrContent: data.qrContent || ''
+    });
   }
 
-  /* ── Webhook Cryptomus (توقيع MD5) ── */
-  if (p === '/api/webhooks/cryptomus' && request.method === 'POST') {
+/* ── Webhook Binance Pay ──
+   لا نثق بجسم الإشعار وحده: نتحقق من التوقيع، ثم نؤكّد الحالة باستعلام موقَّع
+   من Binance (binancePayQueryOrder) قبل الشحن ⇒ لا تزوير ولا شحن مزدوج. */
+  if (p === '/api/webhooks/binance' && request.method === 'POST') {
     const raw = await request.text();
-    const sign = request.headers.get('sign') || '';
-    if (!env.CRYPTOMUS_PAYMENT_KEY || md5(b64(raw) + env.CRYPTOMUS_PAYMENT_KEY) !== sign) return json({ ok: false, error: 'bad-signature' }, 401);
-    let payload; try { payload = JSON.parse(raw); } catch (e) { return json({ ok: false }, 400); }
-    const st = payload.status;
-    if (st === 'paid' || st === 'paid_over') {
-      const res = await completeDeposit(env, db, payload.order_id, Number(payload.amount));
-      return json({ ok: true, applied: res.ok });
+    const hdr = function (n) { return String(request.headers.get(n) || request.headers.get(n.toLowerCase()) || ''); };
+    const timestamp = hdr('Binancepay-Timestamp'), nonce = hdr('Binancepay-Nonce'), signature = hdr('Binancepay-Signature');
+    let payload = null; try { payload = JSON.parse(raw); } catch (e) { payload = null; }
+    if (!payload) return json({ returnCode: 'FAIL', returnMessage: 'bad-body' });
+    const bizType = String(payload.bizType || payload.bizTypeStr || '');
+    const bizStatus = String(payload.bizStatus || payload.bizStatusStr || '');
+    /* data قد تصل نصاً JSON (السلوك الموثّق) أو كائناً */
+    let data = payload.data;
+    if (typeof data === 'string') { try { data = JSON.parse(data); } catch (e) { data = {}; } }
+    data = data || {};
+    const tradeNo = String(data.merchantTradeNo || payload.merchantTradeNo || '');
+    if (!(bizType === 'PAY' && /PAY_SUCCESS|PAID/.test(bizStatus))) return json({ returnCode: 'SUCCESS', returnMessage: null });
+    if (!tradeNo) return json({ returnCode: 'FAIL', returnMessage: 'missing-trade-no' });
+    if (!env.BINANCE_PAY_SECRET_KEY) return json({ returnCode: 'FAIL', returnMessage: 'not-configured' }, 503);
+    let sigOk = false;
+    try { sigOk = !!timestamp && !!nonce && (await binancePaySign(timestamp, nonce, raw, env.BINANCE_PAY_SECRET_KEY)) === signature.toUpperCase(); } catch (e) { sigOk = false; }
+    const tx = await db.prepare('SELECT amount_usd, status FROM transactions WHERE id = ?1').bind(tradeNo).first();
+    if (!tx || tx.status !== 'pending') return json({ returnCode: 'SUCCESS', returnMessage: null }); /* لا يخصّنا أو مُشحون سابقاً */
+    let q = null; try { q = await binancePayQueryOrder(env, tradeNo); } catch (e) { q = null; }
+    const qd = (q && q.data) || {};
+    const qStatus = String(qd.orderStatus || qd.status || qd.bizStatus || '');
+    if (!binanceOk(q) || !/^(PAID|PAY_SUCCESS)$/.test(qStatus)) {
+      return json({ returnCode: 'FAIL', returnMessage: 'not-confirmed ' + binanceFail(q) + (qStatus ? ' status=' + qStatus : '') + ' sig=' + (sigOk ? 'ok' : 'mismatch') });
     }
-    return json({ ok: true, applied: false, status: st });
+    const paid = Number(qd.totalFee || qd.orderAmount || 0);
+    if (!(paid >= Number(tx.amount_usd) - 0.01)) {
+      await tgNotifyAdmin(env, '⚠️ Binance Pay: مبلغ ناقص للطلب ' + tradeNo + ' — المدفوع ' + paid + ' والمطلوب ' + tx.amount_usd + ' ⇒ لم يُشحن آلياً.');
+      return json({ returnCode: 'SUCCESS', returnMessage: null });
+    }
+    await completeDeposit(env, db, tradeNo, Number(tx.amount_usd));
+    return json({ returnCode: 'SUCCESS', returnMessage: null });
   }
 
   /* ── Webhook Sellix (HMAC-SHA256) ── */
@@ -471,11 +493,12 @@ function pickStr() {
 function normMethod(m) {
   const s = String(m || '').toLowerCase();
   if (!s) return '';
+  if (/binance.?pay/.test(s)) return 'binance_pay';
   if (/binance|usdt|trc|trx|usdт/.test(s)) return 'binance';
   if (/cash[\s_-]*plus|cashplus|cash\+/.test(s)) return 'cash_plus';
   if (/cih|bank|rib|iban|virement|بنك/.test(s)) return 'cih';
   if (/orange/.test(s)) return 'orange_money';
-  if (/cryptomus|crypto|كريبتو|usdt\./.test(s)) return 'cryptomus';
+  if (/crypto|كريبتو|usdt\./.test(s)) return 'binance_pay';
   if (/voucher|voutcher|code|coupon|كوبون|قصيمة|قسي/.test(s)) return 'voucher';
   if (/sellix/.test(s)) return 'sellix';
   return s;
@@ -987,5 +1010,5 @@ function payDebug(env, entry) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { handleFetch: handleFetch, md5: md5, hmacSha256Hex: hmacSha256Hex, cryptomusSign: cryptomusSign, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
+module.exports = { handleFetch: handleFetch, hmacSha256Hex: hmacSha256Hex, binancePaySign: binancePaySign, binancePayCreateOrder: binancePayCreateOrder, binancePayQueryOrder: binancePayQueryOrder, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
 }

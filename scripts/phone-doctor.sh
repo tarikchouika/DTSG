@@ -64,7 +64,7 @@ if [ -d "$APP_DIR" ]; then
   for f in server.js server-payments.js cf-worker/payments-core.js js/wallet.js payments-url.json; do
     [ -f "$f" ] && ok "$f" || bad "مفقود: $f"
   done
-  ls cryptomus_*.html >/dev/null 2>&1 && ok "ملف إثبات Cryptomus" || bad "لا ملف cryptomus_*.html"
+  grep -q 'binancepay/openapi/v2/order' cf-worker/payments-core.js 2>/dev/null && ok "بوابة Binance Pay في payments-core.js" || bad "لا بوابة Binance Pay (شجرة قديمة)"
   grep -q "isDeniedStatic" server.js 2>/dev/null && ok "حماية v2.40.4 موجودة في server.js" || bad "server.js بلا حماية v2.40.4 (الملفات مكشوفة)"
   echo "   بصمة index.html على القرص: $(md5sum index.html 2>/dev/null | cut -c1-12) · $(grep -o -E 'js/wallet\.js\?v=[a-z0-9]+' index.html 2>/dev/null | head -1 || echo 'بلا وسم wallet.js')"
 else

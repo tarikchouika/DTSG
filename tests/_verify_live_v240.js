@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    tests/_verify_live_v240.js — تحقق حي على النشرة https://dtsg.pages.dev
    يفحص: البطاقات الجديدة (ضومنة/طاولة) · رموز QR الثلاثة في صفحة الاسترداد ·
-   ملف إثبات ملكية Cryptomus · فتح المحفظة بلا أخطاء · بصمة البناء · صور حيّة
+   [v2.45] إزالة Cryptomus من الواجهة الحيّة · فتح المحفظة بلا أخطاء · بصمة البناء · صور حيّة
    التشغيل: node tests/_verify_live_v240.js
    ═══════════════════════════════════════════════════════════════════════ */
 'use strict';
@@ -47,13 +47,14 @@ function ok(l, c, x) { if (c) { pass++; console.log('  ✅ ' + l + (x ? '  ' + x
   ok('رقم Cash Plus الحقيقي ظاهر في الصفحة', cash);
   await page.screenshot({ path: '/tmp/live_refund.png', fullPage: false });
 
-  console.log('\n── 3) ملف إثبات ملكية Cryptomus ──');
+  console.log('\n── 3) [v2.45] إزالة Cryptomus ──');
   const own = await page.evaluate(async () => {
-    const r = await fetch('https://dtsg.pages.dev/cryptomus_5bf79cae.html');
-    return { status: r.status, body: await r.text() };
+    const r = await fetch('https://dtsg.pages.dev/cryptomus_5bf79cae.html', { redirect: 'manual' });
+    const html = await (await fetch('https://dtsg.pages.dev/index.html')).text();
+    return { status: r.status, metaCryptomus: /cryptomus/i.test(html) };
   });
-  ok('يُخدَم 200 على مساره الحرفي (بلا تحويل)', own.status === 200, '(status=' + own.status + ')');
-  ok('يحوي المفتاح cryptomus=5bf79cae', /cryptomus=5bf79cae/.test(own.body));
+  ok('ملف إثبات Cryptomus لم يعد يُخدَم (404/تحويل)', own.status === 404 || own.status === 301 || own.status === 308, '(status=' + own.status + ')');
+  ok('index.html الحيّ بلا أي أثر لـ Cryptomus', own.metaCryptomus === false);
 
   console.log('\n── 4) المحفظة على الموقع الحي ──');
   await page.goto(SITE + '/index.html', { waitUntil: 'domcontentloaded' });

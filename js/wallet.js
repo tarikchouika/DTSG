@@ -2,7 +2,7 @@
 /* ════════════════════════════════════════════════════════════════
    DTSG — المحفظة (شحن/سحب/كوبونات/سجل)  [Payments 2026-09-16]
    الواجهة تستدعي ووركر المدفوعات على dstg.pages.dev (عنوانه من
-   /payments-url.json). مسار تلقائي Cryptomus + مسار محلي Cash Plus
+   /payments-url.json). مسار تلقائي Binance Pay [v2.45] + مسار محلي Cash Plus
    (P2P بوصل تحويل) + كوبونات + طلبات سحب يوافق عليها الأدمن من تيليغرام.
    ════════════════════════════════════════════════════════════════ */
 window.PWAL = window.PWAL || {};
@@ -97,8 +97,9 @@ window.PWAL = window.PWAL || {};
       '    <div class="wl-row" id="wlVoucherRow" hidden><label data-i18n="wl.voucher">كود كوبون التعبئة</label><input id="wlVCode" type="text" placeholder="DTSG-XXXX-XXXX"></div>' +
       '    <button class="wl-cta" id="wlVGo" type="button" hidden data-i18n="wl.vGo">تفعيل الكوبون</button>' +
       '    <div class="wl-msg" id="wlDepMsg"></div>' +
+      '    <div id="wlPayBox" hidden></div>' +
       '    <div class="wl-note"><b data-i18n="wl.noteTitle">💡 طرق الشحن ببساطة:</b><br>' +
-      '      🪙 <span data-i18n="wl.noteCrypto"><b>كريبتو (Cryptomus)</b>: مبلغ ← عنوان دفع ← يُشحن تلقائياً بعد تأكيد الشبكة.</span><br>' +
+      '      🟡 <span data-i18n="wl.noteCrypto"><b>Binance Pay</b>: مبلغ ← طلب دفع ← يُشحن تلقائياً بعد تأكيد Binance.</span><br>' +
       '      💵 <span data-i18n="wl.noteCash"><b>Cash Plus</b>: حوِّل للحساب الظاهر أعلاه ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.</span><br>' +
       '      🎟️ <span data-i18n="wl.noteVoucher"><b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).</span><br>' +
       '      <span data-i18n="wl.noteWd"><b>⬆️ السحب:</b> طلب من تبويب «سحب» يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد المبلغ تلقائياً.</span><br>' +
@@ -107,7 +108,7 @@ window.PWAL = window.PWAL || {};
       /* ── سحب ─ */
       '  <div class="wl-pane" id="wlPaneWd" hidden>' +
       '    <div class="wl-row"><label data-i18n="wl.method">الوسيلة</label><select id="wlWdMethod">' +
-      '      <option value="cryptomus" data-i18n="wl.mCrypto">كريبتو (عنوان USDT/TRC20)</option>' +
+      '      <option value="binance_pay" data-i18n="wl.mBnbPay">Binance Pay</option>' +
       '      <option value="cash_plus">Cash Plus</option>' +
       '      <option value="cih" data-i18n="wl.mCihLive">CIH Bank / CIH Express</option>' +
       '      <option value="binance" data-i18n="wl.mBnb">Binance (TRC20)</option>' +
@@ -153,10 +154,10 @@ window.PWAL = window.PWAL || {};
   function renderMethods() {
     var box = overlay.querySelector('#wlMethods');
     if (!METHODS) { box.innerHTML = '<div class="wl-note">⏳ نظام الدفع غير موصول بعد — يضبط المشرف عنوان الووركر في payments-url.json.</div>'; return; }
-    var icons = { cryptomus: '🪙', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️', binance: '🟡' };
+    var icons = { binance_pay: '🟡', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️', binance: '🟡' };
     /* [i18n v2.39] أسماء الوسائل تُترجم محلياً بدل نص الخادم العربي */
     var lab = function (m) {
-      var k = { cryptomus: 'wl.mCrypto', cih: 'wl.mCihLive', binance: 'wl.mBnb', voucher: 'wl.voucher', orange_money: 'wl.mOm' }[m.id];
+      var k = { binance_pay: 'wl.mBnbPay', cih: 'wl.mCihLive', binance: 'wl.mBnb', voucher: 'wl.voucher', orange_money: 'wl.mOm' }[m.id];
       if (k && typeof T === 'function' && T(k) !== k) return T(k);
       return m.label;
     };
@@ -223,17 +224,38 @@ window.PWAL = window.PWAL || {};
     } catch (e) { /* الووركر غير متاح */ }
   }
 
+  /* [v2.45] صندوق الدفع Binance Pay (بديل Cryptomus): QR + زر فتح + مرجع الطلب */
+  function wlShowPay(r) {
+    var box = overlay.querySelector('#wlPayBox');
+    if (!box) return;
+    var url = r.checkoutUrl || r.universalUrl || r.deeplink || '';
+    var qrData = r.qrContent || r.qrcodeLink || url;
+    var html = '';
+    if (qrData) html += '<img alt="Binance Pay QR" style="width:190px;height:190px;border-radius:12px;background:#fff;padding:6px" ' +
+      'src="https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=' + encodeURIComponent(qrData) + '">';
+    if (url) html += '<div style="margin-top:8px"><a class="wl-cta" style="display:inline-block;text-decoration:none" target="_blank" rel="noopener" href="' + esc(url) + '">🟡 ' +
+      (typeof T === 'function' ? T('wl.openBinance') : 'افتح Binance Pay') + '</a></div>';
+    html += '<div class="wl-note">' + (typeof T === 'function' ? T('wl.payRef') : 'مرجع الطلب') + ': <b>' + esc(r.order_id || '') + '</b> · ' +
+      Number(r.amount || 0).toFixed(2) + ' ' + esc(r.currency || 'USDT') + ' — ' +
+      (typeof T === 'function' ? T('wl.payAuto') : 'يُشحن رصيدك تلقائياً بعد تأكيد Binance.') + '</div>';
+    box.innerHTML = html;
+    box.hidden = false;
+  }
+
   async function wlSubmitDeposit() {
     var btn = overlay.querySelector('#wlDepGo'), mm = overlay.querySelector('#wlDepMsg');
+    var box = overlay.querySelector('#wlPayBox');
+    if (box) { box.hidden = true; box.innerHTML = ''; }
     var u = AUTH.user; var amt = Number(overlay.querySelector('#wlAmt').value);
     btn.disabled = true; msg(mm, '⏳ جارٍ التنفيذ…', true);
     try {
-      if (selMethod === 'cryptomus') {
+      if (selMethod === 'binance_pay') {
+        if (!(amt >= 1)) { msg(mm, '❌ أدخل مبلغاً صحيحاً (1 USD على الأقل)', false); btn.disabled = false; return; }
         const r = await api('/api/payments/crypto', { user_id: u.id, username: u.username, amount_usd: amt });
         if (r && r.ok) {
-          msg(mm, '🪙 أرسل ' + r.amount + ' ' + (r.currency || '') + ' إلى: ' + r.address + ' — يُشحن رصيدك تلقائياً بعد التأكيد.', true);
-          if (r.url) window.open(r.url, '_blank');
-        } else msg(mm, '❌ ' + ((r && r.error) || 'تعذر إنشاء الفاتورة'), false);
+          msg(mm, '🟡 طلب الدفع جاهز — أكمل الدفع عبر Binance ويُشحن رصيدك تلقائياً.', true);
+          wlShowPay(r);
+        } else msg(mm, '❌ ' + ((r && r.error) || 'تعذر إنشاء الطلب') + (r && r.detail ? ' (' + r.detail + ')' : ''), false);
       } else {
         var proof = overlay.querySelector('#wlProof').value.trim();
         if (!proof) { msg(mm, '❌ أدخل كود/مرجع التحويل بعد إرسال المال', false); btn.disabled = false; return; }

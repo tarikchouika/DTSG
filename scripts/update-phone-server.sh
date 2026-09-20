@@ -10,7 +10,7 @@
 #    1) يكتشف تلقائياً المجلد الذي يشغّله pm2 فعلاً (pm_cwd) — لأن التحديث كان
 #       يُطبَّق على /root/dmgames-arena بينما العملية تخدم شجرة أخرى فتضيع التغييرات.
 #    2) يتحقق من وجود الملفات الحاسمة بعد الجلب (server-payments.js, js/wallet.js,
-#       payments-url.json, cryptomus_*.html) ويفشل بصوت عالٍ إن كانت ناقصة.
+#       payments-url.json) ويفشل بصوت عالٍ إن كانت ناقصة، ويتحقق من بوابة Binance Pay.
 #    3) يتحقق بعد إعادة التشغيل أن النسخة المشغَّلة فعلًا هي الجديدة (/api/health
 #       يعيد build) محلياً وعبر الرابط العام — لا «نجاح شكلي».
 #    4) فحص أمني: قاعدة البيانات وملفات الخادم يجب أن تردّ 404 عمومياً.
@@ -99,14 +99,17 @@ MISS=0
 for f in "${EXPECT_FILES[@]}"; do
   if [ -f "$f" ]; then ok "$f"; else bad "مفقود: $f"; MISS=1; fi
 done
-ls cryptomus_*.html >/dev/null 2>&1 && ok "ملف إثبات Cryptomus موجود" || bad "لا ملف cryptomus_*.html"
+grep -q 'binancepay/openapi/v2/order' cf-worker/payments-core.js 2>/dev/null && ok "بوابة Binance Pay موجودة في payments-core.js" || bad "payments-core.js بلا بوابة Binance Pay (شجرة قديمة)"
 [ "$MISS" = "0" ] || die "الشجرة غير مكتملة بعد الجلب — التحديث لم يُطبَّق على المجلد الصحيح. أوقف هنا ولا تعِد التشغيل."
 echo "   إصدار package.json: $(node -p "require('./package.json').version" 2>/dev/null)"
 echo "   (المتوقع ≥ 2.40.4)"
 
 say "2) متغيرات البيئة (تُمرَّر إلى pm2)"
-export CRYPTOMUS_MERCHANT_ID="${CRYPTOMUS_MERCHANT_ID:-}"
-export CRYPTOMUS_PAYMENT_KEY="${CRYPTOMUS_PAYMENT_KEY:-}"
+# [v2.45] بوابة الشحن التلقائي (بديل Cryptomus الذي أُزيل) — من البيئة فقط، لا تُكتب في المستودع
+export BINANCE_PAY_MERCHANT_ID="${BINANCE_PAY_MERCHANT_ID:-}"
+export BINANCE_PAY_API_KEY="${BINANCE_PAY_API_KEY:-}"
+export BINANCE_PAY_SECRET_KEY="${BINANCE_PAY_SECRET_KEY:-}"
+export BINANCE_PAY_CURRENCY="${BINANCE_PAY_CURRENCY:-USDT}"
 export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
 export TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-5700612979}"
 export TELEGRAM_ADMIN_PIN="${TELEGRAM_ADMIN_PIN:-}"
@@ -127,7 +130,7 @@ export SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-}"   # [v2.44-أمن] من الب
 export SUPPORT_WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-}"
 export SUPPORT_BOT_USERNAME="${SUPPORT_BOT_USERNAME:-dtsgsupports_bot}"
 export SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-${TELEGRAM_ADMIN_CHAT_ID:-5700612979}}"
-echo "   CRYPTOMUS: $([ -n "$CRYPTOMUS_MERCHANT_ID" ] && echo مضبوط || echo 'فارغ (وسيلة الكريبتو ستبقى soon)')"
+echo "   BINANCE_PAY: $([ -n "$BINANCE_PAY_API_KEY" ] && [ -n "$BINANCE_PAY_SECRET_KEY" ] && echo مضبوط || echo 'فارغ (الشحن التلقائي سيبقى soon)') · العملة: $BINANCE_PAY_CURRENCY"
 echo "   TELEGRAM_ADMIN_CHAT_ID: $TELEGRAM_ADMIN_CHAT_ID · USD_GOLD_RATE: $USD_GOLD_RATE"
 echo "   SUPPORT_BOT_TOKEN: $([ -n "$SUPPORT_BOT_TOKEN" ] && echo مضبوط || echo فارغ) · السرّ: $([ -n "$SUPPORT_WEBHOOK_SECRET" ] && echo مضبوط || echo فارغ)"
 echo "   TELEGRAM_BOT_TOKEN: $([ -n "$TELEGRAM_BOT_TOKEN" ] && echo مضبوط || echo 'فارغ (بوت المدفوعات معطّل)')"

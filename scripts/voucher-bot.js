@@ -67,7 +67,7 @@ const KB_USER = (linked) => ({
 const METHODS = [
   { key: 'cash_plus', label: 'Cash Plus' },
   { key: 'binance', label: 'Binance Pay / USDT' },
-  { key: 'cryptomus', label: 'بطاقة/عملات (Cryptomus)' },
+  { key: 'binance_pay', label: 'Binance Pay' },
   { key: 'bank', label: 'تحويل بنكي (RIB)' }
 ];
 const METHOD_KB = { keyboard: METHODS.map(m => [{ text: m.label }]).concat([[{ text: '✖️ إلغاء' }]]), resize_keyboard: true };
@@ -94,7 +94,7 @@ function methodLabel(key) { const m = METHODS.find(x => x.key === key); return m
 function payDetails(key) {
   if (key === 'cash_plus') return 'حوّل إلى محفظة Cash Plus باسم: <b>' + CASH_PLUS_NAME + '</b> ثم أرسل رقم عملية التحويل هنا.';
   if (key === 'binance') return 'حوّل USDT (شبكة TRC20/BEP20) ثم أرسل Hash العملية هنا.';
-  if (key === 'cryptomus') return 'افتح فاتورة الدفع من المنصة (المحفظة ← إيداع) ثم أرسل رقم الفاتورة/المرجع.';
+  if (key === 'binance_pay') return 'افتح Binance Pay من المنصة (المحفظة ← إيداع) ثم أكمل الدفع وأرسل رقم المرجع.';
   return 'حوّل إلى الحساب البنكي للمنصة ثم أرسل رقم التحويل (RIB) هنا.';
 }
 

@@ -32,7 +32,7 @@ function makeD1() {
 
 function mkEnv(db, over) {
   return Object.assign({
-    DATABASE_BINDING: db, CRYPTOMUS_PAYMENT_KEY: '', CRYPTOMUS_MERCHANT_ID: '',
+    DATABASE_BINDING: db, BINANCE_PAY_MERCHANT_ID: '132972522', BINANCE_PAY_API_KEY: 'k', BINANCE_PAY_SECRET_KEY: 's',
     TELEGRAM_BOT_TOKEN: '', TELEGRAM_ADMIN_CHAT_ID: '', ADMIN_API_SECRET: 'secret',
     CASH_PLUS_NAME: 'TARIK CHOUIKA', CASH_PLUS_ACCOUNT: '0766672027',
     CIH_NAME: 'MONSIEUR TARIK CHOUIKA', CIH_ACCOUNT: '6904085211014200',
@@ -60,7 +60,7 @@ function req(method, url, body) {
      لأن المخطط يفرض مفتاحاً أجنبياً على transactions.user_id */
   ['1', '7', '8'].forEach(id => db._raw.prepare("INSERT OR IGNORE INTO users (id, balance_usd) VALUES (?, 1000)").run(id));
   const globalFetch = global.fetch;
-  global.fetch = async () => ({ json: async () => ({ ok: true, result: true }) });  /* تيليغرام/Cryptomus */
+  global.fetch = async () => ({ json: async () => ({ ok: true, result: true }) });  /* تيليغرام/Binance Pay */
 
   console.log('\n── 1) المخطط: method يقبل binance ──');
   const schemaOk = await (async () => {

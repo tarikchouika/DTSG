@@ -5,7 +5,7 @@
    لذلك يُركَّب payments-core.js هنا مباشرة ويشارك نفس اتصال db.
    المنطق المالي المُختبَر (36/36) يعيش في cf-worker/payments-core.js.
    الأسرار من process.env:
-     CRYPTOMUS_PAYMENT_KEY, CRYPTOMUS_MERCHANT_ID, SELLIX_WEBHOOK_SECRET,
+BINANCE_PAY_MERCHANT_ID, BINANCE_PAY_API_KEY, BINANCE_PAY_SECRET_KEY, SELLIX_WEBHOOK_SECRET,
      TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID, ADMIN_API_SECRET,
      USD_GOLD_RATE, CASH_PLUS_NAME, CASH_PLUS_ACCOUNT, PLATFORM_PUBLIC_URL
    ════════════════════════════════════════════════════════════════ */
@@ -35,7 +35,9 @@ function initPaymentsTables(db) {
       user_id TEXT NOT NULL,
       type TEXT CHECK(type IN ('deposit', 'withdrawal')),
       amount_usd REAL NOT NULL,
-      method TEXT CHECK(method IN ('sellix', 'cryptomus', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
+      /* [v2.45] cryptomus قيمة تاريخية للصفوف القديمة فقط — لا مسار جديد ينشئها
+         (البوابة التلقائية الآن binance_pay) */
+      method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
       status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
       proof_details TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -58,12 +60,12 @@ function initPaymentsTables(db) {
   `);
   try { db.exec('ALTER TABLE users ADD COLUMN telegram_id TEXT'); } catch (e) { /* موجود */ }
 
-  /* [v2.40] ترحيل: عمود method في pay_transactions كان يرفض 'binance'
-     (المحفظة تعرض Binance كوسيلة سحب/إيداع حيّة منذ v2.38) — SQLite لا يعدّل
-     CHECK على جدول قائم، فنعيد بناء الجدول مع نقل كل الصفوف كما هي. */
+  /* [v2.40→v2.45] ترحيل: عمود method في pay_transactions كان يرفض 'binance'
+     (منذ v2.38) ثم 'binance_pay' (بوابة الشحن التلقائي بعد إزالة Cryptomus في v2.45)
+     — SQLite لا يعدّل CHECK على جدول قائم، فنعيد بناء الجدول مع نقل كل الصفوف كما هي. */
   try {
     const ddl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='pay_transactions'").get();
-    if (ddl && ddl.sql && ddl.sql.indexOf('binance') === -1) {
+    if (ddl && ddl.sql && ddl.sql.indexOf('binance_pay') === -1) {
       const cols = db.prepare('PRAGMA table_info(pay_transactions)').all().map(function (c) { return c.name; }).join(', ');
       db.exec('BEGIN');
       db.exec(`
@@ -72,10 +74,14 @@ function initPaymentsTables(db) {
           user_id TEXT NOT NULL,
           type TEXT CHECK(type IN ('deposit', 'withdrawal')),
           amount_usd REAL NOT NULL,
-          method TEXT CHECK(method IN ('sellix', 'cryptomus', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
+          method TEXT CHECK(method IN ('sellix', 'cryptomus', 'binance_pay', 'cih', 'orange_money', 'cash_plus', 'binance', 'voucher')),
           status TEXT CHECK(status IN ('pending', 'completed', 'rejected')) DEFAULT 'pending',
           proof_details TEXT,
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          /* [v2.45-FIX] عمودا المراجعة أُضيفا بـ ALTER بعد إنشاء الجدول —
+             وبدونهما كان الترحيل يفشل بصمت: no column named reviewed_by */
+          reviewed_by TEXT,
+          reviewed_at INTEGER,
           FOREIGN KEY(user_id) REFERENCES users(id)
         );
         INSERT INTO pay_transactions__mig (${cols}) SELECT ${cols} FROM pay_transactions;
@@ -85,7 +91,7 @@ function initPaymentsTables(db) {
         CREATE INDEX IF NOT EXISTS idx_pay_tx_status ON pay_transactions(status);
       `);
       db.exec('COMMIT');
-      console.log('[payments] migrated pay_transactions.method → +binance');
+      console.log('[payments] migrated pay_transactions.method → +binance +binance_pay');
     }
   } catch (e) { try { db.exec('ROLLBACK'); } catch (e2) {} console.log('[payments] migration skipped:', e.message); }
 
@@ -163,8 +169,9 @@ function buildEnv(req) {
   const e = process.env;
   return {
     DATABASE_BINDING: CTX.shim,
-    CRYPTOMUS_PAYMENT_KEY: e.CRYPTOMUS_PAYMENT_KEY || '',
-    CRYPTOMUS_MERCHANT_ID: e.CRYPTOMUS_MERCHANT_ID || '',
+    BINANCE_PAY_MERCHANT_ID: e.BINANCE_PAY_MERCHANT_ID || '',
+    BINANCE_PAY_API_KEY: e.BINANCE_PAY_API_KEY || '',
+    BINANCE_PAY_SECRET_KEY: e.BINANCE_PAY_SECRET_KEY || '',
     SELLIX_WEBHOOK_SECRET: e.SELLIX_WEBHOOK_SECRET || '',
     TELEGRAM_BOT_TOKEN: e.TELEGRAM_BOT_TOKEN || '',
     TELEGRAM_ADMIN_CHAT_ID: e.TELEGRAM_ADMIN_CHAT_ID || '',
@@ -297,7 +304,7 @@ function buildEnv(req) {
 
 const PAY_PATHS = [
   '/api/payments/methods', '/api/payments/crypto', '/api/payments/p2p',
-  '/api/webhooks/cryptomus', '/api/webhooks/sellix',
+  '/api/webhooks/binance', '/api/webhooks/sellix',
   '/api/vouchers/redeem', '/api/vouchers/create',
   '/api/withdrawals/request', '/api/wallet/balance', '/api/telegram/webhook',
   /* [v2.44] بوابة بوت الشحن/الفوتشير (بلا جلسة) + ربط تيليغرام */

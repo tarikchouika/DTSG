@@ -73,14 +73,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   /* ── 4) الملفات المشروعة يجب ألا تتأثر ── */
   const allowed = [['/', '<!DOCTYPE html'], ['/index.html', '<!DOCTYPE html'], ['/js/wallet.js', "'use strict'"],
     ['/js/main.js', ''], ['/css/20-wallet.css', ''], ['/payments-url.json', '"url"'],
-    ['/api-url2.json', '"url"'], ['/cryptomus_696df86d.html', 'cryptomus=696df86d']];
+    ['/api-url2.json', '"url"']];
   for (const [p, needle] of allowed) {
     const r = await get(p);
     ok('مسموح ' + p, r.code === 200 && (!needle || r.body.includes(needle)), 'code=' + r.code + ' bytes=' + Buffer.byteLength(r.body));
   }
-  const cm = await get('/cryptomus_696df86d.html');
-  ok('ملف Cryptomus خام 18 بايت بالحرف', cm.body === 'cryptomus=696df86d' && Buffer.byteLength(cm.body) === 18,
-    Buffer.byteLength(cm.body) + 'B');
+  /* [v2.45] ملفات إثبات ملكية Cryptomus أُزيلت — يجب أن ترد 404 */
+  for (const p of ['/cryptomus_696df86d.html', '/cryptomus_5bf79cae.html']) {
+    const r = await get(p);
+    ok('أُزيل ' + p + ' (404)', r.code === 404, 'code=' + r.code);
+  }
 
   /* ── 4.b) نموذج «اتصل بنا» يعمل (كان 405 من Pages بسبب مسار نسبي) ── */
   const cpost = async (payload) => {

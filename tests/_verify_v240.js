@@ -5,7 +5,7 @@
      2) خلفية مسرح اللعبتين تعمل (gstage-bg)
      3) صفحة الاسترداد: 3 رموز QR تُحمَّل فعلاً بأبعاد صحيحة (cashplus/cih/binance)
      4) المحفظة: QR يظهر عند اختيار وسيلة دفع + بيانات الحساب
-     5) ملف إثبات ملكية Cryptomus يُخدَم ويحوي المفتاح
+     5) [v2.45] إزالة Cryptomus: الملفات 404 وindex.html بلا آثاره
    التشغيل: node tests/_verify_v240.js   (يتطلب خادماً على 3000)
    ═══════════════════════════════════════════════════════════════════════ */
 'use strict';
@@ -125,8 +125,8 @@ function ok(label, cond, extra) {
   });
   if (wallet.error) { ok('المحفظة تُفتح', false, wallet.error); }
   else {
-    ok('وسائل الشحن تشمل Cash Plus و CIH و Binance',
-      ['cash_plus', 'cih', 'binance'].every(m => wallet.methods.includes(m)), '(' + wallet.methods.join(',') + ')');
+    ok('وسائل الشحن تشمل Cash Plus و CIH و Binance و Binance Pay',
+      ['cash_plus', 'cih', 'binance', 'binance_pay'].every(m => wallet.methods.includes(m)), '(' + wallet.methods.join(',') + ')');
     [['cash', 'Cash Plus'], ['cih', 'CIH'], ['binance', 'Binance']].forEach(([k, name]) => {
       const r = wallet[k];
       ok(name + ': رمز QR يظهر داخل المحفظة محمَّلاً',
@@ -134,14 +134,15 @@ function ok(label, cond, extra) {
     });
   }
 
-  /* ── 5) ملف إثبات ملكية Cryptomus ── */
-  console.log('\n── 5) ملف Cryptomus ──');
+  /* ── 5) [v2.45] لا آثار لـ Cryptomus: الملفات أُزيلت من الجذر (404) ── */
+  console.log('\n── 5) إزالة Cryptomus ──');
   const own = await page.evaluate(async () => {
     const r = await fetch('/cryptomus_5bf79cae.html');
-    return { status: r.status, body: await r.text() };
+    const html = await (await fetch('/index.html')).text();
+    return { status: r.status, metaCryptomus: /cryptomus/i.test(html) };
   });
-  ok('الملف يُخدَم من الجذر (HTTP 200)', own.status === 200, '(status=' + own.status + ')');
-  ok('يحتوي المفتاح cryptomus=5bf79cae حرفياً', /cryptomus=5bf79cae/.test(own.body));
+  ok('ملف إثبات Cryptomus لم يعد يُخدَم (404)', own.status === 404, '(status=' + own.status + ')');
+  ok('index.html بلا أي أثر لـ Cryptomus', own.metaCryptomus === false);
 
   ok('صفر أخطاء JS في كل الصفحات', errs.length === 0, errs.length ? JSON.stringify(errs.slice(0, 3)) : '');
   await b.close();
