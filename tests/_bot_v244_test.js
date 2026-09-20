@@ -58,7 +58,7 @@ const msg = (text, id) => bot.onMessage({ chat: { id: id || USER_TG }, from: { i
 
   const ack = (lastTo(USER_TG) || {}).payload?.text || '';
   const refM = ack.match(/<code>((?:p2p|kod|wd)-[a-z0-9]+)<\/code>/);
-  refM ? ok('وصل طلبك إلى السوبر أدمن · المرجع ' + refM[1] + ' · ' + (/12500|12[.,]500/.test(ack) ? 'القيمة المتوقعة 12,500 🪙 ✓' : 'قيمة غير متوقعة'))
+  refM ? ok('وصل طلبك إلى السوبر أدمن · المرجع ' + refM[1] + ' · ' + (/10500|10[.,]500/.test(ack) ? 'القيمة المتوقعة 10,500 🪙 ✓' : 'قيمة غير متوقعة'))
       : bad('لم يُنشأ الطلب: ' + ack.slice(0, 120));
   const tx = refM ? refM[1] : null;
   const adminNotif = lastTo(SUPER);
@@ -89,8 +89,8 @@ const msg = (text, id) => bot.onMessage({ chat: { id: id || USER_TG }, from: { i
     red.ok ? ok('تفعيل الكود نجح (redeem)') : bad('فشل التفعيل: ' + JSON.stringify(red).slice(0, 140));
     const bal2 = await (await realFetch(API_BASE + '/api/wallet/balance?username=' + USERNAME)).json();
     const gain = Number(bal2.coins) - coins0;
-    gain === 12500 ? ok('شُحن 100$ × 100 كوين + بونص 25% = +12,500 🪙 (مرة واحدة بالضبط)')
-      : bad('الشحن غير مطابق: +' + gain + ' بدل 12500');
+    gain === 10500 ? ok('شُحن 100$ × 100 كوين + بونص 5% (مستخدم عادي) = +10,500 🪙 (مرة واحدة بالضبط)')
+      : bad('الشحن غير مطابق: +' + gain + ' بدل 10500');
     const again = await (await realFetch(API_BASE + '/api/vouchers/redeem', {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ code: codeM[1], username: USERNAME })

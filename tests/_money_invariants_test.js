@@ -101,7 +101,7 @@ function checkState(label, opts = {}) {
   const red = await jpost('/api/vouchers/redeem', { user_id: UID, code: code });
   red.ok ? ok('تفعيل الكود: +' + (red.coins || 0) + ' 🪙') : bad('فشل التفعيل: ' + JSON.stringify(red));
   const g5 = checkState('بعد التفعيل', { expectLog: true, kind: 'voucher', status: 'completed' });
-  (g5 - g4) === Math.round(100 * RATE * 1.25) ? ok('الشحن بالبونص مطابق: +' + (g5 - g4) + ' 🪙 (100$ ×100 ×1.25)') : bad('شحن الكود ' + (g5 - g4) + ' والمتوقع ' + Math.round(100 * RATE * 1.25));
+  (g5 - g4) === Math.round(100 * RATE * 1.05) ? ok('الشحن بالبونص مطابق: +' + (g5 - g4) + ' 🪙 (100$ ×100 ×1.05 — مستخدم عادي)') : bad('شحن الكود ' + (g5 - g4) + ' والمتوقع ' + Math.round(100 * RATE * 1.05));
 
   console.log('\n═══ 4) /api/sync بمرجع قديم لا يطمس الشحن ═══');
   const tok = await jpost('/api/login', { username: 'qa_player', password: 'QaTest12345' });

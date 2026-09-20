@@ -80,7 +80,9 @@ async function adminActOnTransaction(env, db, txId, act) {
       /* [v2.44-ATOMIC] الفائز الأول فقط يُنشئ الكود — لا كودان لطلب واحد */
       if (!(await claimTx(db, txId, 'completed'))) return { ok: false, error: 'already-handled' };
       const rate = (typeof env.__rate === 'function') ? Number(env.__rate()) : COINS_PER_USD;
-      const pct = depositBonusPct(Number(tx.amount_usd));
+      /* [Bonus-tiers 2026-09-19] بونص طلب التعبة حسب دور صاحبه — نفس قواعد /api/bot/request:
+         مستخدم عادي ⇒ شرائح المستخدمين · أدمن فعلي ⇒ شرائح الأدمنز */
+      const pct = depositBonusPct(Number(tx.amount_usd), userRoleOf(env, db, tx.user_id));
       const coins = Math.round(Number(tx.amount_usd) * rate * (1 + pct / 100));
       const code = newCode();
       try {
@@ -154,12 +156,19 @@ async function uEnsure(db, env, id, email) {
 /* [v2.44-MONEY] بونص الشحن التلقائي حسب الشريحة:
    100$→+25% · 1000$→+30% · 10000$→+35% · 100000$→+40% (وما بينها: أعلى شريحة محقَّقة)
    البونص كوينز إضافية تُمنح مرة واحدة عند تأكيد الإيداع (السوبر أدمن) — نفس جداول /codes. */
-/* [v2.44] نسبة البونص للمبلغ (أعلى شريحة محقَّقة) */
-function depositBonusPct(usd) {
-  var t = Number(usd) || 0, best = 0;
-  Object.keys(ADMIN_TIERS).forEach(function (k) {
+/* [Bonus-tiers 2026-09-19] نسبة البونص لمبلغ الشحن — حسب دور صاحب الحساب:
+   - افتراضياً (مستخدم عادي): شرائح USER_TIERS/USER_TIERS_MAD (المستحقة فقط، أعلى شريحة محقَّقة).
+   - admin/super: شرائح الأدمنز ADMIN_TIERS (مبالغ كبيرة ببونص أعلى — تُعطى فقط لحساب إداري فعلي).
+   - لا خلط: شرائح أكواد الأدمنز لم تعد تُطبَّق على المستخدمين العاديين أبداً.
+   role اختياري يمرّره المسار (deposit/topup/admin-act) إن عرف دور المستخدم. */
+function depositBonusPct(usd, role, currency) {
+  var t = Number(usd) || 0;
+  var src = (role === 'admin' || role === 'super') ? ADMIN_TIERS
+    : ((String(currency || '').toLowerCase() === 'mad') ? USER_TIERS_MAD : USER_TIERS);
+  var best = 0;
+  Object.keys(src).forEach(function (k) {
     var tier = Number(k);
-    if (t >= tier && ADMIN_TIERS[k] > best) best = ADMIN_TIERS[k];
+    if (t >= tier && src[k] > best) best = src[k];
   });
   return best;
 }
@@ -167,10 +176,11 @@ async function uCreditUsd(db, env, id, usd) {
   if (typeof env.__creditUsd === 'function') return env.__creditUsd(id, usd);
   await creditUser(db, id, usd);
 }
-/* منح الإيداع كاملاً: كوينز الأساس + البونص (عبر تسوية واحدة قدر الإمكان) */
-async function creditDepositWithBonus(db, env, id, usd) {
+/* منح الإيداع كاملاً: كوينز الأساس + البونص (عبر تسوية واحدة قدر الإمكان)
+   [Bonus-tiers 2026-09-19] البونص حسب دور صاحب الحساب — المستخدم العادي على شرائح المستخدمين */
+async function creditDepositWithBonus(db, env, id, usd, role, currency) {
   const rate = (typeof env.__rate === 'function') ? Number(env.__rate()) : 100;
-  const pct = depositBonusPct(usd);
+  const pct = depositBonusPct(usd, role, currency);
   const base = Math.round(Number(usd) * rate);
   const bonus = Math.round(base * pct / 100);
   if (typeof env.__settleGold === 'function') {
@@ -227,6 +237,17 @@ async function platformCredit(env, userId, usd, txId) {
     });
   } catch (e) { /* لا نكشل العملية المالية على تعذر المنصة */ }
 }
+/* دور صاحب الحساب على المنصة (لشرائح البونص) — null إن لم يُعرف ⇒ مستخدم عادي */
+function userRoleOf(env, db, id) {
+  try {
+    if (typeof env.__userRole === 'function') { const r = env.__userRole(id); if (r) return String(r); }
+  } catch (e) {}
+  try {
+    const r = db.prepare('SELECT role FROM users WHERE id = ?1').bind(String(id)).first();
+    return (r && r.role) ? String(r.role) : null;
+  } catch (e) {}
+  return null;
+}
 async function completeDeposit(env, db, txId, paidUsd) {
   const tx = await db.prepare('SELECT * FROM transactions WHERE id = ?1').bind(txId).first();
   if (!tx || tx.status !== 'pending' || tx.type !== 'deposit') return { ok: false, reason: 'not-pending' };
@@ -236,7 +257,8 @@ async function completeDeposit(env, db, txId, paidUsd) {
   const cl = await db.prepare("UPDATE transactions SET status='completed', amount_usd=?2 WHERE id=?1 AND status='pending'").bind(txId, amount).run();
   if (!(cl && cl.meta && Number(cl.meta.changes) === 1)) return { ok: false, reason: 'already-claimed' };
   /* [v2.44] شحن واحد يشمل البونص — كان platformCredit يُضيف فوق __creditUsd (شحن مزدوج) */
-  const cr = await creditDepositWithBonus(db, env, tx.user_id, amount);
+  /* [Bonus-tiers] البونص على شرائح المستخدمين ما لم يكن الحساب أدمناً فعلياً */
+  const cr = await creditDepositWithBonus(db, env, tx.user_id, amount, userRoleOf(env, db, tx.user_id));
   if (!cr.viaSettle) await platformCredit(env, tx.user_id, amount, txId);
   const tgId = await uGetTelegram(db, env, tx.user_id);
   const msg = '✅ تم شحن رصيدك بنجاح: ' + amount + ' USD = ' + cr.coins.toLocaleString('ar-MA') + ' 🪙'
@@ -258,7 +280,13 @@ async function completeDeposit(env, db, txId, paidUsd) {
    الأسرار من env فقط: BINANCE_PAY_API_KEY · BINANCE_PAY_SECRET_KEY
    (BINANCE_PAY_MERCHANT_ID للتوثيق · BINANCE_PAY_CERT_SN/BINANCE_PAY_CURRENCY/BINANCE_PAY_API_BASE اختيارية) */
 const BINANCE_PAY_HOST = 'https://bpay.binanceapi.com';
+/* [v2.46] مساران حسب نوع الحساب:
+   - /binancepay/openapi/order (v3) — Crypto Pay الشخصي (حساب فرد موثق، مفتاحه من إدارة API بحساب بايننس).
+   - /binancepay/openapi/v2/order — Merchant Acquirer (حساب تاجر، مفتاحه من بوابة pay.binance.com).
+   نجرّب الشخصي أولاً ثم التجاري ⇒ يعمل مع كلا النوعين. */
+const BINANCE_PAY_CREATE_V3 = '/binancepay/openapi/order';
 const BINANCE_PAY_CREATE = '/binancepay/openapi/v2/order';
+const BINANCE_PAY_QUERY_V3 = '/binancepay/openapi/v3/order/query';
 const BINANCE_PAY_QUERY = '/binancepay/openapi/v2/order/query';
 function binanceHost(env) { return String((env && env.BINANCE_PAY_API_BASE) || BINANCE_PAY_HOST).replace(/\/+$/, ''); }
 function binanceCertSN(env) { return String((env && (env.BINANCE_PAY_CERT_SN || env.BINANCE_PAY_API_KEY)) || ''); }
@@ -307,7 +335,12 @@ async function binancePayCreateOrder(env, orderId, amountUsd) {
   const cur = binanceCurrency(env);
   const amount = Math.round(Number(amountUsd) * 100) / 100;
   const back = String(env.WORKER_PUBLIC_URL || '');
-  const body = {
+  const v3Body = {
+    env: { terminalType: 'WEB' },
+    orderAmount: amount,
+    currency: cur
+  };
+  const v2Body = {
     env: { terminalType: 'WEB' },
     merchantTradeNo: orderId,
     orderAmount: amount,
@@ -318,21 +351,35 @@ async function binancePayCreateOrder(env, orderId, amountUsd) {
       goodsUnitAmount: { currency: cur, amount: amount }
     }
   };
-  if (back) { body.returnUrl = back; body.cancelUrl = back; }
-  return binancePayCall(env, BINANCE_PAY_CREATE, body);
+  if (back) { v3Body.returnUrl = back; v2Body.returnUrl = back; v2Body.cancelUrl = back; }
+  /* [v2.46] حساب شخصي موثق ⇒ v3 ينجح مباشرة؛ حساب تاجر ⇒ v3 يرفض (INVALID_MERCHANT/40300) وينجح v2 */
+  const r3 = await binancePayCall(env, BINANCE_PAY_CREATE_V3, v3Body);
+  if (binanceOk(r3)) return r3;
+  if (binanceFail(r3).indexOf('400004') < 0) {  /* 400004 = مفتاح/IP/صلاحيات ⇒ لا فائدة من v2 */
+    const r2 = await binancePayCall(env, BINANCE_PAY_CREATE, v2Body);
+    if (binanceOk(r2)) return r2;
+    return binanceFail(r2).length >= binanceFail(r3).length ? r2 : r3;
+  }
+  return r3;
 }
-/* استعلام حالة الطلب — مصدر الحقيقة قبل أي شحن آلي */
+/* استعلام حالة الطلب — مصدر الحقيقة قبل أي شحن آلي (v3 للشخصي، v2 للتجاري) */
 async function binancePayQueryOrder(env, merchantTradeNo) {
+  const p3 = await binancePayCall(env, BINANCE_PAY_QUERY_V3, { prepayId: String(merchantTradeNo) });
+  if (binanceOk(p3)) return p3;
   return binancePayCall(env, BINANCE_PAY_QUERY, { merchantTradeNo: String(merchantTradeNo) });
 }
 
-/* ── [Codes 2026-09-17] شرائح أكواد الشحن — نوعان ──
-   أدمنز (بونص): 100→25% | 1000→30% | 10000→35% | 100000→40%
-   مباشر: 10$=1000كوين 0% | 100→5% | 1000→10% | 10000→15%
-   السعر: 100 كوين/$ و10 كوين/درهم */
+/* ── [Bonus-tiers 2026-09-19] شرائح البونص — نظام واحد بلا خلط ──
+   أدمنز (أكواد خاصة بإصدار السوبر أدمن): 1000→30% | 10000→35% | 100000→40% — تُفعَّل من /codes admin.
+   مباشر (أكواد خاصة): 10→0% | 100→5% | 1000→10% | 10000→15% — تُفعَّل من /codes direct.
+   المستخدم العادي (شحن البوت/المنصة بلا كود مسبق): 100$→5% · 500$→8% · 1000$→10% · 5000$→15% · 10000$→20%
+   (والدرهم: 1000→5% · 5000→8% · 10000→10% · 50000→15% · 100000→20%).
+   المبالغ الأصغر من أول شريحة ⇒ بونص 0%. السعر: 100 كوين/$ و10 كوين/درهم */
 var COINS_PER_USD = 100, COINS_PER_MAD = 10;
-var ADMIN_TIERS = { 100: 25, 1000: 30, 10000: 35, 100000: 40 };
+var ADMIN_TIERS = { 1000: 30, 10000: 35, 100000: 40 };
 var DIRECT_TIERS = { 10: 0, 100: 5, 1000: 10, 10000: 15 };
+var USER_TIERS = { 100: 5, 500: 8, 1000: 10, 5000: 15, 10000: 20 };
+var USER_TIERS_MAD = { 1000: 5, 5000: 8, 10000: 10, 50000: 15, 100000: 20 };
 function tierCoins(kind, tier, currency) {
   var rate = (currency === 'mad') ? COINS_PER_MAD : COINS_PER_USD;
   var bonus = (kind === 'admin' ? ADMIN_TIERS[tier] : DIRECT_TIERS[tier]);
@@ -664,19 +711,24 @@ function payDebug(env, entry) {
     const head = kind === 'deposit' ? '📥 <b>طلب شحن بانتظار مصادقة السوبر أدمن</b>'
       : kind === 'topup' ? '🎟️ <b>طلب كود تعبئة بانتظار مصادقة السوبر أدمن</b>'
       : '💸 <b>طلب سحب بانتظار مصادقة السوبر أدمن</b>';
-    /* [v2.44-BOT] البونص يُحسب للمسارين: الإيداع المباشر وكود التعبئة (السحب بلا بونص) */
-    const pct = (kind === 'withdrawal') ? 0 : depositBonusPct(amt);
-    const rate0 = (typeof env.__rate === 'function') ? Number(env.__rate()) : 100;
+    /* [Bonus-tiers 2026-09-19] البونص حسب دور صاحب الحساب:
+       - المستخدم العادي ⇒ شرائح المستخدمين (بونص 0% تحت أول شريحة — لا شرائح الأدمنز).
+       - أدمن فعلي (role admin/super من قاعدة المنصة) ⇒ شرائح الأدمنز.
+       العملة: النظام كله بالدولار — تُستعمل الدرهم فقط عند تمرير currency:'mad' صراحةً. */
+    const role = userRoleOf(env, db, uidResolved);
+    const cur = (pickStr(b.currency, b.cur, b.mad).toLowerCase() === 'mad') ? 'mad' : 'usd';
+    const pct = (kind === 'withdrawal') ? 0 : depositBonusPct(amt, role, cur);
+    const coinsPer = (cur === 'mad') ? COINS_PER_MAD : COINS_PER_USD;
     await tgNotifyAdmin(env,
       head + '\nالمرجع: <code>' + txId + '</code>\nالمستخدم: ' + who + ' (' + uidResolved + ')' +
-      '\nالمبلغ: <b>' + amt + ' USD</b>' + (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
-      '\nالمحصّل: ' + Math.round(amt * rate0 * (1 + pct / 100)).toLocaleString('ar-MA') + ' 🪙' +
+      '\nالمبلغ: <b>' + amt + ' ' + (cur === 'mad' ? 'MAD' : 'USD') + '</b>' + (pct ? (' · بونص الشريحة +' + pct + '%') : '') +
+      '\nالمحصّل: ' + Math.round(amt * coinsPer * (1 + pct / 100)).toLocaleString('ar-MA') + ' 🪙' +
       '\nالوسيلة: ' + (method || 'cash_plus') + '\nالدليل: ' + (details || '').slice(0, 220),
-      kind === 'deposit'
-        ? [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]
-        : [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]);
-    return json({ ok: true, tx: txId, status: 'pending', kind: kind, amount_usd: amt, bonus_pct: pct,
-      coins_on_approve: Math.round(amt * rate0 * (1 + pct / 100)) });
+      kind === 'withdrawal'
+        ? [['✅ قبول وتأكيد السحب', 'wapp_' + txId], ['❌ رفض وإعادة الرصيد', 'wrej_' + txId]]
+        : [['✅ تأكيد الشحن', 'dapp_' + txId], ['❌ رفض', 'drej_' + txId]]);
+    return json({ ok: true, tx: txId, status: 'pending', kind: kind, amount_usd: amt, currency: cur, bonus_pct: pct,
+      coins_on_approve: Math.round(amt * coinsPer * (1 + pct / 100)) });
   }
 
   /* ── ربط حساب تيليغرام بالمنصة من البوت (بلا جلسة): /api/bot/link ── */
@@ -1014,5 +1066,5 @@ function payDebug(env, entry) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-module.exports = { handleFetch: handleFetch, hmacSha256Hex: hmacSha256Hex, binancePaySign: binancePaySign, binancePayCreateOrder: binancePayCreateOrder, binancePayQueryOrder: binancePayQueryOrder, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS };
+module.exports = { handleFetch: handleFetch, hmacSha256Hex: hmacSha256Hex, binancePaySign: binancePaySign, binancePayCreateOrder: binancePayCreateOrder, binancePayQueryOrder: binancePayQueryOrder, completeDeposit: completeDeposit, adminActOnTransaction: adminActOnTransaction, tierCoins: tierCoins, makeTierVoucher: makeTierVoucher, depositBonusPct: depositBonusPct, ADMIN_TIERS: ADMIN_TIERS, DIRECT_TIERS: DIRECT_TIERS, USER_TIERS: USER_TIERS, USER_TIERS_MAD: USER_TIERS_MAD };
 }

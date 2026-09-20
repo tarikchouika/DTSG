@@ -99,10 +99,10 @@ window.PWAL = window.PWAL || {};
       '    <div class="wl-msg" id="wlDepMsg"></div>' +
       '    <div id="wlPayBox" hidden></div>' +
       '    <div class="wl-note"><b data-i18n="wl.noteTitle">💡 طرق الشحن ببساطة:</b><br>' +
-      '      🟡 <span data-i18n="wl.noteCrypto"><b>Binance Pay</b>: مبلغ ← طلب دفع ← يُشحن تلقائياً بعد تأكيد Binance.</span><br>' +
-      '      💵 <span data-i18n="wl.noteCash"><b>Cash Plus</b>: حوِّل للحساب الظاهر أعلاه ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.</span><br>' +
-      '      🎟️ <span data-i18n="wl.noteVoucher"><b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).</span><br>' +
-      '      <span data-i18n="wl.noteWd"><b>⬆️ السحب:</b> طلب من تبويب «سحب» يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد المبلغ تلقائياً.</span><br>' +
+      '      🟡 <span data-i18n-html="wl.noteCrypto"><b>Binance Pay</b>: مبلغ ← طلب دفع ← يُشحن تلقائياً بعد تأكيد Binance.</span><br>' +
+      '      💵 <span data-i18n-html="wl.noteCash"><b>Cash Plus</b>: حوِّل للحساب الظاهر أعلاه ← أدخل كود التحويل ← يراجعه الأدمن ويشحنك.</span><br>' +
+      '      🎟️ <span data-i18n-html="wl.noteVoucher"><b>كوبون</b>: أدخل الكود ← يُشحن فوراً (مرة واحدة).</span><br>' +
+      '      <span data-i18n-html="wl.noteWd"><b>⬆️ السحب:</b> طلب من تبويب «سحب» يُخصم فوراً وينفّذه الأدمن خلال 24س؛ إن رُفض عاد المبلغ تلقائياً.</span><br>' +
       '      📄 <a href="refund-policy.html" target="_blank" rel="noopener" data-i18n="wl.policyLink">سياسة الاسترداد وطرق الدفع بالتفصيل</a></div>' +
       '  </div>' +
       /* ── سحب ─ */

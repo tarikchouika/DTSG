@@ -78,7 +78,7 @@ const J = t => { try { return JSON.parse(t); } catch (e) { return {}; } };
   await pay.handlePayments(fakeReq('sid=supersid'), res, JSON.stringify({ kind: 'admin', tier: 1000, currency: 'usd' }));
   let j = J(res.body);
   ok('سوبر أدمن ينشئ كوداً (200)', res.code === 200 && j.ok === true && /^DTSG-/.test((j.codes || [])[0] || ''), JSON.stringify(j).slice(0, 90));
-  ok('الحساب صحيح (1000$ ×100 كوين + بونص 30% = 130,000)', j.coins === 130000, 'coins=' + j.coins);
+  ok('الحساب صحيح (1000$ ×100 كوين + بونص أدمنز 30% = 130,000)', j.coins === 130000, 'coins=' + j.coins);
   const saved = db.prepare('SELECT code, kind, coins, bonus_pct FROM pay_vouchers WHERE code = ?').get(j.codes[0]);
   ok('الكود محفوظ في pay_vouchers', !!saved, JSON.stringify(saved));
 

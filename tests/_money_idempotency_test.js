@@ -53,7 +53,7 @@ const parallel = (n, fn) => Promise.all([...Array(n)].map(fn));
   const reds = await parallel(5, () => jpost('/api/vouchers/redeem', { user_id: UID, code: codes[0] }));
   const okReds = reds.filter(r => r && r.ok);
   const g1 = q1('SELECT gold FROM users WHERE id=?', UID).gold;
-  const expectedCoins = Math.round(100 * RATE * 1.25);         /* 100$ شريحة مباشر/إداري 25% ⇒ 12,500 */
+  const expectedCoins = Math.round(100 * RATE * 1.05);         /* 100$ مستخدم عادي: شريحة 100$⇒+5% ⇒ 10,500 */
   okReds.length === 1 ? ok('تفعيل واحد نجح فقط (' + okReds.length + ')') : bad('عدد التفعيلات الناجحة: ' + okReds.length);
   (g1 - g0) === expectedCoins ? ok('الكوينز أُضيفت مرة واحدة بالضبط: +' + (g1 - g0) + ' 🪙') : bad('فرق الكوينز ' + (g1 - g0) + ' والمتوقع ' + expectedCoins);
   reds.filter(r => !r.ok).every(r => /already|used/i.test(String(r.error))) ? ok('بقية محاولات التفعيل رُفضت (already-used)') : bad('ردود تفعيل غير متوقعة: ' + JSON.stringify(reds.filter(r => !r.ok).map(r => r.error)));

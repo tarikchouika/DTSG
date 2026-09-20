@@ -45,12 +45,13 @@ function mockFetch(env) {
     }
     if (String(url).includes('bpay.binanceapi.com')) {
       const body = JSON.parse(opts.body || '{}');
-      captured.binance.push({ url: String(url), headers: opts.headers || {}, body: body, raw: String(opts.body || '') });
-      if (String(url).includes('/order/query')) {
+      const bpath = String(url).replace('https://bpay.binanceapi.com', '');
+      captured.binance.push({ path: bpath, url: String(url), headers: opts.headers || {}, body: body, raw: String(opts.body || '') });
+      if (bpath.includes('/order/query')) {
         return { json: async () => (binanceState.query || { status: 'SUCCESS', code: '000000', data: {
-          merchantTradeNo: body.merchantTradeNo, orderStatus: 'PAID', totalFee: binanceState.paid, currency: 'USDT', transactionId: 'BTX-1' } }) };
+          merchantTradeNo: body.merchantTradeNo, prepayId: body.prepayId, orderStatus: 'PAID', totalFee: binanceState.paid, currency: 'USDT', transactionId: 'BTX-1' } }) };
       }
-      if (binanceState.createFail) return { json: async () => binanceState.createFail };
+      if (binanceState.createFail && bpath.indexOf('/v2/') < 0) return { json: async () => binanceState.createFail };  /* الفشل على v3 فقط — v2 ينجح */
       return { json: async () => ({ status: 'SUCCESS', code: '000000', data: {
         prepayId: 'PREPAY-1', terminalType: 'WEB', checkoutUrl: 'https://pay.binance.example/x',
         universalUrl: 'https://app.binance.com/uni/x', deeplink: 'https://app.binance.com/dp/x',
@@ -145,9 +146,23 @@ function req(method, url, body, headers) {
   ok('Certificate-SN = API Key (لا Merchant ID)', call1.headers['BinancePay-Certificate-SN'] === 'test-api-key');
   ok('توقيع الطلب = HMAC-SHA512 المعياري', call1.headers['BinancePay-Signature'] ===
     (await core.binancePaySign(call1.headers['BinancePay-Timestamp'], call1.headers['BinancePay-Nonce'], call1.raw, 'testsecret')));
-  ok('المبلغ بالوحدة الصحيحة (10 لا 1000)', call1.body.orderAmount === 10 && call1.body.currency === 'USDT' && call1.body.goods.goodsUnitAmount.amount === 10);
+  ok('المبلغ بالوحدة الصحيحة (10 لا 1000)', call1.body.orderAmount === 10 && call1.body.currency === 'USDT', JSON.stringify(call1.body).slice(0, 120));
+  const call1IsV3 = call1.path === '/binancepay/openapi/order';
+  ok('الطلب على المسار الشخصي v3 أولاً', call1IsV3, call1.path);
+  ok('v3 نجح ⇒ لا نداء زائد على v2 (اختصار)', !captured.binance.some(c => c.path === '/binancepay/openapi/v2/order'));
   const prow = D1.prepare('SELECT method, status FROM transactions WHERE id=?1').bind(cj.order_id).first();
   ok('سُجّل إيداع binance_pay معلّق', prow && prow.method === 'binance_pay' && prow.status === 'pending');
+  /* [v2.46] حساب تاجر: v3 يرفض (INVALID_MERCHANT) ⇒ v2 ينجح */
+  binanceState.createFail = { status: 'FAIL', code: '40300', errorMessage: 'INVALID_MERCHANT' };
+  r = await H('POST', 'https://w/api/payments/crypto', { user_id: '42', amount_usd: 5 });
+  let cj2 = await r.json();
+  ok('حساب تاجر: v3 يفشل ⇒ v2 ينشئ الطلب', cj2.ok && cj2.prepayId === 'PREPAY-1', JSON.stringify({ e: cj2.error, d: cj2.detail }).slice(0, 120));
+  ok('تم استدعاء v2 بم merchantTradeNo', !!captured.binance.find(c => c.path === '/binancepay/openapi/v2/order' && c.body.merchantTradeNo && c.body.orderAmount === 5));
+  binanceState.createFail = { status: 'FAIL', code: '400004', errorMessage: 'Invalid API-key, IP, or permissions' };
+  r = await H('POST', 'https://w/api/payments/crypto', { user_id: '42', amount_usd: 3 });
+  let cj3 = await r.json();
+  ok('400004 (مفتاح/IP) ⇒ فشل سريع بلا محاولات زائدة', cj3 && !cj3.ok && cj3.error === 'order-failed', JSON.stringify(cj3 && cj3.detail));
+  delete binanceState.createFail;
 
   /* webhook موقَّع + استعلام PAID ⇒ شحن تلقائي */
   const wdata = JSON.stringify({ merchantTradeNo: cj.order_id, totalFee: '10', currency: 'USDT', transactionId: 'BTX-1' });
@@ -167,10 +182,10 @@ function req(method, url, body, headers) {
   ok('إعادة webhook لا تشحن مرتين', (await r.json()).balance_usd === 35);
   /* استعلام غير مؤكد (PENDING) ⇒ لا شحن */
   r = await H('POST', 'https://w/api/payments/crypto', { user_id: '43', amount_usd: 20 });
-  const cj2 = await r.json();
-  const w2data = JSON.stringify({ merchantTradeNo: cj2.order_id, totalFee: '20', currency: 'USDT' });
+  let m2 = await r.json();
+  const w2data = JSON.stringify({ merchantTradeNo: m2.order_id, totalFee: '20', currency: 'USDT' });
   const w2raw = JSON.stringify({ bizType: 'PAY', bizStatus: 'PAY_SUCCESS', data: w2data });
-  binanceState.query = { status: 'SUCCESS', code: '000000', data: { merchantTradeNo: cj2.order_id, orderStatus: 'PENDING', totalFee: '20', currency: 'USDT' } };
+  binanceState.query = { status: 'SUCCESS', code: '000000', data: { merchantTradeNo: m2.order_id, orderStatus: 'PENDING', totalFee: '20', currency: 'USDT' } };
   r = await core.handleFetch(new Request('https://w/api/webhooks/binance', { method: 'POST', headers: wh, body: w2raw }), env);
   ok('استعلام غير مؤكد ⇒ FAIL (بلا شحن)', (await r.json()).returnCode === 'FAIL');
   r = await H('GET', 'https://w/api/wallet/balance?user_id=43');
@@ -277,17 +292,17 @@ function req(method, url, body, headers) {
   ok('غير الموثق لا ينشئ كوبونات', captured.tg.some(t => t.body.chat_id === '999' && /مقصور على السوبر أدمن/.test(t.body.text)));
 
   /* 11) أكواد الشحن بالشرائح (أدمنز/مباشر) */
-  ok('tierCoins أدمنز 100 usd = 12500', core.tierCoins('admin', 100, 'usd').coins === 12500);
+  ok('tierCoins أدمنز 1000 usd = 130000 (30%)', core.tierCoins('admin', 1000, 'usd').coins === 130000);
   ok('tierCoins أدمنز 1000 mad = 13000', core.tierCoins('admin', 1000, 'mad').coins === 13000);
   ok('tierCoins مباشر 10 usd = 1000', core.tierCoins('direct', 10, 'usd').coins === 1000);
   ok('tierCoins مباشر 10000 usd = 1150000', core.tierCoins('direct', 10000, 'usd').coins === 1150000);
   let goldBefore = 0; env.__creditGold = function (u, c) { goldBefore += c; };
-  r = await H('POST', 'https://w/api/vouchers/create', { kind: 'admin', tier: 100, currency: 'usd' }, { 'x-admin-secret': 'admsec' });
+  r = await H('POST', 'https://w/api/vouchers/create', { kind: 'admin', tier: 1000, currency: 'usd' }, { 'x-admin-secret': 'admsec' });
   let tj = await r.json();
-  ok('كود أدمنز 100$ (+25%) منشأ', tj.ok && tj.coins === 12500);
+  ok('كود أدمنز 1000$ (+30%) منشأ', tj.ok && tj.coins === 130000);
   r = await H('POST', 'https://w/api/vouchers/redeem', { user_id: '42', code: tj.codes[0] });
   let rj2 = await r.json();
-  ok('كود الأدمنز يشحن 12500 كوين', rj2.ok && rj2.coins === 12500 && goldBefore === 12500);
+  ok('كود الأدمنز يشحن 130000 كوين', rj2.ok && rj2.coins === 130000 && goldBefore === 130000);
   /* عبر بوت تيليغرام: مباشر 100 mad */
   const t0 = captured.tg.length;
   r = await H('POST', 'https://w/api/telegram/webhook', { message: { chat: { id: 777 }, text: '/code direct 100 mad' } });

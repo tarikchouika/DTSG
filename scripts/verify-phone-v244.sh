@@ -29,12 +29,12 @@ esac
 
 echo "── 1) مسار بوت الشحن (/api/bot/request)"
 R=$(j /api/bot/request "{\"tg_id\":\"$TG_ID\",\"kind\":\"topup\",\"amount_usd\":100,\"method\":\"cash_plus\",\"details\":\"VERIFY\"}")
-if echo "$R" | grep -q '"bonus_pct":25'; then
-  ok "معاينة الشحن 100\$: بونص 25% — $R"
+if echo "$R" | grep -q '"bonus_pct":5'; then
+  ok "معاينة الشحن 100\$ لمستخدم عادي: بونص 5% — $R"
 else
-  bad "معاينة الشحن لم تُرجع بونص 25% (المتوقع {\"bonus_pct\":25,\"coins_on_approve\":12500}) — الردّ: $R"
+  bad "معاينة الشحن لم تُرجع بونص 5% (المتوقع {\"bonus_pct\":5,\"coins_on_approve\":10500}) — الردّ: $R"
 fi
-echo "$R" | grep -q '"coins_on_approve":12500' && ok "الكوينز المتوقعة 12,500 (100\$×100×1.25)" || bad "coins_on_approve غير مطابق — $R"
+echo "$R" | grep -q '"coins_on_approve":10500' && ok "الكوينز المتوقعة 10,500 (100\$×100×1.05)" || bad "coins_on_approve غير مطابق — $R"
 
 R2=$(j /api/bot/request "{\"tg_id\":\"$TG_ID\",\"kind\":\"withdrawal\",\"amount_usd\":9,\"method\":\"binance\",\"details\":\"VERIFY-WD\"}")
 echo "$R2" | grep -q '"ok":true' && ok "معاينة السحب تعمل: $R2" || bad "مسار السحب رفض الطلب: $R2"

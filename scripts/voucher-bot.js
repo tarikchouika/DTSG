@@ -154,6 +154,12 @@ async function showBalance(chatId) {
 
 async function submitTopup(chatId, methodKey, amount, details) {
   const u = linkedUser(chatId);
+  /* [Bonus-tiers 2026-09-19] تحقق مبكر: مبلغ رقمي ضمن حدود معقولة قبل إرساله للخادم */
+  if (!(Number(amount) >= 1) || Number(amount) > 1000000) {
+    session(chatId).step = 'topup_amount';
+    await say(chatId, '❌ مبلغ غير صالح. اكتب المبلغ بالدولار (مثال: 100) — من 1$ إلى 1,000,000$.');
+    return false;
+  }
   const r = await api('/api/bot/request', {
     tg_id: String(chatId), user_id: u.user_id, username: u.username,
     kind: 'topup', amount_usd: amount, method: methodKey, details: details
@@ -164,7 +170,8 @@ async function submitTopup(chatId, methodKey, amount, details) {
       (r.body.bonus_pct ? ('\nبونص الشريحة: +' + r.body.bonus_pct + '%') : '') +
       '\nالقيمة عند التفعيل: <b>' + money(r.body.coins_on_approve) + ' 🪙</b>' +
       '\n\nبعد المصادقة سيصلك <b>كود التعبئة</b> هنا مباشرة.', { reply_markup: KB_USER(true) });
-    /* إشعار السوبر أدمن بأزرار المصادقة */
+    /* إشعار السوبر أدمن بأزرار المصادقة — طلب كود التعبئة يُصادق حصراً بمسار
+       الكود dapp_ (إصدار كود) وwapp_ محجوز لمسار السحب في submitWithdraw فقط. */
     if (SUPER_TG) {
       await say(SUPER_TG, '🎟️ <b>طلب كود تعبئة</b>\nالمستخدم: <b>' + u.username + '</b> (<code>' + u.user_id + '</code>)\n' +
         'المبلغ: <b>' + amount + ' USD</b>' + (r.body.bonus_pct ? (' · بونص +' + r.body.bonus_pct + '%') : '') +
