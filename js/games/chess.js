@@ -1523,18 +1523,9 @@ function chessUpdateHUD() {
   var botPts = iAmWhiteView ? wPts : bPts;
   if (matTop) matTop.textContent = topPts > botPts ? '+' + (topPts - botPts) : '0';
   if (matBot) matBot.textContent = botPts > topPts ? '+' + (botPts - topPts) : '0';
-  /* الرهان الجاري */
-  var st = document.getElementById('chessStake');
-  if (st) {
-    var playEl = document.getElementById('chessPlay');
-    if (!playEl || playEl.hidden || (s.over)) st.hidden = true;
-    else {
-      st.textContent = (CHESS.mode === 'room')
-        ? (CHESS.bet > 0 ? T('dama.stakeLabel') + ' ' + CHESS.bet + ' 🪙' : T('dama.friendly'))
-        : T('chess.hotSeatFree');
-      st.hidden = false;
-    }
-  }
+  /* [FreeTraining 2026-09-16 / v2.45.1] لا شريط رهان داخل شاشة الشطرنج — أُزيل تصميمياً:
+     ضد الآلي ووجه لوجه تدريب مجاني بلا رهان، والرهان حصري للغرف أونلاين ويُدار بالرصيد
+     (خصم عند البدء + تسوية عند النهاية) لا بواجهة. لا تُعِد عنصر #chessStake هنا. */
 }
 
 function chessUpdateLog() {

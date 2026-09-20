@@ -393,3 +393,42 @@ dmgames.pages.dev (5c7e1d69)
 2. الخادم: إعادة تشغيل بـ node ≥ 22.12 — **يفضَّل ضبط DM_SEED_* بكلمات جديدة** (لا أثر على الحسابات القائمة؛ البذر لقاعدة فارغة فقط).
 3. الووركر السحابي (إن كان مستعملاً): إعادة نشر cf-worker/worker.js (تحديث CORS).
 4. تحقق سريع: `node tests/_blind_pair_test.js` + غرف bg/do + رسالة النفخ في ضاما.
+
+## v2.45.1 + v2.45.2 (2026-09-20) — إصلاحات المراجعة + قراران ملزمان (cat/Arena)
+
+**الفرع:** `arena/01a0bd39-dtsg` · **الأساس:** `711fc10` (main) · **commits:**
+`75386b2` (إصلاحات v2.45.1) → `cf7e0ed` (اختبار الضومنة المتصفحي) → `a1e7e0f` (اختبار QR الـ2FA) →
+`v2.45.2` (الشطرنج المجاني + إسقاط ڤيرسيل + `docs/FIXES_FROZEN_v2451.md`).
+
+### 1) قرار المالك: **ڤيرسيل مسار تجريبي فقط** (ليست أساس النشر)
+- الأساس الحقيقي: **Cloudflare Pages** (الواجهة) + **Worker** `casino-phone.dmgames-api.workers.dev`
+  (+ KV `url`) + النفق إلى خادم الهاتف، و**R2** للتخزين.
+- `vercel.json`/`.vercelignore` **لا تُرفع إلى git** (أُضيفا إلى `.gitignore`) — و**لا يجوز** حذف
+  `Dockerfile`/`.dockerignore` من أجل ڤيرسيل (أُعيدا في هذا الفرع بعد أن حُذفا محلياً).
+
+### 2) قرار المالك: **الشطرنج ضد الآلي/وجه لوجه تدريب مجاني بلا رهان**
+- مرفوض تماماً إضافة شريط/شريحة رهان إلى شاشة الشطرنج (كان مقترحاً في المراجعة لترضية اختبار قديم).
+- أُزيلت الكتلة الميتة `#chessStake` من `chessUpdateHUD()` (لم يكن للعنصر وجود في الصفحة)
+  + تعليق تثبيت يمنع إعادته. رصيد التدريب لا يُخصم (`window.TRAINING.on` + `takeBet()`).
+- الرهان يبقى حيث توجد غرف لعب حقيقية فقط: **الشطرنج أونلاين** + dama/bg/do — وتُخصم الحصة عند
+  البدء (`/api/rooms/start` + `takeBet` على العميل) وتُسوّى في نهاية الجولة.
+
+### 3) ميثاق عدم الانحدار (اقرأوه قبل أي تعديل على الملفات هذه)
+`docs/FIXES_FROZEN_v2451.md` = جدول 17 إصلاحاً مُجمَّداً + الحارس الآلي لكل إصلاح + قائمة ممنوعات:
+CSS (‏`.bw-screen-active`، `.dm-tool[hidden]`، `pointer-events`)، توقيع Binance **RSA** لا HMAC،
+`merchantTradeNo` حروف/أرقام، مسح الحساب **409** لا `{ok:true}`، ترحيل `pay_transactions` بـFK-off،
+QR محلي (`qr-mini`) ولا `api.qrserver.com` في CSP، و`String(id)` في `pay_transactions.user_id` (نصّي).
+
+### 4) حالة الاختبارات (هذا الصندوق — بلا متصفح)
+- **خضراء:** `_cf_payments_test` 80/0 · `_parchisi_engine_test` 155/0 · `_chess_engine_test` 52/0 ·
+  `_pay_methods_v240_test` · `_security_static_test` · `_frontend_tx_test` · `_repo_hygiene_test` ·
+  `_money_idempotency_test` · `_money_invariants_test` · `_bot_v244_test` (36 جناحاً أخضر إجمالاً).
+- **تحتاج متصفحاً (لم تُشغَّل هنا — ليست فاشلة):** `_chess_browser_test` (صُحّحت توقعاته) ·
+  `_parchisi_browser_test` (صُحّح سابقاً) · `_iso_ui_test` · `_unified_ui_test` · `_layout_test` ·
+  `_do_visual_test` · `_rd_*` · `_billiards_*` المتصفحية. **شغّلوها عبر `bash scripts/qa-env.sh`**.
+- للتذكير: لا تنشروا شيئاً من هنا — النشر لصاحب صلاحية النشر فقط.
+
+### 5) لـ sam (خادم الهاتف) — لا خطوات جديدة مطلوبة
+لا تغيير في مخطط قاعدة البيانات ولا في متغيّرات البيئة بهذه النسخة (v2.45.2 واجهة/اختبارات/توثيق فقط).
+متغيّرات v2.45.1 كما هي: `BINANCE_PAY_MERCHANT_ID/API_KEY/SECRET_KEY` (+ اختيارية
+`CURRENCY/CERT_SN/PUBLIC_KEY/API_BASE`) — التفاصيل في `docs/PHONE_UPDATE_v245.md`.

@@ -21,3 +21,8 @@ data/
 
 # [v2.45] مجلد نشر البوت المحلي (يحتوي .env وقاعدة محلية) — لا يُرفع
 telegram-voucher-bot/
+
+# [v2.45.1] مسار تجريبي فقط — ڤيرسيل ليست أساس النشر (الأساسي: Cloudflare Pages/Workers + R2)
+# لا تُضِف vercel.json/.vercelignore إلى git، ولا تحذف Dockerfile/.dockerignore من أجل ڤيرسيل.
+vercel.json
+.vercelignore

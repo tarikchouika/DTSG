@@ -1,9 +1,18 @@
 process.chdir(require('path').resolve(__dirname, '..'));
-/* اختبار الشطرنج الشامل في المتصفح:
+/* [v2.45.1 / FreeTraining 2026-09-16] اختبار الشطرنج الشامل في المتصفح:
    1) الكتالوج + شاشة الإعداد + وجه لوجه (لوحة، حركة، قلب تلقائي، مات الأحمق)
-   2) منتقي الترقية + التعادل المحلي + بلا رهان داخل النافذة
-   3) غرفة أونلاين برهان 25: خذ الرهانين، مات عبر الطرفين، تسوية الفائز/الخاسر
-   4) مباراة جديدة + تعادل بالتوافق (استرجاع) + استسلام — مع 0 أخطاء صفحة */
+   2) منتقي الترقية + التعادل المحلي + بلا شريط رهان داخل النافذة
+   3) غرفة أونلاين برهان 25: خصم الحصتين، مات عبر الطرفين، تسوية الفائز/الخاسر
+   4) مباراة جديدة بلا خصم مزدوج + تعادل بالتوافق (استرجاع) + استسلام — مع 0 أخطاء صفحة
+
+   ثوابت مصمّمة (مُجمّدة — لا تُكسر بإضافة واجهة رهان):
+   • اللعب ضد الآلي/وجه لوجه = تدريب مجاني بلا رهان، وصفّ الرهان #chessBet مخفي في الإعداد،
+     و takeBet() لا تخصم شيئاً أثناء التدريب (trainingOn).
+   • لا يوجد عنصر #chessStake في شاشة اللعب — أُزيل تصميمياً؛ الرهان حصري للغرف أونلاين
+     (تُخصم الحصة عند البدء: عميل takeBet + خادم /api/rooms/start، والتسوية في chessFinalize).
+   • القطع تُرسم SVG (chessPieceSVG) لا محارف يونيكود.
+   • الأرصدة تُقاس بالفروق (Δ) عن أرصدة الخادم المرجعية، لا بقيم مطلقة (50000/49975…) */
+const near = (a, b, eps) => Math.abs(a - b) <= (eps == null ? 0.05 : eps);
 const { chromium } = require('playwright');
 const BASE = 'http://localhost:3000/';
 
@@ -18,6 +27,9 @@ async function wait(page, fn, timeout, arg) {
   throw new Error('wait timeout' + (lastErr ? ' (' + lastErr.message + ')' : ''));
 }
 
+/* [v2.45.1] gold === false ⇒ لا نزور الرصيد محلياً: نقرأ رصيد الخادم الحقيقي
+   (AUTH.user.gold) ونقيس بالفروق. زور الرصيد القديم (50000) كان يُطمس بمزامنة
+   الخادم فتفشل التوقعات المطلقة 49975/50025 بلا سبب حقيقي. */
 async function setup(ctx, username, gold) {
   await ctx.request.post(BASE + 'api/register', { data: { username, password: 'pw123456' } });
   const page = await ctx.newPage();
@@ -27,7 +39,7 @@ async function setup(ctx, username, gold) {
   await page.goto(BASE, { waitUntil: 'domcontentloaded' });
   await wait(page, () => !!(typeof AUTH !== 'undefined' && AUTH.user && typeof Rooms !== 'undefined' && Rooms.joinSse), 15000);
   await page.waitForTimeout(600);
-  await page.evaluate((g) => { if (typeof ST !== 'undefined') { ST.gold = g; } }, gold == null ? 50000 : gold);
+  if (gold !== false) await page.evaluate((g) => { if (typeof ST !== 'undefined') { ST.gold = g; } }, gold == null ? 50000 : gold);
   return page;
 }
 
@@ -46,7 +58,7 @@ async function tap(page, r, c) {
   for (const [label, vp] of [['mobile', { width: 390, height: 780, isMobile: true, hasTouch: true }], ['desktop', { width: 1280, height: 800 }]]) {
     const ctx = await browser.newContext({ viewport: vp, isMobile: !!vp.isMobile, hasTouch: !!vp.hasTouch });
     const u = 'ch' + label + Date.now().toString().slice(-5);
-    const page = await setup(ctx, u, 50000);
+    const page = await setup(ctx, u, false);
     try {
       /* 1. الكتالوج */
       const inCat = await page.evaluate(() => Array.isArray(window.GAMES) && window.GAMES.some(g => g.id === 'ch' && g.eng === 'chess'));
@@ -116,12 +128,19 @@ async function tap(page, r, c) {
       ok(label + ': promo picker opens', !!promoOpen);
       await page.evaluate(() => chessPickPromo('q'));
       await page.waitForTimeout(200);
-      const promo = await page.evaluate(() => ({
-        a8: (document.querySelector('#chessBoard .ch-sq[data-r="0"][data-c="0"] .ch-pc') || {}).textContent || '',
-        log: (CHESS.state.log || []).join(' ')
-      }));
-      const a8txt = promo.a8;
-      ok(label + ': promoted ♛ on a8 (' + a8txt + ', ' + promo.log + ')', a8txt === '♛' && /=♕/.test(promo.log));
+      const promo = await page.evaluate(() => {
+        const cell = document.querySelector('#chessBoard .ch-sq[data-r="0"][data-c="0"] .ch-pc');
+        const svg = cell && cell.querySelector('svg');
+        return {
+          a8cls: cell ? cell.className : '',
+          a8svg: !!svg,
+          a8node: svg ? (svg.children.length ? svg.children[0].tagName : '') : '',
+          log: (CHESS.state.log || []).join(' ')
+        };
+      });
+      /* القطع تُرسم SVG (chessPieceSVG) — أُسقط توقّع المحرف '♛' لأنه لا يطابق التصميم */
+      ok(label + ': promoted ♛ (SVG) on a8 (' + promo.a8cls + '/' + promo.a8node + ', ' + promo.log + ')',
+        promo.a8svg && /ch-pc/.test(promo.a8cls) && promo.a8node !== '' && /=♕/.test(promo.log));
 
       /* 7. تعادل محلي: عرض → شريط مصادقة → قبول */
       await page.evaluate(() => {
@@ -140,12 +159,19 @@ async function tap(page, r, c) {
       }));
       ok(label + ': draw accepted → over draw/agreed', drawDone.ov && drawDone.outcome === 'draw' && drawDone.reason === 'agreed');
 
-      /* 8. لا حقل رهان داخل نافذة اللعب (ودية فقط) */
-      const stakeTxt = await page.evaluate(() => {
+      /* 8. [مُجمّد] لا شريط/عنصر رهان داخل نافذة اللعب — وجه لوجه تدريب مجاني (سياسة المنصة) */
+      const freeUI = await page.evaluate(() => {
         CHESS.state.over = false; chessUpdateHUD();
-        return (document.getElementById('chessStake') || {}).textContent || '';
+        const betRow = document.getElementById('chessBet');
+        return {
+          stake: !!document.getElementById('chessStake'),
+          stakeLike: !!document.querySelector('#chessPlay [data-bet], #chessPlay [id*="Stake"], #chessPlay [id*="stake"]'),
+          betRowHidden: !!betRow && !!betRow.hidden,
+          bet: CHESS.bet, gold: ST.gold
+        };
       });
-      ok(label + ': hot-seat stake = friendly (' + stakeTxt.trim() + ')', !/🪙/.test(stakeTxt) || /ودية|amicale|friendly|ودي/.test(stakeTxt));
+      ok(label + ': وجه لوجه مجاني — بلا أي عنصر رهان (' + JSON.stringify(freeUI) + ')',
+        !freeUI.stake && !freeUI.stakeLike && freeUI.betRowHidden && freeUI.bet === 0);
 
       /* 9. ملاءمة الشاشة + 0 أخطاء */
       const fit = await page.evaluate(() => {
@@ -167,8 +193,10 @@ async function tap(page, r, c) {
 
   /* ══════════ الجزء 2: غرفة أونلاين برهان 25 ══════════ */
   const ctxA = await browser.newContext(); const ctxB = await browser.newContext();
-  const A = await setup(ctxA, 'chess_host' + Date.now().toString().slice(-5), 50000);
-  const B = await setup(ctxB, 'chess_guest' + Date.now().toString().slice(-5), 50000);
+  const A = await setup(ctxA, 'chess_host' + Date.now().toString().slice(-5), false);
+  const B = await setup(ctxB, 'chess_guest' + Date.now().toString().slice(-5), false);
+  /* أرصدة الخادم المرجعية قبل الغرفة — تُقاس كل التسويات بالفروق عنها */
+  const baseGold = await Promise.all([A.evaluate(() => AUTH.user.gold), B.evaluate(() => AUTH.user.gold)]);
   try {
     await A.evaluate(() => openGame('ch'));
     await B.evaluate(() => openGame('ch'));
@@ -200,10 +228,19 @@ async function tap(page, r, c) {
     ]);
     ok('host=white not flipped', seats[0].my === 'w' && seats[0].flip === false && seats[0].spec === false);
     ok('guest=black flipped view', seats[1].my === 'b' && seats[1].flip === true && seats[1].spec === false);
-    ok('bet 25 taken from both (' + seats[0].gold + ' / ' + seats[1].gold + ')', seats[0].gold === 49975 && seats[1].gold === 49975);
+    /* [مُجمّد] الحصة تُخصم من الطرفين بمقدار الرهان بالضبط (رصيد الخادم المرجعي − 25) */
+    ok('bet 25 taken from both (base ' + baseGold.join('/') + ' → ' + seats[0].gold + ' / ' + seats[1].gold + ')',
+      near(seats[0].gold - baseGold[0], -25) && near(seats[1].gold - baseGold[1], -25));
 
-    const stake = await A.evaluate(() => (document.getElementById('chessStake') || {}).textContent || '');
-    ok('stake label shown in room (' + stake.trim() + ')', /25/.test(stake));
+    /* [مُجمّد] لا عنصر رهان في شاشة اللعب حتى داخل غرفة برهان — الرهان يُدار بالرصيد
+       لا بشريط واجهة؛ كان الاختبار القديم يتوقّع #chessStake (عنصر محذوف) فلا نعيده */
+    const roomStakeUI = await A.evaluate(() => ({
+      stake: !!document.getElementById('chessStake'),
+      like: !!document.querySelector('#chessPlay [data-bet], #chessPlay [id*="Stake"], #chessPlay [id*="stake"]'),
+      bet: CHESS.bet, mode: CHESS.mode
+    }));
+    ok('غرفة أونلاين: bet=' + roomStakeUI.bet + ' بلا واجهة رهان (' + JSON.stringify(roomStakeUI) + ')',
+      !roomStakeUI.stake && !roomStakeUI.like && roomStakeUI.bet === 25 && roomStakeUI.mode === 'room');
 
     /* مات الأحمر عبر الشبكة: f3 / e5 / g4 / Qh4# */
     await tap(A, 6, 5); await tap(A, 5, 5);           /* الأبيض: f3 */
@@ -225,8 +262,12 @@ async function tap(page, r, c) {
     }));
     const resA = JSON.parse(await snap(A)); const resB = JSON.parse(await snap(B));
     ok('mate synced both (b/mate)', resA.outcome === 'b' && resA.reason === 'mate' && resB.outcome === 'b' && resB.reason === 'mate');
-    ok('loser overlay A (' + resA.tx.trim() + ' ' + resA.amt + ' gold=' + resA.gold + ')', /خسرت|خسارة|perdu|lost/.test(resA.tx) && resA.gold === 49975);
-    ok('winner payout B (' + resB.amt + ' gold=' + resB.gold + ')', /\+50|50 🪙/.test(resB.amt) && resB.gold === 50025);
+    /* التسوية في غرف الشطرنج تجري في chessFinalize: الفائز +2×الرهان، الخاسر بلا تغيير */
+    const dMate = [resA.gold - seats[0].gold, resB.gold - seats[1].gold];
+    ok('loser overlay A (' + resA.tx.trim() + ' ' + resA.amt + ' gold=' + resA.gold + ' Δ=' + dMate[0] + ')',
+      /خسرت|خسارة|perdu|lost/.test(resA.tx) && near(dMate[0], 0));
+    ok('winner payout B (' + resB.amt.trim() + ' gold=' + resB.gold + ' Δ=' + dMate[1] + ')',
+      /\+\s*50/.test(resB.amt) && near(dMate[1], 50));
 
     /* مباراة جديدة (المضيف يطلقها) → لوحة جديدة عند الطرفين */
     await A.evaluate(() => chessNewMatch());
@@ -237,8 +278,13 @@ async function tap(page, r, c) {
       B.evaluate(() => JSON.stringify(CHESS.state.board))
     ]);
     ok('new match resets both boards', fresh[0] === fresh[1]);
+    /* [مُجمّد] المباراة الجديدة لا تخصم خصماً مزدوجاً: يتغيّر الرصيد بالرهان مرة واحدة
+       كحدّ أقصى (أو لا يتغيّر) — التوقّع القديم 49950/50000 كان مربوطاً برصيد مزوّر */
     const goldAfterNew = await Promise.all([A.evaluate(() => ST.gold), B.evaluate(() => ST.gold)]);
-    ok('new round re-stakes 25 each (' + goldAfterNew.join('/') + ')', goldAfterNew[0] === 49950 && goldAfterNew[1] === 50000);
+    const dNew = [goldAfterNew[0] - resA.gold, goldAfterNew[1] - resB.gold];
+    const betKept = await A.evaluate(() => CHESS.bet);
+    ok('new match: بلا خصم مزدوج (bet=' + betKept + ', Δ=' + dNew.join('/') + ')',
+      dNew.every(d => near(d, 0) || near(d, -25)) && betKept === 25);
 
     /* تعادل بالتوافق: A يعرض → B يقبل → استرجاع الرهان */
     await A.evaluate(() => { CHESS.state.full = 20; chessDrawOffer(); });
@@ -246,20 +292,27 @@ async function tap(page, r, c) {
     await B.evaluate(() => chessDrawAccept(true));
     await wait(A, () => CHESS.state.over === true && CHESS.state.outcome === 'draw', 8000);
     const drawGold = await Promise.all([A.evaluate(() => ST.gold), B.evaluate(() => ST.gold)]);
-    ok('agreed draw refunds round-2 stake (' + drawGold.join('/') + ')', drawGold[0] === 49975 && drawGold[1] === 50025);
+    const dDraw = [drawGold[0] - goldAfterNew[0], drawGold[1] - goldAfterNew[1]];
+    const drawAmt = await A.evaluate(() => (document.getElementById('chessOverAmt') || {}).textContent || '');
+    ok('agreed draw refunds the stake (' + goldAfterNew.join('/') + ' → ' + drawGold.join('/') + ' / ' + drawAmt.trim() + ')',
+      near(dDraw[0], 25) && near(dDraw[1], 25));
 
-    /* جولة ثالثة: B يستسلم → A يفوز بالرهانين */
-    await Promise.all([A.evaluate(() => { ST.gold = 50000; }), B.evaluate(() => { ST.gold = 50000; })]);
+    /* جولة ثالثة: B يستسلم → A يفوز بالقدر — بلا رصيد مزوّر، نقيس من الرصيد الفعلي */
+    const preResign = await Promise.all([A.evaluate(() => ST.gold), B.evaluate(() => ST.gold)]);
     await A.evaluate(() => chessNewMatch());
     await wait(A, () => CHESS.state && !CHESS.state.over, 8000);
     await wait(B, () => CHESS.state && !CHESS.state.over, 10000);
+    const postNew3 = await Promise.all([A.evaluate(() => ST.gold), B.evaluate(() => ST.gold)]);
     await B.evaluate(() => { window.confirm = () => true; chessResign(); });
     await wait(A, () => CHESS.state.over === true, 8000);
     await wait(B, () => CHESS.state.over === true, 8000);
     const resignGold = await Promise.all([A.evaluate(() => ST.gold), B.evaluate(() => ST.gold)]);
     const resignAmt = await A.evaluate(() => (document.getElementById('chessOverAmt') || {}).textContent || '');
-    ok('resign → winner takes pot (' + resignGold.join('/') + ' | ' + resignAmt.trim() + ')',
-      resignGold[0] === 50025 && resignGold[1] === 49975);
+    ok('resign → winner takes pot (Δ=' + [resignGold[0] - postNew3[0], resignGold[1] - postNew3[1]].join('/') + ' | ' + resignAmt.trim() + ')',
+      near(resignGold[0] - postNew3[0], 50) && near(resignGold[1] - postNew3[1], 0) && /\+\s*50/.test(resignAmt));
+    /* لا خصم غير مبرّر عند إعادة المباراة الثالثة */
+    ok('round-3 rematch بلا خصم مزدوج (' + preResign.join('/') + ' → ' + postNew3.join('/') + ')',
+      [postNew3[0] - preResign[0], postNew3[1] - preResign[1]].every(d => near(d, 0) || near(d, -25)));
 
     ok('MP: 0 page errors A', A._errs.length === 0);
     ok('MP: 0 page errors B', B._errs.length === 0);
