@@ -263,7 +263,11 @@ const BINANCE_PAY_QUERY = '/binancepay/openapi/v2/order/query';
 function binanceHost(env) { return String((env && env.BINANCE_PAY_API_BASE) || BINANCE_PAY_HOST).replace(/\/+$/, ''); }
 function binanceCertSN(env) { return String((env && (env.BINANCE_PAY_CERT_SN || env.BINANCE_PAY_API_KEY)) || ''); }
 function binanceCurrency(env) { return String((env && env.BINANCE_PAY_CURRENCY) || 'USDT').toUpperCase(); }
-function binanceNonce() { return String(Math.random().toString(36).slice(2, 10) + Date.now().toString(36)); }
+/* يجب أن يطابق /^[a-zA-Z0-9]{32}$/ — حد أقصى 32 حرفاً */
+function binanceNonce() {
+  try { return crypto.randomUUID().replace(/-/g, ''); } catch (e) {}
+  return (String(Date.now()) + String(Math.random()).slice(2, 14) + '00000000').slice(0, 32);
+}
 async function binancePaySign(timestamp, nonce, bodyStr, secretKey) {
   const enc = new TextEncoder();
   const payload = timestamp + '\n' + nonce + '\n' + bodyStr + '\n';
