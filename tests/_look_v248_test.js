@@ -114,12 +114,20 @@ const INSIDE = `(el, host) => {
       ok(label + ': شاشة اللعب بلا تمرير رأسي (' + bgView.playScroll + 'px)', bgView.playScroll !== null && bgView.playScroll <= 4);
       /* بطاقتا الطاولة: الخصم يساراً و«أنا» يميناً (كانتا معكوستين في RTL) */
       const bgSeats = await page.evaluate(() => {
-        const r = el => { const b = el && el.getBoundingClientRect(); return b ? { x: b.left, w: b.width } : null; };
+        const r = el => { const b = el && el.getBoundingClientRect(); return b ? { x: b.left, y: b.top, w: b.width, h: b.height } : null; };
         return { top: r(document.getElementById('bwSeatTop')), bot: r(document.getElementById('bwSeatBot')) };
       });
       if (bgSeats.top && bgSeats.bot) {
-        ok(label + ': الطاولة — الخصم يساراً و«أنا» يميناً (' + Math.round(bgSeats.top.x) + ' / ' + Math.round(bgSeats.bot.x) + ')',
-          bgSeats.top.x < bgSeats.bot.x);
+        /* [v2.48.1] التوزيع يختلف بحسب الوضع (كما في المواصفة):
+           بورتريه ⇒ البطاقتان جنباً إلى جنب: الخصم يساراً («order») وأنا يميناً.
+           لاندسكيب ⇒ البطاقتان في العمود الأيسر (فوق بعضهما) واللوحة يميناً. */
+        const isPortrait = vp.width < vp.height;
+        const seatOK = isPortrait
+          ? bgSeats.top.x < bgSeats.bot.x
+          : (bgSeats.top.y !== null && bgSeats.bot.y !== null && bgSeats.top.y < bgSeats.bot.y &&
+             !(bgSeats.top.y + bgSeats.top.h > bgSeats.bot.y && bgSeats.bot.y + bgSeats.bot.h > bgSeats.top.y));
+        ok(label + ': توزيع اللاعبين صحيح (' + Math.round(bgSeats.top.x) + ',' + Math.round(bgSeats.top.y || 0) +
+          ' / ' + Math.round(bgSeats.bot.x) + ',' + Math.round(bgSeats.bot.y || 0) + ')', seatOK);
       } else ok(label + ': (مقاعد الطاولة غير متاحة — تُخطّى)', true);
       const threeLines = bgView.nameY && bgView.scoreY && bgView.pipY &&
         bgView.scoreY.y > bgView.nameY.y + bgView.nameY.h - 2 && bgView.pipY.y > bgView.scoreY.y + 2;
@@ -135,8 +143,11 @@ const INSIDE = `(el, host) => {
       await page.evaluate(() => openGame('do'));
       await wait(page, () => { const m = document.getElementById('dmMenu'); return m && getComputedStyle(m).display !== 'none'; }, 12000);
       await page.evaluate(() => {
-        const b = document.querySelector('#dmMenu .dm-start, #dmMenu .dm-gobtn, #dmMenu button.big, #dmMenu .dm-segbtn.selected + *')
-              || Array.from(document.querySelectorAll('#dmMenu button')).pop();
+        /* [v2.48.1] زر البداية الحقيقي: #dmStartBtn (كان الاختبار يبحث عن اختيارات
+           غير موجودة .dm-start/.dm-gobtn/button.big ⇒ كان يضغط آخر زر (شريحة) فلا
+           تبدأ المباراة ⇒ انتهاء المهلة وإسقاط كل فحوص الضومنة بصمت). */
+        const b = document.getElementById('dmStartBtn')
+              || document.querySelector('#dmMenu .dm-go, #dmMenu .dm-start, #dmMenu .dm-gobtn');
         if (b) b.click();
       });
       await wait(page, () => { const pl = document.getElementById('dmPlay'); return pl && getComputedStyle(pl).display !== 'none' && document.querySelectorAll('#dmPlay .dm-hand .dm-htile').length > 0; }, 15000);

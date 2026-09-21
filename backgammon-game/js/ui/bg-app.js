@@ -314,8 +314,10 @@
       const isRoom = !!(this.room && this.room.on);   /* [BG-Room] */
       this.$('bwTopScore').textContent = String(view.matchScore[1]);
       this.$('bwBotScore').textContent = String(view.matchScore[0]);
-      this.$('bwTopPip').textContent = T('bg.pip') + ': ' + view.pip[1];
-      this.$('bwBotPip').textContent = T('bg.pip') + ': ' + view.pip[0];
+      /* [v2.48.1] القيمة فقط: عناوين «Score:» و«Pips:» تأتي من CSS (كما في المرجع)
+         وكان التكرار يُنتج «Pips: نقاط: 167» في العربية و«Pips: Pips:» في fr/en. */
+      this.$('bwTopPip').textContent = String(view.pip[1]);
+      this.$('bwBotPip').textContent = String(view.pip[0]);
       this.$('bwMatchLbl').textContent = R.matchLabel(view) + (isAI || isRoom ? '' : ' · ' + view.matchScore[0] + ' : ' + view.matchScore[1]);
       R.renderChks(this.game.state, view.legal, this.sel);
       R.renderDice(this.$('bwDice'), this.game.state);

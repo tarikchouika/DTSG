@@ -112,3 +112,43 @@ curl -s https://casino-phone.dmgames-api.workers.dev/api/health                 
 - **كاش الزوّار:** توكنات `?v=look3` و`?v=dtsg12` مرفوعة لهذا السبب؛ أي تعديل CSS/JS لاحق
   يستوجب رفع الرقم وإلا بقي الزائر العائد على نسخة قديمة.
 - **الفرع:** `arena/01a0bd39-dtsg` مدموج في `main` (PR #2). أي إصلاح جديد = فرع جديد + PR.
+
+
+---
+
+## ✅ سجل النشر — نُفِّذ من مساعد الهاتف (cat) · 2026-09-21 (v2.48.1)
+
+**الحالة:** `dtsg.pages.dev` يعرض v2.48 + إصلاحات v2.48.1 (Deployments: `3c10b39f` ثم `60887121` · Production/main).
+
+### أوامر النشر المعتمدة هنا (بديل آمن عن خطوة التذكرة)
+```bash
+# 1) في شجرة git (وليست الشجرة الحيّة — انظر التحذير أدناه)
+cd /root/DTSG && git fetch origin && git merge --ff-only origin/main
+# 2) مزامنة الشجرة الحيّة بالنسخ (لا git checkout فيها)
+cp -a css js backgammon-game dominoes-game index.html /root/dmgames-arena/
+# 3) النشر (واجهة فقط)
+export CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... ; bash scripts/deploy-pages.sh
+# 4) التحقق (لاحظ -L: /index.html يعيد 302 → /)
+curl -sL https://dtsg.pages.dev/ | grep -c '22-look.css'                          # 1
+curl -s -o /dev/null -w '%{http_code}\n' https://dtsg.pages.dev/css/22-look.css   # 200
+curl -s https://dtsg.pages.dev/css/21-classic.css | grep -c bw-screen-active      # 5
+curl -s https://casino-phone.dmgames-api.workers.dev/api/health                   # {"ok":true}
+```
+
+### ⚠️ تحذير إلزامي لكل الوكلاء
+`/root/dmgames-arena` **ليست** نسخة من مستودع DTSG: هي worktree للمستودع `digital-moroccan-casino`
+(فرع `arena/samsung-fixes-20260911`). أي `git checkout main && git pull` داخلها يطمس الموقع الحيّ بكود قديم.
+التحديث يكون: git في `/root/DTSG` ثم **نسخ ملفات** إلى الشجرة الحيّة (+ `pm2 restart` عند تغيير خادم/بوت).
+
+### إصلاحات v2.48.1 (كشفها تشغيل حارس التصميم بمتصفح حقيقي)
+| العطل | الجذر | الإصلاح | الدليل |
+|---|---|---|---|
+| البطاقة سطران لا ثلاثة (Pips مخفي) | `backgammon.css` ⇒ `@media (max-width:640px){.bw-seatpip{display:none}}` | إظهاره من `css/22-look.css` + صف البطاقة عمودي في البورتريه | بند «ثلاثة أسطر» ✓ |
+| «Pips: نقاط: 167» / «Pips: Pips:» | JS يكتب العنوان + CSS تضيف `content:'Pips: '` | JS يكتب **القيمة فقط** | فحص + إعادة تشغيل الحارس |
+| البنك على اليمين في RTL (يتزاحم مع رزمة الخصم) | `inset-inline-start` تُقلب مع الاتجاه | `left:8px; right:auto` (فيزيائي) | بند «البنك يساراً» ✓ |
+| **الحارس نفسه**: بنود الضومنة لا تُنفَّذ | اختيارات زر بدء قديمة (`.dm-start`/`button.big`) ⇒ لا تبدأ المباراة | `#dmStartBtn` | 14 → **50** فحوصاً · 50/0 |
+
+### قاعدتان جديدتان للتنسيق بين الوكلاء
+1. أي تعديل على `css/22-look.css` أو `backgammon-game/` أو `dominoes-game/` ⇒ **رفع التوكنات** في
+   `index.html` (`22-look.css?v=lookN` · `bg-app.js?v=bgdoN`) وإلا بقي الكاش عند المستخدم.
+2. هامش حارس التصميم = **50 فحصاً**؛ «أخضر» برقم أقل يعني بنوداً مُسقَطة بصمت.

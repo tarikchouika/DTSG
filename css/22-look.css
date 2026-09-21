@@ -90,9 +90,9 @@
 /* المسار: متمركز تماماً في وسط الطاولة */
 #dmStage .dm-chain { inset: 12% 22% !important; }
 
-/* البنك: صندوق مربّع على الحافة اليسرى (يمين المحور في RTL) */
+/* البنك: صندوق مربّع على الحافة اليسرى (فيزيائي — لا يُقلب مع RTL) */
 #dmStage .dm-boneyard {
-  top: 50% !important; inset-inline-start: 8px !important; inset-inline-end: auto !important;
+  top: 50% !important; left: 8px !important; right: auto !important;
   transform: translateY(-50%);
   width: 64px !important; height: 88px !important;
   border-radius: 14px !important;
@@ -168,7 +168,10 @@
 #bwStage .bw-seat .bw-seatrow.end { align-items: flex-end; }
 #bwStage .bw-seat .bw-seatrow::before { order: 1; }
 #bwStage .bw-seat .bw-seatscore { order: 2; font-size: 26px !important; font-weight: 900 !important; }
-#bwStage .bw-seat .bw-seatpip { order: 3; font-size: 14px !important; font-weight: 700 !important; color: #f3ead6 !important; }
+#bwStage .bw-seat .bw-seatpip { order: 3; font-size: 14px !important; font-weight: 700 !important; color: #f3ead6 !important; display: inline-block !important; }
+/* [v2.48.1] سطر Pips كان مخفياً على الهواتف: في backgammon.css
+   @media (max-width:640px){ .bw-seatpip{display:none} } ⇒ كانت البطاقة سطرين فقط
+   والمرجع يطلب ثلاثة (الاسم · Score · Pips). الـ!important هنا يعيده في طبقة التصميم. */
 #bwStage .bw-seatrow::before { font-size: 12.5px !important; }
 #bwStage .bw-seatpip::before { font-size: 12.5px !important; }
 
@@ -242,6 +245,14 @@
   #bwStage .bw-seat .bw-seatscore { font-size: 21px !important; }
   #bwStage .bw-seat .bw-seatpip { font-size: 12.5px !important; }
   #bwStage .bw-seatname { font-size: 11.5px !important; }
+  /* [v2.48.1] البطاقة ثلاثة أسطر في البورتريه أيضاً (اسم · Score · Pips):
+     عنصر Pips موجودة داخل .bw-seatrow في الماركب، وكان الصف أفقياً (من 21-classic)
+     ⇒ يتقلّص عرضه إلى 0 فيختفي. نجعل الصف عموداً كما في اللاندسكيب فلا يُقصّ ولا يختفي. */
+  #bwStage .bw-seat .bw-seatrow { flex-direction: column !important; align-items: flex-start !important; gap: 0 !important; }
+  #bwStage .bw-seat .bw-seatrow.end { align-items: flex-end !important; }
+  #bwStage .bw-seat .bw-seatrow::before { order: 1; }
+  #bwStage .bw-seat .bw-seatrow .bw-seatscore { order: 2; }
+  #bwStage .bw-seat .bw-seatrow .bw-seatpip { order: 3; flex: 0 0 auto !important; white-space: nowrap; }
   #bwStage .bw-board { flex: 1 1 auto; min-height: 0; }
   #bwStage .bw-dicebar { flex: 0 0 auto; }
 }
