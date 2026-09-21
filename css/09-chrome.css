@@ -895,17 +895,25 @@ html[dir="ltr"] .botchat { direction: ltr; }
   flex: 1; min-height: 120px; max-height: 46vh; overflow-y: auto; display: flex; flex-direction: column; gap: 7px;
   padding: 4px 2px;
 }
-.bc-b {
+/* [v2.50-BC] نطاق صريح .botchat: الكلاسان .bc-b و.bc-card مستعملان أيضاً في
+   لعبة الباكارات (css/04-games.css: زر رهان flex ممركز + ورقة لعب 58×84 مخفية)
+   فكانت قواعدهما تتسرّب للشات ⇒ فقاعات ممركزة مقصوصة وأزرار 58×84. التقييد
+   بالأب .botchat (تخصيص 0,2,0 > 0,1,0 للباكارات) + تصفير صريح للخصائص
+   المتعارضة يصلح الاتجاهين: الشات سليم والباكارات لم تعد تتأثر بقواعد الشات. */
+.botchat .bc-b {
+  display: block;
   background: rgba(255, 255, 255, .05); border: 1px solid var(--ctl-bd, rgba(217,180,92,.16));
-  border-radius: 12px; padding: 8px 10px; font-size: .84rem; line-height: 1.6;
+  border-radius: 12px; padding: 8px 10px; font-size: .84rem; font-weight: 400; line-height: 1.6;
+  color: inherit; cursor: default; transform: none;
   white-space: pre-wrap; word-break: break-word; max-width: 92%;
 }
-.bc-b.me { align-self: flex-end; background: rgba(255, 212, 121, .13); border-color: rgba(255, 212, 121, .3); }
-.bc-b.sup { align-self: flex-start; background: rgba(47, 212, 122, .1); border-color: rgba(47, 212, 122, .28); }
-.bc-b.sys { align-self: stretch; max-width: 100%; }
-.bc-b.err { align-self: stretch; max-width: 100%; background: rgba(255, 92, 104, .12); border-color: rgba(255, 92, 104, .32); }
-.bc-b b { color: var(--gold, #ffc857); }
-.bc-b .t { color: var(--t3, #9db0d0); font-size: .68rem; }
+.botchat .bc-b.me { align-self: flex-end; background: rgba(255, 212, 121, .13); border-color: rgba(255, 212, 121, .3); }
+.botchat .bc-b.sup { align-self: flex-start; background: rgba(47, 212, 122, .1); border-color: rgba(47, 212, 122, .28); }
+.botchat .bc-b.sys { align-self: stretch; max-width: 100%; }
+.botchat .bc-b.err { align-self: stretch; max-width: 100%; background: rgba(255, 92, 104, .12); border-color: rgba(255, 92, 104, .32); }
+.botchat .bc-b:hover { transform: none; box-shadow: none; }
+.botchat .bc-b b { color: var(--gold, #ffc857); }
+.botchat .bc-b .t { color: var(--t3, #9db0d0); font-size: .68rem; }
 .bc-empty, .bc-hello { text-align: center; color: var(--t2, #cfd9ee); display: flex; flex-direction: column; gap: 8px; padding: 16px 8px; }
 .bc-empty i { font-size: 1.7rem; color: var(--gold, #ffc857); }
 .bc-empty span, .bc-hello span { font-size: .8rem; color: var(--t3, #9db0d0); }
@@ -928,14 +936,17 @@ html[dir="ltr"] .botchat { direction: ltr; }
   background: var(--gg, linear-gradient(160deg, #ffd479, #e0a52f));
 }
 .bc-pane-pay { overflow-y: auto; }
-.bc-card {
+.botchat .bc-card {
   display: flex; align-items: center; gap: 10px; padding: 10px; text-decoration: none; cursor: pointer;
   background: rgba(255, 255, 255, .04); border: 1px solid var(--ctl-bd, rgba(217,180,92,.2)); border-radius: 13px;
   color: var(--t1, #eaf2ff);
+  /* [v2.50-BC] تصفير بقايا ورقة الباكارات (58×84 · مخفية · متحركة) — كانت تقصّ أزرار الشات */
+  width: auto; height: auto; min-height: 0; overflow: visible; opacity: 1;
+  transform: none; animation: none; box-shadow: none;
 }
-.bc-card:hover { border-color: var(--gold, #ffc857); }
-.bc-card b { display: block; font-size: .86rem; }
-.bc-card small { color: var(--t3, #9db0d0); font-size: .74rem; }
+.botchat .bc-card:hover { border-color: var(--gold, #ffc857); }
+.botchat .bc-card b { display: block; font-size: .86rem; }
+.botchat .bc-card small { color: var(--t3, #9db0d0); font-size: .74rem; }
 .bc-cic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: rgba(74, 168, 255, .16); color: #4aa8ff; font-size: 1.05rem; }
 .bc-cic.gold { background: rgba(255, 200, 87, .16); color: var(--gold, #ffc857); }
 .bc-go { margin-inline-start: auto; color: var(--t3, #9db0d0); }

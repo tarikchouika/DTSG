@@ -175,6 +175,11 @@ window.PWAL = window.PWAL || {};
   function renderMethods() {
     var box = overlay.querySelector('#wlMethods');
     if (!METHODS) { box.innerHTML = '<div class="wl-note">⏳ نظام الدفع غير موصول بعد — يضبط المشرف عنوان الووركر في payments-url.json.</div>'; return; }
+    /* [v2.50-WALLET] إزالة التكرار بأمر المالك: تبويب الشحن كان يعرض خيارين لـBinance
+       («تحقّق تلقائي» + «Binance Pay» طلب دفع) ⇒ نُبقي مسار التحقّق التلقائي فقط
+       (binance_readonly) ونُخفي binance_pay من قائمة الشحن. (الخادم وAPI والاختبارات
+       untouched — التصفية عرضية فقط؛ وسحب Binance Pay في تبويب السحب باقٍ كما هو.) */
+    var list = (METHODS || []).filter(function (m) { return m && m.id !== 'binance_pay'; });
     var icons = { binance_pay: '🟡', binance_readonly: '⚡', cash_plus: '💵', cih: '🏦', orange_money: '🟠', voucher: '🎟️', binance: '🟡' };
     /* [i18n v2.39] أسماء الوسائل تُترجم محلياً بدل نص الخادم العربي */
     var lab = function (m) {
@@ -182,7 +187,7 @@ window.PWAL = window.PWAL || {};
       if (k && typeof T === 'function' && T(k) !== k) return T(k);
       return m.label;
     };
-    box.innerHTML = METHODS.map(function (m) {
+    box.innerHTML = list.map(function (m) {
       return '<button class="wl-method" type="button" data-m="' + m.id + '" ' + (m.status !== 'live' ? 'disabled' : '') + '>' +
         '<span class="ic">' + (icons[m.id] || '💳') + '</span><span>' + esc(lab(m)) + '</span>' +
         (m.status !== 'live' ? '<span class="soon">' + (typeof T === 'function' ? T('wl.soon') : 'قريباً') + '</span>' : '') + '</button>';

@@ -31,6 +31,23 @@
     return null;
   }
 
+  /* [v2.51-DOMINO] أول حرفين من الاسم لشارة اللاعب + اسم حسابي في الغرفة. */
+  function initials(name) {
+    const cp = Array.from(String(name == null ? '' : name).replace(/^\s+|\s+$/g, '')).slice(0, 2).join('');
+    return (cp || '?').toUpperCase();
+  }
+  function myUserName() {
+    try {
+      const my = meId();
+      const players = (root.Rooms && root.Rooms.state && root.Rooms.state.players) || [];
+      for (let i = 0; i < players.length; i++) {
+        if (String(players[i].id) === String(my) && players[i].username) return players[i].username;
+      }
+      if (root.AUTH && root.AUTH.user && root.AUTH.user.username) return root.AUTH.user.username;
+    } catch (e) {}
+    return null;
+  }
+
   /* ── البث (نمط damaEmit: غلاف rmove + dedup) ── */
   let _seq = 0;
   function emit(action, data) {
@@ -93,7 +110,9 @@
     a.$('dmOppName').textContent = rc.spec ? spectLabel() : oppName();
     a.$('dmMyName').textContent = rc.spec ? spectLabel() : (T('dm.you') || 'أنت');
     const av = a.$('dmOppAvatar');
-    if (av) av.innerHTML = '<i class="fa-solid ' + (rc.oppBot ? 'fa-robot' : 'fa-user') + '" aria-hidden="true"></i>';
+    if (av) av.textContent = initials(rc.spec ? '👁' : (rc.oppBot ? 'AI' : oppName()));
+    const avM = a.$('dmMyAvatar');
+    if (avM) avM.textContent = initials(rc.spec ? '👁' : (myUserName() || (T('dm.you') || 'أنت')));
     if (rc.seed != null) {
       buildFromInit(a, { seed: rc.seed, target: rc.target, draw: rc.draw });
       return;
@@ -137,7 +156,9 @@
     a.$('dmOppName').textContent = rc.spec ? spectLabel() : oppName();
     a.$('dmMyName').textContent = rc.spec ? spectLabel() : (T('dm.you') || 'أنت');
     const av = a.$('dmOppAvatar');
-    if (av) av.innerHTML = '<i class="fa-solid ' + (rc.oppBot ? 'fa-robot' : 'fa-user') + '" aria-hidden="true"></i>';
+    if (av) av.textContent = initials(rc.spec ? '👁' : (rc.oppBot ? 'AI' : oppName()));
+    const avM = a.$('dmMyAvatar');
+    if (avM) avM.textContent = initials(rc.spec ? '👁' : (myUserName() || (T('dm.you') || 'أنت')));
     try { root.DominoAudio.shuffle(); } catch (e) {}
     a.refresh();
     flow();
@@ -522,6 +543,9 @@
         if (a && a.room && a.room.on && !a.room.spec) {
           const el = a.$('dmOppName');
           if (el) el.textContent = oppName();
+          /* [v2.51-DOMINO] الاسم الحقيقي قد يصل متأخراً ⇒ حدّث الشارة أيضاً. */
+          const avo = a.$('dmOppAvatar');
+          if (avo) avo.textContent = initials(a.room.oppBot ? 'AI' : oppName());
         }
       });
     }

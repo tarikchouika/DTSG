@@ -302,7 +302,14 @@ const RamiExpertAI = {
     /* 1) إنهاء الشوط فوراً بهذه الورقة — [DRAW-CONSISTENT] للمفتوح فقط:
        غير المفتوح في طالاج لا يملك حركة إنهاء (بوابة اليد ≤7)، وإنهاؤه عبر
        الافتتاح الكامل يشترط صحة شروط الافتتاح — يُحسم في الفحص أدناه */
-    if (player.hasOpened && this.simCanFinish(player.hand, top, game.rules)) return 'draw_discard';
+    if (player.hasOpened && this.simCanFinish(player.hand, top, game.rules)) {
+      const testHand = player.hand.concat([top]);
+      const hm = partitionSelectedCards(testHand, game.rules);
+      if (hm && hm.length) {
+        player._drawPlanIds = hm.flatMap(m => m.cards.map(c => c.id));
+      }
+      return 'draw_discard';
+    }
     /* 2) إكمال شروط الافتتاح — [DRAW-CONSISTENT] القرار بمحاكاة expertOpening
        الفعلية (نفس التقسيم ونفس حارس الورقتين): سحب المرموق في طالاج يلزم
        بالافتتاح وإلا جزاء 71 — فلا نسحبه إلا إذا كان الافتتاح المنفَّذ مضموناً */
@@ -685,6 +692,7 @@ const RamiExpertAI = {
       if (rules.isWildCard(card)) return false;
       if (drawnCard && card.id === drawnCard.id) return false;
     }
+    if (typeof meld.findJokerSwapIndex === 'function' && meld.findJokerSwapIndex(card, rules) !== -1) return true;
     const temp = meld.cards.concat([card]);
     if (meld.type === MELD_TYPE.SET) return rules.isValidSet(temp, true);
     if (meld.type === MELD_TYPE.SEQUENCE) return rules.isValidSequence(temp, true);
@@ -3133,15 +3141,15 @@ class RamiUIAdapter {
       setRamiBusy(false);
     }
 
-    // 2) دور بوت عالق بلا حركة لأكثر من 6 ثوانٍ → إجباره على اللعب
+    // 2) دور بوت عالق بلا حركة لأكثر من 5 ثوانٍ → إجباره على اللعب وتحرير أي قفل
     const rm = this.game.roundManager;
     if (!rm) return;
     const curP = rm.getCurrentPlayer();
     const started = rm._turnStartedAt || Date.now();
-    /* [FREEZE-FIX] checkRamiBusy() يعالج busy العالقة (مؤقّت مؤجل في خلفية الهاتف) —
-       RAMI_BUSY الخام كان يعطّل الحارس نهائياً فتتجمد اللعبة عند البوت */
-    if (curP && curP.isBot && !checkRamiBusy() && (Date.now() - started) > 6000) {
+    /* [FREEZE-FIX] تحرير قفل الانشغال قسرياً وتشغيل دور البوت عند تجاوز المهلة */
+    if (curP && curP.isBot && (Date.now() - started) > 5000) {
       console.warn('[Rami] watchdog: forcing stuck bot turn for', curP.name);
+      setRamiBusy(false);
       rm._turnStartedAt = Date.now();
       this._runBotTurn(curP);
     }
@@ -3159,7 +3167,8 @@ class RamiUIAdapter {
 
     // Bot Watchdog: إذا كان دور البوت ولم يقم بحركة خلال ثانيتين، استدعاء حركته فوراً
     const curP = rm.getCurrentPlayer();
-    if (curP && curP.isBot && !checkRamiBusy() && rm.turnSecondsRemaining < (this.game.rules.turnSeconds - 2)) {   /* [FREEZE-FIX] */
+    if (curP && curP.isBot && rm.turnSecondsRemaining < (this.game.rules.turnSeconds - 2)) {
+      if (checkRamiBusy()) setRamiBusy(false);
       this._runBotTurn(curP);
     }
 
@@ -3222,10 +3231,21 @@ class RamiUIAdapter {
 
   _handleTurnTimeout() {
     if (!this.game || this.game.gamePhase !== 'PLAYING') return;
-    if (checkRamiBusy()) return;
     const rm = this.game.roundManager;
     const curP = rm.getCurrentPlayer();
-    if (!curP || curP.isBot) return;
+    if (!curP) return;
+
+    /* [BOT-FREEZE-FIX] إذا انتهى وقت البوت وهو عالق:
+       تحرير أي قفل قسرياً وتشغيل اللعب الآلي لتمرير الدور فوراً ومنع التجمد نهائياً */
+    if (curP.isBot) {
+      console.warn('[Rami] Bot turn timeout — forcing auto-play recovery for bot', curP.id);
+      setRamiBusy(false);
+      rm.turnSecondsRemaining = this.game.rules.turnSeconds;
+      this._doAutoPlay(curP, rm, this.multiplayer);
+      return;
+    }
+
+    if (checkRamiBusy()) return;
 
     const isMyTurn = (curP.id === (this.myPlayerId || 0));
 
@@ -3509,37 +3529,78 @@ class RamiUIAdapter {
             }
             return null;
           };
+          const onCardLaidOff = (cId) => {
+            if (bot.drawnDiscardCard && bot.drawnDiscardCard.id === cId) bot.drawnDiscardCard = null;
+            if (bot.drawnLaTourCard && bot.drawnLaTourCard.id === cId) bot.drawnLaTourCard = null;
+            bot.tookLaTour = false;
+          };
+          const trySwapJoker = (card) => {
+            for (const meld of rm.tableMelds) {
+              if (typeof meld.findJokerSwapIndex === 'function') {
+                const swapIdx = meld.findJokerSwapIndex(card, this.game.rules);
+                if (swapIdx !== -1) {
+                  const jokerCard = meld.cards[swapIdx];
+                  for (const pOwner of this.game.players) {
+                    const mi = (pOwner.melds || []).indexOf(meld);
+                    if (mi !== -1 && this.multiplayer) {
+                      this._botEmit('addToMeld', { playerId: bot.id, targetPlayerId: pOwner.id, meldIndex: mi, cardIdx: swapIdx, cardId: card.id });
+                      break;
+                    }
+                  }
+                  bot.removeCard(card.id);
+                  meld.cards[swapIdx] = card;
+                  bot.hand.push(jokerCard);
+                  onCardLaidOff(card.id);
+                  return true;
+                }
+              }
+            }
+            return false;
+          };
           /* [EXPERT-AI] أولاً — إلزامي بأي حجم يد: ورقة المرموق/لا تور المسحوبة
              إن كانت تطابق الطاولة تُنزَّل فوراً (وإلا ارتدّت بجزاء 71) */
           const drawnCard = bot.drawnDiscardCard || bot.drawnLaTourCard;
           if (drawnCard) {
-            const meld = fitsMeld(drawnCard);
-            if (meld) {
-              emitLayOff(meld, drawnCard);   /* [AI-FIX] البث قبل التطبيق المحلي */
-              bot.removeCard(drawnCard.id);
-              meld.cards.push(drawnCard);
+            if (!trySwapJoker(drawnCard)) {
+              const meld = fitsMeld(drawnCard);
+              if (meld) {
+                emitLayOff(meld, drawnCard);   /* [AI-FIX] البث قبل التطبيق المحلي */
+                bot.removeCard(drawnCard.id);
+                meld.cards.push(drawnCard);
+                onCardLaidOff(drawnCard.id);
+              }
             }
           }
           /* [EXPERT-AI] ثم بقية الأوراق فوق 3 فقط (منع الحصار بعد الرمي) */
           const botCards = bot.hand.slice();
           for (const card of botCards) {
             if (bot.hand.length <= 3) break;
-            const meld = fitsMeld(card);
-            if (meld) {
-              emitLayOff(meld, card);   /* [AI-FIX] */
-              bot.removeCard(card.id);
-              meld.cards.push(card);
+            if (!trySwapJoker(card)) {
+              const meld = fitsMeld(card);
+              if (meld) {
+                emitLayOff(meld, card);   /* [AI-FIX] */
+                bot.removeCard(card.id);
+                meld.cards.push(card);
+                onCardLaidOff(card.id);
+              }
             }
           }
           /* [AI-FIX] إنقاذ من 3 أوراق: إن كانت ورقتان تدخلان الطاولة، إدراجهما
              يترك ورقة الإنهاء وحدها = فوز فوري (كان البوت يفوّت هذا الإنهاء) */
           if (bot.hand.length === 3) {
-            const fitting = bot.hand.filter(c => fitsMeld(c));
+            const fitting = bot.hand.filter(c => fitsMeld(c) || (typeof c === 'object' && rm.tableMelds.some(m => typeof m.findJokerSwapIndex === 'function' && m.findJokerSwapIndex(c, this.game.rules) !== -1)));
             if (fitting.length >= 2) {
               for (let fi = 0; fi < fitting.length && bot.hand.length > 1; fi++) {
                 const card = fitting[fi];
-                const meld3 = fitsMeld(card);
-                if (meld3) { emitLayOff(meld3, card); bot.removeCard(card.id); meld3.cards.push(card); }   /* [AI-FIX] */
+                if (!trySwapJoker(card)) {
+                  const meld3 = fitsMeld(card);
+                  if (meld3) {
+                    emitLayOff(meld3, card);
+                    bot.removeCard(card.id);
+                    meld3.cards.push(card);
+                    onCardLaidOff(card.id);
+                  }
+                }
               }
             }
           }
@@ -3549,8 +3610,15 @@ class RamiUIAdapter {
             for (let ci = 0; ci < 2 && bot.hand.length === 2; ci++) {
               const card = bot.hand[ci];
               if (!card) break;
-              const meld2 = fitsMeld(card);
-              if (meld2) { emitLayOff(meld2, card); bot.removeCard(card.id); meld2.cards.push(card); }   /* [AI-FIX] */
+              if (!trySwapJoker(card)) {
+                const meld2 = fitsMeld(card);
+                if (meld2) {
+                  emitLayOff(meld2, card);
+                  bot.removeCard(card.id);
+                  meld2.cards.push(card);
+                  onCardLaidOff(card.id);
+                }
+              }
             }
           }
         }

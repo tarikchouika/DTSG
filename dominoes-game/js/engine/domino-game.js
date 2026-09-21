@@ -29,9 +29,9 @@
   }
 
   DominoGame.prototype.newMatch = function () {
-    /* [RS-GameOpts] cfg من التهيئة (هدف/قاعدة سحب الغرفة) — كان newRound(prev=null)
-       يعود إلى DEFAULT_CONFIG فيُهمَل هدف الغرفة (خطأ حتمي: غرفة target=50 كانت تلعب 100) */
-    this.state = Core.newRound({ cfg: this.cfg, round: 0, scores: [0, 0] }, this.rng, null);
+    /* [RS-GameOpts] cfg من التهيئة — يدعم عدد اللاعبين (2 أو 3 أو 4) */
+    const numPlayers = Math.max(2, Math.min(4, parseInt(this.cfg.playersCount, 10) || 2));
+    this.state = Core.newRound({ cfg: this.cfg, round: 0, scores: new Array(numPlayers).fill(0) }, this.rng, null);
     this.state.round = 1;
     this._emit('matchStarted', { starter: this.state.starter });
     return this.state;
@@ -71,16 +71,15 @@
     return r;
   };
 
-  /** snapshot للعرض: كل ما تحتاجه الواجهة بلا منطق */
+  /** snapshot للعرض: كل ما تحتاجه الواجهة بلا منطق (يدعم 2 و 3 و 4 لاعبين) */
   DominoGame.prototype.view = function () {
     const s = this.state;
-    return {
+    const v = {
       cfg: s.cfg,
       round: s.round,
       scores: s.scores.slice(),
-      handsCount: [s.hands[0].length, s.hands[1].length],
-      hand0: s.hands[0].slice(),
-      hand1: s.hands[1].slice(),
+      handsCount: s.hands.map(function (h) { return h.length; }),
+      hands: s.hands.map(function (h) { return h.slice(); }),
       boneyardCount: s.boneyard.length,
       chain: s.chain.slice(),
       leftEnd: s.leftEnd, rightEnd: s.rightEnd,
@@ -91,9 +90,13 @@
       phase: s.phase,
       result: s.result,
       matchWinner: s.matchWinner,
-      legal0: Core.legalMoves(s, 0),
-      legal1: Core.legalMoves(s, 1)
+      playersCount: s.hands.length
     };
+    for (let p = 0; p < s.hands.length; p++) {
+      v['hand' + p] = s.hands[p].slice();
+      v['legal' + p] = Core.legalMoves(s, p);
+    }
+    return v;
   };
 
   DominoGame.prototype.legalMoves = function (p) { return Core.legalMoves(this.state, p); };

@@ -3,8 +3,8 @@
  *  DMN_HTML — بنية واجهة الضومنة (هوية «قهاوة مغربية»)
  * ============================================================================
  *  • شاشة القائمة: بطاقة قائمة قهوة — سبز داكن بإطار نحاسي، شعار قطعتين عاجيتين.
- *  • شاشة اللعب: طاولة جوخ أخضر تملأ الحاوية، حاجز HUD نحاسي، بنك بأزرار «خزنة»،
- *    يد عاجية أسفل، ومقعد خصم أعلى.
+ *  • شاشة اللعب: طاولة جوخ أخضر تملأ الحاوية، قطع الخصم أعلى، شارتا لاعب
+ *    (أيقونة + نقاط) بلا حاويات، R/T فوق البنك يساراً [v2.51-DOMINO].
  *  • كل النصوص الثابتة عبر data-i18n — الكلاسات معزولة ببادئة dm-.
  *  • تُحقن في #gamePageBody عبر eDominoes() أو تعمل مستقلة في index.html.
  * ============================================================================
@@ -34,6 +34,15 @@ window.DMN_HTML = (function () {
           '<div class="dm-seg" id="dmModeSeg">' +
             '<button type="button" class="dm-segbtn selected" data-mode="ai" data-i18n="dm.mode.ai">ضد الحاسوب</button>' +
             '<button type="button" class="dm-segbtn" data-mode="local" data-i18n="dm.mode.local">لاعبان — جهاز واحد</button>' +
+          '</div>' +
+        '</div>' +
+
+        '<div class="dm-field" id="dmPlayersField">' +
+          '<div class="dm-flabel" data-i18n="dm.playersCount">عدد اللاعبين</div>' +
+          '<div class="dm-seg" id="dmPlayersSeg">' +
+            '<button type="button" class="dm-segbtn selected" data-players="2">2 لاعبين</button>' +
+            '<button type="button" class="dm-segbtn" data-players="3">3 لاعبين</button>' +
+            '<button type="button" class="dm-segbtn" data-players="4">4 لاعبين</button>' +
           '</div>' +
         '</div>' +
 
@@ -94,26 +103,38 @@ window.DMN_HTML = (function () {
     /* ════════════ شاشة اللعب ════════════ */
     '<section id="dmPlay" class="dm-screen">' +
 
-      /* HUD */
-      '<div class="dm-hud">' +
-        '<div class="dm-seat" id="dmSeatOpp">' +
-          '<span class="dm-avatar" id="dmOppAvatar"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
-          '<span class="dm-seatmeta"><span class="dm-seatname" id="dmOppName">الخصم</span>' +
-          '<span class="dm-seatscore" id="dmOppScore">0</span></span>' +
-        '</div>' +
-        '<div class="dm-hudmid">' +
-          '<span class="dm-hudround" id="dmRoundLbl"></span>' +
-          '<span class="dm-hudstatus" id="dmStatus"></span>' +
-        '</div>' +
-        '<div class="dm-seat me" id="dmSeatMe">' +
-          '<span class="dm-seatmeta end"><span class="dm-seatname" id="dmMyName">أنت</span>' +
-          '<span class="dm-seatscore" id="dmMyScore">0</span></span>' +
-          '<span class="dm-avatar"><i class="fa-solid fa-user" aria-hidden="true"></i></span>' +
-        '</div>' +
+      /* حالة اللعبة المخفية للتوافق البرمجي */
+      '<span id="dmStatus" hidden></span>' +
+
+      /* بطاقة معلومات المباراة (الجولة والهدف) */
+      '<div class="dm-matchcard" id="dmMatchCard">' +
+        '<span class="dm-rt" id="dmRoundLbl">R1 T100</span>' +
       '</div>' +
 
-      /* مقعد الخصم: ظهر القطع (AI) أو يده المكشوفة (لاعبان) */
-      '<div class="dm-opprow" id="dmOppRow"></div>' +
+      /* مقاعد اللاعبين الخصوم على أطراف الشاشة (يسار - أعلى - يمين) */
+      '<div class="dm-seat seat-1 opp seat-left" id="dmSeatOpp">' +
+        '<span class="dm-avatar" id="dmOppAvatar"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
+        '<span class="dm-seatmeta"><span class="dm-seatname" id="dmOppName" hidden>الخصم 1</span>' +
+        '<span class="dm-seatscore" id="dmOppScore">0</span></span>' +
+        '<span class="dm-tilebadge" id="dmTileBadge1" hidden>7</span>' +
+        '<div class="dm-opptiles dm-opptiles-v" id="dmOppTiles1"></div>' +
+      '</div>' +
+
+      '<div class="dm-seat seat-2 opp seat-top" id="dmSeat2" hidden>' +
+        '<span class="dm-avatar" id="dmAvatar2"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
+        '<span class="dm-seatmeta"><span class="dm-seatname" id="dmName2" hidden>الخصم 2</span>' +
+        '<span class="dm-seatscore" id="dmScore2">0</span></span>' +
+        '<span class="dm-tilebadge" id="dmTileBadge2" hidden>7</span>' +
+        '<div class="dm-opprow" id="dmOppRow"></div>' +
+      '</div>' +
+
+      '<div class="dm-seat seat-3 opp seat-right" id="dmSeat3" hidden>' +
+        '<span class="dm-avatar" id="dmAvatar3"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
+        '<span class="dm-seatmeta"><span class="dm-seatname" id="dmName3" hidden>الخصم 3</span>' +
+        '<span class="dm-seatscore" id="dmScore3">0</span></span>' +
+        '<span class="dm-tilebadge" id="dmTileBadge3" hidden>7</span>' +
+        '<div class="dm-opptiles dm-opptiles-v" id="dmOppTiles3"></div>' +
+      '</div>' +
 
       /* الطاولة: جوخ أخضر */
       '<div class="dm-table" id="dmTable">' +
@@ -126,6 +147,13 @@ window.DMN_HTML = (function () {
           '<span class="dm-by-count" id="dmByCount">14</span>' +
           '<span class="dm-by-label" data-i18n="dm.boneyard">البنك</span>' +
         '</div>' +
+      '</div>' +
+
+      /* شارة اللاعب الرئيسي (أسفل الوسط فوق اليد) */
+      '<div class="dm-seat seat-0 me" id="dmSeatMe">' +
+        '<span class="dm-avatar" id="dmMyAvatar"></span>' +
+        '<span class="dm-seatmeta end"><span class="dm-seatname" id="dmMyName" hidden>أنت</span>' +
+        '<span class="dm-seatscore" id="dmMyScore">0</span></span>' +
       '</div>' +
 
       /* اليد + أدوات */

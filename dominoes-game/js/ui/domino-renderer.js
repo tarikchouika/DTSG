@@ -12,7 +12,6 @@
   'use strict';
 
   const T = root.DMN_T;
-  const FMT = root.DMN_FMT;
 
   /* ══════════════ بناء القطعة ══════════════ */
 
@@ -32,104 +31,190 @@
   }
 
   /* ══════════════ تخطيط السلسلة ══════════════
-     كل قطعة تُرسم رأسية (w=u, h=2u) ثم تُدار:
-     rotate(-90): القيمة a يسارًا · rotate(90): a يمينًا · الدبل يبقى رأسيًا */
+     [v2.52-DOMINO] اتجاه السلسلة يتبع الاتجاه الأطول دائماً:
+     • في وضع البورتريه (العمودي): تتدفق السلسلة طولياً (رأسياً) لاستغلال ارتفاع الشاشة.
+     • في وضع اللاندسكيب (الأفقي): تتدفق السلسلة عرضياً (أفقياً) لاستغلال عرض الشاشة.
+     • المفاصل هندسية دقيقة: تتلاقى الأرقام المتماثلة وجهاً لوجه بلا فجوات وبلا تراكب.
+     • تصحيح اتجاه القطعة الأولى والأخيرة لتكون أطرافها المفتوحة مطابقة تماماً للمحرك.
+  */
 
-  function leftMatchIsA(chain, i) {
-    if (i === 0) return true;
-    const t = chain[i].tile, prev = chain[i - 1].tile;
-    return (t.a === prev.a || t.a === prev.b);
+  function jointFacing(chain) {
+    const n = chain.length;
+    if (!n) return [];
+    const t0 = chain[0].tile;
+    if (n === 1) return [{ openVal: t0.a, jointNext: t0.b, aAtOpen: true, dbl: chain[0].dbl }];
+    const t1 = chain[1].tile;
+    let j01 = (t0.b === t1.a || t0.b === t1.b) ? t0.b : t0.a;
+    const res = [];
+    res.push({
+      openVal: (t0.a === j01) ? t0.b : t0.a,
+      jointNext: j01,
+      aAtOpen: (t0.a !== j01),
+      dbl: chain[0].dbl
+    });
+    let cur = j01;
+    for (let i = 1; i < n; i++) {
+      const t = chain[i].tile;
+      const touchesPrev = (t.a === cur) ? 'a' : 'b';
+      const nextVal = (touchesPrev === 'a') ? t.b : t.a;
+      res.push({
+        jointPrev: cur,
+        touchesPrev: touchesPrev,
+        jointNext: (i < n - 1) ? nextVal : null,
+        openVal: (i === n - 1) ? nextVal : null,
+        dbl: chain[i].dbl
+      });
+      cur = nextVal;
+    }
+    return res;
   }
 
-  /**
-   * يحسب مواضع كل القطع داخل المستطيل المتاح.
-   * يرجع {items, unit, firstPos, lastPos}
-   */
   function layoutChain(chain, W, H) {
-    if (!chain.length) return { items: [], unit: 26, firstPos: null, lastPos: null };
-    const PAD = 18, GAP = 4;
+    if (!chain.length) return { items: [], unit: 24, firstPos: null, lastPos: null };
     const n = chain.length;
+    const facings = jointFacing(chain);
+    const isPortrait = H > W;
 
-    /* [v2.28] ثعبان متصل: الرأس يتقدم أفقياً؛ عند ضيق المسافة قطعة رأسية
-       (منعطف) عند الرأس نفسه ثم نزول صف — الصف الجديد يبدأ من عمود المنعطف
-       لا من الحافة المقابلة، فتبقى السلسلة متصلة بلا فجوات وبلا فيضان. */
     function simulate(u) {
-      const rowH = 2 * u + GAP;
+      const PAD = Math.max(10, Math.round(u * 0.5));
       const items = [];
-      let headX = PAD, y = 0, dir = 1, rows = 1;
       let firstPos = null, lastPos = null;
-      for (let i = 0; i < n; i++) {
-        const node = chain[i];
-        const isDbl = node.dbl;
-        const len = isDbl ? u : 2 * u;
-        if (i > 0) {
-          const space = dir === 1 ? (W - PAD - headX) : (headX - PAD);
-          if (space < len) {
-            const tx = headX + (dir === 1 ? u / 2 : -u / 2);
-            const ty = y + rowH; /* منتصف عمودي بين الصف الحالي والتالي */
-            /* [v2.49-DOMINO] نصفها العلوي يلامس الصف السابق ⇒ يجب أن تحمل القيمة
-               الواصلة أعلى القطعة. كانت rot=0 دائماً فتظهر «مقلوبة الترتيب»
-               كلما كانت القيمة الواصلة هي b لا a ⇒ 180° في هذه الحالة. */
-            items.push({ node: node, kind: 'turn', x: tx, y: ty,
-                         rot: leftMatchIsA(chain, i) ? 0 : 180, u: u });
-            if (!firstPos) firstPos = { x: tx, y: ty };
-            lastPos = { x: tx, y: ty + u };
-            y += rowH; rows++;
-            dir = -dir;
-            headX = tx;
-            continue;
+
+      if (isPortrait) {
+        /* تدفق رأسي (طولي) في البورتريه */
+        let dir = 1; /* 1 = نزولاً لأسفل، -1 = صعوداً لأعلى */
+        let colX = PAD + u;
+        let headY = PAD + u;
+
+        for (let i = 0; i < n; i++) {
+          const node = chain[i];
+          const isDbl = facings[i].dbl;
+          const len = isDbl ? u : 2 * u;
+
+          if (i > 0) {
+            const canFit = dir === 1 ? (headY + len + u <= H - PAD) : (headY - len - u >= PAD);
+            if (!canFit) {
+              /* منعطف 90° أفقي ينتقل للعمود التالي */
+              const tx = colX + 1.5 * u;
+              const ty = headY;
+              const rot = 90;
+              items.push({ node: node, kind: 'turn', x: tx, y: ty, rot: rot, u: u });
+              if (!firstPos) firstPos = { x: tx, y: ty };
+              lastPos = { x: tx, y: ty };
+              colX += 2.5 * u;
+              dir = -dir;
+              headY = dir === 1 ? (ty + u) : (ty - u);
+              continue;
+            }
           }
+
+          const cx = colX;
+          const cy = dir === 1 ? (headY + len / 2) : (headY - len / 2);
+          let rot = 0;
+          if (isDbl) {
+            rot = 90; /* الدبل أفقي في التدفق الرأسي */
+          } else {
+            if (i === 0) {
+              rot = facings[0].aAtOpen ? 0 : 180;
+            } else {
+              if (dir === 1) rot = (facings[i].touchesPrev === 'a') ? 0 : 180;
+              else rot = (facings[i].touchesPrev === 'a') ? 180 : 0;
+            }
+          }
+
+          items.push({ node: node, kind: isDbl ? 'dbl' : 'flat', x: cx, y: cy, rot: rot, u: u });
+          if (!firstPos) firstPos = { x: cx, y: dir === 1 ? headY : headY };
+          lastPos = { x: cx, y: dir === 1 ? headY + len : headY - len };
+          headY = dir === 1 ? (headY + len) : (headY - len);
         }
-        const cx = dir === 1 ? headX + len / 2 : headX - len / 2;
-        const cy = y + rowH / 2;
-        let rot;
-        if (isDbl) rot = 0;
-        else rot = (dir === 1) ? (leftMatchIsA(chain, i) ? -90 : 90) : (leftMatchIsA(chain, i) ? 90 : -90);
-        items.push({ node: node, kind: isDbl ? 'dbl' : 'flat', x: cx, y: cy, rot: rot, u: u });
-        if (!firstPos) firstPos = { x: dir === 1 ? headX : headX - len, y: cy };
-        lastPos = { x: dir === 1 ? headX + len : headX - len, y: cy };
-        headX = dir === 1 ? headX + len + GAP : headX - len - GAP;
+      } else {
+        /* تدفق أفقي (عرضي) في اللاندسكيب */
+        let dir = 1; /* 1 = يميناً، -1 = يساراً */
+        let rowY = PAD + u;
+        let headX = PAD + u;
+
+        for (let i = 0; i < n; i++) {
+          const node = chain[i];
+          const isDbl = facings[i].dbl;
+          const len = isDbl ? u : 2 * u;
+
+          if (i > 0) {
+            const canFit = dir === 1 ? (headX + len + u <= W - PAD) : (headX - len - u >= PAD);
+            if (!canFit) {
+              /* منعطف 90° رأسي ينتقل للصف التالي */
+              const tx = headX;
+              const ty = rowY + 1.5 * u;
+              const rot = 0;
+              items.push({ node: node, kind: 'turn', x: tx, y: ty, rot: rot, u: u });
+              if (!firstPos) firstPos = { x: tx, y: ty };
+              lastPos = { x: tx, y: ty };
+              rowY += 2.5 * u;
+              dir = -dir;
+              headX = dir === 1 ? (tx + u) : (tx - u);
+              continue;
+            }
+          }
+
+          const cx = dir === 1 ? (headX + len / 2) : (headX - len / 2);
+          const cy = rowY;
+          let rot = 0;
+          if (isDbl) {
+            rot = 0; /* الدبل رأسي في التدفق الأفقي */
+          } else {
+            if (i === 0) {
+              rot = facings[0].aAtOpen ? -90 : 90;
+            } else {
+              if (dir === 1) rot = (facings[i].touchesPrev === 'a') ? -90 : 90;
+              else rot = (facings[i].touchesPrev === 'a') ? 90 : -90;
+            }
+          }
+
+          items.push({ node: node, kind: isDbl ? 'dbl' : 'flat', x: cx, y: cy, rot: rot, u: u });
+          if (!firstPos) firstPos = { x: dir === 1 ? headX : headX, y: cy };
+          lastPos = { x: dir === 1 ? headX + len : headX - len, y: cy };
+          headX = dir === 1 ? (headX + len) : (headX - len);
+        }
       }
-      return { items: items, rows: rows, firstPos: firstPos, lastPos: lastPos };
+
+      let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      items.forEach(it => {
+        const hw = (it.rot === 0 || it.rot === 180) ? it.u / 2 : it.u;
+        const hh = (it.rot === 0 || it.rot === 180) ? it.u : it.u / 2;
+        minX = Math.min(minX, it.x - hw);
+        maxX = Math.max(maxX, it.x + hw);
+        minY = Math.min(minY, it.y - hh);
+        maxY = Math.max(maxY, it.y + hh);
+      });
+
+      return { items, spanW: maxX - minX, spanH: maxY - minY, minX, maxX, minY, maxY, firstPos, lastPos };
     }
 
-    let u = 26;
-    let sim = simulate(u);
-    const maxH = Math.max(H - 8, 2 * u);
-    if (sim.rows * (2 * u + GAP) > maxH) {
-      u = Math.max(13, Math.floor((maxH / sim.rows - GAP) / 2));
-      sim = simulate(u);
+    let bestU = isPortrait ? 18 : 22;
+    for (let testU = (isPortrait ? 22 : 26); testU >= 10; testU -= 1) {
+      const sim = simulate(testU);
+      if (sim.spanW <= W - 16 && sim.spanH <= H - 16) {
+        bestU = testU;
+        break;
+      }
     }
 
-    /* [v2.49-DOMINO] توسيط هندسي للكتلة أفقياً: كان المسار يبدأ دائماً من PAD
-       فيبدو منحازاً لليسار مع فراغ غير متوازن على الجانبين. نحسب امتداد كل قطعة
-       بحسب دورانها (الأفقية 2u · الرأسية/المنعطف u) ثم نزيح الكل بلا خروج عن الحشو. */
-    function centerShift() {
-      const items = sim.items;
-      if (!items.length) return 0;
-      let min = Infinity, max = -Infinity;
-      for (let i = 0; i < items.length; i++) {
-        const hx = (items[i].kind === 'flat') ? u : u / 2;
-        if (items[i].x - hx < min) min = items[i].x - hx;
-        if (items[i].x + hx > max) max = items[i].x + hx;
-      }
-      if (!isFinite(min) || !isFinite(max)) return 0;
-      const want = (W - (max - min)) / 2 - min;
-      const lo = PAD - min, hi = (W - PAD) - max;
-      return Math.round(Math.max(lo, Math.min(want, hi)));
-    }
-    const dx = centerShift();
-    if (dx) {
-      for (let i = 0; i < sim.items.length; i++) sim.items[i].x += dx;
-      if (sim.firstPos) sim.firstPos.x += dx;
-      if (sim.lastPos) sim.lastPos.x += dx;
-    }
-    return { items: sim.items, unit: u, firstPos: sim.firstPos, lastPos: sim.lastPos };
+    const res = simulate(bestU);
+    const offsetX = Math.round((W - (res.maxX - res.minX)) / 2 - res.minX);
+    const offsetY = Math.round((H - (res.maxY - res.minY)) / 2 - res.minY);
+
+    res.items.forEach(it => {
+      it.x += offsetX;
+      it.y += offsetY;
+    });
+    if (res.firstPos) { res.firstPos.x += offsetX; res.firstPos.y += offsetY; }
+    if (res.lastPos) { res.lastPos.x += offsetX; res.lastPos.y += offsetY; }
+
+    return { items: res.items, unit: bestU, firstPos: res.firstPos, lastPos: res.lastPos };
   }
 
   function tileEl(node, it) {
     const t = node.tile;
-    const w = it.u - 2, h = 2 * it.u - 2;
+    const w = it.u, h = 2 * it.u;
     const el = document.createElement('div');
     el.className = 'dm-tile k-' + it.kind;
     el.style.left = Math.round(it.x - w / 2) + 'px';
@@ -147,21 +232,16 @@
   function renderChain(box, view) {
     if (!box) return null;
     if (!view.chain.length) {
-      box.innerHTML = '<div class="dm-chain-empty">' + T('dm.pickEnd') + '</div>';
+      box.innerHTML = '<div class="dm-chain-empty"></div>';
       return null;
     }
     const W = box.clientWidth || 600, H = box.clientHeight || 240;
     const lay = layoutChain(view.chain, W, H);
-    /* حساب الإزاحة الرأسية: أول صف يبدأ من 0 — نوسّط بكتلة الصفوف */
-    const rowH = 2 * lay.unit + 4;
-    let rows = 1;
-    for (let i = 0; i < lay.items.length; i++) if (lay.items[i].kind === 'turn') rows++;
-    const offsetY = Math.max(0, (H - rows * rowH) / 2);
 
     box.innerHTML = '';
     const frag = document.createDocumentFragment();
     for (let i = 0; i < lay.items.length; i++) {
-      const el = tileEl(lay.items[i].node, { x: lay.items[i].x, y: lay.items[i].y + offsetY, rot: lay.items[i].rot, u: lay.items[i].u, kind: lay.items[i].kind });
+      const el = tileEl(lay.items[i].node, lay.items[i]);
       frag.appendChild(el);
     }
     box.appendChild(frag);
@@ -172,14 +252,16 @@
       lastEl.classList.add('dm-pop');
       setTimeout(function () { try { lastEl.classList.remove('dm-pop'); } catch (e) {} }, 460);
     }
-    /* التلميحات تُوضع داخل .dm-table بينما إحداثيات القطع نسبة لصندوق السلسلة
-       (.dm-chain بـ inset 6px 30px متماثل الجانبين) — نضيف الإزاحة فقط بلا عكس
-       RTL لأن القطع نفسها تُرسم بإحداثيات left مطلقة في الاتجاهين. */
-    const chainBoxOff = { x: 30, y: 6 }; /* inset للسلسلة داخل الطاولة */
+    let chainBoxOff = { x: 0, y: 0 };
+    try {
+      const br = box.getBoundingClientRect();
+      const tr = box.parentNode.getBoundingClientRect();
+      chainBoxOff = { x: Math.round(br.left - tr.left), y: Math.round(br.top - tr.top) };
+    } catch (e) {}
     const mapX = function (x) { return x + chainBoxOff.x; };
     return {
-      first: lay.firstPos ? { x: mapX(lay.firstPos.x), y: lay.firstPos.y + offsetY + chainBoxOff.y } : null,
-      last: lay.lastPos ? { x: mapX(lay.lastPos.x), y: lay.lastPos.y + offsetY + chainBoxOff.y } : null
+      first: lay.firstPos ? { x: mapX(lay.firstPos.x), y: lay.firstPos.y + chainBoxOff.y } : null,
+      last: lay.lastPos ? { x: mapX(lay.lastPos.x), y: lay.lastPos.y + chainBoxOff.y } : null
     };
   }
 
@@ -236,21 +318,27 @@
       : { me: T('dm.p1'), opp: T('dm.p2') };
   }
 
+  /* [v2.51-DOMINO] الشوط R والهدف T بلا عبارات: «R1 T100» فوق البنك. */
   function roundLabel(view) {
-    return T('dm.round') + ' ' + view.round + ' · ' + FMT('dm.toTarget', view.cfg.target);
+    return 'R' + view.round + ' T' + view.cfg.target;
   }
 
-  /** صفوف لوحة النتائج */
+  /** صفوف لوحة النتائج (تدعم لاعبين و3 و4 لاعبين) */
   function scoreRowsHTML(view, mode) {
-    const nm = names(view, mode);
     const r = view.result;
-    const awardRow = (r.tie || r.awarded === 0)
+    const num = (r && r.pips) ? r.pips.length : (view.scores ? view.scores.length : 2);
+    const nm = names(view, mode);
+    let rows = '';
+    for (let p = 0; p < num; p++) {
+      const pName = (p === 0) ? nm.me : ((p === 1 && num === 2) ? nm.opp : (mode === 'ai' ? ((T('dm.opp') || 'الخصم') + ' ' + p) : (T('dm.p' + (p + 1)) || ('اللاعب ' + (p + 1)))));
+      const pPip = (r && r.pips && r.pips[p] !== undefined) ? r.pips[p] : 0;
+      rows += '<div class="dm-srow"><span>' + pName + '</span><b>' + pPip + '</b></div>';
+    }
+    const awardRow = (r && (r.tie || r.awarded === 0))
       ? '<div class="dm-srow total"><span>' + T('dm.tie') + '</span><b>0</b></div>'
-      : '<div class="dm-srow total"><span>' + T('dm.handPips') + '</span><b class="gold">+' + r.awarded + '</b></div>';
-    return '<div class="dm-srow"><span>' + nm.me + '</span><b>' + r.pips[0] + '</b></div>' +
-           '<div class="dm-srow"><span>' + nm.opp + '</span><b>' + r.pips[1] + '</b></div>' +
-           awardRow +
-           '<div class="dm-srow"><span>' + T('dm.round') + '</span><b>' + view.scores[0] + ' : ' + view.scores[1] + '</b></div>';
+      : '<div class="dm-srow total"><span>' + T('dm.handPips') + '</span><b class="gold">+' + (r ? r.awarded : 0) + '</b></div>';
+    const scoreStr = view.scores ? view.scores.join(' : ') : '';
+    return rows + awardRow + '<div class="dm-srow"><span>' + T('dm.round') + '</span><b>' + scoreStr + '</b></div>';
   }
 
   root.DominoRenderer = {
@@ -265,4 +353,5 @@
     roundLabel: roundLabel,
     scoreRowsHTML: scoreRowsHTML
   };
+  if (typeof module !== 'undefined' && module.exports) module.exports = root.DominoRenderer;
 })(typeof self !== 'undefined' ? self : this);

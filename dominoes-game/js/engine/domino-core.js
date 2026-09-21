@@ -59,7 +59,8 @@
 
   const DEFAULT_CONFIG = Object.freeze({
     target: 100,             /* نقاط الفوز بالمباراة */
-    handSize: 7,             /* قطع اليد (لاعبان) */
+    playersCount: 2,         /* عدد اللاعبين: 2 أو 3 أو 4 */
+    handSize: null,          /* قطع اليد (تلقائي حسب عدد اللاعبين: 7 في 2 و 3، و 5/7 في 4) */
     drawUntilPlayable: true, /* سحب حتى صلاح قطعة */
     mustPlayDrawn: true,     /* القطعة المسحوبة الصالحة إلزامية */
     starterMustPlayDouble: true /* إلزام لعب الدبل الافتتاحي */
@@ -101,20 +102,38 @@
     return { player: p, forcedTile: null };
   }
 
-  /** حالة جولة جديدة — خلط كامل كل جولة */
+  /** حالة جولة جديدة — خلط كامل كل جولة (تدعم لاعبين و3 و4 لاعبين حسب القواعد الرسمية) */
   function newRound(prev, rng, starterPlayer) {
     const cfg = prev ? prev.cfg : DEFAULT_CONFIG;
+    const numPlayers = Math.max(2, Math.min(4, parseInt(cfg.playersCount, 10) || 2));
+    /* قواعد التوزيع: 7 قطع لـ 2 و 3 لاعبين؛ لـ 4 لاعبين: 7 قطع (كل الـ28 قطعة / بدون بنك كلاسيكي)
+       أو 5 قطع إن كانت قاعدة السحب مفعلة */
+    let hSize = cfg.handSize;
+    if (!hSize || hSize < 1) {
+      hSize = (numPlayers === 4 && cfg.drawUntilPlayable) ? 5 : 7;
+    }
     const deck = shuffle(createSet(), rng);
-    const hands = [[], []];
-    for (let i = 0; i < cfg.handSize; i++) { hands[0].push(deck.pop()); hands[1].push(deck.pop()); }
+    const hands = [];
+    for (let p = 0; p < numPlayers; p++) {
+      hands.push([]);
+      for (let i = 0; i < hSize; i++) {
+        if (deck.length) hands[p].push(deck.pop());
+      }
+    }
     const ch = chooseStarter(hands);
-    const starter = (typeof starterPlayer === 'number') ? starterPlayer : ch.player;
+    const starter = (typeof starterPlayer === 'number' && starterPlayer >= 0 && starterPlayer < numPlayers)
+      ? starterPlayer
+      : ch.player;
+    const scores = (prev && prev.scores && prev.scores.length === numPlayers)
+      ? prev.scores.slice()
+      : new Array(numPlayers).fill(0);
+
     return {
       cfg: cfg,
       round: prev ? prev.round + 1 : 1,
-      scores: prev ? prev.scores.slice() : [0, 0],
+      scores: scores,
       hands: hands,
-      boneyard: deck.slice(),            /* الباقي = 14 */
+      boneyard: deck.slice(),            /* الباقي في البنك (14 في لاعبين · 7 في 3 · 0/8 في 4) */
       chain: [],                          /* [{tile, dbl}] بالترتيب */
       leftEnd: null, rightEnd: null,
       turn: starter,
@@ -195,7 +214,10 @@
     state.justPlayed = { player: p, end: end, tile: tile };
 
     if (!h.length) { return { ok: true, ended: scoreRound(state, 'handEmpty', p) }; }
-    state.turn = 1 - p;
+    /* [CCW] عكس عقارب الساعة بأمر المالك:
+       4 لاعبين: الرئيسي (أسفل=0) → اليمين (3) → الأعلى (2) → اليسار (1) → الرئيسي (0)
+       لاعبان: يتبادلان 0 ↔ 1 */
+    state.turn = (p - 1 + state.hands.length) % state.hands.length;
     return { ok: true, ended: null };
   }
 
@@ -219,23 +241,40 @@
     state.passes++;
     state.forcedTile = null;
     state.lastDrawn = null;
-    if (state.passes >= 2) return { ok: true, ended: scoreRound(state, 'blocked', null) };
-    state.turn = 1 - p;
+    if (state.passes >= state.hands.length) return { ok: true, ended: scoreRound(state, 'blocked', null) };
+    /* [CCW] عكس عقارب الساعة */
+    state.turn = (p - 1 + state.hands.length) % state.hands.length;
     return { ok: true, ended: null };
   }
 
   /* ══════════════ 5) الحساب ══════════════ */
 
   function scoreRound(state, reason, winner) {
-    const pips = [pipsOf(state.hands[0]), pipsOf(state.hands[1])];
+    const numPlayers = state.hands.length;
+    const pips = [];
+    for (let i = 0; i < numPlayers; i++) pips.push(pipsOf(state.hands[i]));
+
     let awarded = 0, tie = false;
     if (reason === 'handEmpty') {
-      for (let i = 0; i < pips.length; i++) if (i !== winner) awarded += pips[i];
+      for (let i = 0; i < numPlayers; i++) if (i !== winner) awarded += pips[i];
     } else {
-      if (pips[0] === pips[1]) { winner = null; tie = true; awarded = 0; }
-      else {
-        winner = pips[0] < pips[1] ? 0 : 1;
-        awarded = winner === 0 ? pips[1] - pips[0] : pips[0] - pips[1];
+      let minPips = Infinity, minCount = 0, minIdx = -1;
+      for (let i = 0; i < numPlayers; i++) {
+        if (pips[i] < minPips) { minPips = pips[i]; minIdx = i; minCount = 1; }
+        else if (pips[i] === minPips) { minCount++; }
+      }
+      if (minCount > 1) {
+        winner = null;
+        tie = true;
+        awarded = 0;
+      } else {
+        winner = minIdx;
+        for (let i = 0; i < numPlayers; i++) {
+          if (i !== winner) awarded += (pips[i] - minPips);
+        }
+        if (awarded <= 0) {
+          for (let i = 0; i < numPlayers; i++) if (i !== winner) awarded += pips[i];
+        }
       }
     }
     if (winner !== null) state.scores[winner] += awarded;

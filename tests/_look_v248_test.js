@@ -14,8 +14,9 @@ process.chdir(require('path').resolve(__dirname, '..'));
      ج) الضومنة: كل قطع اليد كاملة داخل الشاشة (لا قصّ) · نقاط كل قطعة داخل حدودها ·
         لا تمرير في شاشة اللعب · البنك يساراً · رزمة الخصم يميناً · القابل للّعب أصفر متوهّج ·
         الجوخ أخضر (لا بنّي خشبي).
-     د) توزيع اللاعبين (v2.48-SEATS): الخصم على اليسار و«أنا» على اليمين في الوضعين،
-        وبطاقة كل لاعب لا تتقاطع مع الأخرى ولا مع شريط الحالة.
+     د) توزيع اللاعبين (v2.51-DOMINO): لا HUD — شارة الخصم (أيقونة + نقاط) تحت قطعه
+        فوق الجوخ · شارتي أسفل (بورتريه: وسط فوق اليد · لاندسكيب: الزاوية اليمنى) ·
+        R/T فوق البنك · توهج الدور على شارة واحدة · لا عبارات مرئية.
    ═══════════════════════════════════════════════════════════════════════════ */
 const { chromium } = require('playwright');
 const BASE = process.env.BASE || 'http://localhost:3000/';
@@ -187,7 +188,18 @@ const INSIDE = `(el, host) => {
           tableC: table ? (() => { const b = table.getBoundingClientRect(); return { cx: b.left + b.width / 2, cy: b.top + b.height / 2, w: b.width, h: b.height }; })() : null,
           seatOpp: pick(document.getElementById('dmSeatOpp')),
           seatMe: pick(document.getElementById('dmSeatMe')),
-          hudMid: pick(document.querySelector('#dmPlay .dm-hudmid')),
+          /* [v2.51-DOMINO] العقد الجديد: لا HUD — شارات (أيقونة + نقاط) + R/T فوق البنك. */
+          hudGone: !document.querySelector('#dmPlay .dm-hud, #dmPlay .dm-hudmid'),
+          rt: (() => { const el = document.getElementById('dmRoundLbl'); const b = el && el.getBoundingClientRect();
+            return b ? { x: b.left, y: b.top, w: b.width, h: b.height, txt: (el.textContent || '').trim() } : null; })(),
+          handRect: pick(hand),
+          stageRect: pick(host),
+          glowOpp: (() => { const el = document.getElementById('dmSeatOpp'); return !!el && el.classList.contains('myturn'); })(),
+          glowMe: (() => { const el = document.getElementById('dmSeatMe'); return !!el && el.classList.contains('myturn'); })(),
+          phrasesHidden: ['dmStatus', 'dmOppName', 'dmMyName'].every(id => { const el = document.getElementById(id);
+            return !el || el.hidden || getComputedStyle(el).display === 'none'; }) &&
+            (() => { const el = document.querySelector('#dmPlay .dm-by-label');
+              return !el || getComputedStyle(el).display === 'none'; })(),
           tools: pick(document.querySelector('#dmPlay .dm-tools')),
           toolsOverlapHand: (() => {
             const t = document.querySelector('#dmPlay .dm-tools'), hh = document.querySelector('#dmPlay .dm-hand');
@@ -223,15 +235,24 @@ const INSIDE = `(el, host) => {
         ok(label + ': المسار متمركز في الطاولة (Δx=' + Math.round(dm.chainC.cx - dm.tableC.cx) + ')',
           Math.abs(dm.chainC.cx - dm.tableC.cx) <= dm.tableC.w * 0.14);
       }
-      /* توزيع اللاعبين: الخصم يسار · أنا يمين · الشريط بينهما بلا تراكب */
-      const sp = dm.seatOpp, sm = dm.seatMe, hm = dm.hudMid;
-      if (sp && sm && hm) {
-        ok(label + ': الخصم يساراً و«أنا» يميناً (' + Math.round(sp.x) + ' / ' + Math.round(sm.x) + ')',
-          sp.x < sm.x);
-        ok(label + ': لا تراكب بين بطاقتَي اللاعبين', sp.x + sp.w <= sm.x + 1);
-        ok(label + ': شريط الحالة بينهما بلا تراكب',
-          hm.x + hm.w <= sm.x + 1 && hm.x >= sp.x + sp.w - 1);
-      } else ok(label + ': (مقاعد الضومنة غير متاحة — تُخطّى)', true);
+      /* [v2.52-DOMINO] التوزيع المطابق للنماذج المرجعية بأمر المالك:
+         لا HUD · بطاقة معلومات المباراة R/T (بورتريه: أعلى-يمين · لاندسكيب: أعلى-يسار) ·
+         شارة الخصم (بورتريه: أعلى-يسار · لاندسكيب: أعلى-يمين) ·
+         شارتي (بورتريه: أسفل-يمين · لاندسكيب: أسفل-يسار) · البنك على اليسار · قطع الخصم مرئية. */
+      ok(label + ': شريط HUD القديم مُزال', dm.hudGone === true);
+      ok(label + ': لا عبارات مرئية (الحالة/الأسماء/البنك مخفية)', dm.phrasesHidden === true);
+      ok(label + ': بطاقة المباراة R/T مرئية (' + (dm.rt ? dm.rt.txt : 'مفقود') + ')',
+        !!dm.rt && /^R\d+\s+T\d+$/.test(dm.rt.txt));
+      const sp = dm.seatOpp, sm = dm.seatMe;
+      const isPor = vp.width < vp.height;
+      if (sp && dm.stageRect) {
+        ok(label + ': شارة الخصم في المنطقة العلوية', sp.y < 120);
+      } else ok(label + ': (شارة الخصم غير متاحة — تُخطّى)', true);
+      if (sm && dm.stageRect) {
+        ok(label + ': شارتي في الوسط فوق أوراق اليد',
+          Math.abs((sm.x + sm.w / 2) - dm.stageRect.w / 2) <= dm.stageRect.w * 0.15 && sm.y + sm.h > dm.stageRect.h - 180);
+      } else ok(label + ': (شارتي غير متاحة — تُخطّى)', true);
+      ok(label + ': توهج الدور على شارة واحدة فقط', (dm.glowOpp ? 1 : 0) + (dm.glowMe ? 1 : 0) === 1);
       ok(label + ': أدوات اللعب لا تغطي القطع', dm.toolsOverlapHand !== true);
       ok(label + ': 0 أخطاء صفحة (ضومنة)', page._errs.length === 0);
       if (page._errs.length) console.log('    errs:', page._errs.slice(0, 3));

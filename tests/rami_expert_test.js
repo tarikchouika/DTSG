@@ -91,26 +91,65 @@ function expertTurn(game, player) {
       }
       return null;
     };
+    const onCardLaidOff = (cId) => {
+      if (player.drawnDiscardCard && player.drawnDiscardCard.id === cId) player.drawnDiscardCard = null;
+      if (player.drawnLaTourCard && player.drawnLaTourCard.id === cId) player.drawnLaTourCard = null;
+      player.tookLaTour = false;
+    };
+    const trySwapJoker = (card) => {
+      for (const meld of rm.tableMelds) {
+        if (typeof meld.findJokerSwapIndex === 'function') {
+          const swapIdx = meld.findJokerSwapIndex(card, game.rules);
+          if (swapIdx !== -1) {
+            const jokerCard = meld.cards[swapIdx];
+            player.removeCard(card.id);
+            meld.cards[swapIdx] = card;
+            player.hand.push(jokerCard);
+            onCardLaidOff(card.id);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
     /* إلزامي: المسحوبة المطابقة تُنزَّل فوراً */
     const drawnCard = player.drawnDiscardCard || player.drawnLaTourCard;
     if (drawnCard) {
-      const meld = fitsMeld(drawnCard);
-      if (meld) { player.removeCard(drawnCard.id); meld.cards.push(drawnCard); }
+      if (!trySwapJoker(drawnCard)) {
+        const meld = fitsMeld(drawnCard);
+        if (meld) {
+          player.removeCard(drawnCard.id);
+          meld.cards.push(drawnCard);
+          onCardLaidOff(drawnCard.id);
+        }
+      }
     }
     /* البقية فوق 3 فقط */
     for (const card of player.hand.slice()) {
       if (player.hand.length <= 3) break;
-      const meld = fitsMeld(card);
-      if (meld) { player.removeCard(card.id); meld.cards.push(card); }
+      if (!trySwapJoker(card)) {
+        const meld = fitsMeld(card);
+        if (meld) {
+          player.removeCard(card.id);
+          meld.cards.push(card);
+          onCardLaidOff(card.id);
+        }
+      }
     }
     /* إنقاذ من 3: ورقتان تدخلان الطاولة = فوز فوري */
     if (player.hand.length === 3) {
-      const fitting = player.hand.filter(c => fitsMeld(c));
+      const fitting = player.hand.filter(c => fitsMeld(c) || (typeof c === 'object' && rm.tableMelds.some(m => typeof m.findJokerSwapIndex === 'function' && m.findJokerSwapIndex(c, game.rules) !== -1)));
       if (fitting.length >= 2) {
         for (let fi = 0; fi < fitting.length && player.hand.length > 1; fi++) {
           const card = fitting[fi];
-          const meld3 = fitsMeld(card);
-          if (meld3) { player.removeCard(card.id); meld3.cards.push(card); }
+          if (!trySwapJoker(card)) {
+            const meld3 = fitsMeld(card);
+            if (meld3) {
+              player.removeCard(card.id);
+              meld3.cards.push(card);
+              onCardLaidOff(card.id);
+            }
+          }
         }
       }
     }
@@ -119,8 +158,14 @@ function expertTurn(game, player) {
       for (let ci = 0; ci < 2 && player.hand.length === 2; ci++) {
         const card = player.hand[ci];
         if (!card) break;
-        const meld = fitsMeld(card);
-        if (meld) { player.removeCard(card.id); meld.cards.push(card); }
+        if (!trySwapJoker(card)) {
+          const meld2 = fitsMeld(card);
+          if (meld2) {
+            player.removeCard(card.id);
+            meld2.cards.push(card);
+            onCardLaidOff(card.id);
+          }
+        }
       }
     }
   }
