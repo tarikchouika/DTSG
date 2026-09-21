@@ -25,8 +25,24 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 # [PhoneLink] تحديث من GitHub أولاً: يضمن أن أي نشر يحمل أحدث إصلاحات الفريق
 # (منع تكرار مشكلة «نشر نسخة قديمة»). BRANCH_SOURCE قابل للتغيير.
-BRANCH_SOURCE="${DMG_SOURCE_BRANCH:-origin/arena/01a081af-digital-moroccan-casino}"
+# [v2.48.2-GUARD 2026-09-21] كان الافتراضي فرعاً في المستودع **القديم**
+# (arena/01a081af-digital-moroccan-casino) ⇒ لبس بين المستودعين. الصحيح: main في DTSG.
+BRANCH_SOURCE="${DMG_SOURCE_BRANCH:-origin/main}"
+case "$BRANCH_SOURCE" in
+  *digital-moroccan-casino*)
+    echo "✗ BRANCH_SOURCE يشير إلى المستودع القديم ($BRANCH_SOURCE)"
+    echo "  راجع docs/ASSISTANT_GUARDRAILS.md — الإلغاء: unset DMG_SOURCE_BRANCH"
+    exit 1 ;;
+esac
 if git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  REMOTE_URL="$(git -C "$REPO" remote get-url origin 2>/dev/null || true)"
+  case "$REMOTE_URL" in
+    *digital-moroccan-casino*)
+      echo "✗ ريموت origin يشير إلى المستودع القديم — توقّف (راجع docs/ASSISTANT_GUARDRAILS.md)"; exit 1 ;;
+    *tarikchouika/DTSG*) : ;;
+    "") : ;;
+    *) echo "⚠ ريموت غير متوقّع: $REMOTE_URL — تأكد أنه DTSG" ;;
+  esac
   echo "── جلب أحدث التغييرات من GitHub ($BRANCH_SOURCE)"
   git -C "$REPO" fetch origin --prune 2>/dev/null || echo "   تحذير: فشل الجلب — سأبني من النسخة المحلية"
   # ملفات تكامل النفق معدلة محلياً فوق الفرع — تُستخدم كما هي بعد الجلب

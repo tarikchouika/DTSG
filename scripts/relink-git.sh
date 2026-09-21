@@ -11,7 +11,18 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 GITDIR="${DTSG_GITDIR:-/tmp/dtsg-git}"
 URL="${DTSG_REPO:-https://github.com/tarikchouika/DTSG.git}"
 BRANCH="${DTSG_BRANCH:-main}"
-[ -e "$REPO/.git" ] && { echo "✗ .git موجود مسبقاً — احذفه أو انقل الوجهة"; exit 1; }
+# رابط .git من جلسة سابقة قد يكون بائتاً (المجلد الهدف أُزيل مع تصفير /tmp)
+if [ -f "$REPO/.git" ]; then
+  OLD="$(sed -n "s/^gitdir: *//p" "$REPO/.git" | head -1)"
+  if [ -n "$OLD" ] && [ ! -d "$OLD" ]; then
+    echo "ℹ رابط .git بائت ($OLD) — يُستبدل"
+    rm -f "$REPO/.git"
+  else
+    echo "✗ .git موجود مسبقاً — احذفه أو انقل الوجهة"; exit 1
+  fi
+elif [ -d "$REPO/.git" ]; then
+  echo "✗ .git موجود مسبقاً — احذفه أو انقل الوجهة"; exit 1
+fi
 rm -rf "$GITDIR"; mkdir -p "$GITDIR"
 git init --bare -q "$GITDIR"
 git --git-dir="$GITDIR" remote add origin "$URL"
