@@ -7,7 +7,9 @@
    ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:4173/';
+/* [v2.49-QABASE] قابل للتهيئة: QA_BASE=http://localhost:3971/ (خادم qa-env) —
+   الافتراضي يبقى 4173 كما كان. */
+const BASE = process.env.QA_BASE || 'http://localhost:4173/';
 
 /* [aarch64] ثنائي @sparticuz/chromium مبني لـ x86-64 فقط — على الأجهزة
    ذات النواة ARM (هاتف cat) يفشل الإقلاع بـ ENOENT. نستخدم ثنائي

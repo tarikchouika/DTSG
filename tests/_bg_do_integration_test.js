@@ -75,7 +75,9 @@ function bad(label) { fail++; console.log('  ❌ ' + label); }
   await page.evaluate(() => {
     _localRounds.length = 0;   /* عزل التذاكر الجديدة لهذه الجلسة */
   });
-  await page.click('#bwStage #bwResignBtn');
+  /* [v2.49-NOBTN] زر الاستسلام أُزيل من الواجهة (أمر المالك) — نفتح طبقة التأكيد برمجياً
+     كي يبقى مسار التسوية (تذكرة خسارة بلا استرداد) مُختبَراً كما هو. */
+  await page.evaluate(() => BackgammonApp.showLayer('bwResignLayer', true));
   await PW.wait(page, () => !document.querySelector('#bwStage #bwResignLayer').hidden, 4000);
   await page.click('#bwStage #bwResignYes');
   const resignSettled = await PW.wait(page, () => {
@@ -128,7 +130,8 @@ function bad(label) { fail++; console.log('  ❌ ' + label); }
   // ── 5b) انسحاب الضومنة: تذكرة خسارة ──
   const goldBeforeDMResign = await page.evaluate(() => ST.gold);
   await page.evaluate(() => { _localRounds.length = 0; });
-  await page.click('#dmStage #dmResignBtn');
+  /* [v2.49-NOBTN] زر الانسحاب أُزيل من الواجهة — نفس المنهج: طبقة التأكيد برمجياً */
+  await page.evaluate(() => DominoApp.showLayer('dmResignLayer', true));
   await PW.wait(page, () => !document.querySelector('#dmStage #dmResignLayer').hidden, 4000);
   await page.click('#dmStage #dmResignYes');
   const dmResign = await PW.wait(page, () => {

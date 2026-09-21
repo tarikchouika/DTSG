@@ -67,7 +67,11 @@
           if (space < len) {
             const tx = headX + (dir === 1 ? u / 2 : -u / 2);
             const ty = y + rowH; /* منتصف عمودي بين الصف الحالي والتالي */
-            items.push({ node: node, kind: 'turn', x: tx, y: ty, rot: 0, u: u });
+            /* [v2.49-DOMINO] نصفها العلوي يلامس الصف السابق ⇒ يجب أن تحمل القيمة
+               الواصلة أعلى القطعة. كانت rot=0 دائماً فتظهر «مقلوبة الترتيب»
+               كلما كانت القيمة الواصلة هي b لا a ⇒ 180° في هذه الحالة. */
+            items.push({ node: node, kind: 'turn', x: tx, y: ty,
+                         rot: leftMatchIsA(chain, i) ? 0 : 180, u: u });
             if (!firstPos) firstPos = { x: tx, y: ty };
             lastPos = { x: tx, y: ty + u };
             y += rowH; rows++;
@@ -95,6 +99,30 @@
     if (sim.rows * (2 * u + GAP) > maxH) {
       u = Math.max(13, Math.floor((maxH / sim.rows - GAP) / 2));
       sim = simulate(u);
+    }
+
+    /* [v2.49-DOMINO] توسيط هندسي للكتلة أفقياً: كان المسار يبدأ دائماً من PAD
+       فيبدو منحازاً لليسار مع فراغ غير متوازن على الجانبين. نحسب امتداد كل قطعة
+       بحسب دورانها (الأفقية 2u · الرأسية/المنعطف u) ثم نزيح الكل بلا خروج عن الحشو. */
+    function centerShift() {
+      const items = sim.items;
+      if (!items.length) return 0;
+      let min = Infinity, max = -Infinity;
+      for (let i = 0; i < items.length; i++) {
+        const hx = (items[i].kind === 'flat') ? u : u / 2;
+        if (items[i].x - hx < min) min = items[i].x - hx;
+        if (items[i].x + hx > max) max = items[i].x + hx;
+      }
+      if (!isFinite(min) || !isFinite(max)) return 0;
+      const want = (W - (max - min)) / 2 - min;
+      const lo = PAD - min, hi = (W - PAD) - max;
+      return Math.round(Math.max(lo, Math.min(want, hi)));
+    }
+    const dx = centerShift();
+    if (dx) {
+      for (let i = 0; i < sim.items.length; i++) sim.items[i].x += dx;
+      if (sim.firstPos) sim.firstPos.x += dx;
+      if (sim.lastPos) sim.lastPos.x += dx;
     }
     return { items: sim.items, unit: u, firstPos: sim.firstPos, lastPos: sim.lastPos };
   }

@@ -111,10 +111,6 @@ window.BWG_HTML = (function () {
       '<div class="bw-dicebar">' +
         '<div class="bw-dice" id="bwDice"></div>' +
         '<button type="button" class="bw-rollbtn" id="bwRollBtn"><i class="fa-solid fa-dice" aria-hidden="true"></i> <span data-i18n="bg.roll">ارمِ النرد</span></button>' +
-        '<div class="bw-tools">' +
-          '<button type="button" class="bw-tool" id="bwUndoBtn" disabled><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> <span data-i18n="bg.undo">تراجع</span></button>' +
-          '<button type="button" class="bw-tool danger" id="bwResignBtn"><i class="fa-solid fa-flag" aria-hidden="true"></i></button>' +
-        '</div>' +
       '</div>' +
 
       /* نهاية اللعبة/المباراة */

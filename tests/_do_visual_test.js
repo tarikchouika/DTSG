@@ -1,7 +1,7 @@
 process.chdir(require('path').resolve(__dirname, '..'));
 /* Dominoes visual/freeze probe — screenshots portrait+landscape + auto-play fuzz. */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:4173/';
+const BASE = process.env.QA_BASE || 'http://localhost:4173/';   /* [v2.49-QABASE] */
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function wait(p, fn, t = 12000) { const s = Date.now(); let e; while (Date.now() - s < t) { try { const r = await p.evaluate(fn); if (r) return r; } catch (x) { e = x; } await p.waitForTimeout(150); } throw new Error('timeout ' + (e ? e.message : '')); }
 

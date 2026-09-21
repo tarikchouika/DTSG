@@ -2,7 +2,7 @@ process.chdir(require('path').resolve(__dirname, '..'));
 /* تدقيق توافق الهاتف/سطح المكتب: رامي جماعي يُحمَّل ويعمل على أبعاد الهاتف
    والسطح المكتب دون أخطاء، ويدعم إعادة الاتصال على كليهما. */
 const { chromium, devices } = require('playwright');
-const BASE = 'http://localhost:3000/';
+const BASE = process.env.QA_BASE || 'http://localhost:4173/';   /* [v2.49-QABASE] */
 async function wait(p,fn,t=15000,a){const s=Date.now();let e;while(Date.now()-s<t){try{const r=await p.evaluate(fn,a);if(r)return r;}catch(x){e=x;}await p.waitForTimeout(200);}throw new Error('timeout'+(e?' '+e.message:''));}
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function setup(ctx,u){const rr=await ctx.request.post(BASE+'api/register',{data:{username:u,password:'pw123456'}});if(!((await rr.json().catch(()=>({})))||{}).ok)await ctx.request.post(BASE+'api/login',{data:{username:u,password:'pw123456'}});const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));p.on('console',m=>{if(m.type()==='error')errs.push('CONSOLE:'+m.text().slice(0,60));});p._errs=errs;await p.goto(BASE,{waitUntil:'domcontentloaded'});await wait(p,()=>!!(typeof AUTH!=='undefined'&&AUTH.user&&typeof Rooms!=='undefined'));await p.waitForTimeout(700);return p;}

@@ -207,7 +207,12 @@ const INSIDE = `(el, host) => {
       ok(label + ': ارتفاع القطعة منطقي (' + dm.tileInfo.map(t => Math.round(t.h)).join('/') + ')',
         dm.tileInfo.every(t => t.h >= 40 && t.h <= 110));
       ok(label + ': البنك على الحافة اليسرى (' + (dm.byX ? Math.round(dm.byX.x) + 'px' : 'مفقود') + ')', !!dm.byX && dm.byX.x >= 0 && dm.byX.x < 40);
-      ok(label + ': رزمة الخصم على الحافة اليمنى', !!dm.oppX && (dm.oppX.x + dm.oppX.w) >= (dm.tableW || 0) - 40);
+      /* [v2.49-DOMINO] تغيّر العقد بأمر المالك: قطع الخصم (ظهرها) صارت في **أعلى الشاشة
+         مقابل اللاعب** متمركزة أفقياً — لا رزمة رأسية على الحافة اليمنى. */
+      ok(label + ': قطع الخصم أعلى الشاشة (' + (dm.oppX ? Math.round(dm.oppX.y) + 'px' : 'مفقود') + ')',
+         !!dm.oppX && dm.oppX.y <= (dm.tableC ? dm.tableC.h * 0.28 + dm.tableC.cy - dm.tableC.h / 2 : 999));
+      ok(label + ': قطع الخصم متمركزة أفقياً مقابل اللاعب (Δx=' + (dm.oppX && dm.tableC ? Math.round(dm.oppX.x + dm.oppX.w / 2 - dm.tableC.cx) : '؟') + ')',
+         !!dm.oppX && !!dm.tableC && Math.abs((dm.oppX.x + dm.oppX.w / 2) - dm.tableC.cx) <= dm.tableC.w * 0.18);
       ok(label + ': الجوخ أخضر (لا خشب بنّي)', !/#8c5c2c|#6b4423|rgb\(140, 92, 44\)/.test(dm.feltBg));
       if (dm.canCount > 0) {
         const x = dm.canBg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);

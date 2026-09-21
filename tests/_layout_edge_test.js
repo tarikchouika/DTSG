@@ -62,6 +62,13 @@ async function measure(browser, game, w, h, phase) {
     const dp = q('#gamePageBody #gamePageBody') || document.getElementById('gamePageBody');
     if (dp) out.docScroll = { x: document.documentElement.scrollWidth - innerWidth, y: document.documentElement.scrollHeight - innerHeight };
     const round = [...document.querySelectorAll('.dama-ctrls .dama-mini.dama-round')].map(e => ({ r: R(e), br: getComputedStyle(e).borderRadius }));
+    /* [v2.49-NOBTN] الأزرار المحذوفة بأمر المالك (استسلام/تراجع/تعادل) — يجب ألّا يوجد
+       أيّ منها **مرئي** في الألعاب الأربع. الطبقات التأكيدية داخل [hidden] لا تُحتسب. */
+    const forbidden = [...document.querySelectorAll(
+      '.dama-ctrls .dama-mini.dama-round, #damaDrawBar, #chessDrawBar, #bwResignBtn, #bwUndoBtn, #dmResignBtn, .bw-tools'
+    )].filter(e => e.getClientRects().length > 0);
+    out.forbidden = forbidden.length;
+    out.forbiddenList = forbidden.map(e => e.id || e.className).slice(0, 4);
     const picon = [...document.querySelectorAll('.dama-picon, .ch-seat')].map(e => R(e));
     out.round = round; out.icons = picon;
     /* أي عنصر مرئي يتجاوز حدّ الشاشة (كشف القصّ الحقيقي — لا فائض المقاعد الخارجية المقصود) */
@@ -95,9 +102,9 @@ async function measure(browser, game, w, h, phase) {
     ok(P.wrap && near(P.wrap.w, P.vp.w), `الحاوية تملأ العرض (${P.wrap && P.wrap.w})`);
     ok(!/d9b45c|242, 212, 137/.test(P.boardShadow || ''), 'لا حلقة ذهبية حول اللوحة');
     if (g !== 'pr') {
-      ok(P.round.length === 2 && P.round.every(b => near(b.r.w, 44) && near(b.r.h, 44)), `زرّا الاستسلام/التعادل دائرة 44px (${P.round.map(b => b.r.w + '×' + b.r.h).join(' , ')})`);
-      const noOverlap = P.round.every(b => P.icons.every(i => b.r.x + b.r.w <= i.x || i.x + i.w <= b.r.x || b.r.y + b.r.h <= i.y || i.y + i.h <= b.r.y));
-      ok(noOverlap, 'الزرّان لا يتراكبان مع أيقونة اللاعب');
+      /* [v2.49-NOBTN] كان الحارس يطلب زرّين دائريين 44px (استسلام/تعادل) — أُزيلا
+         بأمر المالك، وصار العقد: لا أثر مرئي لأي زر استسلام/تراجع/تعادل. */
+      ok(P.forbidden === 0, `لا زر استسلام/تراجع/تعادل مرئي (${P.forbidden || 0}${P.forbidden ? ': ' + P.forbiddenList.join(' · ') : ''})`);
       ok(P.beyondRight === 0, 'لا عنصر خارج الشاشة في شاشة اللعب');
     }
   }
@@ -120,8 +127,7 @@ async function measure(browser, game, w, h, phase) {
     ok(near(L.board.w, L.board.h), `اللوحة مربّعة (${L.board && L.board.w}×${L.board && L.board.h})`);
     ok(L.wrapOvf !== 'auto' && L.wrapOvf !== 'scroll' && L.beyondRight === 0, `لا شريط زالق ولا قصّ (overflow-x=${L.wrapOvf} عناصر خارج الشاشة=${L.beyondRight})`);
     if (g !== 'pr') {
-      ok(L.round.length === 2 && L.round.every(b => near(b.r.w, 44) && near(b.r.h, 44)), `زرّان دائريان ثابتان (${L.round.map(b => b.r.w + '×' + b.r.h).join(' , ')})`);
-      ok(L.round.every(b => b.r.y + b.r.h <= L.vp.h + 1), 'الأزرار داخل الشاشة (بلا قصّ)');
+      ok(L.forbidden === 0, `لا زر استسلام/تراجع/تعادل مرئي (${L.forbidden || 0}${L.forbidden ? ': ' + L.forbiddenList.join(' · ') : ''})`);
     }
   }
 

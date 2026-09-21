@@ -39,7 +39,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const inPlay = await PW.wait(page, () => getComputedStyle(document.getElementById('bwPlay')).display !== 'none', 8000);
     ok('bg: play screen entered', !!inPlay);
     const gold1 = await page.evaluate(() => ST.gold);
-    ok('bg: bet deducted at match start (' + gold0 + ' → ' + gold1 + ')', gold1 === gold0 - (gold0 - gold1) && gold1 < gold0);
+    /* [v2.49-TRAINING] هذا الإصدار يعتبر وضع «ضد الحاسوب» تدريباً مجانياً:
+       bg-app:263 `TRAINING.on = (config.mode !== 'room')` ⇒ لا خصم رهان ولا
+       تذكرة ولا حركة رصيد. الحارس القديم كان يفترض خصم الرهان فيضع العقد
+       في محل غير محلّه؛ صار يقيس السلوك الحالي صراحةً. */
+    ok('bg: training mode — no bet deducted (' + gold0 + ' → ' + gold1 + ')', gold1 === gold0);
+    ok('bg: TRAINING.on === true (وضع ضد الحاسوب = تدريب مجاني)',
+      !!(await page.evaluate(() => window.TRAINING && window.TRAINING.on)));
 
     /* لعب كامل عبر واجهات التطبيق الحقيقية حتى matchEnd */
     const done = await PW.wait(page, () => {
@@ -66,12 +72,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       });
       ok('bg: matchEnd state score=' + fin.score + ' type=' + fin.type, fin.phase === 'matchEnd');
       ok('bg: game-over overlay shown', fin.overlay);
-      const mult = [1.5, 2, 3][1] || 2;   /* المستوى الافتراضي 1 (متوسط) */
-      const betAmt = gold0 - gold1;
-      const winExp = gold1 + Math.round(betAmt * mult);
-      const settledOk = fin.winner === 0 ? fin.gold === winExp : fin.gold === gold1;
-      ok('bg: wallet settled correctly (' + gold0 + ' → ' + fin.gold + ', winner=' + fin.winner + (fin.winner === 0 ? ' ×' + mult : '') + ')', settledOk);
-      ok('bg: ticket recorded via recordRound (' + fin.tickets.length + ')', fin.tickets.length === 1);
+      /* [v2.49-TRAINING] تدريب: الرصيد ثابت ولا تذكرة رهان (لا حركة مال في التدريب) */
+      ok('bg: training — wallet unchanged (' + gold0 + ' → ' + fin.gold + ', winner=' + fin.winner + ')', fin.gold === gold0);
+      ok('bg: training — no betting ticket recorded (' + fin.tickets.length + ')', fin.tickets.length === 0);
       if (fin.tickets.length === 1) {
         const t = fin.tickets[0];
         const ticketOk = t.gid === 'bg' && t.bet === betAmt &&
@@ -106,7 +109,11 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const inPlay = await PW.wait(page, () => getComputedStyle(document.getElementById('dmPlay')).display !== 'none', 8000);
     ok('do: play screen entered', !!inPlay);
     const gold1 = await page.evaluate(() => ST.gold);
-    ok('do: bet deducted at match start (' + gold0 + ' → ' + gold1 + ')', gold1 < gold0);
+    /* [v2.49-TRAINING] هذا الإصدار يعتبر وضع «ضد الحاسوب» تدريباً مجانياً:
+       bg-app:263 `TRAINING.on = (config.mode !== 'room')` ⇒ لا خصم رهان ولا
+       تذكرة ولا حركة رصيد. الحارس القديم كان يفترض خصم الرهان فيضع العقد
+       في محل غير محلّه؛ صار يقيس السلوك الحالي صراحةً. */
+    ok('do: training mode — no bet deducted (' + gold0 + ' → ' + gold1 + ')', gold1 === gold0);
 
     /* التطبيق يقود راحة اللاعب (سحب/تمرير/اختيار طرف) — نلعب أول قطعة صالحة
        عند كل دور لنا عبر pickHand (نفس مسار نقر المستخدم)، وكل نهاية جولة
@@ -152,12 +159,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       });
       ok('do: matchEnd state scores=' + fin.scores, fin.phase === 'matchEnd');
       ok('do: match-over overlay shown', fin.overlay);
-      const betAmt = gold0 - gold1;
+      /* [v2.49-TRAINING] تدريب: الرصيد ثابت ولا تذكرة رهان */
       const winner = fin.matchWinner;   /* المفصل الرسمي — قد يتجاوز الطرفان الهدف معاً */
-      const mult = [1.5, 2, 3][1] || 2;
-      const winExp = gold1 + Math.round(betAmt * mult);
-      ok('do: wallet settled (' + gold0 + ' → ' + fin.gold + ', winner=' + winner + ')', fin.gold === (winner === 0 ? winExp : gold1));
-      ok('do: ticket recorded (' + fin.tickets.length + ')', fin.tickets.length === 1);
+      ok('do: training — wallet unchanged (' + gold0 + ' → ' + fin.gold + ', winner=' + winner + ')', fin.gold === gold0);
+      ok('do: training — no betting ticket recorded (' + fin.tickets.length + ')', fin.tickets.length === 0);
       if (fin.tickets.length === 1) {
         const t = fin.tickets[0];
         ok('do: ticket fields (gid=' + t.gid + ' won=' + t.won + ' payout=' + t.payout + ')',

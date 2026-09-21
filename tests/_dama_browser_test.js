@@ -3,7 +3,9 @@ process.chdir(require('path').resolve(__dirname, '..'));
    Verifies: catalog entry, setup screen, board render, a human move + AI reply,
    mandatory-capture hint UI, and viewport fit (mobile + desktop), with 0 page errors. */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.49-QABASE] المنفذ القياسي صار قابلاً للتهيئة: QA_BASE=http://localhost:4173/ ...
+   (كان 3000 ثابتاً فيسقط الاختبار بـERR_CONNECTION_REFUSED على بيئة QA الحالية 4173) */
+const BASE = process.env.QA_BASE || 'http://localhost:4173/';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function wait(p, fn, t = 12000, a) { const s = Date.now(); let e; while (Date.now() - s < t) { try { const r = await p.evaluate(fn, a); if (r) return r; } catch (x) { e = x; } await p.waitForTimeout(150); } throw new Error('timeout ' + (e ? e.message : '')); }
 
@@ -154,17 +156,22 @@ async function measureFit(page) {
       results.push([label + ': bet row present in setup (settings)', betUI.setupBets]);
       results.push([label + ': static stake chip during play (' + betUI.stake.trim() + ')', !betUI.stakeHidden && betUI.stake.trim().length > 2]);
 
-      /* 6b3. [B10] flip button removed; draw-agreement button present (icon-only — label lives in title/aria) */
+      /* 6b3. [v2.49-NOBTN] أُزيلت أزرار الواجهة الثلاثة (تدوير/تعادل/استسلام) بأمر المالك:
+         لا يجب أن يوجد أي زر دائري في نافذة اللعب، ولا أي زر استسلام/تعادل نصّي */
       const btns = await page.evaluate(() => {
-        const db = document.getElementById('damaDrawBtn');
+        const round = [...document.querySelectorAll('#damaPlay .dama-mini.dama-round, #damaPlay .dama-ctrls .dama-mini')];
+        const txt = round.map(b => ((b.textContent || '') + ' ' + (b.title || '') + ' ' + (b.getAttribute('aria-label') || ''))).join(' | ');
         return {
-          flip: [...document.querySelectorAll('#damaPlay .dama-ctrls .dama-mini')].some(b => /تدوير|Pivoter|Flip/.test(b.textContent)),
-          draw: !!db,
-          drawTxt: db ? (db.title || db.getAttribute('aria-label') || db.textContent || '') : ''
+          flip: /تدوير|Pivoter|Flip/.test(txt),
+          draw: /تعادل|Nul|Draw/.test(txt),
+          resign: /استسلام|Abandon|Resign/.test(txt),
+          n: round.length
         };
       });
       results.push([label + ': flip button removed', !btns.flip]);
-      results.push([label + ': draw-agreement button present (' + btns.drawTxt.trim() + ')', btns.draw && /تعادل|Nul|Draw/.test(btns.drawTxt)]);
+      results.push([label + ': draw button removed (أمر v2.49)', !btns.draw]);
+      results.push([label + ': resign button removed (أمر v2.49)', !btns.resign]);
+      results.push([label + ': no round control buttons in play window (' + btns.n + ')', btns.n === 0]);
 
       /* 6c. [B9] dama-specific sounds registered per move type */
       const sndOK = await page.evaluate(() =>

@@ -133,7 +133,6 @@ window.DMN_HTML = (function () {
         '<div class="dm-hand" id="dmHand"></div>' +
         '<div class="dm-tools">' +
           '<button type="button" class="dm-tool" id="dmPassBtn" hidden><i class="fa-solid fa-forward" aria-hidden="true"></i> <span data-i18n="dm.mustPass">مرّر</span></button>' +
-          '<button type="button" class="dm-tool danger" id="dmResignBtn"><i class="fa-solid fa-flag" aria-hidden="true"></i> <span data-i18n="dm.resign">انسحاب</span></button>' +
         '</div>' +
       '</div>' +
 
