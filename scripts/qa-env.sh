@@ -92,8 +92,8 @@ cd "$FULL"
 # (_pay_v243 §د) يسقط بـ403 لأن صلاحية السوبر أدمن تُقرأ من هذين المتغيّرين.
 env_qa() { PORT="$PORT" ADMIN_API_SECRET=qa-admin-secret PAYMENTS_SHARED_SECRET=qa-shared-secret \
   USD_GOLD_RATE=100 DM_TEST_MODE=1 DM_SEED_SUPER_PW=QaTest12345 \
-  TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-5700612979}" \
-  SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-5700612979}" "$@"; }
+  TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-999000001}" \
+  SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-999000001}" "$@"; }
 env_qa node server.js > "$FULL/boot.log" 2>&1 &
 BOOT_PID=$!
 for i in $(seq 1 20); do

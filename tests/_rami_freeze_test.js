@@ -121,9 +121,17 @@ const bad = (m) => { fail++; console.log('  ❌ ' + m); };
     const ad = RamiAdapter;
     if (!ad.game || ad.game.gamePhase !== 'PLAYING') return 'no-game';
     let ran = false;
-    /* اختر بوت الدور الحالي إن أمكن، وإلا أنشئ الحالة يدوياً */
+    /* يجب أن ترتبط خطوة الاختبار بالبوت صاحب الدور فعلاً؛ خطوة بوت آخر
+       تُعدّ callback قديمة ويجب أن يرفضها الحارس كما في العودة الحقيقية. */
     const rm = ad.game.roundManager;
     const bot = ad.game.players.find((p) => p.isBot);
+    if (!bot) return 'no-bot';
+    /* اصنع سياقاً صريحاً لدور بوت حتى لا يعتمد الاختبار على توقيت الحلقة السابقة. */
+    rm.currentPlayerIndex = bot.id;
+    rm.turnPhase = 'WAITING_DRAW';
+    rm._turnStartedAt = Date.now();
+    ad._botTurnEpoch = (ad._botTurnEpoch || 0) + 1;
+    ad._cancelBotStep();
     ad._deferBotStep(bot, () => { ran = true; }, 5000);   /* مؤقّت بعيد */
     const step = ad._botStep;
     if (!step) return 'no-step';

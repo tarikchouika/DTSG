@@ -9,7 +9,7 @@ function mk(pw) { const salt = crypto.randomBytes(16); const h = crypto.scryptSy
 const users = [
   { id: 18, username: 'qa_player', role: 'user', gold: 1000, tg: '555000111' },
   { id: 19, username: 'qa_admin', role: 'admin', gold: 5000, tg: null },
-  { id: 20, username: 'qa_super', role: 'super', gold: 5000, tg: '5700612979' }
+  { id: 20, username: 'qa_super', role: 'super', gold: 5000, tg: '999000001' }
 ];
 for (const u of users) {
   const p = mk('QaTest12345');

@@ -82,6 +82,8 @@ if (typeof window !== 'undefined') {
 }
 /* ── التنقل بين الصفحات ── */
 function nav(id, el) {
+  /* التوافق مع روابط قديمة فقط: لا توجد صفحة دردشة عامة بعد الآن. */
+  if (id === 'chat') { id = 'home'; el = document.querySelector('[data-nav="home"]'); }
   /* إخفاء كل الصفحات */
   const pages = document.querySelectorAll('.page');
   for (let i = 0; i < pages.length; i++) {
@@ -142,6 +144,11 @@ function _syncHash(id) {
 }
 function navFromHash() {
   var hash = window.location.hash.replace('#', '') || 'home';
+  /* أزيلت القناة العامة: الرابط القديم #chat لا يترك صفحة فارغة ولا يعيد إنشاءها. */
+  if (hash === 'chat') {
+    hash = 'home';
+    try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
+  }
   /* الصفحات القانونية صارت ملفات html مستقلة — الروابط القديمة #about وأخواتها تُحوَّل إليها */
   var LEGAL_PAGES = { about: 1, terms: 1, privacy: 1, fairness: 1, 'provably-fair': 1, '2fa': 1, contact: 1, admins: 1 };
   if (LEGAL_PAGES[hash]) { window.location.href = hash + '.html'; return; }

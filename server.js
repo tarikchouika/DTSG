@@ -261,6 +261,11 @@ sup.setCtx(db, users, sessions, {
     return r;
   }
 });
+/* [Private Chat 2026-09-22] بوت المحادثات الخاصة للمستخدمين المرتبطين فقط.
+   يستعمل نفس SQLite والجلسات، لكنه يحتفظ بمحادثاته وجداول صلاحياته منفصلة عن الدعم. */
+const privateChat = require('./server-private-chat.js');
+privateChat.initPrivateChat(db);
+privateChat.setCtx(db, users, sessions);
 /* رسم الرهان على المنصة: نسبة تُقتطع من الرهان عند تسوية الجولة بين لاعبَين */
 const BET_FEE_RATE = 0.05;      /* 5% رسوم المنصة على الرهان */
 /* [B-rooms] غرف الساعة: رسم افتتاح ثابت يُقتطع من المضيف + مدة صلاحية الغرفة */
@@ -269,13 +274,14 @@ const HOUR_ROOM_MS = 3600000;   /* ساعة واحدة */
 
 /* تحميل المستخدمين من قاعدة البيانات إلى الذاكرة */
 function loadUsersFromDB() {
-  const rows = db.prepare('SELECT id, username, pass_hash, pass_salt, role, gold, lang, banned, totp_secret, twofa_enabled, ref_code, admin_id, referred_by, muted_until, first_topup_done, created_at, last_seen FROM users').all();
+  const rows = db.prepare('SELECT id, username, pass_hash, pass_salt, role, gold, lang, banned, totp_secret, twofa_enabled, telegram_id, ref_code, admin_id, referred_by, muted_until, first_topup_done, created_at, last_seen FROM users').all();
   rows.forEach(function (r) {
     users[r.id] = {
       id: r.id, username: r.username,
       passHash: r.pass_hash, passSalt: r.pass_salt,
       role: r.role, gold: r.gold, lang: r.lang, banned: !!r.banned,
       totpSecret: r.totp_secret || null, twofaEnabled: !!r.twofa_enabled,
+      telegram_id: r.telegram_id || null,
       ref_code: r.ref_code || null, admin_id: r.admin_id || null,
       referred_by: r.referred_by || null,
       /* [v2.43] يلزمهما سجل الحساب (انضممت/آخر نشاط) — كانا لا يُحمَّلان أصلاً */
@@ -594,10 +600,6 @@ try {
 } catch (e) {}
 
 const sseClients = [];          // [{res, userId}]
-const chatMessages = [
-  { username: 'tarik', message: 'السلام عليكم ورحمة الله!', created_at: Date.now() - 60000 },
-  { username: 'hamza_casawi', message: 'مبروك للرابحين في الروندا 🏆', created_at: Date.now() - 30000 }
-];
 const winners = [
   { username: 'tarik', game_id: 'Moroccan Ronda', payout: 350 },
   { username: 'mehdi_rabat', game_id: 'Crash 🚀', payout: 1250 },
@@ -970,7 +972,7 @@ const server = http.createServer((req, res) => {
     const me = getUser(req);
     const helloData = {
       online: 42 + sseClients.length,
-      history: chatMessages,
+      /* الدردشة العامة أزيلت؛ لا نرسل سجل رسائل في SSE. */
       winners: winners
     };
     res.write('event: hello\ndata: ' + JSON.stringify(helloData) + '\n\n');
@@ -1026,6 +1028,9 @@ const server = http.createServer((req, res) => {
 
       /* ── [Support 2026-09-18] بوت الدعم + واجهة صفحة الدعم (ربط/تذاكر/أدمنز) ── */
       if (sup.isSupportPath(pathname)) { sup.handleHttp(req, res, pathname, body, parsedUrl); return; }
+
+      /* ── [Private Chat 2026-09-22] بوت المحادثة الخاصة + رابط الربط القصير ── */
+      if (privateChat.isPrivatePath(pathname)) { privateChat.handleHttp(req, res, pathname, body, parsedUrl); return; }
 
       /* ── [Payments] مسارات المحفظة تُدار بمنطق payments-core فوق القاعدة المحلية ── */
       if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body, me); return; }
@@ -1469,23 +1474,25 @@ const server = http.createServer((req, res) => {
         json({ ok: false, error: 'removed', message: 'المكافأة اليومية أُزيلت نهائياً' }, 410);
         return;
       }
+      /* [Promotions 2026-09-22] مصدر واحد لبطاقات العروض والشريط الإشهاري.
+         لا يحتوي أي بيانات مستخدم، ويمكن تغييره لاحقاً من إعدادات المنصة. */
+      if (pathname === '/api/promotions' && req.method === 'GET') {
+        json({
+          ok: true,
+          updated_at: new Date().toISOString().slice(0, 10),
+          /* المبالغ الأساسية بالدولار؛ التحويل ثابت: 1 USD = 10 MAD = 100 COIN. */
+          currency: 'USD',
+          rates: { usd_to_mad: 10, usd_to_coins: 100 },
+          direct: [{ amount: 10, bonus_pct: 0 }, { amount: 100, bonus_pct: 5 }, { amount: 1000, bonus_pct: 10 }, { amount: 10000, bonus_pct: 15 }],
+          admin: [{ amount: 1000, bonus_pct: 30 }, { amount: 10000, bonus_pct: 35 }, { amount: 100000, bonus_pct: 40 }],
+          referral_pct: 10
+        });
+        return;
+      }
+      /* [Privacy 2026-09-22] أُزيلت القناة العامة. المحادثات الخاصة تمر عبر
+         بوت تيليغرام المرتبط بالحساب أو عبر غرف اللعب فقط. */
       if (pathname === '/api/chat') {
-        /* [DTSG-010 SEC] منع مشاركة الزوار غير المسجلين وحماية الدردشة من الإغراق */
-        if (!me) { json({ ok: false, message: 'سجّل الدخول للمشاركة في الدردشة' }, 401); return; }
-        if (isMuted(me)) { json({ ok: false, message: 'موقوف عن المراسلة حتى ' + new Date(me.muted_until).toLocaleString('ar-MA'), muted_until: me.muted_until }, 403); return; }
-        const text = String((data && data.message) || '').trim();
-        if (!text) { json({ ok: false, message: 'رسالة فارغة' }, 400); return; }
-        if (text.length > 300) { json({ ok: false, message: 'الرسالة طويلة جداً (أقصى حد 300 حرف)' }, 400); return; }
-        const now = Date.now();
-        if (me._lastChat && (now - me._lastChat < 1500)) {
-          json({ ok: false, message: 'يرجى الانتظار قليلاً بين الرسائل' }, 429);
-          return;
-        }
-        me._lastChat = now;
-        const msg = { username: me.username, message: text, created_at: now };
-        chatMessages.push(msg); if (chatMessages.length > 50) chatMessages.shift();
-        sseClients.forEach(c => sendSSE(c.res, 'chat', msg));
-        json({ ok: true, message: msg });
+        json({ ok: false, error: 'removed', message: 'الدردشة العامة أُزيلت — استعمل بوت DTSG الخاص.' }, 410);
         return;
       }
       /* [DTSG-019] نقطة قائمة المتصدرين */

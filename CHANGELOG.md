@@ -1096,7 +1096,7 @@ dtsg.pages.dev = 405) ⇒ `r.json()` يفشل و«لا شيء يحدث» عند 
 - عمود `telegram_id` يُضاف تلقائياً لقاعدة المنصة.
 
 ### ربط تيليغرام
-- `/start plt_<المعرف>` يثبّت `telegram_id` للمستخدم في قاعدة المنصة فعلياً (تحقق مباشر: لاعب id=3 ربط بشات 5700612979).
+- `/start plt_<المعرف>` يثبّت `telegram_id` للمستخدم في قاعدة المنصة فعلياً (تحقق مباشر: لاعب QA ربط بحساب اختبار؛ المعرّف محجوب).
 - `/balance` من الشات المربوط يعرض الكوينز وما يعادلها بالدولار.
 - إيداع/سحب/رفض يُخطر المستخدم على تيليغرام عبر الربط نفسه.
 
@@ -1155,7 +1155,7 @@ dtsg.pages.dev = 405) ⇒ `r.json()` يفشل و«لا شيء يحدث» عند 
 ## ملاحظات التشغيل (إلزامية للإنتاج)
 
 1. **الخادم الخلفي يجب أن يُحدَّث إلى v2.37**: الموقع المنشور يمرر `/api/*` إلى نسخة `server.js` قديمة؛ حدّثوها من مستودع `tarikchouika/DTSG` (git pull بعد تشغيل الناقل) وأعيدوا التشغيل بمتغيرات البيئة:
-   `TELEGRAM_BOT_TOKEN`، `TELEGRAM_ADMIN_CHAT_ID=5700612979`، `TELEGRAM_ADMIN_PIN`، `ADMIN_API_SECRET`، `CRYPTOMUS_MERCHANT_ID`، `CRYPTOMUS_PAYMENT_KEY`، `USD_GOLD_RATE=100`، `DEPLOY_MANIFEST=1`.
+   `TELEGRAM_BOT_TOKEN`، `TELEGRAM_ADMIN_CHAT_ID=<من البيئة فقط>`، `TELEGRAM_ADMIN_PIN`، `ADMIN_API_SECRET`، `CRYPTOMUS_MERCHANT_ID`، `CRYPTOMUS_PAYMENT_KEY`، `USD_GOLD_RATE=100`، `DEPLOY_MANIFEST=1`.
 2. **Webhook البوت** (من جهاز لديه إنترنت):
    `curl -s "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<مضيف-الخادم>/api/telegram/webhook"`
 3. التوكنات بيئة فقط — لا تُودَع في المستودع أبداً؛ يُنصح بتدوير أي توكن ظهر في محادثة.

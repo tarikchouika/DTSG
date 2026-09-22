@@ -1051,3 +1051,67 @@ body.app-fs-on .game-fs-exit {
     order: 4 !important;
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [v2.57-DOMINO] لاندسكيب فقط
+   البورتريه يعود إلى توزيعه السابق؛ التعديلان المطلوبان هنا محصوران في الشاشة
+   الأفقية: البنك في الركن السفلي الأيسر، وشارة اللاعب ملاصقة لليد.
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) {
+  #dmStage {
+    --dm-tile-h: clamp(30px, min(24dvh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px);
+  }
+  /* البنك داخل الطاولة التي تملأ #dmPlay، لذلك هذه إحداثيات الركن الحقيقي للشاشة. */
+  #dmStage #dmTable > #dmBoneyard,
+  #dmStage .dm-boneyard {
+    top: auto !important;
+    right: auto !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    transform: none !important;
+    z-index: 40 !important;
+  }
+  /* زر المرور فوق البنك عند ظهوره، من دون تحريك البنك نفسه. */
+  #dmStage #dmPlay #dmPassBtn {
+    bottom: 84px !important;
+    left: 12px !important;
+  }
+
+  /* لا نترك #dmHand يتمدد بعرض الشريط؛ عندها تهرب شارة «أنا» إلى الطرف الآخر. */
+  #dmStage #dmPlay > .dm-handwrap {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    direction: ltr !important;
+  }
+  #dmStage #dmPlay > .dm-handwrap > #dmHand {
+    flex: 0 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: calc(100% - 76px) !important;
+    justify-content: flex-end !important;
+    overflow: visible !important;
+  }
+  #dmStage #dmPlay > .dm-handwrap > #dmSeatMe {
+    position: static !important;
+    order: 2 !important;
+    flex: 0 0 auto !important;
+    margin: 0 !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 5px !important;
+    direction: ltr !important;
+  }
+  #dmStage #dmPlay > .dm-handwrap > #dmSeatMe .dm-avatar {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  #dmStage #dmPlay > .dm-handwrap > .dm-tools {
+    order: 3 !important;
+    flex: 0 0 auto !important;
+  }
+}

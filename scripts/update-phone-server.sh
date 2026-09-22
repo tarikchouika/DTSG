@@ -26,7 +26,7 @@ PM2_NAME="${DTSG_PM2:-casino-server}"          # اسم العملية في pm2
 REPO="${DTSG_REPO:-https://github.com/tarikchouika/DTSG.git}"
 LOCAL_PORT="${DTSG_PORT:-3000}"
 PUBLIC="${DTSG_PUBLIC:-https://casino-phone.dmgames-api.workers.dev}"
-EXPECT_FILES=(server.js server-payments.js server-support.js cf-worker/payments-core.js js/wallet.js payments-url.json support.html)
+EXPECT_FILES=(server.js server-payments.js server-support.js server-private-chat.js cf-worker/payments-core.js js/wallet.js payments-url.json support.html)
 
 say() { printf '\n\033[1;36m── %s\033[0m\n' "$*"; }
 ok()  { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }
@@ -111,7 +111,7 @@ export BINANCE_PAY_API_KEY="${BINANCE_PAY_API_KEY:-}"
 export BINANCE_PAY_SECRET_KEY="${BINANCE_PAY_SECRET_KEY:-}"
 export BINANCE_PAY_CURRENCY="${BINANCE_PAY_CURRENCY:-USDT}"
 export TELEGRAM_BOT_TOKEN="${TELEGRAM_BOT_TOKEN:-}"
-export TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-5700612979}"
+export TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-}"
 export TELEGRAM_ADMIN_PIN="${TELEGRAM_ADMIN_PIN:-}"
 export ADMIN_API_SECRET="${ADMIN_API_SECRET:-}"
 export USD_GOLD_RATE="${USD_GOLD_RATE:-100}"
@@ -129,10 +129,16 @@ export CRYPTO_USDT_TRC20="${CRYPTO_USDT_TRC20:-TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsK
 export SUPPORT_BOT_TOKEN="${SUPPORT_BOT_TOKEN:-}"   # [v2.44-أمن] من البيئة فقط — لا يُكتب في المستودع
 export SUPPORT_WEBHOOK_SECRET="${SUPPORT_WEBHOOK_SECRET:-}"
 export SUPPORT_BOT_USERNAME="${SUPPORT_BOT_USERNAME:-dtsgsupports_bot}"
-export SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-${TELEGRAM_ADMIN_CHAT_ID:-5700612979}}"
+export SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-${TELEGRAM_ADMIN_CHAT_ID:-}}"
+# [v2.56] بوت الدردشة الخاصة: لا يُقبل أي حساب تيليغرام بلا رابط صادر من جلسة المنصة
+export PRIVATE_CHAT_BOT_TOKEN="${PRIVATE_CHAT_BOT_TOKEN:-}"
+export PRIVATE_CHAT_BOT_USERNAME="${PRIVATE_CHAT_BOT_USERNAME:-}"
+export PRIVATE_CHAT_WEBHOOK_SECRET="${PRIVATE_CHAT_WEBHOOK_SECRET:-}"
+export PRIVATE_CHAT_TG_API="${PRIVATE_CHAT_TG_API:-https://api.telegram.org}"
 echo "   BINANCE_PAY: $([ -n "$BINANCE_PAY_API_KEY" ] && [ -n "$BINANCE_PAY_SECRET_KEY" ] && echo مضبوط || echo 'فارغ (الشحن التلقائي سيبقى soon)') · العملة: $BINANCE_PAY_CURRENCY"
 echo "   TELEGRAM_ADMIN_CHAT_ID: $TELEGRAM_ADMIN_CHAT_ID · USD_GOLD_RATE: $USD_GOLD_RATE"
 echo "   SUPPORT_BOT_TOKEN: $([ -n "$SUPPORT_BOT_TOKEN" ] && echo مضبوط || echo فارغ) · السرّ: $([ -n "$SUPPORT_WEBHOOK_SECRET" ] && echo مضبوط || echo فارغ)"
+echo "   PRIVATE_CHAT_BOT_TOKEN: $([ -n "$PRIVATE_CHAT_BOT_TOKEN" ] && echo مضبوط || echo فارغ) · username: ${PRIVATE_CHAT_BOT_USERNAME:-غير مضبوط} · السرّ: $([ -n "$PRIVATE_CHAT_WEBHOOK_SECRET" ] && echo مضبوط || echo فارغ)"
 echo "   TELEGRAM_BOT_TOKEN: $([ -n "$TELEGRAM_BOT_TOKEN" ] && echo مضبوط || echo 'فارغ (بوت المدفوعات معطّل)')"
 [ -n "${SUPPORT_BOT_TOKEN:-}" ] && {
   SM="$(curl -s -m 12 "https://api.telegram.org/bot$SUPPORT_BOT_TOKEN/getMe" | "$(command -v node || echo node)" -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write("@"+(JSON.parse(s).result.username||"?"))}catch(e){process.stdout.write("تعذّر التحقق")}})')"

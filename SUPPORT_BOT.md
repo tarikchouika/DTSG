@@ -1,7 +1,7 @@
 # 🛟 بوت خدمة العملاء — DTSG Support Bot (v2.41.0)
 
 **البوت:** [@dtsgsupports_bot](https://t.me/dtsgsupports_bot) · **الصفحة:** https://dtsg.pages.dev/support.html
-**السوبر أدمن:** `5700612979` · **المحرّك:** `server-support.js` · **الاختبار:** `tests/_support_bot_test.js` (72/72 ✓)
+**السوبر أدمن:** `<TELEGRAM_ADMIN_CHAT_ID من البيئة>` · **المحرّك:** `server-support.js` · **الاختبار:** `tests/_support_bot_test.js` (72/72 ✓)
 
 ---
 
@@ -92,8 +92,8 @@
 SUPPORT_BOT_TOKEN=<TOKEN_FROM_BOTFATHER>   # توكن @dtsgsupports_bot (من BotFather، لا يُكتب في المستودع)
 SUPPORT_WEBHOOK_SECRET=dtsgsup_k9Qz…     # يجب أن يطابق ما ضُبط في setWebhook
 SUPPORT_BOT_USERNAME=dtsgsupports_bot
-SUPPORT_SUPER_TG=5700612979              # سوبر أدمن الدعم (يُزرع كمالك تلقائياً)
-TELEGRAM_ADMIN_CHAT_ID=5700612979        # شات الإدارة المشترك بين البوتين
+SUPPORT_SUPER_TG="${TELEGRAM_ADMIN_CHAT_ID}"  # من البيئة فقط — سوبر أدمن الدعم
+TELEGRAM_ADMIN_CHAT_ID=<ADMIN_CHAT_ID_FROM_DEPLOYMENT_ENV>  # قيمة تُحقن وقت التشغيل فقط
 TELEGRAM_BOT_TOKEN=…                     # بوت المنصة (لديكم على الهاتف)
 ```
 

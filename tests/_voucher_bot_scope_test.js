@@ -35,7 +35,7 @@ global.fetch = async function (url, opts) {
 };
 
 process.env.VOUCHER_BOT_TOKEN = 'TEST:TOKEN';
-process.env.SUPER_TG = process.env.SUPER_TG || '5700612979';
+process.env.SUPER_TG = process.env.SUPER_TG || '999000001';
 process.env.API_BASE = process.env.API_BASE || 'http://127.0.0.1:3971';
 const bot = require(path.join(ROOT, 'scripts', 'voucher-bot.js'));
 

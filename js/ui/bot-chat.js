@@ -83,7 +83,7 @@
     '<div class="bc-quick" id="bcQuick">' +
     '<button type="button" class="bc-chip" data-q="deposit"><i class="fa-solid fa-circle-plus" aria-hidden="true"></i> ' + esc(L('bc.qDeposit', 'شحن الرصيد')) + '</button>' +
     '<button type="button" class="bc-chip" data-q="last"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ' + esc(L('bc.qLast', 'حالة آخر معاملة')) + '</button>' +
-    '<button type="button" class="bc-chip" data-q="link"><i class="fa-solid fa-link" aria-hidden="true"></i> ' + esc(L('bc.qLink', 'ربط تيليغرام')) + '</button>' +
+    '<button type="button" class="bc-chip" data-q="private-link"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ' + esc(L('bc.qPrivateLink', 'ربط بوت الدردشة الخاص')) + '</button>' +
     '</div>' +
     '<form class="bc-in" id="bcForm" autocomplete="off">' +
     '<input id="bcInput" type="text" maxlength="1000" placeholder="' + esc(L('bc.ph', 'اكتب رسالتك لفريق الدعم…')) + '" aria-label="' + esc(L('bc.ph', 'اكتب رسالتك لفريق الدعم…')) + '">' +
@@ -95,6 +95,12 @@
     '<span class="bc-cic"><i class="fa-brands fa-telegram" aria-hidden="true"></i></span>' +
     '<span><b>' + esc(L('bc.cardSupport', 'بوت خدمة العملاء')) + '</b><small>' + esc(L('bc.cardSupportSub', 'تذاكر وردود الفريق — @dtsgsupports_bot')) + '</small></span>' +
     '<i class="fa-solid fa-chevron-left bc-go" aria-hidden="true"></i></a>' +
+    /* بوت الدردشة الخاص: لا نضع معرف البوت أو كود الربط في HTML ثابت؛ ينشئ الخادم
+       رابطاً أحادي الاستخدام بعد التحقق من جلسة المستخدم. */
+    '<div class="bc-card lead" id="bcPrivateChatLink" data-q="private-link" role="button" tabindex="0">' +
+    '<span class="bc-cic"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>' +
+    '<span><b>' + esc(L('bc.cardPrivate', 'بوت الدردشة الخاص')) + '</b><small>' + esc(L('bc.cardPrivateSub', 'اربط حسابك بأمان — محادثاتك لا تظهر للزوار')) + '</small></span>' +
+    '<i class="fa-solid fa-chevron-left bc-go" aria-hidden="true"></i></div>' +
     /* [v2.47] بطاقة بوت أكواد التعبئة — دمج بوت الفوتشير في مركز المساعدة (طلب المالك):
        وصول سريع من المنصة، والرابط يربط حساب المستخدم تلقائياً (plt_<id>). */
     '<a class="bc-card" id="bcVoucher" href="' + voucherUrl() + '" target="_blank" rel="noopener" data-bcvoucher="1">' +
@@ -377,15 +383,19 @@
       });
       return;
     }
-    if (q === 'link') {
+    if (q === 'private-link' || q === 'link') {
       switchTab('chat');
-      api('/api/support/link-code', 'POST', {}).then(function (j) {
-        if (!j.ok) { bubble(esc(L('bc.linkFail', 'تعذّر إنشاء كود الربط — سجّل الدخول أولاً.')), 'err'); return; }
-        bubble('<b>' + esc(L('bc.linkTitle', 'اربط حسابك بتيليغرام')) + '</b><br>' +
-          esc(L('bc.linkSub', 'اضغط الزر ثم «افتح البوت» ليتأكد الربط:')) +
-          '<div class="bc-cta"><a class="bc-btn" href="' + j.url + '" target="_blank" rel="noopener">' +
-          '<i class="fa-brands fa-telegram" aria-hidden="true"></i> ' + esc(L('bc.openBot', 'افتح البوت')) + '</a>' +
-          '<code>/start ' + esc(j.code) + '</code></div>', 'sys');
+      bubble('<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> ' + esc(L('bc.linkLoading', 'جارٍ إنشاء رابط آمن لمرة واحدة…')), 'sys');
+      api('/api/private-chat/link', 'POST', {}).then(function (j) {
+        if (!j.ok) {
+          bubble('<i class="fa-solid fa-lock" aria-hidden="true"></i> ' + esc(j.status === 401 ? L('bc.needLogin', 'سجّل الدخول أولاً.') : L('bc.linkFail', 'تعذّر إنشاء رابط الربط — حاول مجدداً.')), 'err');
+          return;
+        }
+        bubble('<b>' + esc(L('bc.linkTitle', 'اربط حسابك ببوت الدردشة الخاص')) + '</b><br>' +
+          esc(L('bc.linkSub', 'الرابط خاص بحسابك ويُستخدم مرة واحدة خلال 15 دقيقة. لا تشاركه مع أي شخص:')) +
+          '<div class="bc-cta"><a class="bc-btn" href="' + esc(j.url) + '" target="_blank" rel="noopener">' +
+          '<i class="fa-brands fa-telegram" aria-hidden="true"></i> ' + esc(L('bc.openBot', 'افتح بوت الدردشة')) + '</a>' +
+          '<span class="bc-safe-note"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> ' + esc(j.bot || 'بوت خاص') + '</span></div>', 'sys');
       });
     }
   }
@@ -441,6 +451,14 @@
     });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && STATE.open) close();
+      /* بطاقات البوتات لها role=button أيضاً؛ فعّلها من لوحة المفاتيح */
+      if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.closest) {
+        var action = e.target.closest('[data-q]');
+        if (action) {
+          e.preventDefault();
+          quick(action.getAttribute('data-q'));
+        }
+      }
     });
   }
 
