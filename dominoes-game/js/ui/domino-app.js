@@ -25,10 +25,23 @@
   const PREFS_KEY = 'dominoes.prefs';
   const SAVE_KEY = 'dominoes.save';
 
+  /* [v2.51-DOMINO] أول حرفين من الاسم لشارة اللاعب (آمن لمحارف الـemoji). */
+  function initials(name) {
+    const cp = Array.from(String(name == null ? '' : name).replace(/^\s+|\s+$/g, '')).slice(0, 2).join('');
+    return (cp || '?').toUpperCase();
+  }
+  function myUserName() {
+    try {
+      if (root.AUTH && root.AUTH.user && root.AUTH.user.username) return root.AUTH.user.username;
+      if (root.ST && root.ST.user && root.ST.user.username) return root.ST.user.username;
+    } catch (e) {}
+    return null;
+  }
+
   const App = {
     /* ═══════════ الحالة ═══════════ */
     /* [AI-MAX] الافتراضي خبير (المستوى 2) — طلب المالك: أعلى مستوى في جميع الألعاب */
-    config: { mode: 'ai', level: 2, target: 100, drawUntilPlayable: true, bet: 25 },
+    config: { mode: 'ai', level: 2, target: 100, drawUntilPlayable: true, bet: 25, playersCount: 2 },
     game: null,
     ai: null,
     room: null,               /* [DO-Room] سياق الغرفة (DOMINO_ROOM) — null = محلي */
@@ -136,6 +149,7 @@
         if (typeof p.level === 'number') this.config.level = (p._v === 2) ? p.level : 2;
         if (p.target) this.config.target = p.target;
         if (typeof p.drawUntilPlayable === 'boolean') this.config.drawUntilPlayable = p.drawUntilPlayable;
+        if (p.playersCount) this.config.playersCount = parseInt(p.playersCount, 10) || 2;
         if (p.bet) this.config.bet = p.bet;
       } catch (e) {}
       this.applyConfigToMenu();
@@ -153,6 +167,7 @@
         }
       };
       mark('dmModeSeg', 'data-mode', this.config.mode);
+      mark('dmPlayersSeg', 'data-players', this.config.playersCount || 2);
       mark('dmLevelSeg', 'data-level', this.config.level);
       mark('dmTargetSeg', 'data-target', this.config.target);
       mark('dmDrawSeg', 'data-draw', this.config.drawUntilPlayable ? 1 : 0);
@@ -176,6 +191,7 @@
         });
       };
       seg('dmModeSeg', (b) => { this.config.mode = b.getAttribute('data-mode'); });
+      seg('dmPlayersSeg', (b) => { this.config.playersCount = parseInt(b.getAttribute('data-players'), 10) || 2; });
       seg('dmLevelSeg', (b) => { this.config.level = parseInt(b.getAttribute('data-level'), 10) || 0; });
       seg('dmTargetSeg', (b) => { this.config.target = parseInt(b.getAttribute('data-target'), 10) || 100; });
       seg('dmDrawSeg', (b) => { this.config.drawUntilPlayable = b.getAttribute('data-draw') === '1'; });
@@ -269,6 +285,23 @@
        كي يصمد «استئناف المباراة» بين الجلسات */
     purgeSave: function () { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} },
     clearSave: function () { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} },
+    myInitials: function () {
+      let uname = '';
+      try {
+        if (typeof root !== 'undefined' && root.AUTH && root.AUTH.user && root.AUTH.user.username) {
+          uname = root.AUTH.user.username;
+        } else if (typeof root !== 'undefined' && root.ST && root.ST.user && root.ST.user.username) {
+          uname = root.ST.user.username;
+        }
+      } catch (e) {}
+      if (!uname) {
+        const nm = R.names(null, this.config.mode === 'ai' ? 'ai' : 'local');
+        uname = (nm && nm.me) || 'PL';
+      }
+      const trimmed = String(uname).trim();
+      const cp = Array.from(trimmed).slice(0, 2).join('');
+      return (cp || 'PL').toUpperCase();
+    },
     refreshResumeBtn: function () {
       const b = this.$('dmResumeBtn');
       if (b) b.hidden = !this.loadSave();
@@ -293,7 +326,8 @@
       const self = this;
       const cfg = Core.normalizeConfig(Object.assign({
         target: this.config.target,
-        drawUntilPlayable: this.config.drawUntilPlayable
+        drawUntilPlayable: this.config.drawUntilPlayable,
+        playersCount: this.config.playersCount || 2
       }, cfgOverride || {}));
       this.game = new NS.DominoGame({
         config: cfg,
@@ -338,11 +372,46 @@
       this.busy = false; this.selTile = null; this.selOwner = 0;
       if (fresh) this.clearTimers();
       const isAI = this.config.mode === 'ai';
+      const numPlayers = (this.game && this.game.state && this.game.state.hands.length) || (this.config.playersCount || 2);
       const nm = R.names(null, isAI ? 'ai' : 'local');
-      this.$('dmOppName').textContent = isAI ? (nm.opp + ' · ' + T('dm.level.' + this.config.level)) : nm.opp;
+
+      this.$('dmOppName').textContent = isAI ? (nm.opp + (numPlayers > 2 ? ' 1' : '') + ' · ' + T('dm.level.' + this.config.level)) : nm.opp;
       this.$('dmMyName').textContent = nm.me;
-      const av = this.$('dmOppAvatar');
-      if (av) av.innerHTML = '<i class="fa-solid ' + (isAI ? 'fa-robot' : 'fa-user') + '" aria-hidden="true"></i>';
+
+      const avO = this.$('dmOppAvatar');
+      if (avO) avO.innerHTML = '<i class="fa-solid ' + (isAI ? 'fa-robot' : 'fa-user-tie') + '"></i>';
+      const avM = this.$('dmMyAvatar');
+      if (avM) avM.textContent = this.myInitials();
+
+      const sOpp = this.$('dmSeatOpp');
+      if (sOpp) {
+        if (numPlayers === 2) {
+          sOpp.classList.add('seat-2p-top');
+          sOpp.classList.remove('seat-left');
+        } else {
+          sOpp.classList.remove('seat-2p-top');
+          sOpp.classList.add('seat-left');
+        }
+      }
+
+      const s2 = this.$('dmSeat2');
+      if (s2) {
+        s2.hidden = (numPlayers < 3);
+        const av2 = this.$('dmAvatar2');
+        if (av2) av2.innerHTML = '<i class="fa-solid ' + (isAI ? 'fa-robot' : 'fa-user-group') + '"></i>';
+        const nm2 = this.$('dmName2');
+        if (nm2) nm2.textContent = isAI ? ((T('dm.opp') || 'الخصم') + ' 2') : (T('dm.p3') || 'اللاعب 3');
+      }
+
+      const s3 = this.$('dmSeat3');
+      if (s3) {
+        s3.hidden = (numPlayers < 4);
+        const av3 = this.$('dmAvatar3');
+        if (av3) av3.innerHTML = '<i class="fa-solid ' + (isAI ? 'fa-robot' : 'fa-user-gear') + '"></i>';
+        const nm3 = this.$('dmName3');
+        if (nm3) nm3.textContent = isAI ? ((T('dm.opp') || 'الخصم') + ' 3') : (T('dm.p4') || 'اللاعب 4');
+      }
+
       this.showLayer('dmRoundLayer', false);
       this.showLayer('dmMatchLayer', false);
       this.showLayer('dmResignLayer', false);
@@ -370,22 +439,65 @@
       const inRoom = !!(this.room && this.room.on);
       const me = this.mySeatNum();
       const opp = this.oppSeatNum();
+      const numPlayers = view.scores.length;
 
       /* النقاط */
       this.$('dmOppScore').textContent = String(view.scores[opp]);
       this.$('dmMyScore').textContent = String(view.scores[me]);
+      if (this.$('dmScore2') && view.scores[2] !== undefined) this.$('dmScore2').textContent = String(view.scores[2]);
+      if (this.$('dmScore3') && view.scores[3] !== undefined) this.$('dmScore3').textContent = String(view.scores[3]);
+
       this.$('dmRoundLbl').textContent = R.roundLabel(view);
 
-      /* مقعد الخصم: ظهور (AI/غرفة) أو يده المكشوفة (لاعبان — أو مقعدي الآخر في الغرفة) */
+      /* توهج الدور على الشارات */
+      const spec = inRoom && this.room.spec;
+      const turnNow = view.phase === 'play' ? view.turn : -1;
+      const sOpp = this.$('dmSeatOpp'), sMe = this.$('dmSeatMe'), s2 = this.$('dmSeat2'), s3 = this.$('dmSeat3');
+      if (sOpp) sOpp.classList.toggle('myturn', !spec && turnNow === opp);
+      if (sMe) sMe.classList.toggle('myturn', !spec && turnNow === me);
+      if (s2) s2.classList.toggle('myturn', !spec && turnNow === 2);
+      if (s3) s3.classList.toggle('myturn', !spec && turnNow === 3);
+
+      /* شارات عدد القطع المتبقية للخصوم */
+      if (this.$('dmTileBadge1') && view.handsCount[opp] !== undefined) {
+        this.$('dmTileBadge1').textContent = String(view.handsCount[opp]);
+        this.$('dmTileBadge1').hidden = (numPlayers === 2);
+      }
+      if (this.$('dmTileBadge2') && view.handsCount[2] !== undefined) {
+        this.$('dmTileBadge2').textContent = String(view.handsCount[2]);
+        this.$('dmTileBadge2').hidden = (numPlayers < 3);
+      }
+      if (this.$('dmTileBadge3') && view.handsCount[3] !== undefined) {
+        this.$('dmTileBadge3').textContent = String(view.handsCount[3]);
+        this.$('dmTileBadge3').hidden = (numPlayers < 4);
+      }
+
+      /* مقاعد الخصوم: ظهور القطع المقلوبة لكل خصم في مكانه */
       const oppRow = this.$('dmOppRow');
-      if (oppRow) {
-        if (isAI || (inRoom && me === 0)) {
-          oppRow.innerHTML = R.backsHTML(view.handsCount[opp]);
-        } else {
-          const legalOpp = {};
-          const oppLegalList = view['legal' + opp];
-          for (let i = 0; i < oppLegalList.length; i++) legalOpp[oppLegalList[i].tile.id] = 1;
-          oppRow.innerHTML = R.handTilesHTML(view['hand' + opp], legalOpp, view.forcedTile && view.forcedTile.id, 'dmPickP2');
+      const oppTiles1 = this.$('dmOppTiles1');
+      const oppTiles3 = this.$('dmOppTiles3');
+
+      if (numPlayers === 2) {
+        const html2p = (isAI || (inRoom && me === 0))
+          ? R.backsHTML(view.handsCount[opp] || 0)
+          : (() => {
+              const legalOpp = {};
+              const oppLegalList = view['legal' + opp] || [];
+              for (let i = 0; i < oppLegalList.length; i++) legalOpp[oppLegalList[i].tile.id] = 1;
+              return R.handTilesHTML(view['hand' + opp] || [], legalOpp, view.forcedTile && view.forcedTile.id, 'dmPickP2');
+            })();
+        if (oppTiles1) oppTiles1.innerHTML = html2p;
+        if (oppRow) oppRow.innerHTML = html2p;
+        if (oppTiles3) oppTiles3.innerHTML = '';
+      } else {
+        /* الخصم 1 (اليسار) */
+        if (oppTiles1) oppTiles1.innerHTML = R.backsHTML(view.handsCount[1] || 0);
+        /* الخصم 2 (الأعلى) */
+        if (oppRow) oppRow.innerHTML = R.backsHTML(view.handsCount[2] || 0);
+        /* الخصم 3 (اليمين) */
+        if (oppTiles3) {
+          if (numPlayers >= 4) oppTiles3.innerHTML = R.backsHTML(view.handsCount[3] || 0);
+          else oppTiles3.innerHTML = '';
         }
       }
 
@@ -465,11 +577,11 @@
           else if (Date.now() - this._busyAt > 4000) { this.busy = false; this._busyAt = 0; }
         } else this._busyAt = 0;
         const botDrive = (!this.room && this.config.mode === 'ai') || (this.room && this.room.on && this.room.oppBot);
-        if (botDrive && shState.turn === 1 && !this.busy && !this._kickPend) {
+        if (botDrive && shState.turn !== me && !this.busy && !this._kickPend) {
           this._kickPend = true;
           this.later(() => {
             this._kickPend = false;
-            if (!this.game || !this.game.state || this.game.state.phase !== 'play' || this.game.state.turn !== 1) return;
+            if (!this.game || !this.game.state || this.game.state.phase !== 'play' || this.game.state.turn === me) return;
             if (this.room && this.room.on && root.DOMINO_ROOM) root.DOMINO_ROOM.flow();
             else this.kickAI();
           }, 900);
@@ -595,7 +707,7 @@
         this.busy = false;
         this.refresh();
         if (inRoom) root.DOMINO_ROOM.flow();   /* [DO-Room] بوت الخصم/انتظار البثّ */
-        else if (owner === 0) this.kickAI();
+        else if (owner === 0 || this.game.state.turn !== 0) this.kickAI();
       }, 400);
     },
 
@@ -627,7 +739,7 @@
       const t = s.turn;
       const me = this.mySeatNum();
       const opp = this.oppSeatNum();
-      if (t !== me && !(this.config.mode === 'local' && !this.room && t === opp)) return;
+      if (t !== me && !(this.config.mode === 'local' && !this.room && t !== 0)) return;
       if (this.room && this.room.on && (this.room.spec || t !== me)) return;
       if (this.game.legalMoves(t).length) return;
       if (!s.boneyard.length || !s.cfg.drawUntilPlayable) return;
@@ -646,7 +758,7 @@
       const t = s.turn;
       const me = this.mySeatNum();
       const opp = this.oppSeatNum();
-      if (t !== me && !(this.config.mode === 'local' && !this.room && t === opp)) return;
+      if (t !== me && !(this.config.mode === 'local' && !this.room && t !== 0)) return;
       if (this.room && this.room.on) {
         /* [DO-Room] الغرفة: التمرير في دوري فقط ثم بثّه */
         if (this.room.spec || t !== me) return;
@@ -671,33 +783,42 @@
       /* [DO-Room] الغرفة: بوت الخصم يُدار من DOMINO_ROOM (بثّ أفعاله) */
       if (this.room && this.room.on && root.DOMINO_ROOM) { root.DOMINO_ROOM.flow(); return; }
       const s = this.game.state;
-      if (s.phase !== 'play' || s.turn !== 1) return;
+      if (!s || s.phase !== 'play' || s.turn === 0) return;
       this.busy = true;
       this.refresh();
-      this.later(() => this.aiStep(), 620);
+      this.later(() => this.aiStep(s.turn), 550);
     },
 
-    aiStep: function () {
+    aiStep: function (p) {
       const s = this.game.state;
-      if (!s || s.phase !== 'play' || s.turn !== 1) { this.busy = false; return; }
-      const mv = this.ai.choose(1);
+      const targetP = (typeof p === 'number') ? p : (s ? s.turn : 1);
+      if (!s || s.phase !== 'play' || s.turn !== targetP || targetP === 0) { this.busy = false; return; }
+      const mv = this.ai.choose(targetP);
       if (mv) {
-        const r = this.game.play(1, mv.tile.id, mv.end);
+        const r = this.game.play(targetP, mv.tile.id, mv.end);
         if (!r.ok) { this.busy = false; this.refresh(); return; }
         this.refresh(); this.saveMatch();
         if (s.phase !== 'play') { this.busy = false; this.later(() => this.onRoundOver(), 520); return; }
-        this.busy = false;
-        this.refresh();
+        if (s.turn !== 0) {
+          this.later(() => this.kickAI(), 420);
+        } else {
+          this.busy = false;
+          this.refresh();
+        }
       } else if (s.boneyard.length && s.cfg.drawUntilPlayable) {
-        this.game.draw(1);
+        this.game.draw(targetP);
         this.refresh(); this.saveMatch();
-        this.later(() => this.aiStep(), 520);
+        this.later(() => this.aiStep(targetP), 450);
       } else {
-        this.game.pass(1);
+        this.game.pass(targetP);
         this.refresh(); this.saveMatch();
         if (s.phase !== 'play') { this.busy = false; this.later(() => this.onRoundOver(), 520); return; }
-        this.busy = false;
-        this.refresh();
+        if (s.turn !== 0) {
+          this.later(() => this.kickAI(), 420);
+        } else {
+          this.busy = false;
+          this.refresh();
+        }
       }
     },
 

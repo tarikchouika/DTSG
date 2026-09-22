@@ -28,7 +28,7 @@
   var Rooms = {
     state: null,
     /* الألعاب المدعومة للغرف: id -> أقصى عدد لاعبين */
-    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, bj: 4, dm: 2, ch: 2, bg: 2, do: 2, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BJMP] بلاك جاك جماعي 2-4 بلا بانكر + [BGDO] الطاولة والضومنة غرفتان ثنائيتان */
+    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, bj: 4, dm: 2, ch: 2, bg: 2, do: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BJMP] بلاك جاك جماعي 2-4 بلا بانكر + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين */
 
     isGameSupported: function (id) { return !!Rooms.roomGameIds[id]; },
     /* [Persist] طلب إعادة بناء الجولة: إعادة فتح قناة WS للغرفة — الخادم يعيد
@@ -492,10 +492,11 @@
       if (gid === 'bg') return [
         { key: 'len', label: T('bg.match') || 'طول المباراة', opts: [[1, '1'], [3, '3'], [5, '5']], def: 3 }
       ];
-      /* [BGDO] الضومنة: هدف النقاط + قاعدة السحب (كلاسيكي/Block) */
+      /* [BGDO] الضومنة: عدد اللاعبين (2، 3، 4) + نقاط الفوز + قاعدة السحب (كلاسيكي/Block) */
       if (gid === 'do') return [
+        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: [[2, '2 ' + (T('rm.playersCount') || 'لاعبين')], [3, '3 ' + (T('rm.playersCount') || 'لاعبين')], [4, '4 ' + (T('rm.playersCount') || 'لاعبين')]], def: 4 },
         { key: 'target', label: T('dm.target') || 'نقاط الفوز', opts: [[50, '50'], [100, '100'], [150, '150'], [200, '200']], def: 100 },
-        { key: 'draw', label: T('dm.drawRule') || 'قاعدة السحب', opts: [[1, T('dm.draw.classic') || 'كلاسيكي'], [0, T('dm.draw.block') || 'Block']], def: 1 }
+        { key: 'draw', label: T('dm.drawRule') || 'قاعدة السحب', opts: [[1, T('dm.draw.classic') || 'كلاسيكي — اسحب حتى تلعب'], [0, T('dm.draw.block') || 'بدون بنك (Block)']], def: 1 }
       ];
       if (gid === 'dm' || gid === 'ch') return [timer];
       if (gid === 'blca') return [
@@ -594,12 +595,13 @@
             try { window.BackgammonApp.config.len = Math.max(1, Math.min(5, parseInt(o.len, 10) || 3)); } catch (e) {}
           }
         } else if (gid === 'do') {
-          /* [BGDO] إعدادات غرفة الضومنة: الهدف + قاعدة السحب (يبثّها السائق في init) */
+          /* [BGDO] إعدادات غرفة الضومنة: الهدف + قاعدة السحب + عدد اللاعبين (يبثّها السائق في init) */
           window.DO_ROOM_CFG = o;
           if (typeof window.DominoApp !== 'undefined' && window.DominoApp) {
             try {
               if (o.target) window.DominoApp.config.target = Math.max(50, Math.min(200, parseInt(o.target, 10) || 100));
               if (typeof o.draw === 'number') window.DominoApp.config.drawUntilPlayable = !!o.draw;
+              if (o.maxp) window.DominoApp.config.playersCount = Math.max(2, Math.min(4, parseInt(o.maxp, 10) || 4));
             } catch (e) {}
           }
         } else if (gid === 'dm') {

@@ -1709,12 +1709,13 @@ var C = {
 function withCors(res, cors) {
   const h = new Headers(res.headers);
   for (const [k, v] of Object.entries(cors)) h.set(k, v);
-  /* [SEC-016] رؤوس أمان إلزامية على كل استجابات API */
-  h.set("Strict-Transport-Security", "max-age=15768000; includeSubDomains");
+  /* [SEC-016 & DTSG-017 & DTSG-020] رؤوس أمان إلزامية على كل استجابات API */
+  h.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
   h.set("X-Content-Type-Options", "nosniff");
   h.set("X-Frame-Options", "DENY");
   h.set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'");
   h.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  h.set("Cross-Origin-Resource-Policy", "cross-origin");
   if (!h.has("Cache-Control")) h.set("Cache-Control", "no-store");
   return new Response(res.body, { status: res.status, headers: h });
 }

@@ -419,14 +419,14 @@
   position: absolute !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
   z-index: 7 !important;
   background: none !important; border: 0 !important; box-shadow: none !important;
-  padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
-  flex-direction: column !important; align-items: center !important; gap: 5px !important;
+  padding: 0 4px 2px !important;
+  flex-direction: column !important; align-items: center !important; gap: 0 !important;
   pointer-events: none;   /* لا يحجب النقر عن الجوخ… */
 }
 #dmStage .dm-handwrap > * { pointer-events: auto; }   /* …إلا القطع والأدوات */
 #dmStage .dm-hand {
   background: none !important; border: 0 !important; box-shadow: none !important;
-  padding: 0 !important; overflow: visible !important;
+  padding: 0 !important; margin: 0 !important; overflow: visible !important;
 }
 #dmStage .dm-hand.myturn { box-shadow: none !important; }
 
@@ -551,3 +551,443 @@
    النقطة في ~5px على قطعة بعرض 24px فتبدو النقوش باهتة بلا تفاصيل. */
 #dmStage .dm-half { padding: 7% !important; gap: 3.5% !important; }
 #dmStage .dm-tile .dm-sep, #dmStage .dm-htile .dm-sep { margin: 0 10% !important; }
+
+/* ═══════════════════ 4) الضومنة — تصميم v2.52 الاحترافي متعدد اللاعبين ═══════════════════
+   مطابق تماماً لمتطلبات المالك والنماذج المرجعية (بورتريه ولاندسكيب):
+   • توزيع اللاعبين على منتصفات هوامش الشاشة الأربعة:
+     - المقعد الرئيسي (أنت) في منتصف الأسفل
+     - الخصم 1 في منتصف الضلع الأيسر
+     - الخصم 2 في منتصف الضلع العلوي
+     - الخصم 3 في منتصف الضلع الأيمن
+   • إظهار القطع المقلوبة لكل خصم بجانبه (صف عاجي فاخر).
+   • تدفق السلسلة طولياً (رأسياً) في البورتريه وعرضياً (أفقياً) في اللاندسكيب (الاتجاه الأطول).
+   • بطاقة المباراة R1 T100 في الزاوية العلوية والبنك في الزاوية السفلية دون أي تداخل.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+
+/* ── 1) الطاولة والجوخ والسلسلة ── */
+#dmStage .dm-table {
+  position: absolute !important; inset: 0 !important; z-index: 1 !important;
+  background: none !important; border: 0 !important; overflow: hidden !important;
+}
+#dmStage .dm-felt {
+  position: absolute !important; inset: 0 !important;
+  background:
+    radial-gradient(130% 105% at 50% 50%, #2a684b 0%, #1a4a34 50%, #0f3022 100%) !important;
+  box-shadow: inset 0 0 70px rgba(0, 0, 0, 0.55) !important;
+}
+#dmStage .dm-chain {
+  position: absolute !important;
+  z-index: 2 !important;
+  pointer-events: auto !important;
+}
+@media (orientation: portrait) {
+  #dmStage .dm-chain {
+    top: 72px !important; bottom: 170px !important; left: 36px !important; right: 36px !important;
+  }
+}
+@media (orientation: landscape) {
+  #dmStage .dm-chain {
+    top: 48px !important; bottom: 76px !important; left: 55px !important; right: 55px !important;
+  }
+}
+
+/* قطع السلسلة: تموضع مطلق إلزامي متراص */
+#dmStage .dm-chain .dm-tile {
+  position: absolute !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  border-radius: 5px !important;
+  pointer-events: none !important;
+}
+#dmStage .dm-chain .dm-tile.can {
+  background: linear-gradient(150deg, #ffe873, #e8c531) !important;
+  border-color: #c9a326 !important;
+  box-shadow: 0 0 18px rgba(255, 220, 80, 0.8), 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ── 2) شارات اللاعبين الدائرية والتوهج الأخضر ── */
+#dmStage .dm-seat {
+  position: absolute !important;
+  z-index: 10 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 3px !important;
+  background: none !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+#dmStage .dm-seatname { display: none !important; }
+#dmStage .dm-seat .dm-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+  background: linear-gradient(145deg, #1e293b, #0f172a) !important;
+  border: 2px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5) !important;
+  color: #f1f5f9 !important;
+  transition: all 0.25s ease !important;
+}
+#dmStage #dmSeatOpp .dm-avatar {
+  background: linear-gradient(145deg, #1e3a5f, #0f2338) !important;
+  color: #93c5fd !important;
+}
+#dmStage #dmSeat2 .dm-avatar {
+  background: linear-gradient(145deg, #4c1d95, #2e1065) !important;
+  color: #c4b5fd !important;
+}
+#dmStage #dmSeat3 .dm-avatar {
+  background: linear-gradient(145deg, #78350f, #451a03) !important;
+  color: #fde68a !important;
+}
+#dmStage #dmSeatMe .dm-avatar {
+  background: linear-gradient(145deg, #064e3b, #022c22) !important;
+  color: #6ee7b7 !important;
+  font-size: 16px !important;
+  font-weight: 900 !important;
+  letter-spacing: 0.5px !important;
+  text-transform: uppercase !important;
+}
+
+/* التوهج الأخضر الناصع = دور اللاعب النشط */
+#dmStage .dm-seat.myturn .dm-avatar {
+  border-color: #22c55e !important;
+  box-shadow: 0 0 0 3.5px #22c55e, 0 0 18px rgba(34, 197, 94, 0.9) !important;
+  transform: scale(1.08) !important;
+}
+
+/* شارة النقاط تحت الأيقونة */
+#dmStage .dm-seatscore {
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  color: #fef08a !important;
+  background: rgba(15, 23, 42, 0.9) !important;
+  border: 1px solid rgba(250, 204, 21, 0.5) !important;
+  border-radius: 9px !important;
+  padding: 1px 7px !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.45) !important;
+  line-height: 1.3 !important;
+}
+
+/* ── 3) قطع الخصوم المقلوبة (العاج الفاخر) ── */
+#dmStage .dm-opprow, #dmStage .dm-opptiles {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 3px !important;
+  background: none !important;
+  border: 0 !important;
+  margin-top: 3px !important;
+  pointer-events: none !important;
+}
+#dmStage .dm-opprow {
+  flex-direction: row !important;
+}
+#dmStage .dm-opptiles-v {
+  flex-direction: column !important;
+}
+#dmStage .dm-opprow > .dm-back {
+  width: 20px !important;
+  height: 36px !important;
+  flex: 0 0 auto !important;
+  border-radius: 4px !important;
+  background: linear-gradient(155deg, #ffffff 0%, #f4ede0 45%, #e2d4b5 100%) !important;
+  border: 1px solid rgba(84, 60, 26, 0.6) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  position: relative !important;
+}
+#dmStage .dm-opprow > .dm-back::after {
+  content: ''; position: absolute; inset: 2.5px; border-radius: 2px;
+  border: 1px solid rgba(150, 120, 66, 0.35);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+#dmStage .dm-opptiles-v > .dm-back {
+  width: 28px !important;
+  height: 16px !important;
+  flex: 0 0 auto !important;
+  border-radius: 3px !important;
+  background: linear-gradient(155deg, #ffffff 0%, #f4ede0 45%, #e2d4b5 100%) !important;
+  border: 1px solid rgba(84, 60, 26, 0.6) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+  position: relative !important;
+}
+#dmStage .dm-opptiles-v > .dm-back::after {
+  content: ''; position: absolute; inset: 2px; border-radius: 1.5px;
+  border: 1px solid rgba(150, 120, 66, 0.35);
+}
+
+/* ── 4) بطاقة المباراة (R1 T100) والبنك ── */
+#dmStage .dm-matchcard {
+  position: absolute !important;
+  z-index: 10 !important;
+  top: 10px !important;
+  left: 10px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+#dmStage .dm-rt {
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  letter-spacing: .5px !important;
+  color: #fff !important;
+  background: linear-gradient(180deg, #15803d 0%, #166534 50%, #14532d 100%) !important;
+  border: 1px solid rgba(250, 204, 21, 0.5) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  padding: 4px 10px !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+  white-space: nowrap !important;
+}
+
+#dmStage .dm-boneyard {
+  position: absolute !important;
+  z-index: 10 !important;
+  top: 186px !important;
+  left: 10px !important;
+  bottom: auto !important;
+  right: auto !important;
+  padding: 5px 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 2px !important;
+  background: linear-gradient(145deg, rgba(20, 30, 24, 0.94), rgba(10, 16, 12, 0.96)) !important;
+  border: 1.5px solid rgba(200, 154, 78, 0.55) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  cursor: pointer !important;
+}
+#dmStage .dm-by-stack {
+  position: relative !important;
+  width: 20px !important;
+  height: 28px !important;
+}
+#dmStage .dm-by-count {
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  color: var(--dm-goldtext) !important;
+}
+#dmStage .dm-by-label {
+  display: block !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  color: #fde68a !important;
+}
+
+/* زر التمرير الذهبي المستقل المشع — أسفل اليسار بعيداً تماماً عن الأفاتارات واليد */
+#dmStage #dmPassBtn {
+  position: absolute !important;
+  left: 12px !important;
+  bottom: 12px !important;
+  z-index: 30 !important;
+  pointer-events: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 7px 15px !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #241703 !important;
+  background: linear-gradient(135deg, #fce08a 0%, #e5b94c 50%, #b88a2a 100%) !important;
+  border: 1.5px solid rgba(255, 240, 180, 0.9) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 0 16px rgba(229, 185, 76, 0.8), 0 3px 8px rgba(0, 0, 0, 0.5) !important;
+  cursor: pointer !important;
+  animation: dmPassGlow 1.4s infinite !important;
+}
+#dmStage #dmPassBtn[hidden] {
+  display: none !important;
+}
+@keyframes dmPassGlow {
+  0%, 100% { box-shadow: 0 0 14px rgba(229, 185, 76, 0.7), 0 3px 8px rgba(0, 0, 0, 0.5); transform: scale(1); }
+  50% { box-shadow: 0 0 24px rgba(255, 220, 80, 0.95), 0 4px 12px rgba(0, 0, 0, 0.6); transform: scale(1.05); }
+}
+
+/* زر الخروج الذهبي العائم — زاوية 90° علوية يمنى بدقة */
+body.app-fs-on .game-fs-exit {
+  top: 10px !important;
+  right: 10px !important;
+  z-index: 5100 !important;
+}
+
+/* ── 5) توزيع اللاعبين على منتصفات هوامش الشاشة (أمر المالك) ── */
+/* وضع البورتريه (العمودي) */
+@media (orientation: portrait) {
+  #dmStage .dm-chain {
+    top: 72px !important; bottom: 170px !important; left: 36px !important; right: 36px !important;
+  }
+  #dmStage .dm-boneyard {
+    top: 186px !important; left: 10px !important; bottom: auto !important; right: auto !important;
+  }
+
+  /* اللاعب الرئيسي: في الوسط فوق أوراق يده مباشرة بارتفاع متناسق (+25px) */
+  #dmStage #dmSeatMe {
+    bottom: 109px !important;
+    left: 50% !important;
+    right: auto !important;
+    top: auto !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+  #dmStage .dm-handwrap {
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    padding: 0 4px 2px !important;
+    justify-content: center !important;
+  }
+
+  /* الخصم 1 (اليسار): قطعه بمحاذاة الضلع الأيسر للشاشة والأيقونة في يمين قطعه متجهة نحو الطاولة */
+  #dmStage #dmSeatOpp.seat-left {
+    left: 4px !important; top: 50% !important; transform: translateY(-50%) !important;
+    display: grid !important; grid-template-columns: auto auto !important; grid-template-rows: auto auto !important;
+    align-items: center !important; justify-items: center !important; direction: ltr !important; gap: 3px 8px !important;
+  }
+  #dmStage #dmSeatOpp.seat-left .dm-opptiles { grid-column: 1 !important; grid-row: 1 / span 3 !important; margin: 0 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-avatar { grid-column: 2 !important; grid-row: 1 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-seatmeta { grid-column: 2 !important; grid-row: 2 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-tilebadge { grid-column: 2 !important; grid-row: 3 !important; }
+
+  /* في وضع لاعبَين: الخصم في منتصف الأعلى والقطع فوق الأفاتار */
+  #dmStage #dmSeatOpp.seat-2p-top {
+    top: 8px !important; left: 50% !important; transform: translateX(-50%) !important;
+    display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important;
+  }
+  #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles { order: 1 !important; flex-direction: row !important; margin: 0 0 2px 0 !important; }
+  #dmStage #dmSeatOpp.seat-2p-top .dm-avatar { order: 2 !important; }
+  #dmStage #dmSeatOpp.seat-2p-top .dm-seatmeta { order: 3 !important; }
+  #dmStage #dmSeatOpp.seat-2p-top .dm-tilebadge { order: 4 !important; }
+
+  /* الخصم 2: منتصف الضلع العلوي — الأفاتار تحت قطعه */
+  #dmStage #dmSeat2 {
+    top: 8px !important; left: 50% !important; transform: translateX(-50%) !important;
+    display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important;
+  }
+  #dmStage #dmSeat2 .dm-opprow { order: 1 !important; margin: 0 0 2px 0 !important; position: static !important; transform: none !important; }
+  #dmStage #dmSeat2 .dm-avatar { order: 2 !important; }
+  #dmStage #dmSeat2 .dm-seatmeta { order: 3 !important; }
+  #dmStage #dmSeat2 .dm-tilebadge { order: 4 !important; }
+
+  /* الخصم 3 (اليمين): منتصف الضلع الأيمن — الأفاتار يسار قطعه وقطعه بمحاذاة الضلع الأيمن للشاشة */
+  #dmStage #dmSeat3 {
+    right: 4px !important; top: 50% !important; transform: translateY(-50%) !important;
+    display: grid !important; grid-template-columns: auto auto !important; grid-template-rows: auto auto !important;
+    align-items: center !important; justify-items: center !important; direction: ltr !important; gap: 3px 8px !important;
+  }
+  #dmStage #dmSeat3 .dm-avatar { grid-column: 1 !important; grid-row: 1 !important; }
+  #dmStage #dmSeat3 .dm-seatmeta { grid-column: 1 !important; grid-row: 2 !important; }
+  #dmStage #dmSeat3 .dm-tilebadge { grid-column: 1 !important; grid-row: 3 !important; }
+  #dmStage #dmSeat3 .dm-opptiles { grid-column: 2 !important; grid-row: 1 / span 3 !important; margin: 0 !important; }
+}
+
+/* وضع اللاندسكيب (الأفقي): إبعاد الشارات والأوراق إلى الحواف لتفريغ طاولة اللعب */
+@media (orientation: landscape) {
+  #dmStage .dm-chain {
+    top: 48px !important; bottom: 76px !important; left: 55px !important; right: 55px !important;
+  }
+  #dmStage .dm-boneyard {
+    top: 56px !important; left: 10px !important; bottom: auto !important; right: auto !important;
+  }
+
+  /* اللاعب الرئيسي: الأفاتار في الزاوية السفلية اليمنى بجوار أوراق اليد */
+  #dmStage #dmSeatMe {
+    bottom: 4px !important;
+    right: 20px !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+  #dmStage .dm-handwrap {
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    padding: 0 84px 2px 14px !important;
+    justify-content: center !important;
+  }
+
+  /* الخصم الأيمن (الخصم 3): بمحاذاة الضلع الأيمن والأفاتار تحت قطعه */
+  #dmStage #dmSeat3 {
+    right: 6px !important;
+    top: 50% !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+  #dmStage #dmSeat3 .dm-opptiles { order: 1 !important; margin: 0 0 3px 0 !important; }
+  #dmStage #dmSeat3 .dm-avatar { order: 2 !important; }
+  #dmStage #dmSeat3 .dm-seatmeta { order: 3 !important; }
+  #dmStage #dmSeat3 .dm-tilebadge { order: 4 !important; }
+
+  /* الخصم الأيسر (الخصم 1): بمحاذاة الضلع الأيسر والأفاتار تحت قطعه */
+  #dmStage #dmSeatOpp.seat-left {
+    left: 6px !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 3px !important;
+  }
+  #dmStage #dmSeatOpp.seat-left .dm-opptiles { order: 1 !important; margin: 0 0 3px 0 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-avatar { order: 2 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-seatmeta { order: 3 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-tilebadge { order: 4 !important; }
+
+  /* الخصم العلوي (الخصم 2 أو لاعبين): بمحاذاة الضلع العلوي والأفاتار على يمين القطع */
+  #dmStage #dmSeat2,
+  #dmStage #dmSeatOpp.seat-2p-top {
+    top: 6px !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    direction: ltr !important;
+    gap: 8px !important;
+  }
+  #dmStage #dmSeat2 .dm-opprow,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles {
+    order: 1 !important;
+    margin: 0 !important;
+    flex-direction: row !important;
+    position: static !important;
+    transform: none !important;
+  }
+  #dmStage #dmSeat2 .dm-avatar,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-avatar {
+    order: 2 !important;
+  }
+  #dmStage #dmSeat2 .dm-seatmeta,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-seatmeta {
+    order: 3 !important;
+  }
+  #dmStage #dmSeat2 .dm-tilebadge,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-tilebadge {
+    order: 4 !important;
+  }
+}

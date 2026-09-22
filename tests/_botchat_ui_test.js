@@ -65,6 +65,20 @@ async function newPage(browser, w, h) {
     });
     chat.open ? ok('النافذة تُفتح بالنقر (' + chat.w + '×' + chat.h + ')') : bad('النافذة لم تُفتح');
     chat.inViewport ? ok('النافذة داخل حدود الشاشة (لا قطع)') : bad('النافذة تخرج عن الشاشة!');
+    /* [v2.50-BC] حارس تعارض bc-*: فقاعات block (لا flex الباكارات) وبطاقات بعرض حر (لا 58×84) */
+    const bcShape = await page.evaluate(() => {
+      const bub = document.querySelector('#bcMsgs .bc-b');
+      document.querySelector('[data-bctab="bots"]').click();
+      const card = document.querySelector('#bcPaneBots .bc-card');
+      const cc = card ? getComputedStyle(card) : null;
+      const cr = card ? card.getBoundingClientRect() : null;
+      document.querySelector('[data-bctab="chat"]').click();
+      return { hasBubble: !!bub, bubbleDisplay: bub ? getComputedStyle(bub).display : '?',
+        cardW: cr ? Math.round(cr.width) : 0, cardH: cr ? Math.round(cr.height) : 0, cardOverflow: cc ? cc.overflow : '?' };
+    });
+    if (!bcShape.hasBubble) ok('الفقاعات: لا فقاعة بعد الدخول (تُفحص بعد الإرسال أدناه)');
+    else bcShape.bubbleDisplay === 'block' ? ok('فقاعات الشات block (لا تشوه flex)') : bad('الفقاعات display=' + bcShape.bubbleDisplay);
+    (bcShape.cardW > 120 && bcShape.cardOverflow === 'visible') ? ok('بطاقات الشات بعرض حر بلا قصّ (' + bcShape.cardW + '×' + bcShape.cardH + ')') : bad('البطاقات مقصوصة: ' + bcShape.cardW + '×' + bcShape.cardH + ' overflow=' + bcShape.cardOverflow);
     console.log('  ↳ التبويبات:', chat.tabs.join(' | '));
     await page.screenshot({ path: '/tmp/audit-home-chat.png' });
 
@@ -87,9 +101,12 @@ async function newPage(browser, w, h) {
     await page.waitForTimeout(2500);
     const after = await page.evaluate(() => {
       const t = document.getElementById('bcMsgs').textContent;
-      return { hasMine: /اختبار من الودجت/.test(t), bubbles: document.querySelectorAll('#bcMsgs .bc-b').length };
+      const first = document.querySelector('#bcMsgs .bc-b');
+      return { hasMine: /اختبار من الودجت/.test(t), bubbles: document.querySelectorAll('#bcMsgs .bc-b').length,
+        bubDisplay: first ? getComputedStyle(first).display : '?' };
     });
     after.hasMine ? ok('رسالة الودجت ظهرت في النافذة (تذاكر/تأكيد)') : bad('رسالة الودجت لم تظهر');
+    after.bubDisplay === 'block' ? ok('[v2.50-BC] فقاعة الرسالة block كاملة (لا قصّ)') : bad('الفقاعة display=' + after.bubDisplay);
     console.log('  ↳ عدد الفقاعات:', after.bubbles);
     await page.screenshot({ path: '/tmp/audit-chat-sent.png' });
 

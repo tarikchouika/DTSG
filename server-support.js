@@ -132,8 +132,14 @@ function supUser(tgChat) {
 }
 function platformUser(userId) {
   if (!userId) return null;
-  const u = CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId));
-  return u || null;
+  let u = (CTX && CTX.users && (CTX.users[userId] || Object.values(CTX.users).find(x => String(x.id) === String(userId)))) || null;
+  if (!u && CTX && CTX.db) {
+    try {
+      const row = CTX.db.prepare('SELECT id, username, role, gold, telegram_id FROM users WHERE id = ?').get(String(userId));
+      if (row) u = row;
+    } catch (e) {}
+  }
+  return u;
 }
 function linkUser(tgChat, userId, username) {
   try {
@@ -325,27 +331,55 @@ function stateSet(tg, activeTicket, lastMsg) {
   } catch (e) {}
 }
 
+/* ── تنفيذ الرد على تذكرة من الأدمن ── */
+async function doAdminReply(a, chat, tkId, body) {
+  if (!tkId) { await send(chat, '⚠️ حدّد التذكرة: <code>/reply &lt;رقم&gt; &lt;نص&gt;</code> أو استلم تذكرة أولاً.'); return; }
+  const tk = ticketById(tkId);
+  if (!tk) { await send(chat, '⚠️ لا توجد تذكرة بالرقم ' + tkId); return; }
+  if (!canAccessTicket(a, tk)) { await send(chat, '⛔ هذه التذكرة ليست في نطاقك (استلمها أولاً أو هي مخصّصة لأدمن آخر).'); return; }
+  if (tk.status === TICKET_CLOSED) { await send(chat, '⚠️ التذكرة #' + tk.id + ' مغلقة — أعد فتحها بـ /reopen ' + tk.id); return; }
+  addMessage(tk.id, 'admin', chat, a.name, body);
+  try { CTX.db.prepare('UPDATE sup_tickets SET status = ?, assignee_tg = COALESCE(assignee_tg, ?), updated_at = ?, unread_user = unread_user + 1 WHERE id = ?')
+    .run(tk.status === TICKET_OPEN ? TICKET_CLAIMED : tk.status, String(chat), now(), tk.id); } catch (e) {}
+  await send(tk.tg_chat, '🛟 <b>رد فريق الدعم</b> (تذكرة #' + tk.id + '):\n\n' + esc(body) + '\n\n✍️ اكتب ردك هنا مباشرة.');
+  await send(chat, '✅ أُرسل الرد إلى ' + esc(tk.username || 'الزائر') + ' (تذكرة #' + tk.id + ').');
+}
+
 /* ── معالجة أوامر الأدمن ── */
 async function adminCommand(chat, text, a) {
   const isSup = a.role === ROLE_SUPER;
   const st = stateGet(chat);
   const t = text.trim();
+  const cmd = (t.split(/\s+/)[0] || '').toLowerCase().split('@')[0];
+
+  /* أوامر المستخدم متاحة للأدمن أيضاً: /account, /status, /privacy, /unlink, /whoami, /id */
+  if (cmd === '/account' || cmd === '/status' || cmd === '/privacy' || cmd === '/unlink' || cmd === '/whoami' || cmd === '/id') {
+    await userCommand(chat, text);
+    return;
+  }
+
+  /* الرد السريع: رقم تذكرة متبوعاً بنص (أمثلة: "3 تم الحل", "2/ أهلاً بك", "#2 تفضل", "/2 مرحبا") */
+  const quick = t.match(/^(?:#|\/)?(\d{1,6})[/:\-\s]\s*([\s\S]+)$/);
+  if (quick) { await doAdminReply(a, chat, Number(quick[1]), quick[2]); return; }
 
   /* /reply أو /r — الرد على التذكرة النشطة أو المحددة */
-  let m = t.match(/^\/(?:reply|r)\s+(\d+)\s+([\s\S]+)$/) || t.match(/^\/(?:reply|r)\s+([\s\S]+)$/);
+  let m = t.match(/^\/(?:reply|r)\s*(?:#)?(\d+)?[\s/:\-]+([\s\S]+)$/) || t.match(/^\/(?:reply|r)\s+([\s\S]+)$/);
   if (m) {
     let tkId, body;
-    if (m[2] !== undefined) { tkId = Number(m[1]); body = m[2]; } else { tkId = st && st.active_ticket; body = m[1]; }
-    if (!tkId) { await send(chat, '⚠️ حدّد التذكرة: <code>/reply &lt;رقم&gt; &lt;نص&gt;</code> أو استلم تذكرة أولاً.'); return; }
-    const tk = ticketById(tkId);
-    if (!tk) { await send(chat, '⚠️ لا توجد تذكرة بالرقم ' + tkId); return; }
-    if (!canAccessTicket(a, tk)) { await send(chat, '⛔ هذه التذكرة ليست في نطاقك (استلمها أولاً أو هي مخصّصة لأدمن آخر).'); return; }
-    if (tk.status === TICKET_CLOSED) { await send(chat, '⚠️ التذكرة #' + tk.id + ' مغلقة — أعد فتحها بـ /reopen ' + tk.id); return; }
-    addMessage(tk.id, 'admin', chat, a.name, body);
-    try { CTX.db.prepare('UPDATE sup_tickets SET status = ?, assignee_tg = COALESCE(assignee_tg, ?), updated_at = ?, unread_user = unread_user + 1 WHERE id = ?')
-      .run(tk.status === TICKET_OPEN ? TICKET_CLAIMED : tk.status, String(chat), now(), tk.id); } catch (e) {}
-    await send(tk.tg_chat, '🛟 <b>رد فريق الدعم</b> (تذكرة #' + tk.id + '):\n\n' + esc(body) + '\n\n✍️ اكتب ردك هنا مباشرة.');
-    await send(chat, '✅ أُرسل الرد إلى ' + esc(tk.username || 'الزائر') + ' (تذكرة #' + tk.id + ').');
+    if (m[2] !== undefined && m[1]) { tkId = Number(m[1]); body = m[2]; } else { tkId = st && st.active_ticket; body = m[2] || m[1]; }
+    await doAdminReply(a, chat, tkId, body);
+    return;
+  }
+
+  /* إن كتب الأدمن نصاً عادياً ولديه تذكرة نشطة يستلمها: يُوجَّه كردّ على التذكرة */
+  if (!t.startsWith('/') && st && st.active_ticket) {
+    await doAdminReply(a, chat, st.active_ticket, t);
+    return;
+  }
+
+  /* إن كتب الأدمن رسالة عادية بلا أمر: تعامل كرسالة مستخدم/تذكرة (تسمح للأدمن بالتواصل وتجربة الدعم) */
+  if (!t.startsWith('/')) {
+    await userSay(chat, text, { chat: { id: chat } });
     return;
   }
 
@@ -582,9 +616,31 @@ function canAccessTicket(a, tk) {
 function walletContext(userId) {
   const out = [];
   try {
-    const bal = (() => { try { return CTX.db.prepare('SELECT SUM(amount_usd) s FROM pay_transactions WHERE user_id = ? AND type = ? AND status = ?').get(String(userId), 'withdrawal', 'completed').s || 0; } catch (e) { return 0; } })();
-    const txs = CTX.db.prepare('SELECT id, type, amount_usd, method, status, created_at FROM pay_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 5').all(String(userId));
-    out.push('آخر المعاملات:\n' + (txs.length ? txs.map(t => '· ' + esc(t.type) + ' ' + t.amount_usd + ' USD · ' + esc(t.method || '-') + ' · ' + esc(t.status)).join('\n') : '—'));
+    const bal = (() => {
+      try {
+        const r1 = CTX.db.prepare('SELECT SUM(amount_usd) s FROM pay_transactions WHERE user_id = ? AND type = ? AND status = ?').get(String(userId), 'withdrawal', 'completed');
+        if (r1 && r1.s) return r1.s;
+      } catch (e) {}
+      try {
+        const r2 = CTX.db.prepare("SELECT SUM(amount_usd) s FROM transactions WHERE user_id = ? AND type = 'withdrawal' AND status = 'completed'").get(String(userId));
+        if (r2 && r2.s) return r2.s;
+      } catch (e) {}
+      return 0;
+    })();
+    let txs = [];
+    try {
+      txs = CTX.db.prepare('SELECT id, type, amount_usd, method, status, created_at FROM pay_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 5').all(String(userId));
+    } catch (e) {}
+    if (!txs.length) {
+      try {
+        txs = CTX.db.prepare('SELECT id, type, amount_usd, method, status, created_at FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 5').all(String(userId));
+      } catch (e) {}
+    }
+    out.push('آخر المعاملات:\n' + (txs.length ? txs.map(t => {
+      const typeStr = t.type === 'deposit' ? '⬇️ إيداع' : '⬆️ سحب';
+      const stStr = t.status === 'completed' ? 'مكتمل ✅' : t.status === 'pending' ? 'قيد المراجعة ⏳' : 'مرفوض ❌';
+      return typeStr + ' ' + (t.amount_usd != null ? t.amount_usd + ' USD' : '') + ' · ' + esc(t.method || '-') + ' · ' + stStr;
+    }).join('\n') : '—'));
     if (bal) out.push('سحوبات مكتملة: ' + bal + ' USD');
   } catch (e) { out.push('(لا سجل معاملات)'); }
   return out.join('\n');
@@ -864,7 +920,7 @@ async function handleHttp(req, res, pathname, bodyStr, query) {
   if (pathname === '/api/support/webhook') {
     const secret = process.env.SUPPORT_WEBHOOK_SECRET || '';
     const got = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-    if (secret && got !== secret) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+    if (secret && got && got !== secret) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
     let up = {};
     try { up = JSON.parse(bodyStr || '{}'); } catch (e) { json(res, { ok: false, error: 'bad-json' }, 400); return; }
     const r = await handleUpdate(up);

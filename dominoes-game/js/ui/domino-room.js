@@ -31,6 +31,23 @@
     return null;
   }
 
+  /* [v2.51-DOMINO] أول حرفين من الاسم لشارة اللاعب + اسم حسابي في الغرفة. */
+  function initials(name) {
+    const cp = Array.from(String(name == null ? '' : name).replace(/^\s+|\s+$/g, '')).slice(0, 2).join('');
+    return (cp || '?').toUpperCase();
+  }
+  function myUserName() {
+    try {
+      const my = meId();
+      const players = (root.Rooms && root.Rooms.state && root.Rooms.state.players) || [];
+      for (let i = 0; i < players.length; i++) {
+        if (String(players[i].id) === String(my) && players[i].username) return players[i].username;
+      }
+      if (root.AUTH && root.AUTH.user && root.AUTH.user.username) return root.AUTH.user.username;
+    } catch (e) {}
+    return null;
+  }
+
   /* ── البث (نمط damaEmit: غلاف rmove + dedup) ── */
   let _seq = 0;
   function emit(action, data) {
@@ -63,12 +80,14 @@
         break;
       }
     }
-    /* [RS-GameOpts] الهدف وقاعدة السحب من إعدادات الغرفة (اختيار المالك) */
+    /* [RS-GameOpts] الهدف وقاعدة السحب وعدد اللاعبين من إعدادات الغرفة (اختيار المالك) */
     const cfg = (typeof root.DO_ROOM_CFG === 'object' && root.DO_ROOM_CFG) || {};
     const target = Math.max(50, Math.min(200, parseInt(cfg.target, 10) || 100));
     const drawRule = (cfg.draw === 0 || cfg.draw === '0' || cfg.draw === false) ? false : true;
-    a.room = { on: true, order: order, mySeat: mySeat, spec: !!spec, oppBot: !!oppBot, target: target, draw: drawRule, seed: null, ended: false };
+    const playersCount = Math.max(2, Math.min(4, parseInt(cfg.maxp || (rm && rm.max_players), 10) || 2));
+    a.room = { on: true, order: order, mySeat: mySeat, spec: !!spec, oppBot: !!oppBot, target: target, draw: drawRule, playersCount: playersCount, seed: null, ended: false };
     a.config.mode = 'room';
+    a.config.playersCount = playersCount;
     a.betPlaced = 0;            /* لا محفظة في الغرفة — الاقتطاع تم في /api/rooms/start */
     a.finished = false;
     a.clearTimers();
@@ -76,7 +95,7 @@
     if (!spec && mySeat === 0) {
       const seed = ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0) || 1;
       a.room.seed = seed;
-      emit('init', { seed: seed, target: target, draw: drawRule });
+      emit('init', { seed: seed, target: target, draw: drawRule, playersCount: playersCount });
     }
     enterPlay(a);
   }
@@ -93,7 +112,9 @@
     a.$('dmOppName').textContent = rc.spec ? spectLabel() : oppName();
     a.$('dmMyName').textContent = rc.spec ? spectLabel() : (T('dm.you') || 'أنت');
     const av = a.$('dmOppAvatar');
-    if (av) av.innerHTML = '<i class="fa-solid ' + (rc.oppBot ? 'fa-robot' : 'fa-user') + '" aria-hidden="true"></i>';
+    if (av) av.textContent = initials(rc.spec ? '👁' : (rc.oppBot ? 'AI' : oppName()));
+    const avM = a.$('dmMyAvatar');
+    if (avM) avM.textContent = initials(rc.spec ? '👁' : (myUserName() || (T('dm.you') || 'أنت')));
     if (rc.seed != null) {
       buildFromInit(a, { seed: rc.seed, target: rc.target, draw: rc.draw });
       return;
@@ -107,18 +128,22 @@
     }, 2500);
   }
 
-  /* بناء المباراة من إشارة init (بذرة + هدف + قاعدة سحب) — متطابق عند الجميع */
+  /* بناء المباراة من إشارة init (بذرة + هدف + قاعدة سحب + عدد اللاعبين) — متطابق عند الجميع */
   function buildFromInit(a, d) {
     const rc = a.room;
     rc.seed = (Number(d.seed) >>> 0) || 1;
     rc.target = Math.max(50, Math.min(200, parseInt(d.target, 10) || rc.target || 100));
     rc.draw = (d.draw === 0 || d.draw === '0' || d.draw === false) ? false : true;
+    const playersCount = Math.max(2, Math.min(4, parseInt(d.playersCount || d.maxp || (rc && rc.playersCount), 10) || 2));
+    if (rc) rc.playersCount = playersCount;
     a.config.mode = 'room';
+    a.config.playersCount = playersCount;
     a.finished = false;
     a.clearTimers();
     const cfg = root.DominoCore.normalizeConfig({
       target: rc.target,
-      drawUntilPlayable: rc.draw
+      drawUntilPlayable: rc.draw,
+      playersCount: playersCount
     });
     const self = a;
     a.game = new root.DominoGameNS.DominoGame({
@@ -137,7 +162,9 @@
     a.$('dmOppName').textContent = rc.spec ? spectLabel() : oppName();
     a.$('dmMyName').textContent = rc.spec ? spectLabel() : (T('dm.you') || 'أنت');
     const av = a.$('dmOppAvatar');
-    if (av) av.innerHTML = '<i class="fa-solid ' + (rc.oppBot ? 'fa-robot' : 'fa-user') + '" aria-hidden="true"></i>';
+    if (av) av.textContent = initials(rc.spec ? '👁' : (rc.oppBot ? 'AI' : oppName()));
+    const avM = a.$('dmMyAvatar');
+    if (avM) avM.textContent = initials(rc.spec ? '👁' : (myUserName() || (T('dm.you') || 'أنت')));
     try { root.DominoAudio.shuffle(); } catch (e) {}
     a.refresh();
     flow();
@@ -522,6 +549,9 @@
         if (a && a.room && a.room.on && !a.room.spec) {
           const el = a.$('dmOppName');
           if (el) el.textContent = oppName();
+          /* [v2.51-DOMINO] الاسم الحقيقي قد يصل متأخراً ⇒ حدّث الشارة أيضاً. */
+          const avo = a.$('dmOppAvatar');
+          if (avo) avo.textContent = initials(a.room.oppBot ? 'AI' : oppName());
         }
       });
     }
