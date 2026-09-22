@@ -215,7 +215,9 @@ function buildEnv(req) {
     PLATFORM_URL: '', /* الشحن داخلي الآن — لا نداء HTTP */
     WORKER_PUBLIC_URL: e.PLATFORM_PUBLIC_URL || ('http://' + (req.headers.host || 'localhost')),
     CASH_PLUS_NAME: e.CASH_PLUS_NAME || 'Tarik chouika',
-    CASH_PLUS_ACCOUNT: e.CASH_PLUS_ACCOUNT || '835780030016238841734545',
+    /* [2026-09-22] القيمة الافتراضية صُحّحت لتطابق رمز QR الرسمي في assets/qr/cashplus.png
+       (cpmapp://VirementInternScreen?numero=0766672027) — كانت رقماً تجريبياً غير قابل للتحويل. */
+    CASH_PLUS_ACCOUNT: e.CASH_PLUS_ACCOUNT || '0766672027',
     /* [PayInfo] وجهات الدفع الرسمية (تُعدل من env فقط) */
     CRYPTO_USDT_TRC20: e.CRYPTO_USDT_TRC20 || 'TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ',
     CIH_NAME: e.CIH_NAME || 'MONSIEUR TARIK CHOUIKA',

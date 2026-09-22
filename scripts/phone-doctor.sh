@@ -14,7 +14,7 @@
 #  ═══════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
-APP_DIR="${DTSG_DIR:-/root/dmgames-arena}"
+APP_DIR="${DTSG_DIR:-/root/DTSG}"
 PM2_NAME="${DTSG_PM2:-casino-server}"
 PORT="${DTSG_PORT:-3000}"
 PUBLIC="${DTSG_PUBLIC:-https://casino-phone.dmgames-api.workers.dev}"
@@ -128,7 +128,7 @@ case "$VERDICT" in
     ;;
   leak)
     bad "قاعدة البيانات مكشوفة للإنترنت — أصلح فوراً: شغّل نسخة v2.40.4 (تحتوي حماية الملفات)."
-    printf '       cd %s && git fetch origin && git reset --hard origin/main && pm2 restart %s --update-env\n' "$APP_DIR" "$PM2_NAME"
+    printf '       cd %s && git fetch origin && git reset --hard origin/main && bash scripts/phone-env-restart.sh\n' "$APP_DIR"
     ;;
   payments)
     bad "المدفوعات لا تعمل: الشجرة المشغَّلة قديمة (بلا /api/payments/methods)."

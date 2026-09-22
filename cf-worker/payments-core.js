@@ -243,13 +243,22 @@ async function uEnsure(db, env, id, email) {
    role اختياري يمرّره المسار (deposit/topup/admin-act) إن عرف دور المستخدم. */
 function depositBonusPct(usd, role, currency) {
   var t = Number(usd) || 0;
-  var src = (role === 'admin' || role === 'super') ? ADMIN_TIERS
-    : ((String(currency || '').toLowerCase() === 'mad') ? USER_TIERS_MAD : USER_TIERS);
+  var mad = (String(currency || '').toLowerCase() === 'mad');
+  var userSrc = mad ? USER_TIERS_MAD : USER_TIERS;
   var best = 0;
-  Object.keys(src).forEach(function (k) {
+  Object.keys(userSrc).forEach(function (k) {
     var tier = Number(k);
-    if (t >= tier && src[k] > best) best = src[k];
+    if (t >= tier && userSrc[k] > best) best = userSrc[k];
   });
+  /* [Bonus-tiers 2026-09-22] حساب إداري (admin/super) لا ينزل أبداً تحت شريحة المستخدم العادي:
+     يأخذ الأعلى بين شريحة المستخدمين وشريحة الأدمنز.
+     العطل المُبلَّغ عنه: طلب 450$ من حساب السوبر أدمن نال بونص 0% لأن شرائح الأدمنز تبدأ من 1000$. */
+  if (role === 'admin' || role === 'super') {
+    Object.keys(ADMIN_TIERS).forEach(function (k) {
+      var tier = Number(k);
+      if (t >= tier && ADMIN_TIERS[k] > best) best = ADMIN_TIERS[k];
+    });
+  }
   return best;
 }
 async function uCreditUsd(db, env, id, usd) {
@@ -1127,7 +1136,8 @@ function payDebug(env, entry) {
     /* [v2.43] البوتات تنادي بلا ترويسة: نقبل السرّ من الجسم/الاستعلام/الترويسات + دور super من الجلسة */
     if (!voucherActorOk(request, env, b)) {
       payDebug(env, { path: p, status: 403, keys: Object.keys(b || {}) });
-      return json({ ok: false, error: 'forbidden' }, 403);
+      return json({ ok: false, error: 'forbidden',
+        hint: 'مطلوب: ترويسة x-admin-secret (أو admin_secret في الجسم/الاستعلام) أو tg_id لسوبر أدمن' }, 403);
     }
     const kind = pickStr(b.kind, b.type, b.mode).toLowerCase();
     if (kind === 'admin' || kind === 'direct') {

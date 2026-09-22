@@ -15,11 +15,15 @@ eq('مستخدم 10000$ ⇒ 20%', core.depositBonusPct(10000), 20);
 eq('مستخدم 100000$ ⇒ 20%', core.depositBonusPct(100000), 20);
 /* لم يعد خلط الأدمنز على المستخدم: */
 eq('مستخدم 100$ ليس 25% (الخلل القديم)', core.depositBonusPct(100) === 25 ? 1 : 0, 0);
-/* الأدمن الفعلي: */
-eq('أدمن 999$ ⇒ 0%', core.depositBonusPct(999, 'admin'), 0);
+/* الأدمن الفعلي: لا ينزل أبداً تحت شريحة المستخدم العادي (تعديل 2026-09-22) */
+eq('أدمن 999$ ⇒ 8% (شريحة المستخدم لا الأدمن)', core.depositBonusPct(999, 'admin'), 8);
+eq('سوبر 450$ ⇒ 5% (العطل المُبلَّغ عنه: كان 0%)', core.depositBonusPct(450, 'super'), 5);
+eq('أدمن 10$ ⇒ 0% (تحت أول شريحة)', core.depositBonusPct(10, 'admin'), 0);
 eq('أدمن 1000$ ⇒ 30%', core.depositBonusPct(1000, 'admin'), 30);
 eq('سوبر 10000$ ⇒ 35%', core.depositBonusPct(10000, 'super'), 35);
 eq('سوبر 100000$ ⇒ 40%', core.depositBonusPct(100000, 'super'), 40);
+/* الأدمن يأخذ الأعلى من الشريحتين دائماً */
+eq('سوبر 5000$ ⇒ 30% (شريحة الأدمنز 1000$ أعلى من 15%)', core.depositBonusPct(5000, 'super'), 30);
 /* الدرهم للمستخدم: */
 eq('مستخدم 999 MAD ⇒ 0%', core.depositBonusPct(999, null, 'mad'), 0);
 eq('مستخدم 1000 MAD ⇒ 5%', core.depositBonusPct(1000, null, 'mad'), 5);

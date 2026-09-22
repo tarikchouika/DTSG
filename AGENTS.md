@@ -9,13 +9,30 @@
 | # | القاعدة |
 |---|---|
 | 1 | **مستودع واحد وفرع واحد:** `tarikchouika/DTSG` → `main` فقط. لا تُنشئ فروعاً، ولا تدفع `arena/*`، ولا تدفع أي فرع آخر. |
-| 2 | **لا تعمل من مجلد قديم:** `/root/dmgames-arena` و`/root/digital-moroccan-casino` هما worktree للمستودع **القديم** (`digital-moroccan-casino`). أي `git checkout/pull` فيهما يطمس الموقع الحيّ بكود قديم. |
+| 2 | **لا مستودعَ قديم أصلاً (حُذف نهائياً 2026-09-22):** `/root/dmgames-arena` و`/root/digital-moroccan-casino` كانا worktree للمستودع القديم (`digital-moroccan-casino`) وحُذفا — وقواعد بياناتهما مؤرشفة في `/root/dtsg-db-archive-*`. أي **مجلد قديم** يظهر على القرص أو في `git remote` ⇒ توقّف وأبلغ قبل أي `checkout/pull`. |
 | 3 | **تحقّق من هوية المستودع قبل أي دفع:** شغّل `bash scripts/preflight-repo.sh` — إن فشل، **توقّف**. |
 | 4 | **ممنوع منعاً باتاً:** `git push --all` · `git push --mirror` · `git push -f` على main · حذف فرع أو وسم بلا تحقّق · `git reset --hard` على فرع ليس main. |
 | 5 | **لا أسرار في المستودع** (عام): التوكنات في البيئة فقط. شغّل `node tests/_repo_hygiene_test.js` قبل كل دفع. |
 | 6 | **بعد كل إصلاح:** الاختبارات كاملة (`bash scripts/qa-env.sh` ثم الأجنحة) + تحقّق بمتصفح حقيقي + بصمة sha256 للإنتاج. |
 | 7 | **لا تُغيّر معرّفات الإنتاج** (`dmgames-api.workers.dev` · `casino-phone` · `casino-api` · مسار pm2) — تغيير الاسم = كسر الموقع الحيّ. |
 | 8 | **قبل حذف أي شيء:** أثبت أنه لا يحوي محتوى فريداً (`compare/<sha>...main` ⇒ `behind_by=0`) واعرض الدليل على المالك، ثم انتظر موافقته. |
+| 9 | **بيئة الخادم من `.env.local` فقط:** ممنوع `pm2 restart --update-env` من صدفة ناقصة (حادثة 2026-09-22: مُسحت كل متغيرات الدفع والبوتات ثم حُفظت بـ`pm2 save`). الاستعمال الإلزامي: `bash scripts/phone-env-restart.sh`. |
+| 10 | **أي تغيير في الأسرار أو الويبهوك يتحقق من الطرفين:** الخادم (البيئة) + تيليغرام (`setWebhook` بالسرّ نفسه) — ثم `getWebhookInfo` بلا `last_error`. |
+
+---
+
+## 🖥️ بيئة خادم الهاتف — إلزامي
+
+```bash
+cd /root/DTSG
+bash scripts/phone-env-restart.sh     # يقرأ .env.local → يعيد التشغيل → يتحقق من 15 مفتاحاً → pm2 save
+```
+
+**بعد كل إعادة تشغيل تحقّق من (خطأ صامت = منصة معطّلة):**
+1. `curl -s http://127.0.0.1:3000/api/payments/methods` ⇒ `binance_pay_id` غير فارغ · وسيلة `live`.
+2. `curl -s https://api.telegram.org/bot$SUPPORT_BOT_TOKEN/getWebhookInfo` ⇒ بلا `last_error`.
+3. `tests/_support_bot_test.js` · `_private_chat_test.js` · `_voucher_bot_scope_test.js` · `_money_invariants_test.js`.
+4. `pm2 save` بعد نجاح الفحوص فقط.
 
 ---
 

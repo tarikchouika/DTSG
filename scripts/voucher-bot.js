@@ -87,19 +87,58 @@ function methodKeyFromLabel(label) {
   const m = METHODS.find(x => label && (label.indexOf(x.label) >= 0 || label.toLowerCase() === x.key));
   return m ? m.key : null;
 }
-async function methodsLive() {
+/* [Cache 60s] نداءات المنصة (وسائل الدفع + الشرائح) — مصدر واحد للحقيقة، بلا إثقال الخادم */
+let LIVE_CACHE = { at: 0, methods: null, tiers: null };
+async function liveData(force) {
+  if (!force && LIVE_CACHE.methods && (Date.now() - LIVE_CACHE.at) < 60000) return LIVE_CACHE;
   try {
     const r = await api('/api/payments/methods');
-    if (r.status === 200 && r.body && r.body.methods) return r.body.methods;
+    if (r.status === 200 && r.body && r.body.methods) LIVE_CACHE.methods = r.body.methods;
   } catch (e) {}
-  return null;
+  try {
+    const p = await api('/api/promotions');
+    if (p.status === 200 && p.body && p.body.ok && Array.isArray(p.body.direct)) LIVE_CACHE.tiers = p.body;
+  } catch (e) {}
+  LIVE_CACHE.at = Date.now();
+  return LIVE_CACHE;
 }
+async function methodsLive() { const d = await liveData(); return d.methods; }
 function methodLabel(key) { const m = METHODS.find(x => x.key === key); return m ? m.label : key; }
-function payDetails(key) {
-  if (key === 'cash_plus') return 'حوّل إلى محفظة Cash Plus باسم: <b>' + CASH_PLUS_NAME + '</b> ثم أرسل رقم عملية التحويل هنا.';
-  if (key === 'binance') return 'حوّل USDT (شبكة TRC20/BEP20) ثم أرسل Hash العملية هنا.';
-  if (key === 'binance_pay') return 'افتح Binance Pay من المنصة (المحفظة ← إيداع) ثم أكمل الدفع وأرسل رقم المرجع.';
-  return 'حوّل إلى الحساب البنكي للمنصة ثم أرسل رقم التحويل (RIB) هنا.';
+function accOf(list, id) { const m = (list || []).find(x => x.id === id) || {}; return m.account || {}; }
+/* [PayInfo 2026-09-22] بيانات الحساب الحقيقية لكل وسيلة — تُقرأ من الخادم (نفس ما تعرضه
+   المحفظة ورموز QR الرسمية) بدل نصوص ثابتة ناقصة كانت لا تعطي المستخدم حساب الاستلام. */
+async function payDetails(key) {
+  const d = await liveData();
+  const list = d.methods || [];
+  const cash = accOf(list, 'cash_plus'), cih = accOf(list, 'cih'), trc = accOf(list, 'binance'), ro = accOf(list, 'binance_readonly');
+  const code = (v) => '<code>' + String(v) + '</code>';
+  if (key === 'cash_plus') {
+    return '💵 <b>Cash Plus</b>\nالاسم: <b>' + (cash.name || CASH_PLUS_NAME) + '</b>' +
+      (cash.number ? ('\nرقم الحساب: ' + code(cash.number)) : '') +
+      '\nحوّل المبلغ عبر تطبيق/وكالة Cash Plus ثم أرسل كود العملية هنا.';
+  }
+  if (key === 'bank') {
+    return '🏦 <b>CIH Bank / CIH Express</b>' +
+      (cih.name ? ('\nالاسم: <b>' + cih.name + '</b>') : '') +
+      (cih.number ? ('\nرقم الحساب: ' + code(cih.number)) : '') +
+      (cih.rib ? ('\nRIB: ' + code(cih.rib)) : '') +
+      (cih.iban ? ('\nIBAN: ' + code(cih.iban)) : '') +
+      (cih.swift ? ('\nSWIFT: ' + code(cih.swift)) : '') +
+      '\nثم أرسل رقم التحويل/المرجع هنا.';
+  }
+  if (key === 'binance_pay') {
+    return '🟡 <b>Binance Pay</b>\nمعرّف Pay (Pay ID): ' + code(ro.pay_id || '—') +
+      '\nحوّل إلى هذا المعرّف من تطبيق Binance ثم أرسل رقم المرجع هنا.';
+  }
+  return '🪙 <b>Binance (USDT)</b>\nالشبكة: <b>TRON (TRC20)</b> حصراً\nالعنوان:\n' + code(trc.address || '—') +
+    '\nلا ترسل أي شبكة أخرى، ثم أرسل Hash العملية هنا.';
+}
+/* شرائح البونص المعلنة للمستخدمين — تُعرض عند إدخال المبلغ */
+async function bonusTiersLine() {
+  const d = await liveData();
+  const t = d.tiers; if (!t || !Array.isArray(t.direct) || !t.direct.length) return '';
+  const rows = t.direct.filter(x => Number(x.bonus_pct) > 0).map(x => '• ' + x.amount + ' $ ← +' + x.bonus_pct + '%');
+  return rows.length ? ('\n\n🎁 <b>شرائح البونص:</b>\n' + rows.join('\n')) : '';
 }
 
 /* ── منطق الأزرار والرسائل ── */
@@ -131,14 +170,16 @@ async function startTopup(chatId) {
   const live = await methodsLive();
   let lines = '';
   if (live && live.length) {
-    lines = '\n\n<b>الوسائل المتاحة الآن:</b>\n' + live.map(m => '• ' + (m.name || m.method || m.key || '') + (m.status && m.status !== 'live' ? ' (قريباً)' : '')).join('\n');
+    lines = '\n\n<b>الوسائل المتاحة الآن:</b>\n' + live
+      .filter(m => m.id !== 'voucher')
+      .map(m => '• ' + (m.label || m.name || m.method || m.key || '') + (m.status && m.status !== 'live' ? ' (قريباً)' : '')).join('\n');
   }
   await say(chatId, '🎟️ <b>شحن سريع — كود تعبئة</b>\nاختر وسيلة الدفع:' + lines, { reply_markup: METHOD_KB });
 }
 
 /* [v2.47-NARROW] نطاق البوت: أكواد التعبئة فقط — أي طلب آخر يُوجَّه إلى مكانه الصحيح */
 const SUPPORT_BOT_URL = process.env.SUPPORT_BOT_URL || 'https://t.me/dtsgsupports_bot';
-const PLATFORM_URL = (process.env.PLATFORM_URL || 'https://dmgames.pages.dev').replace(/\/+$/, '');
+const PLATFORM_URL = (process.env.PLATFORM_URL || 'https://dtsg.pages.dev').replace(/\/+$/, '');
 function outOfScope(chatId) {
   return say(chatId,
     '🚫 <b>هذا البوت مخصص لأكواد التعبئة فقط.</b>\n' +
@@ -242,8 +283,10 @@ async function onMessage(msg) {
   if (isAdminChat && /^\/codes?/.test(text)) {
     const m = text.match(/\/(?:codes?)\s+(\d+)(?:\s+(\d+))?/);
     if (!m) return say(chatId, '🎟️ لإنشاء كود: <code>/codes 100 3</code> (المبلغ 100$ × 3 أكواد)');
-    const r = await api('/api/vouchers/create', { amount_usd: Number(m[1]), count: Number(m[2] || 1), admin_secret: ADMIN_SECRET });
-    return say(chatId, r.status === 200 && r.body && r.body.ok ? ('✅ أكواد:\n<code>' + (r.body.codes || []).join('\n') + '</code>') : ('⚠️ ' + JSON.stringify(r.body)));
+    const r = await api('/api/vouchers/create', { amount_usd: Number(m[1]), count: Number(m[2] || 1), admin_secret: ADMIN_SECRET, tg_id: SUPER_TG });
+    if (r.status === 200 && r.body && r.body.ok) return say(chatId, '✅ أكواد:\n<code>' + (r.body.codes || []).join('\n') + '</code>');
+    const tiers = (r.body && r.body.tiers) ? ('\nالشرائح المتاحة: ' + r.body.tiers.join(' · ')) : '';
+    return say(chatId, '⚠️ ' + JSON.stringify(r.body) + tiers);
   }
 
   /* خطوات المحادثة */
@@ -253,7 +296,11 @@ async function onMessage(msg) {
     const key = methodKeyFromLabel(text);
     if (!key) return say(chatId, 'اختر وسيلة من القائمة أو اكتب ✖️ إلغاء.', { reply_markup: METHOD_KB });
     s.method = key; s.step = 'amount';
-    return say(chatId, '💵 المبلغ بالدولار؟\n' + methodLabel(key) + '\n' + payDetails(key), { reply_markup: AMOUNT_KB });
+    /* بيانات الاستلام الحقيقية للوسيلة المختارة + شرائح البونص (تُقرأ من الخادم) */
+    let details = '', tiers = '';
+    try { details = await payDetails(key) || ''; } catch (e) { details = ''; }
+    try { tiers = await bonusTiersLine() || ''; } catch (e) { tiers = ''; }
+    return say(chatId, '💵 المبلغ بالدولار؟\n\n' + details + tiers, { reply_markup: AMOUNT_KB });
   }
   if (s.step === 'amount') {
     const amt = Number(String(text).replace(/[^\d.]/g, ''));

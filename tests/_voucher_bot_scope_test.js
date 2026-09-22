@@ -24,6 +24,18 @@ const bad = (m) => { fail++; console.log('  ❌ ' + m); };
 
 /* ── نداءات تيليغرام مُجمَّعة محلياً (لا شبكة) ── */
 const sent = [];
+/* [PayInfo 2026-09-22] محتوى ثابت لواجهات المنصة: نتحقق أن البوت يعرض بيانات الاستلام
+   الحقيقية (الرقم/العنوان/RIB/معرّف Pay) وشرائح البونص — لا نصوصاً ثابتة ناقصة. */
+const API_FIXTURE = {
+  '/api/payments/methods': { ok: true, binance_pay_id: '132972522', binance_readonly: 'configured', methods: [
+    { id: 'binance_readonly', label: 'Binance Pay — تحقّق تلقائي (Pay ID/QR)', status: 'live', readonly: true, account: { pay_id: '132972522', network: 'Binance Pay' } },
+    { id: 'binance_pay', label: 'Binance Pay', status: 'live' },
+    { id: 'cash_plus', label: 'Cash Plus', status: 'live', account: { name: 'TARIK CHOUIKA', number: '0766672027' } },
+    { id: 'cih', label: 'CIH Bank / CIH Express', status: 'live', account: { name: 'MONSIEUR TARIK CHOUIKA', number: '6904085211014200', rib: '230 815 6904085211014200 24', iban: 'MA64 2308 1569 0408 5211 0142 0024', swift: 'CIHMMAMC' } },
+    { id: 'binance', label: 'Binance (TRC20)', status: 'live', account: { network: 'TRON (TRC20)', address: 'TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ' } }
+  ] },
+  '/api/promotions': { ok: true, currency: 'USD', direct: [{ amount: 100, bonus_pct: 5 }, { amount: 500, bonus_pct: 8 }, { amount: 1000, bonus_pct: 10 }], admin: [{ amount: 1000, bonus_pct: 30 }], referral_pct: 10 }
+};
 global.fetch = async function (url, opts) {
   const u = String(url);
   if (u.indexOf('api.telegram.org') >= 0) {
@@ -31,6 +43,8 @@ global.fetch = async function (url, opts) {
     sent.push({ method: method, payload: opts && opts.body ? JSON.parse(opts.body) : {} });
     return { ok: true, json: async () => ({ ok: true, result: { message_id: sent.length } }) };
   }
+  const path = u.replace(/^https?:\/\/[^/]+/, '').split('?')[0];
+  if (API_FIXTURE[path]) return { ok: true, status: 200, json: async () => API_FIXTURE[path] };
   return { ok: false, status: 404, json: async () => ({ ok: false, error: 'offline-test' }) };
 };
 
@@ -82,6 +96,32 @@ const lastText = () => String(((lastTo(USER_TG) || {}).payload || {}).text || ''
   kb.indexOf('سحب') < 0 && kb.indexOf('رصيدي') < 0 && kb.indexOf('الدعم') < 0
     ? ok('لوحة الأزرار بلا سحب/رصيد/دعم') : bad('لوحة الأزرار تحوي: ' + kb.slice(0, 120));
   kb.indexOf('شحن سريع (كود تعبئة)') >= 0 ? ok('زر الشحن السريع (أكواد التعبئة) موجود') : bad('زر الشحن السريع مفقود');
+
+  console.log('\n═══ ٤) بيانات الاستلام وشرائح البونص من الخادم (PayInfo 2026-09-22) ═══');
+  bot._internals.setLinks({ '555000222': { user_id: '251', username: 'Tarikchouika' } });
+  sent.length = 0;
+  await msg('🎟️ شحن سريع (كود تعبئة)');
+  const topupMsg = lastText();
+  /الوسائل المتاحة الآن/.test(topupMsg) && /Cash Plus/.test(topupMsg)
+    ? ok('قائمة الوسائل تعرض تسميات الخادم (Cash Plus…)') : bad('قائمة الوسائل لا تعرض التسميات: ' + topupMsg.slice(0, 120));
+  const pick = async (label) => { await msg('🎟️ شحن سريع (كود تعبئة)'); sent.length = 0; await msg(label); return lastText(); };
+  await msg('Cash Plus');
+  const cashMsg = lastText();
+  /0766672027/.test(cashMsg) ? ok('Cash Plus: رقم الحساب الفعلي معروض') : bad('Cash Plus بلا رقم حساب: ' + cashMsg.slice(0, 160));
+  /شرائح البونص/.test(cashMsg) ? ok('شرائح البونص معلنة عند إدخال المبلغ') : bad('شرائح البونص مفقودة');
+  const bankMsg = await pick('تحويل بنكي (RIB)');
+  /MA64 2308 1569 0408 5211 0142 0024/.test(bankMsg) && /RIB/.test(bankMsg)
+    ? ok('CIH: الرقم + RIB + IBAN معروضة') : bad('CIH ناقص: ' + bankMsg.slice(0, 160));
+  const bpMsg = await pick('Binance Pay');
+  /132972522/.test(bpMsg) ? ok('Binance Pay: معرّف Pay الفعلي معروض') : bad('Binance Pay بلا معرّف: ' + bpMsg.slice(0, 160));
+  const trcMsg = await pick('Binance Pay / USDT');
+  /TSoTtn7hhmNh5bnb8MwX82kYdZGj8ZNsKJ/.test(trcMsg) && /TRC20/.test(trcMsg)
+    ? ok('Binance TRC20: العنوان والشبكة معروضان') : bad('عنوان TRC20 مفقود: ' + trcMsg.slice(0, 160));
+  /* روابط المنصة يجب أن تشير إلى DTSG لا إلى منصة أخرى (خلط dmgames) */
+  await msg('أريد سحب رصيدي');
+  const scope = lastText();
+  !/dmgames\.pages\.dev/.test(scope) ? ok('رسالة النطاق لا تشير إلى منصة أخرى (dmgames)') : bad('الرابط يشير إلى dmgames.pages.dev!');
+  /dtsg\.pages\.dev/.test(scope) ? ok('رابط المحفظة يقود إلى dtsg.pages.dev') : bad('رابط المحفظة ليس dtsg.pages.dev');
 
   console.log('\nالنتيجة: ' + pass + ' نجح / ' + fail + ' فشل');
   process.exit(fail ? 1 : 0);

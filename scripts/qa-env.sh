@@ -83,7 +83,7 @@ kill_port
 rm -rf "$FULL"
 mkdir -p "$FULL"
 # نسخ شجرة العمل بلا ما لا يلزم للخادم
-tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads -cf - . | tar -xf - -C "$FULL"
+tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads --exclude=.env.local --exclude=.env -cf - . | tar -xf - -C "$FULL"
 mkdir -p "$FULL/data"
 
 echo "── 4) تشغيل أولي لإنشاء المخطط ثم إيقافه"

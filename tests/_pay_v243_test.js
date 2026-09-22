@@ -86,12 +86,22 @@ const bad = (m) => { fail++; console.log('  ❌ ' + m); };
   (rw2.status === 402 && /رصيد/.test(jw2.message || '')) ? ok('سحب فوق الرصيد: رسالة عربية واضحة (402)') : bad('سحب فوق الرصيد: ' + rw2.status + ' ' + JSON.stringify(jw2));
 
   console.log('\n═══ ج) هوية مجهولة لا تُسجَّل معاملة يتيمة ═══');
-  const rBad = await post(P, '/api/payments/p2p', { tg_id: '999999999', method: 'binance', amount_usd: 30, details: 'TX-ORPHAN' });
+  /* [DTSG-016] الطلب من جلسة مستخدم مسجَّل يُثبَّت على هوية الجلسة (حماية مقصودة)
+     ⇒ لا معاملة يتيمة أصلاً؛ والطلب **بلا جلسة** بهوية غير مربوطة يجب أن يُرفض. */
+  const rSelf = await post(P, '/api/payments/p2p', { tg_id: '999999999', method: 'binance', amount_usd: 30, details: 'TX-SELF-PIN' });
+  const jSelf = rSelf.json || {};
+  (rSelf.status === 200 && jSelf.ok) ? ok('طلب جلسة مسجَّلة يُثبَّت على هوية الجلسة (DTSG-016)')
+    : bad('طلب الجلسة رُفض: ' + rSelf.status + ' ' + JSON.stringify(jSelf));
+  const ctxQ = await browser.newContext({ viewport: { width: 800, height: 600 } });
+  const Q = await ctxQ.newPage();
+  await Q.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
+  const rBad = await post(Q, '/api/payments/p2p', { tg_id: '999999999', method: 'binance', amount_usd: 30, details: 'TX-ORPHAN' });
   const jBad = rBad.json || {};
-  (!jBad.ok && rBad.status >= 400) ? ok('إيداع بهوية غير مربوطة مرفوض (لا معاملة معلّقة)') : bad('قُبلت هوية مجهولة: ' + JSON.stringify(jBad));
+  (!jBad.ok && rBad.status >= 400) ? ok('إيداع بهوية غير مربوطة بلا جلسة مرفوض (لا معاملة معلّقة)') : bad('قُبلت هوية مجهولة: ' + JSON.stringify(jBad));
+  await ctxQ.close();
   const pend = await call(A, 'GET', '/api/admin/payments/pending');
   const pj = pend.json || {};
-  const orphans = (pj.pending || []).filter((t) => /TX-ORPHAN|999999999/.test(JSON.stringify(t)));
+  const orphans = (pj.pending || []).filter((t) => /TX-ORPHAN/.test(JSON.stringify(t)));
   orphans.length === 0 ? ok('لا وجود لمعاملة يتيمة في قائمة المعلّقات') : bad('وُجدت معاملة يتيمة: ' + JSON.stringify(orphans[0]));
 
   console.log('\n═══ د) الكوبونات: إنشاء بصلاحية سوبر أدمن + استرداد بالاسم ═══');

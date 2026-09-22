@@ -10,6 +10,9 @@ node_modules/
 server.log
 .wrangler/
 .dev.vars
+# [2026-09-22] أسرار بيئة خادم الهاتف/البوتات (مصدرها الوحيد) — لا تُرفع أبداً
+.env.local
+.env
 
 # لقطات الاختبارات تُكتب في /tmp/dtsg-shots (ليست جزءاً من المستودع)
 screenshots/

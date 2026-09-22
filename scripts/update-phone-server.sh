@@ -21,7 +21,17 @@
 #  ═══════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
-APP_DIR="${DTSG_DIR:-/root/dmgames-arena}"     # شجرة العمل على الهاتف
+# [2026-09-22] مصدر البيئة الوحيد: .env.local بجوار المستودع — يمنع تكرار حادثة
+# «pm2 restart --update-env» من صدفة ناقصة (مُسحت كل متغيرات الدفع والبوتات).
+ENV_FILE="${DTSG_ENV_FILE:-/root/DTSG/.env.local}"
+if [ -f "$ENV_FILE" ]; then
+  set -a; . "$ENV_FILE"; set +a
+  echo "ℹ️  حُمّلت البيئة من $ENV_FILE"
+else
+  echo "⚠  لا يوجد $ENV_FILE — ستُستعمل القيم الموجودة في صدفتك فقط."
+fi
+
+APP_DIR="${DTSG_DIR:-/root/DTSG}"     # شجرة العمل على الهاتف
 PM2_NAME="${DTSG_PM2:-casino-server}"          # اسم العملية في pm2
 REPO="${DTSG_REPO:-https://github.com/tarikchouika/DTSG.git}"
 LOCAL_PORT="${DTSG_PORT:-3000}"
@@ -161,6 +171,16 @@ say "4) نسخة احتياطية لقاعدة البيانات"
 [ -f data/royalcoin.db ] && cp -v data/royalcoin.db "data/royalcoin.db.bak-$(date +%Y%m%d-%H%M)" || echo "   (لا قاعدة بعد — ستُنشأ)"
 
 say "5) إعادة تشغيل الخادم"
+# [2026-09-22] حارس إلزامي: لا نعيد التشغيل ببيئة ناقصة — كان هذا سبب مسح متغيرات
+# الدفع والبوتات (pm2 restart --update-env) ثم حفظ الحالة المكسورة.
+MISSING_KEYS=""
+for k in TELEGRAM_BOT_TOKEN ADMIN_API_SECRET SUPPORT_BOT_TOKEN SUPPORT_WEBHOOK_SECRET \
+         PRIVATE_CHAT_BOT_TOKEN PRIVATE_CHAT_WEBHOOK_SECRET BINANCE_PAY_API_KEY BINANCE_PAY_SECRET_KEY \
+         BINANCE_PAY_MERCHANT_ID CASH_PLUS_ACCOUNT CIH_ACCOUNT BINANCE_TRC20; do
+  [ -n "$(eval "printf '%s' \"\${$k:-}\"")" ] || MISSING_KEYS="$MISSING_KEYS $k"
+done
+[ -z "$MISSING_KEYS" ] || die "بيئة ناقصة:$MISSING_KEYS — اضبط $ENV_FILE ثم أعد المحاولة (أُوقف التشغيل لحماية المنصة)."
+ok "البيئة مكتملة (12 مفتاحاً حرجاً)"
 if have pm2 && pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
   pm2 restart "$PM2_NAME" --update-env
   sleep 5

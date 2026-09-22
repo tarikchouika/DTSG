@@ -10,11 +10,13 @@
 # ═══════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
-APP_DIR="${DTSG_DIR:-/root/dmgames-arena}"
+APP_DIR="${DTSG_DIR:-/root/DTSG}"
 PM2_NAME="${DTSG_PM2:-casino-server}"
 RAW="${DTSG_RAW:-https://raw.githubusercontent.com/tarikchouika/DTSG/main}"
 STAMP="$(date +%Y%m%d-%H%M)"
-BK="/root/dtsg-v241-backup-$STAMP"
+# [2026-09-22] مكان النسخ الاحتياطية صار مجلداً محايداً (كان يُنشئ dtsg-v241-backup-*)
+BK="/root/_dtsg-tree-backups/$STAMP"
+mkdir -p "$BK"
 
 say() { printf '\n\033[1;36m── %s\033[0m\n' "$*"; }
 ok()  { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }

@@ -23,10 +23,15 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
 const db1 = () => new DatabaseSync(DB_PATH);
 const one = (sql, ...a) => db1().prepare(sql).get(...a);
 const many = (sql, ...a) => db1().prepare(sql).all(...a);
-const jpost = (p, b) => fetch(BASE + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) })
-  .then(r => r.json().catch(() => ({}))).catch(e => ({ err: String(e) }));
-
 let UID = null;
+/* [DTSG-002 SEC] السحب يتطلب جلسة موثقة — الاختبار يسجّل الدخول كـ qa_player ويرسل الكوكي
+   (كان يرسل الطلبات بلا جلسة ⇒ 401 فتسقط كل فحوص السحب التالية بلا داعٍ). */
+let COOKIE = null;
+const jpost = (p, b) => fetch(BASE + p, {
+  method: 'POST',
+  headers: { 'content-type': 'application/json', ...(COOKIE ? { cookie: COOKIE } : {}) },
+  body: JSON.stringify(b)
+}).then(r => r.json().catch(() => ({}))).catch(e => ({ err: String(e) }));
 const gold = () => Number(one('SELECT gold FROM users WHERE id=?', UID).gold);
 const logCount = () => Number(one('SELECT COUNT(*) n FROM money_log WHERE user_id=?', String(UID)).n);
 const lastLog = () => one('SELECT * FROM money_log WHERE user_id=? ORDER BY id DESC LIMIT 1', String(UID));
@@ -55,6 +60,13 @@ function checkState(label, opts = {}) {
   const player = one("SELECT id, gold FROM users WHERE username='qa_player'");
   if (!player) { console.log('FATAL: qa_player غير موجود'); process.exit(2); }
   UID = player.id;
+  const tok0r = await fetch(BASE + '/api/login', {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ username: 'qa_player', password: 'QaTest12345' })
+  });
+  const sc0 = (tok0r.headers && tok0r.headers.get) ? (tok0r.headers.get('set-cookie') || '') : '';
+  COOKIE = (sc0.match(/sid=[^;]+/) || [])[0] || null;
+  COOKIE ? console.log('   (جلسة qa_player جاهزة)') : console.log('   ⚠ تعذّر إنشاء الجلسة — فحوص السحب ستفشل');
   console.log('\n═══ 0) الحالة الابتدائية ═══');
   checkState('بداية نظيفة');
 
@@ -104,9 +116,8 @@ function checkState(label, opts = {}) {
   (g5 - g4) === Math.round(100 * RATE * 1.05) ? ok('الشحن بالبونص مطابق: +' + (g5 - g4) + ' 🪙 (100$ ×100 ×1.05 — مستخدم عادي)') : bad('شحن الكود ' + (g5 - g4) + ' والمتوقع ' + Math.round(100 * RATE * 1.05));
 
   console.log('\n═══ 4) /api/sync بمرجع قديم لا يطمس الشحن ═══');
-  const tok = await jpost('/api/login', { username: 'qa_player', password: 'QaTest12345' });
-  const cookie = tok && tok.ok ? 'sid=' + tok.token : null;
-  /* الطلب يعتمد الجلسة عبر كوكي؛ نجرّب مع الرصيد القديم ومرجع صفري */
+  /* الجلسة صار لها نفس الكوكي المستخرَج من رأس Set-Cookie (كان يقرأ tok.token غير الموجود) */
+  const cookie = COOKIE;
   const syncRes = await fetch(BASE + '/api/sync', {
     method: 'POST', headers: { 'content-type': 'application/json', ...(cookie ? { cookie } : {}) },
     body: JSON.stringify({ gold: 1, gold_rev: 0 })

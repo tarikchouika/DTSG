@@ -183,9 +183,10 @@ cat <<'EOF'
 
 ═══════════════════════════════════════════════════════════════════════════
 الخطوات المتبقية على الهاتف (مرة واحدة):
-  cd /root/dmgames-arena && git fetch origin && git reset --hard origin/main
-  bash scripts/update-phone-server.sh
+  cd /root/DTSG && git fetch origin && git reset --hard origin/main
+  bash scripts/phone-env-restart.sh        # يقرأ .env.local ثم يعيد تشغيل pm2 بالبيئة الكاملة
 (السكربت يضبط SUPPORT_BOT_TOKEN و SUPPORT_WEBHOOK_SECRET وPRIVATE_CHAT_BOT_TOKEN وPRIVATE_CHAT_WEBHOOK_SECRET من البيئة)
+⚠️ لا تستعمل `pm2 restart casino-server --update-env` من صدفة ناقصة — يمسح كل متغيرات المنصة (حادثة 2026-09-22).
 
 للتجربة: افتح https://t.me/dtsgsupports_bot واكتب /start، أو أنشئ رابط البوت الخاص من نافذة مركز المساعدة في المنصة.
   رابط /start الخاص يُستهلك مرة واحدة فقط ولا تشاركه مع أي شخص.
