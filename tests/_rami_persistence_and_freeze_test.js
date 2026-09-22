@@ -12,16 +12,24 @@ console.log('═══ Starting Rami Persistence & Freeze Recovery Test Suite �
 const code = fs.readFileSync(path.join(__dirname, '../js/games/rami.js'), 'utf8');
 
 const timeouts = [];
-const fakeDoc = {
-  getElementById: (id) => ({
-    id,
-    innerHTML: '',
-    style: { setProperty: () => {} },
-    clientHeight: 100,
-    classList: { add: () => {}, remove: () => {} },
-    querySelectorAll: () => []
-  }),
+const makeElem = () => ({
+  style: { setProperty: () => {} },
+  setAttribute: () => {},
+  appendChild: () => {},
+  remove: () => {},
+  querySelector: () => ({ textContent: '' }),
   querySelectorAll: () => [],
+  classList: { add: () => {}, remove: () => {} },
+  clientHeight: 100,
+  innerHTML: ''
+});
+
+const fakeDoc = {
+  getElementById: (id) => makeElem(),
+  querySelector: () => makeElem(),
+  querySelectorAll: () => [],
+  createElement: () => makeElem(),
+  body: makeElem(),
   addEventListener: () => {}
 };
 
@@ -169,5 +177,89 @@ while (timeouts.length > 0) {
 const afterErrorPlayer = restored.roundManager.getCurrentPlayer();
 assert.notStrictEqual(afterErrorPlayer.id, botIdBeforeError, 'Error recovery must advance to next player');
 console.log('  ✅ Unhandled bot step error triggers fallback nextPlayer() without freezing');
+
+// ── 5. Stuck RAMI_BUSY Flag at 90s Timeout ──
+console.log('── 5) Testing Stuck RAMI_BUSY at 90s Timeout ──');
+// Force RAMI_BUSY to true
+vm.runInContext('setRamiBusy(true);', ctx);
+const isBusyBefore = vm.runInContext('checkRamiBusy();', ctx);
+assert.strictEqual(isBusyBefore, true, 'RAMI_BUSY was forced to true');
+
+// Current player before timeout
+const timeoutPlayerBefore = restored.roundManager.getCurrentPlayer();
+const timeoutPlayerIdBefore = timeoutPlayerBefore.id;
+
+// Trigger turn timeout (should clear busy, execute auto-play, and advance turn)
+reloadedAdapter._handleTurnTimeout();
+
+const timeoutPlayerAfter = restored.roundManager.getCurrentPlayer();
+assert.notStrictEqual(timeoutPlayerAfter.id, timeoutPlayerIdBefore, 'Timeout must advance turn even if RAMI_BUSY was stuck true');
+
+// Drain any scheduled bot steps
+while (timeouts.length > 0) {
+  timeouts.shift().fn();
+}
+const isBusyAfter = vm.runInContext('checkRamiBusy();', ctx);
+assert.strictEqual(isBusyAfter, false, 'RAMI_BUSY must be cleared once turn completes');
+console.log('  ✅ Stuck RAMI_BUSY does not block 90s timeout; lock is cleared and turn advances');
+
+// ── 6. Fallback Advance When Discard Fails in _doAutoPlay ──
+console.log('── 6) Testing Fallback Advance in _doAutoPlay When Discard Fails ──');
+const curBeforeFail = restored.roundManager.getCurrentPlayer();
+const idBeforeFail = curBeforeFail.id;
+
+// Force executeMove to return failure for discard to simulate unplayable card / state desync
+const origExecute = restored.executeMove;
+restored.executeMove = function(move) {
+  if (move.type === 'discard') return { success: false, error: 'Simulated discard failure' };
+  return origExecute.call(this, move);
+};
+
+reloadedAdapter._doAutoPlay(curBeforeFail, restored.roundManager, false);
+restored.executeMove = origExecute;
+
+const curAfterFail = restored.roundManager.getCurrentPlayer();
+assert.notStrictEqual(curAfterFail.id, idBeforeFail, 'Turn must advance via fallback nextPlayer() even if discard fails');
+console.log('  ✅ Even if discard fails, _doAutoPlay forcefully advances rm.nextPlayer() preventing freeze loop');
+
+// ── 7. Graceful Handling of Draw/Deck Exhaustion (Winner = null) ──
+console.log('── 7) Testing Round End with Null Winner (Stalemate / Exhaustion) ──');
+assert.doesNotThrow(() => {
+  restored.gamePhase = 'PLAYING';
+  restored._endRound(null);
+}, 'Ending round with null winner must not throw TypeError');
+assert.strictEqual(restored.gamePhase, 'ROUND_END', 'Round phase must transition to ROUND_END');
+console.log('  ✅ Stalemate / null winner safely handled without crashing');
+
+// ── 8. Continuous Play Simulation (Human Timeouts & Bot Transitions) ──
+console.log('── 8) Testing Continuous Game Cycles (Human Timeouts & Bot Transitions) ──');
+const stressGame = new RamiGame('simple', 4, 3, 12345, 90);
+stressGame.startMatch(501);
+const stressAdapter = new RamiUIAdapter();
+stressAdapter.game = stressGame;
+ctx.window.RAMI_STATE = stressGame;
+ctx.window.RamiAdapter = stressAdapter;
+
+const rm = stressGame.roundManager;
+let humanTimeouts = 0;
+let botTurns = 0;
+
+for (let cycle = 0; cycle < 30; cycle++) {
+  if (stressGame.gamePhase === 'ROUND_END' || stressGame.gamePhase === 'MATCH_END') break;
+  const curP = rm.getCurrentPlayer();
+  if (curP.isBot) {
+    botTurns++;
+    stressAdapter._runBotTurn(curP);
+  } else {
+    humanTimeouts++;
+    stressAdapter._handleTurnTimeout();
+  }
+  while (timeouts.length > 0) {
+    timeouts.shift().fn();
+  }
+}
+
+assert.ok(rm.turnCount >= 20, 'Must successfully execute 20+ turn transitions across all players without freeze');
+console.log(`  ✅ Continuous play verified: executed ${rm.turnCount} turns smoothly (${humanTimeouts} human timeouts, ${botTurns} bot turns, 0 deadlocks)`);
 
 console.log('\n═══ ALL RAMI PERSISTENCE & FREEZE TESTS PASSED (100%) ═══');

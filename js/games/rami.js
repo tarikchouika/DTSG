@@ -2513,7 +2513,7 @@ class RamiGame {
     for (const p of this.players) {
       let roundPts = 0;
       let detail = { kind: 'winner', cardsCount: 0, cardsValue: 0, penalty: 0, total: 0 };
-      if (p.id === winner.id) {
+      if (winner && p.id === winner.id) {
         roundPts = 0;
         detail.kind = 'winner';
       } else if (!p.hasOpened) {
@@ -2535,7 +2535,7 @@ class RamiGame {
         roundPts = sum;
         detail = { kind: 'opened', cardsCount: p.hand.length, cardsValue: sum, penalty: 0, total: sum };
       }
-      if (doubled && p.id !== winner.id) {
+      if (doubled && (!winner || p.id !== winner.id)) {
         roundPts *= 2;
         detail.doubled = true;
         detail.total = roundPts;
@@ -2565,7 +2565,7 @@ class RamiGame {
     if (!this.roundManager.roundHistory) this.roundManager.roundHistory = [];
     this.roundManager.roundHistory.push({
       roundNumber: this.roundManager.roundNumber,
-      winnerName: winner.name,
+      winnerName: winner ? winner.name : (_ramiT('rami.tie', 'تعادل')),
       doubled: doubled,
       playerScores: this.players.map(p => ({
         name: p.name,
@@ -3155,21 +3155,16 @@ class RamiUIAdapter {
       setRamiBusy(false);
     }
 
-    // 2) دور بوت عالق بلا حركة لأكثر من 5 ثوانٍ → إجباره على اللعب وتحرير أي قفل
+    // 2) دور بوت عالق بلا حركة لأكثر من 4 ثوانٍ → تشغيل اللعب الآلي لتمرير الدور فوراً ومنع أي تجمد
     const rm = this.game.roundManager;
     if (!rm) return;
     const curP = rm.getCurrentPlayer();
-    const started = rm._turnStartedAt || Date.now();
-    /* [FREEZE-FIX] تحرير قفل الانشغال قسرياً وتشغيل دور البوت أو اللعب الآلي عند تجاوز المهلة */
-    if (curP && curP.isBot && (Date.now() - started) > 5000) {
-      console.warn('[Rami] watchdog: forcing stuck bot turn for', curP.name);
+    const elapsed = Date.now() - (rm._turnStartedAt || Date.now());
+    if (curP && curP.isBot && elapsed > 4000) {
+      console.warn('[Rami] watchdog: bot turn stuck (' + elapsed + 'ms) — forcing auto-play recovery for', curP.name);
       setRamiBusy(false);
       rm._turnStartedAt = Date.now();
-      if ((Date.now() - started) > 8000) {
-        this._doAutoPlay(curP, rm, this.multiplayer);
-      } else {
-        this._runBotTurn(curP);
-      }
+      this._doAutoPlay(curP, rm, this.multiplayer);
     }
   }
 
@@ -3235,6 +3230,12 @@ class RamiUIAdapter {
           if (res && (res.success || res.penaltyApplied)) { this.selectedCards.clear(); discardCardId = card.id; }
         }
       }
+
+      /* [CRITICAL-SAFETY] ضمان تقدم الدور قطرياً: إذا لم ينقل الرمي الدور، نمرر الدور قسرياً لمنع تكرار المؤقت 90s والتجمد */
+      if (this.game.gamePhase === 'PLAYING' && rm.getCurrentPlayer() && rm.getCurrentPlayer().id === curP.id) {
+        rm.nextPlayer();
+      }
+
       setRamiBusy(false);
       this.selectedCards.clear();
       if (broadcast) this._emitAutoTimeout(curP, rm, drew, discardCardId);
@@ -3243,7 +3244,13 @@ class RamiUIAdapter {
     } catch (e) {
       console.error('[Rami] auto-discard error:', e && e.message, e);
       setRamiBusy(false);
-      try { rm.nextPlayer(); if (broadcast) this._emitAutoTimeout(curP, rm, false, null); this._processTurn(); } catch (e2) { /* تجاهل */ }
+      try {
+        if (this.game && this.game.gamePhase === 'PLAYING' && rm.getCurrentPlayer() && rm.getCurrentPlayer().id === curP.id) {
+          rm.nextPlayer();
+        }
+        if (broadcast) this._emitAutoTimeout(curP, rm, false, null);
+        if (this.game && this.game.gamePhase === 'PLAYING') this._processTurn();
+      } catch (e2) { /* تجاهل */ }
     }
   }
 
@@ -3253,17 +3260,17 @@ class RamiUIAdapter {
     const curP = rm.getCurrentPlayer();
     if (!curP) return;
 
+    /* تحرير قفل الانشغال قسرياً عند انتهاء الوقت لضمان تنفيذ المعالجة الآلية */
+    setRamiBusy(false);
+
     /* [BOT-FREEZE-FIX] إذا انتهى وقت البوت وهو عالق:
        تحرير أي قفل قسرياً وتشغيل اللعب الآلي لتمرير الدور فوراً ومنع التجمد نهائياً */
     if (curP.isBot) {
       console.warn('[Rami] Bot turn timeout — forcing auto-play recovery for bot', curP.id);
-      setRamiBusy(false);
       rm.turnSecondsRemaining = this.game.rules.turnSeconds;
       this._doAutoPlay(curP, rm, this.multiplayer);
       return;
     }
-
-    if (checkRamiBusy()) return;
 
     const isMyTurn = (curP.id === (this.myPlayerId || 0));
 
