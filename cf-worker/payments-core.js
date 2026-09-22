@@ -904,7 +904,7 @@ function payDebug(env, entry) {
     const tg = url.searchParams.get('tg_id') || url.searchParams.get('telegram_id') || '';
     let okActor = secretOk || isSuperTg(env, tg);
     if (!okActor && typeof roleOfRequest === 'function') { try { okActor = roleOfRequest(request) === 'super'; } catch (e) {} }
-    if (!okActor) return json({ ok: false, error: 'forbidden', hint: 'أرسل admin_secret أو tg_id لسوبر أدمن' }, 403);
+    if (!okActor) return json({ ok: false, error: 'forbidden' }, 403);
     if (!binanceReadOnlyReady(env)) return json({ ok: false, error: 'readonly-unconfigured',
       hint: 'MISSING: BINANCE_PAY_API_KEY / BINANCE_PAY_SECRET_KEY' }, 503);
     const probe = await binanceSapiSilent(env, BINANCE_PAY_HISTORY, { limit: '5', startTime: String(Date.now() - 3600000) });
@@ -1127,7 +1127,7 @@ function payDebug(env, entry) {
     /* [v2.43] البوتات تنادي بلا ترويسة: نقبل السرّ من الجسم/الاستعلام/الترويسات + دور super من الجلسة */
     if (!voucherActorOk(request, env, b)) {
       payDebug(env, { path: p, status: 403, keys: Object.keys(b || {}) });
-      return json({ ok: false, error: 'forbidden', hint: 'مطلوب: ترويسة x-admin-secret (أو admin_secret في الجسم) أو tg_id لسوبر أدمن' }, 403);
+      return json({ ok: false, error: 'forbidden' }, 403);
     }
     const kind = pickStr(b.kind, b.type, b.mode).toLowerCase();
     if (kind === 'admin' || kind === 'direct') {

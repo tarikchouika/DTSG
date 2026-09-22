@@ -81,29 +81,55 @@
       let firstPos = null, lastPos = null;
 
       if (isPortrait) {
-        /* تدفق رأسي (طولي) في البورتريه */
+        /* تدفق رأسي (طولي) في البورتريه: قطاعات من 7 قطع ومنعطفات تمتد لقطعتين لمنع التكدس */
         let dir = 1; /* 1 = نزولاً لأسفل، -1 = صعوداً لأعلى */
         let colX = PAD + u;
         let headY = PAD + u;
+        let segCount = 0;
+        const maxSeg = 7; /* طول قطاع السلسلة يمتد لـ 7 قطع بأمر المالك */
+        const maxColH = Math.min(H - PAD, PAD + u + maxSeg * (2 * u));
+        let i = 0;
 
-        for (let i = 0; i < n; i++) {
+        while (i < n) {
           const node = chain[i];
           const isDbl = facings[i].dbl;
           const len = isDbl ? u : 2 * u;
 
           if (i > 0) {
-            const canFit = dir === 1 ? (headY + len + u <= H - PAD) : (headY - len - u >= PAD);
-            if (!canFit) {
-              /* منعطف 90° أفقي ينتقل للعمود التالي */
-              const tx = colX + 1.5 * u;
-              const ty = headY;
-              const rot = 90;
-              items.push({ node: node, kind: 'turn', x: tx, y: ty, rot: rot, u: u });
-              if (!firstPos) firstPos = { x: tx, y: ty };
-              lastPos = { x: tx, y: ty };
-              colX += 2.5 * u;
+            const canFit = dir === 1 ? (headY + len <= maxColH) : (headY - len >= PAD + u);
+            if (!canFit || segCount >= maxSeg) {
+              /* منعطف يمتد لأكثر من قطعة (قطعتين) لفتح مسافة فاصلة بين الأعمدة ومنع التكدس */
+              const t1_x = colX + u / 2;
+              const t1_y = dir === 1 ? (headY + u / 2) : (headY - u / 2);
+              let rot1 = 90;
+              if (!isDbl) {
+                const tp = facings[i].touchesPrev;
+                rot1 = (tp === 'a') ? -90 : 90;
+              }
+              items.push({ node: node, kind: 'turn', x: t1_x, y: t1_y, rot: rot1, u: u });
+              lastPos = { x: t1_x, y: t1_y };
+              i++;
+              if (i >= n) break;
+
+              /* القطعة الثانية في المنعطف لمد المسار الأفقي ومنع التصاق الأعمدة */
+              const node2 = chain[i];
+              const isDbl2 = facings[i].dbl;
+              const t2_x = colX + 2.5 * u;
+              const t2_y = t1_y;
+              let rot2 = 90;
+              if (!isDbl2) {
+                const tp2 = facings[i].touchesPrev;
+                rot2 = (tp2 === 'a') ? -90 : 90;
+              }
+              items.push({ node: node2, kind: 'turn', x: t2_x, y: t2_y, rot: rot2, u: u });
+              lastPos = { x: t2_x, y: t2_y };
+              i++;
+
+              /* العمود التالي يبدأ بمسافة فاصلة مريحة قدرها 2u عن العمود السابق */
+              colX += 3 * u;
               dir = -dir;
-              headY = dir === 1 ? (ty + u) : (ty - u);
+              headY = dir === 1 ? (t2_y + u / 2) : (t2_y - u / 2);
+              segCount = 0;
               continue;
             }
           }
@@ -123,34 +149,62 @@
           }
 
           items.push({ node: node, kind: isDbl ? 'dbl' : 'flat', x: cx, y: cy, rot: rot, u: u });
-          if (!firstPos) firstPos = { x: cx, y: dir === 1 ? headY : headY };
-          lastPos = { x: cx, y: dir === 1 ? headY + len : headY - len };
+          if (!firstPos) firstPos = { x: cx, y: cy };
+          lastPos = { x: cx, y: cy };
           headY = dir === 1 ? (headY + len) : (headY - len);
+          segCount++;
+          i++;
         }
       } else {
-        /* تدفق أفقي (عرضي) في اللاندسكيب */
+        /* تدفق أفقي (عرضي) في اللاندسكيب: قطاعات من 7 قطع ومنعطفات تمتد لقطعتين */
         let dir = 1; /* 1 = يميناً، -1 = يساراً */
         let rowY = PAD + u;
         let headX = PAD + u;
+        let segCount = 0;
+        const maxSeg = 7; /* طول قطاع السلسلة يمتد لـ 7 قطع */
+        const maxRowW = Math.min(W - PAD, PAD + u + maxSeg * (2 * u));
+        let i = 0;
 
-        for (let i = 0; i < n; i++) {
+        while (i < n) {
           const node = chain[i];
           const isDbl = facings[i].dbl;
           const len = isDbl ? u : 2 * u;
 
           if (i > 0) {
-            const canFit = dir === 1 ? (headX + len + u <= W - PAD) : (headX - len - u >= PAD);
-            if (!canFit) {
-              /* منعطف 90° رأسي ينتقل للصف التالي */
-              const tx = headX;
-              const ty = rowY + 1.5 * u;
-              const rot = 0;
-              items.push({ node: node, kind: 'turn', x: tx, y: ty, rot: rot, u: u });
-              if (!firstPos) firstPos = { x: tx, y: ty };
-              lastPos = { x: tx, y: ty };
-              rowY += 2.5 * u;
+            const canFit = dir === 1 ? (headX + len <= maxRowW) : (headX - len >= PAD + u);
+            if (!canFit || segCount >= maxSeg) {
+              /* منعطف رأسي يمتد لقطعتين لفتح مسافة فاصلة بين الصفوف */
+              const t1_x = dir === 1 ? (headX + u / 2) : (headX - u / 2);
+              const t1_y = rowY + u / 2;
+              let rot1 = 0;
+              if (!isDbl) {
+                const tp = facings[i].touchesPrev;
+                rot1 = (tp === 'a') ? 0 : 180;
+              }
+              items.push({ node: node, kind: 'turn', x: t1_x, y: t1_y, rot: rot1, u: u });
+              lastPos = { x: t1_x, y: t1_y };
+              i++;
+              if (i >= n) break;
+
+              /* القطعة الرأسية الثانية في المنعطف لمد المسار الرأسي */
+              const node2 = chain[i];
+              const isDbl2 = facings[i].dbl;
+              const t2_x = t1_x;
+              const t2_y = rowY + 2.5 * u;
+              let rot2 = 0;
+              if (!isDbl2) {
+                const tp2 = facings[i].touchesPrev;
+                rot2 = (tp2 === 'a') ? 0 : 180;
+              }
+              items.push({ node: node2, kind: 'turn', x: t2_x, y: t2_y, rot: rot2, u: u });
+              lastPos = { x: t2_x, y: t2_y };
+              i++;
+
+              /* الصف التالي يبدأ بمسافة فاصلة مريحة قدرها 2u عن الصف السابق */
+              rowY += 3 * u;
               dir = -dir;
-              headX = dir === 1 ? (tx + u) : (tx - u);
+              headX = dir === 1 ? (t2_x + u / 2) : (t2_x - u / 2);
+              segCount = 0;
               continue;
             }
           }
@@ -170,9 +224,11 @@
           }
 
           items.push({ node: node, kind: isDbl ? 'dbl' : 'flat', x: cx, y: cy, rot: rot, u: u });
-          if (!firstPos) firstPos = { x: dir === 1 ? headX : headX, y: cy };
-          lastPos = { x: dir === 1 ? headX + len : headX - len, y: cy };
+          if (!firstPos) firstPos = { x: cx, y: cy };
+          lastPos = { x: cx, y: cy };
           headX = dir === 1 ? (headX + len) : (headX - len);
+          segCount++;
+          i++;
         }
       }
 
@@ -190,7 +246,7 @@
     }
 
     let bestU = isPortrait ? 18 : 22;
-    for (let testU = (isPortrait ? 22 : 26); testU >= 10; testU -= 1) {
+    for (let testU = (isPortrait ? 22 : 26); testU >= 8; testU -= 1) {
       const sim = simulate(testU);
       if (sim.spanW <= W - 16 && sim.spanH <= H - 16) {
         bestU = testU;

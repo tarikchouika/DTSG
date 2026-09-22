@@ -636,7 +636,11 @@ function walletContext(userId) {
         txs = CTX.db.prepare('SELECT id, type, amount_usd, method, status, created_at FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 5').all(String(userId));
       } catch (e) {}
     }
-    out.push('آخر المعاملات:\n' + (txs.length ? txs.map(t => '· ' + esc(t.type) + ' ' + (t.amount_usd || 0) + ' USD · ' + esc(t.method || '-') + ' · ' + esc(t.status)).join('\n') : '—'));
+    out.push('آخر المعاملات:\n' + (txs.length ? txs.map(t => {
+      const typeStr = t.type === 'deposit' ? '⬇️ إيداع' : '⬆️ سحب';
+      const stStr = t.status === 'completed' ? 'مكتمل ✅' : t.status === 'pending' ? 'قيد المراجعة ⏳' : 'مرفوض ❌';
+      return typeStr + ' ' + (t.amount_usd != null ? t.amount_usd + ' USD' : '') + ' · ' + esc(t.method || '-') + ' · ' + stStr;
+    }).join('\n') : '—'));
     if (bal) out.push('سحوبات مكتملة: ' + bal + ' USD');
   } catch (e) { out.push('(لا سجل معاملات)'); }
   return out.join('\n');

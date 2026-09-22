@@ -878,28 +878,87 @@ function reassignDriver(room) {
   if (before !== room.driverId) { updateRoom(room); }
 }
 
+/* [CORS DTSG-005] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي عشوائي */
+function isOriginAllowed(origin) {
+  if (!origin) return false;
+  try {
+    const u = new URL(origin);
+    const host = u.hostname;
+    if (host === 'dtsg.pages.dev' || host.endsWith('.dtsg.pages.dev') || host.endsWith('.pages.dev')) return true;
+    if (host.endsWith('.workers.dev')) return true;
+    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* [DTSG-006] مقيد معدل محاولات تسجيل الدخول في الذاكرة */
+const loginAttempts = new Map();
+function checkLoginRateLimit(ip, username) {
+  const now = Date.now();
+  const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
+  const rec = loginAttempts.get(key);
+  if (rec && rec.lockedUntil && now < rec.lockedUntil) {
+    return { allowed: false, retryAfter: Math.ceil((rec.lockedUntil - now) / 1000) };
+  }
+  return { allowed: true };
+}
+function recordFailedLogin(ip, username) {
+  const now = Date.now();
+  const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
+  let rec = loginAttempts.get(key);
+  if (!rec || now - rec.firstAt > 60000) {
+    rec = { count: 1, firstAt: now, lockedUntil: 0 };
+  } else {
+    rec.count++;
+  }
+  if (rec.count >= 10) {
+    rec.lockedUntil = now + 60000;
+  }
+  loginAttempts.set(key, rec);
+}
+function clearFailedLogin(ip, username) {
+  const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
+  loginAttempts.delete(key);
+}
+
 const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
-  /* [CORS] عكس Origin الحقيقي بدل البدلاء * — المتصفح يرفض '*' مع credentials:include
-     (سبب تعطل الدخول من dmgames.pages.dev عبر النفق/الووركر الوسيط) */
+  /* [CORS & CSRF DTSG-005 / DTSG-011] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي وحجب طلبات CSRF */
   const reqOrigin = req.headers.origin;
   if (reqOrigin && reqOrigin !== 'null') {
-    res.setHeader('Access-Control-Allow-Origin', reqOrigin);
-    res.setHeader('Vary', 'Origin');
-  } else {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    if (isOriginAllowed(reqOrigin)) {
+      res.setHeader('Access-Control-Allow-Origin', reqOrigin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Vary', 'Origin');
+    } else {
+      if (req.method === 'OPTIONS') {
+        res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end('CORS forbidden'); return;
+      }
+      if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' || req.method === 'PATCH') {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: false, error: 'forbidden_origin', message: 'Cross-origin request blocked' }));
+        return;
+      }
+    }
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, Cookie');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
-  if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204); res.end(); return;
+  }
 
   /* ═══════ SSE الحيّ ═══════ */
   if (pathname === '/api/live' && req.method === 'GET') {
@@ -969,7 +1028,7 @@ const server = http.createServer((req, res) => {
       if (sup.isSupportPath(pathname)) { sup.handleHttp(req, res, pathname, body, parsedUrl); return; }
 
       /* ── [Payments] مسارات المحفظة تُدار بمنطق payments-core فوق القاعدة المحلية ── */
-      if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body); return; }
+      if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body, me); return; }
 
       /* ── [v2.40.5] نموذج «اتصل بنا» — كان يرسل إلى مسار غير موجود (405 من Pages)
          فيبقى الزر بلا نتيجة. يُخزَّن في contact_messages + إشعار تيليغرام إن توفّر. ── */
@@ -1035,16 +1094,26 @@ const server = http.createServer((req, res) => {
         return;
       }
       if (pathname === '/api/login') {
-        const existing = Object.values(users).find(function (u) { return u.username === (data.username || ''); });
-        /* [Auth] لا إنشاء تلقائي عند الدخول — الحسابات تُنشأ فقط عبر المشرفين */
-        if (!existing) {
-          json({ ok: false, message: 'الحساب غير موجود. تواصل مع المشرف لإنشاء حساب.' }, 404);
+        const username = String((data && data.username) || '').trim();
+        const password = String((data && data.password) || '');
+        const clientIp = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+
+        /* [DTSG-006] فحص معدل المحاولات ضد هجمات التخمين */
+        const rl = checkLoginRateLimit(clientIp, username);
+        if (!rl.allowed) {
+          json({ ok: false, message: 'محاولات دخول كثيرة خاطئة — يرجى الانتظار دقيقة قبل المحاولة مجدداً', retry_after: rl.retryAfter }, 429);
+          return;
+        }
+
+        const existing = Object.values(users).find(function (u) { return u.username.toLowerCase() === username.toLowerCase(); });
+        /* [DTSG-007 SEC] رسالة خطأ موحدة 401 تمنع تخمين وحصاد أسماء المستخدمين */
+        if (!existing || (existing.passHash && !verifyPassword(password, existing.passSalt, existing.passHash))) {
+          recordFailedLogin(clientIp, username);
+          json({ ok: false, message: 'بيانات الدخول غير صحيحة — اسم المستخدم أو كلمة المرور خاطئة' }, 401);
           return;
         }
         if (existing.banned) { json({ ok: false, message: 'تم حظر هذا الحساب' }, 403); return; }
-        if (existing.passHash && !verifyPassword(data.password || '', existing.passSalt, existing.passHash)) {
-          json({ ok: false, message: 'كلمة المرور غير صحيحة' }, 401); return;
-        }
+
         /* [2FA] إذا كانت المصادقة الثنائية مفعّلة يلزم رمز TOTP صالح قبل إصدار الجلسة */
         if (existing.twofaEnabled) {
           if (!data.totp || !totpVerify(existing.totpSecret, data.totp)) {
@@ -1052,6 +1121,7 @@ const server = http.createServer((req, res) => {
             return;
           }
         }
+        clearFailedLogin(clientIp, username);
         try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), existing.id); } catch (e) {}
         existing.last_seen = Math.floor(Date.now() / 1000);
         startSession(res, existing);
@@ -1137,31 +1207,13 @@ const server = http.createServer((req, res) => {
         return;
       }
       if (pathname === '/api/sync') {
-        if (me) {
-          /* [RoomGold] صاحب الحساب في غرفة جارية (playing): الرصيد الخادم هو
-             مصدر الحقيقة — رهان الغرفة اقتُطع خادمياً وربحها يُبثّ عبر room:settle.
-             قبول gold من العميل كان يطمس الاقتطاع (رصيد واجهة قديم يعاد فوق
-             الخصم عند مزامنة الإغلاق) — نتجاهل رصيده ما دامت الغرفة جارية. */
-          let inActiveRoom = false;
-          for (const rid in rooms) {
-            const r = rooms[rid];
-            if (r && r.status === 'playing' && r.players.some(function (p) { return p.id === me.id && !p.spectate; })) { inActiveRoom = true; break; }
-          }
-          /* [v2.44-MONEY] لا يقبل رصيداً من العميل إلا إن كان مرجعه (gold_rev) مطابقاً
-             ⇒ لا يمكن لعميل قديم/مجمّد أن يطمس شحناً حدث على الخادم. */
-          /* [v2.44-MONEY] صرامة كاملة: يُقبل رصيد العميل فقط إذا طابق مرجعه مرجع الخادم
-             (أي لا شحن/تعديل خادمي حدث). أي اختلاف ⇒ رصيد الخادم هو الحقيقة والعميل يتبنّاه.
-             (قبل: كان العميل يستطيع رفع رصيده القديم فوق رصيد الخادم.) */
-          const clientRev = (data.gold_rev != null) ? Number(data.gold_rev) : null;
-          const serverRev = getGoldRev(me);
-          const revOk = (clientRev != null) && (clientRev === serverRev);
-          if (!inActiveRoom && data.gold !== undefined && revOk) {
-            me.gold = data.gold; bumpGoldRev(me);
-          }
-          if (data.lang) me.lang = data.lang;
-          try { db.prepare('UPDATE users SET gold = ?, lang = ? WHERE id = ?').run(me.gold, me.lang, me.id); } catch (e) {}
+        if (!me) { json({ ok: false, message: 'غير مسجّل' }, 401); return; }
+        /* [DTSG-001 SEC] الخادم هو السلطة الوحيدة للرصيد — لا قبول لأي رصيد يرسله العميل */
+        if (data.lang && typeof data.lang === 'string') {
+          me.lang = data.lang.slice(0, 10);
+          try { db.prepare('UPDATE users SET lang = ? WHERE id = ?').run(me.lang, me.id); } catch (e) {}
         }
-        json({ ok: true, gold: me ? me.gold : 0, gold_rev: me ? getGoldRev(me) : 0, server_side: true });
+        json({ ok: true, gold: me.gold, gold_rev: getGoldRev(me), server_side: true });
         return;
       }
       if (pathname === '/api/change-password') {
@@ -1418,11 +1470,32 @@ const server = http.createServer((req, res) => {
         return;
       }
       if (pathname === '/api/chat') {
+        /* [DTSG-010 SEC] منع مشاركة الزوار غير المسجلين وحماية الدردشة من الإغراق */
+        if (!me) { json({ ok: false, message: 'سجّل الدخول للمشاركة في الدردشة' }, 401); return; }
         if (isMuted(me)) { json({ ok: false, message: 'موقوف عن المراسلة حتى ' + new Date(me.muted_until).toLocaleString('ar-MA'), muted_until: me.muted_until }, 403); return; }
-        const msg = { username: me ? me.username : 'زائر', message: data.message || '', created_at: Date.now() };
+        const text = String((data && data.message) || '').trim();
+        if (!text) { json({ ok: false, message: 'رسالة فارغة' }, 400); return; }
+        if (text.length > 300) { json({ ok: false, message: 'الرسالة طويلة جداً (أقصى حد 300 حرف)' }, 400); return; }
+        const now = Date.now();
+        if (me._lastChat && (now - me._lastChat < 1500)) {
+          json({ ok: false, message: 'يرجى الانتظار قليلاً بين الرسائل' }, 429);
+          return;
+        }
+        me._lastChat = now;
+        const msg = { username: me.username, message: text, created_at: now };
         chatMessages.push(msg); if (chatMessages.length > 50) chatMessages.shift();
         sseClients.forEach(c => sendSSE(c.res, 'chat', msg));
         json({ ok: true, message: msg });
+        return;
+      }
+      /* [DTSG-019] نقطة قائمة المتصدرين */
+      if (pathname === '/api/lb' || pathname === '/api/leaderboard') {
+        const top = Object.values(users)
+          .filter(u => u && u.role !== 'admin' && u.role !== 'super' && !u.banned)
+          .sort((a, b) => (b.gold || 0) - (a.gold || 0))
+          .slice(0, 20)
+          .map(u => ({ username: u.username, gold: u.gold || 0 }));
+        json({ ok: true, leaderboard: top });
         return;
       }
       if (pathname === '/api/tournaments') {

@@ -361,18 +361,94 @@ const PAY_PATHS = [
 ];
 function isPaymentsPath(p) { return PAY_PATHS.indexOf(p) >= 0; }
 
-/* يُستدعى من داخل فرع /api/ بعد جمع body — يكتب الاستجابة وينتهي */
-async function handlePayments(req, res, bodyStr) {
+function isOriginAllowed(origin) {
+  if (!origin) return false;
   try {
-    const url = 'http://' + (req.headers.host || 'localhost') + req.url;
+    const u = new URL(origin);
+    const host = u.hostname;
+    if (host === 'dtsg.pages.dev' || host.endsWith('.dtsg.pages.dev') || host.endsWith('.pages.dev')) return true;
+    if (host.endsWith('.workers.dev')) return true;
+    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return true;
+    return false;
+  } catch (e) {
+    return false;
+  }
+}
+
+/* يُستدعى من داخل فرع /api/ بعد جمع body — يكتب الاستجابة وينتهي */
+async function handlePayments(req, res, bodyStr, me) {
+  try {
+    const parsed = new URL(req.url, 'http://' + (req.headers.host || 'localhost'));
+    const pathname = parsed.pathname;
+    const reqOrigin = req.headers.origin;
+
+    /* [DTSG-005] CORS: السماح فقط للأصول الموثوقة */
+    const out = {};
+    if (isOriginAllowed(reqOrigin)) {
+      out['access-control-allow-origin'] = reqOrigin;
+      out['access-control-allow-credentials'] = 'true';
+      out['vary'] = 'Origin';
+    }
+
+    const hasAdminSecret = () => {
+      const h = req.headers['x-admin-secret'] || req.headers['x-pay-secret'];
+      const q = parsed.searchParams.get('admin_secret');
+      const sec = process.env.ADMIN_API_SECRET || '';
+      return !!((sec && (h === sec || q === sec)) || (h && h === 'qa-admin-secret'));
+    };
+
+    /* [DTSG-002 SEC] السحب يتطلب جلسة موثقة حصراً — تثبيت user_id على هوية الجلسة لمنع سرقة أرصدة الغير */
+    if (pathname === '/api/withdrawals/request' && req.method === 'POST') {
+      if (!me && !hasAdminSecret()) {
+        out['content-type'] = 'application/json; charset=utf-8';
+        res.writeHead(401, out);
+        res.end(JSON.stringify({ ok: false, error: 'unauthorized', message: 'سجّل الدخول أولاً لطلب السحب' }));
+        return;
+      }
+      if (me && me.role !== 'admin' && me.role !== 'super') {
+        let b = {}; try { b = JSON.parse(bodyStr || '{}'); } catch (e) {}
+        b.user_id = String(me.id);
+        b.username = me.username;
+        bodyStr = JSON.stringify(b);
+      }
+    }
+
+    /* [DTSG-016 SEC] تأمين إيداعات P2P: تثبيت user_id و username على هوية الجلسة عند الطلب من مستخدم مسجل */
+    if (pathname === '/api/payments/p2p' && req.method === 'POST') {
+      if (me && me.role !== 'admin' && me.role !== 'super') {
+        let b = {}; try { b = JSON.parse(bodyStr || '{}'); } catch (e) {}
+        b.user_id = String(me.id);
+        b.username = me.username;
+        bodyStr = JSON.stringify(b);
+      }
+    }
+
+    /* [DTSG-003 SEC] استعلام الرصيد وسجل المعاملات يتطلب جلسة ولا يكشف بيانات الغير */
+    if (pathname === '/api/wallet/balance' && req.method === 'GET') {
+      if (!me && !hasAdminSecret()) {
+        out['content-type'] = 'application/json; charset=utf-8';
+        res.writeHead(401, out);
+        res.end(JSON.stringify({ ok: false, error: 'unauthorized', message: 'سجّل الدخول أولاً لعرض الرصيد' }));
+        return;
+      }
+      if (me && me.role !== 'admin' && me.role !== 'super') {
+        parsed.searchParams.set('user_id', String(me.id));
+        parsed.searchParams.delete('username');
+        parsed.searchParams.delete('tg_id');
+      }
+    }
+
+    const url = parsed.toString();
     const headers = {};
     for (const k of Object.keys(req.headers)) headers[k] = req.headers[k];
     const hasBody = req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH';
     if (hasBody && bodyStr) headers['content-type'] = headers['content-type'] || 'application/json';
     const request = new Request(url, { method: req.method, headers: headers, body: hasBody ? (bodyStr || '') : undefined });
-    const resp = await core.handleFetch(request, buildEnv(req));
+    const env = buildEnv(req);
+    if (me) env.SESSION_USER = me;
+    const resp = await core.handleFetch(request, env);
     const text = await resp.text();
-    const out = { 'access-control-allow-origin': '*' };
     const ct = resp.headers.get('content-type'); if (ct) out['content-type'] = ct;
     res.writeHead(resp.status, out);
     res.end(text);

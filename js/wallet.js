@@ -60,6 +60,7 @@ window.PWAL = window.PWAL || {};
   async function api(path, body) {
     const r = await fetch(base() + path, {
       method: body ? 'POST' : 'GET',
+      credentials: 'include',
       headers: body ? { 'content-type': 'application/json' } : {},
       body: body ? JSON.stringify(body) : undefined
     });
@@ -218,7 +219,8 @@ window.PWAL = window.PWAL || {};
     if (id === 'cash_plus' || id === 'cih' || id === 'orange_money' || id === 'binance') {
       var acc = (m && m.account) || {};
       var mainNum = acc.number || acc.address || '';
-      acct.innerHTML = qrImg + '<div class="wl-acct">' + (typeof T === 'function' ? T('wl.transferTo') : 'حوِّل المبلغ إلى:') + '<br><b>' + esc(acc.name || 'TARIK CHOUIKA') + '</b>' +
+      var accName = acc.name ? '<b>' + esc(acc.name) + '</b>' : '';
+      acct.innerHTML = qrImg + '<div class="wl-acct">' + (typeof T === 'function' ? T('wl.transferTo') : 'حوِّل المبلغ إلى:') + (accName ? '<br>' + accName : '') +
         (mainNum ? ' — <b>' + esc(mainNum) + '</b>' : '') +
         (acc.rib ? '<br>RIB: <b>' + esc(acc.rib) + '</b>' : '') +
         (acc.iban ? '<br>IBAN: <b>' + esc(acc.iban) + '</b>' : '') +

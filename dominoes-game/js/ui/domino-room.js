@@ -80,12 +80,14 @@
         break;
       }
     }
-    /* [RS-GameOpts] الهدف وقاعدة السحب من إعدادات الغرفة (اختيار المالك) */
+    /* [RS-GameOpts] الهدف وقاعدة السحب وعدد اللاعبين من إعدادات الغرفة (اختيار المالك) */
     const cfg = (typeof root.DO_ROOM_CFG === 'object' && root.DO_ROOM_CFG) || {};
     const target = Math.max(50, Math.min(200, parseInt(cfg.target, 10) || 100));
     const drawRule = (cfg.draw === 0 || cfg.draw === '0' || cfg.draw === false) ? false : true;
-    a.room = { on: true, order: order, mySeat: mySeat, spec: !!spec, oppBot: !!oppBot, target: target, draw: drawRule, seed: null, ended: false };
+    const playersCount = Math.max(2, Math.min(4, parseInt(cfg.maxp || (rm && rm.max_players), 10) || 2));
+    a.room = { on: true, order: order, mySeat: mySeat, spec: !!spec, oppBot: !!oppBot, target: target, draw: drawRule, playersCount: playersCount, seed: null, ended: false };
     a.config.mode = 'room';
+    a.config.playersCount = playersCount;
     a.betPlaced = 0;            /* لا محفظة في الغرفة — الاقتطاع تم في /api/rooms/start */
     a.finished = false;
     a.clearTimers();
@@ -93,7 +95,7 @@
     if (!spec && mySeat === 0) {
       const seed = ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0) || 1;
       a.room.seed = seed;
-      emit('init', { seed: seed, target: target, draw: drawRule });
+      emit('init', { seed: seed, target: target, draw: drawRule, playersCount: playersCount });
     }
     enterPlay(a);
   }
@@ -126,18 +128,22 @@
     }, 2500);
   }
 
-  /* بناء المباراة من إشارة init (بذرة + هدف + قاعدة سحب) — متطابق عند الجميع */
+  /* بناء المباراة من إشارة init (بذرة + هدف + قاعدة سحب + عدد اللاعبين) — متطابق عند الجميع */
   function buildFromInit(a, d) {
     const rc = a.room;
     rc.seed = (Number(d.seed) >>> 0) || 1;
     rc.target = Math.max(50, Math.min(200, parseInt(d.target, 10) || rc.target || 100));
     rc.draw = (d.draw === 0 || d.draw === '0' || d.draw === false) ? false : true;
+    const playersCount = Math.max(2, Math.min(4, parseInt(d.playersCount || d.maxp || (rc && rc.playersCount), 10) || 2));
+    if (rc) rc.playersCount = playersCount;
     a.config.mode = 'room';
+    a.config.playersCount = playersCount;
     a.finished = false;
     a.clearTimers();
     const cfg = root.DominoCore.normalizeConfig({
       target: rc.target,
-      drawUntilPlayable: rc.draw
+      drawUntilPlayable: rc.draw,
+      playersCount: playersCount
     });
     const self = a;
     a.game = new root.DominoGameNS.DominoGame({

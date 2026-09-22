@@ -15,6 +15,16 @@
 // ── Shared state ──
 let GB = 10;
 
+/* [DTSG-009 SEC] عشوائية آمنة تشفيرياً (CSPRNG) تمنع التلاعب عبر Math.random في المتصفح */
+function _rng() {
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return arr[0] / 4294967296;
+  }
+  return Math.random();
+}
+
 // ── Shared functions ──
 function betRow() {
   /* [BetUI] حلقتان دائريتان − / + وخانة رقمية للإدخال اليدوي — بلا حاوية مستطيلة */
@@ -212,7 +222,7 @@ function spinS() {
     if (!el) continue;
     el.classList.remove('win', 'land');
     el.classList.add('spin');
-    const s = SL_SYMS[Math.floor(Math.random() * SL_SYMS.length)];
+    const s = SL_SYMS[Math.floor(_rng() * SL_SYMS.length)];
     /* توقفات متدرجة عموداً بعد عمود مع تباطؤ أطول — صوت كلانك لكل توقف */
     setTimeout(function () {
       el.classList.remove('spin');
@@ -325,7 +335,7 @@ function mStart() {
   if (!take()) return;
   mState = { grid: [], opened: 0, mines: mState.mines, playing: true, mult: 1 };
   const mines = new Set();
-  while (mines.size < mState.mines) mines.add(Math.floor(Math.random() * 25));
+  while (mines.size < mState.mines) mines.add(Math.floor(_rng() * 25));
   for (let i = 0; i < 25; i++) mState.grid[i] = { mine: mines.has(i), open: false };
   document.querySelectorAll('.mCell').forEach(function (c) {
     c.className = 'mCell';
@@ -535,7 +545,7 @@ function pDrop() {
   if (!take()) return;
   pRunning = true;
   const path = [];
-  for (let r = 0; r < pRows; r++) path.push(Math.random() < 0.5 ? 1 : 0);
+  for (let r = 0; r < pRows; r++) path.push(_rng() < 0.5 ? 1 : 0);
   pBalls.push({ path, t: 0, lastSeg: 0 });
   SND.spin();
   gres('', 0);
@@ -678,7 +688,7 @@ function dRoll() {
   diceEls.forEach(function (el) { if (el) el.classList.remove('won'); });
   if (wrap) wrap.classList.add('rolling');
   /* نتيجة حتمية من استدعاء واحد — النردات بصرية مشتقة من الرقم */
-  const roll = Math.floor(Math.random() * 10000) / 100;
+  const roll = Math.floor(_rng() * 10000) / 100;
   const win = dUnder ? roll < dTarget : roll > dTarget;
   const P = dUnder ? dTarget : 100 - dTarget;
   const mult = 0.98 * 100 / P;
@@ -760,8 +770,8 @@ function cFlip() {
   if (!take()) { cSetBusy(false); return; }
   SND.spin();
   const coin = document.querySelector('.coinInner');
-  /* استدعاء واحد حتمي لـ Math.random — النتيجة محسوبة قبل الدوران */
-  const win = Math.random() < 0.5;
+  /* استدعاء واحد حتمي لـ _rng — النتيجة محسوبة قبل الدوران */
+  const win = _rng() < 0.5;
   const resultSide = win ? cSide : (cSide === 'heads' ? 'tails' : 'heads');
   cLast = { win: win, side: resultSide };
   /* heads = 2160deg (6 دورات كاملة)، tails = 1980deg (5.5 دورات → نصف دورة زائدة تظهر الوجه الخلفي).
@@ -799,8 +809,8 @@ const hRanks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
 function hDrawCard() {
   /* استدعاءان ثابتان: الرتبة ثم الشكل — حتمي للاختبار */
   return {
-    r: hRanks[Math.floor(Math.random() * 13)],
-    s: ['♠','♥','♦','♣'][Math.floor(Math.random() * 4)]
+    r: hRanks[Math.floor(_rng() * 13)],
+    s: ['♠','♥','♦','♣'][Math.floor(_rng() * 4)]
   };
 }
 function hRenderCard(el, card, animate) {
@@ -1019,8 +1029,8 @@ function wSpin() {
   SND.spin();
   gres('', 0);
   const ctx = cv.getContext('2d');
-  /* اختيار موزون — استدعاء Math.random واحد فقط */
-  const r = Math.random();
+  /* اختيار موزون — استدعاء _rng واحد فقط */
+  const r = _rng();
   let idx = wSegments.length - 1;
   let acc = 0;
   for (let i = 0; i < wWeights.length; i++) {
@@ -1236,8 +1246,8 @@ function wDraw() {
   const face = document.getElementById('wgBallFace');
   if (ball) { ball.classList.remove('win', 'lose'); ball.classList.add('shuffle'); }
   SND.spin();
-  /* كشف حتمي باستدعاء Math.random واحد: فهرس كرة من 6 موزونة */
-  const c = wgPool[Math.floor(Math.random() * 6)];
+  /* كشف حتمي باستدعاء _rng واحد: فهرس كرة من 6 موزونة */
+  const c = wgPool[Math.floor(_rng() * 6)];
   const col = wgColors.find(x => x.key === c);
   const win = c === wgPickColor;
   const w = Math.floor(GB * col.mult);
@@ -1356,8 +1366,8 @@ function rpsPlay(p) {
   if (oppFace) oppFace.textContent = '❔';
   if (resEl) resEl.textContent = '';
   SND.card();
-  /* كشف حتمي باستدعاء Math.random واحد — حركة الحاسوب */
-  const c = RPS_MOVES[Math.floor(Math.random() * 3)];
+  /* كشف حتمي باستدعاء _rng واحد — حركة الحاسوب */
+  const c = RPS_MOVES[Math.floor(_rng() * 3)];
   setTimeout(function () {
     if (oppCard) oppCard.classList.remove('shaking');
     if (oppFace) oppFace.textContent = c;
@@ -1605,8 +1615,8 @@ function penShoot(d) {
   if (f.role) f.role.textContent = '🧤 ' + T('pn.saving');
   if (f.res) f.res.textContent = '';
   penMoveBall(d);
-  /* كشف حتمي باستدعاء Math.random واحد — جهة الحارس من 9 جهات (P(تصدي)=1/9) */
-  const gk = PN_DIRS[Math.floor(Math.random() * 9)];
+  /* كشف حتمي باستدعاء _rng واحد — جهة الحارس من 9 جهات (P(تصدي)=1/9) */
+  const gk = PN_DIRS[Math.floor(_rng() * 9)];
   setTimeout(function () {
     penMoveKeeper(gk);
     const win = gk !== d;
@@ -1766,7 +1776,7 @@ function l7Guess(g) {
   if (!take()) return;
   l7SetBusy(true);
   SND.spin();
-  const ball = Math.floor(Math.random() * 9) + 1;
+  const ball = Math.floor(_rng() * 9) + 1;
   const el = document.getElementById('l7Ball');
   const res = document.getElementById('l7Result');
   if (el) {
@@ -1856,9 +1866,9 @@ function sbRoll() {
   let ticks = 0;
   const timer = setInterval(function () {
     ticks++;
-    rolls[0] = Math.floor(Math.random() * 6) + 1;
-    rolls[1] = Math.floor(Math.random() * 6) + 1;
-    rolls[2] = Math.floor(Math.random() * 6) + 1;
+    rolls[0] = Math.floor(_rng() * 6) + 1;
+    rolls[1] = Math.floor(_rng() * 6) + 1;
+    rolls[2] = Math.floor(_rng() * 6) + 1;
     diceEls.forEach(function (el, i) { if (el) el.querySelector('span').textContent = rolls[i]; });
     if (ticks >= 10) {
       clearInterval(timer);
@@ -1958,11 +1968,11 @@ function rlSpin() {
   const ballEl = document.getElementById('rlBall');
   const wrapEl = document.getElementById('rlWrap');
   if (wrapEl) wrapEl.classList.add('spinning');   /* تُظهر الكرة (opacity) */
-  if (!wheelEl) { finishRoulette(Math.floor(Math.random() * rlNumbers.length)); return; }
+  if (!wheelEl) { finishRoulette(Math.floor(_rng() * rlNumbers.length)); return; }
   const seg = (Math.PI * 2) / rlNumbers.length;
-  const stopAt = Math.floor(Math.random() * rlNumbers.length);
+  const stopAt = Math.floor(_rng() * rlNumbers.length);
   /* المؤشر أعلى العجلة (-π/2): مركز الجيب الفائز يصطف تحته تماماً عند التوقف */
-  const wheelTarget = (4 + Math.random() * 2) * Math.PI * 2 - Math.PI / 2 - (stopAt + 0.5) * seg;
+  const wheelTarget = (4 + _rng() * 2) * Math.PI * 2 - Math.PI / 2 - (stopAt + 0.5) * seg;
   /* الكرة: تدور عكس اتجاه العجلة بسرعة أولية أعلى ثم تتباطأ أسرع وتسقط للجيب */
   const ballDir = -1; /* عكس عقارب الساعة بينما العجلة مع العقارب */
   const ballTotal = ballDir * (6 + Math.random() * 2) * Math.PI * 2 + (-Math.PI / 2 - (stopAt + 0.5) * seg - wheelTarget);
@@ -2223,8 +2233,8 @@ function dtDeal() {
   gres('', 0);
   const ranks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
   const suits = ['♠','♥','♦','♣'];
-  const d = { r: ranks[Math.floor(Math.random()*13)], s: suits[Math.floor(Math.random()*4)] };
-  const t = { r: ranks[Math.floor(Math.random()*13)], s: suits[Math.floor(Math.random()*4)] };
+  const d = { r: ranks[Math.floor(_rng()*13)], s: suits[Math.floor(_rng()*4)] };
+  const t = { r: ranks[Math.floor(_rng()*13)], s: suits[Math.floor(_rng()*4)] };
   const rv = ranks.indexOf(d.r), tv = ranks.indexOf(t.r);
   dtRenderCard('dtD', d);
   dtRenderCard('dtT', t);

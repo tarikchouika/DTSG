@@ -419,14 +419,14 @@
   position: absolute !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
   z-index: 7 !important;
   background: none !important; border: 0 !important; box-shadow: none !important;
-  padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px)) !important;
-  flex-direction: column !important; align-items: center !important; gap: 5px !important;
+  padding: 0 4px 2px !important;
+  flex-direction: column !important; align-items: center !important; gap: 0 !important;
   pointer-events: none;   /* لا يحجب النقر عن الجوخ… */
 }
 #dmStage .dm-handwrap > * { pointer-events: auto; }   /* …إلا القطع والأدوات */
 #dmStage .dm-hand {
   background: none !important; border: 0 !important; box-shadow: none !important;
-  padding: 0 !important; overflow: visible !important;
+  padding: 0 !important; margin: 0 !important; overflow: visible !important;
 }
 #dmStage .dm-hand.myturn { box-shadow: none !important; }
 
@@ -582,12 +582,12 @@
 }
 @media (orientation: portrait) {
   #dmStage .dm-chain {
-    top: 70px !important; bottom: 85px !important; left: 48px !important; right: 48px !important;
+    top: 72px !important; bottom: 170px !important; left: 36px !important; right: 36px !important;
   }
 }
 @media (orientation: landscape) {
   #dmStage .dm-chain {
-    top: 55px !important; bottom: 85px !important; left: 75px !important; right: 75px !important;
+    top: 48px !important; bottom: 76px !important; left: 55px !important; right: 55px !important;
   }
 }
 
@@ -749,26 +749,88 @@
 #dmStage .dm-boneyard {
   position: absolute !important;
   z-index: 10 !important;
-  top: 64px !important;
+  top: 186px !important;
   left: 10px !important;
   bottom: auto !important;
   right: auto !important;
+  padding: 5px 8px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 2px !important;
   background: linear-gradient(145deg, rgba(20, 30, 24, 0.94), rgba(10, 16, 12, 0.96)) !important;
   border: 1.5px solid rgba(200, 154, 78, 0.55) !important;
   border-radius: 10px !important;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
   cursor: pointer !important;
 }
-#dmStage .dm-by-label { display: block !important; font-size: 10px !important; color: #fde68a !important; }
+#dmStage .dm-by-stack {
+  position: relative !important;
+  width: 20px !important;
+  height: 28px !important;
+}
+#dmStage .dm-by-count {
+  font-size: 12px !important;
+  font-weight: 900 !important;
+  color: var(--dm-goldtext) !important;
+}
+#dmStage .dm-by-label {
+  display: block !important;
+  font-size: 9px !important;
+  font-weight: 800 !important;
+  color: #fde68a !important;
+}
+
+/* زر التمرير الذهبي المستقل المشع — أسفل اليسار بعيداً تماماً عن الأفاتارات واليد */
+#dmStage #dmPassBtn {
+  position: absolute !important;
+  left: 12px !important;
+  bottom: 12px !important;
+  z-index: 30 !important;
+  pointer-events: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+  padding: 7px 15px !important;
+  font-size: 13px !important;
+  font-weight: 900 !important;
+  color: #241703 !important;
+  background: linear-gradient(135deg, #fce08a 0%, #e5b94c 50%, #b88a2a 100%) !important;
+  border: 1.5px solid rgba(255, 240, 180, 0.9) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 0 16px rgba(229, 185, 76, 0.8), 0 3px 8px rgba(0, 0, 0, 0.5) !important;
+  cursor: pointer !important;
+  animation: dmPassGlow 1.4s infinite !important;
+}
+#dmStage #dmPassBtn[hidden] {
+  display: none !important;
+}
+@keyframes dmPassGlow {
+  0%, 100% { box-shadow: 0 0 14px rgba(229, 185, 76, 0.7), 0 3px 8px rgba(0, 0, 0, 0.5); transform: scale(1); }
+  50% { box-shadow: 0 0 24px rgba(255, 220, 80, 0.95), 0 4px 12px rgba(0, 0, 0, 0.6); transform: scale(1.05); }
+}
+
+/* زر الخروج الذهبي العائم — زاوية 90° علوية يمنى بدقة */
+body.app-fs-on .game-fs-exit {
+  top: 10px !important;
+  right: 10px !important;
+  z-index: 5100 !important;
+}
 
 /* ── 5) توزيع اللاعبين على منتصفات هوامش الشاشة (أمر المالك) ── */
 /* وضع البورتريه (العمودي) */
 @media (orientation: portrait) {
-  #dmStage .dm-boneyard { top: 64px !important; left: 10px !important; bottom: auto !important; right: auto !important; }
+  #dmStage .dm-chain {
+    top: 72px !important; bottom: 170px !important; left: 36px !important; right: 36px !important;
+  }
+  #dmStage .dm-boneyard {
+    top: 186px !important; left: 10px !important; bottom: auto !important; right: auto !important;
+  }
 
-  /* اللاعب الرئيسي: في الوسط فوق أوراق يده مباشرة */
+  /* اللاعب الرئيسي: في الوسط فوق أوراق يده مباشرة بارتفاع متناسق (+25px) */
   #dmStage #dmSeatMe {
-    bottom: 96px !important;
+    bottom: 109px !important;
     left: 50% !important;
     right: auto !important;
     top: auto !important;
@@ -776,9 +838,16 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
-    gap: 3px !important;
+    gap: 2px !important;
   }
-  #dmStage .dm-handwrap { bottom: 4px !important; left: 0 !important; right: 0 !important; width: 100% !important; justify-content: center !important; }
+  #dmStage .dm-handwrap {
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    padding: 0 4px 2px !important;
+    justify-content: center !important;
+  }
 
   /* الخصم 1 (اليسار): قطعه بمحاذاة الضلع الأيسر للشاشة والأيقونة في يمين قطعه متجهة نحو الطاولة */
   #dmStage #dmSeatOpp.seat-left {
@@ -823,63 +892,102 @@
   #dmStage #dmSeat3 .dm-opptiles { grid-column: 2 !important; grid-row: 1 / span 3 !important; margin: 0 !important; }
 }
 
-/* وضع اللاندسكيب (الأفقي) */
+/* وضع اللاندسكيب (الأفقي): إبعاد الشارات والأوراق إلى الحواف لتفريغ طاولة اللعب */
 @media (orientation: landscape) {
-  #dmStage .dm-boneyard { top: 60px !important; left: 14px !important; bottom: auto !important; right: auto !important; }
+  #dmStage .dm-chain {
+    top: 48px !important; bottom: 76px !important; left: 55px !important; right: 55px !important;
+  }
+  #dmStage .dm-boneyard {
+    top: 56px !important; left: 10px !important; bottom: auto !important; right: auto !important;
+  }
 
-  /* اللاعب الرئيسي: في الوسط فوق أوراق يده مباشرة */
+  /* اللاعب الرئيسي: الأفاتار في الزاوية السفلية اليمنى بجوار أوراق اليد */
   #dmStage #dmSeatMe {
-    bottom: 88px !important;
-    left: 50% !important;
-    right: auto !important;
+    bottom: 4px !important;
+    right: 20px !important;
+    left: auto !important;
     top: auto !important;
-    transform: translateX(-50%) !important;
+    transform: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+  #dmStage .dm-handwrap {
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    padding: 0 84px 2px 14px !important;
+    justify-content: center !important;
+  }
+
+  /* الخصم الأيمن (الخصم 3): بمحاذاة الضلع الأيمن والأفاتار تحت قطعه */
+  #dmStage #dmSeat3 {
+    right: 6px !important;
+    top: 50% !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: center !important;
     gap: 3px !important;
   }
-  #dmStage .dm-handwrap { bottom: 4px !important; left: 0 !important; right: 0 !important; width: 100% !important; justify-content: center !important; }
+  #dmStage #dmSeat3 .dm-opptiles { order: 1 !important; margin: 0 0 3px 0 !important; }
+  #dmStage #dmSeat3 .dm-avatar { order: 2 !important; }
+  #dmStage #dmSeat3 .dm-seatmeta { order: 3 !important; }
+  #dmStage #dmSeat3 .dm-tilebadge { order: 4 !important; }
 
-  /* الخصم 1 (اليسار): قطعه بمحاذاة الضلع الأيسر للشاشة والأيقونة في يمين قطعه متجهة نحو الطاولة */
+  /* الخصم الأيسر (الخصم 1): بمحاذاة الضلع الأيسر والأفاتار تحت قطعه */
   #dmStage #dmSeatOpp.seat-left {
-    left: 6px !important; top: 48% !important; transform: translateY(-50%) !important;
-    display: grid !important; grid-template-columns: auto auto !important; grid-template-rows: auto auto !important;
-    align-items: center !important; justify-items: center !important; direction: ltr !important; gap: 3px 8px !important;
+    left: 6px !important;
+    top: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateY(-50%) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 3px !important;
   }
-  #dmStage #dmSeatOpp.seat-left .dm-opptiles { grid-column: 1 !important; grid-row: 1 / span 3 !important; margin: 0 !important; }
-  #dmStage #dmSeatOpp.seat-left .dm-avatar { grid-column: 2 !important; grid-row: 1 !important; }
-  #dmStage #dmSeatOpp.seat-left .dm-seatmeta { grid-column: 2 !important; grid-row: 2 !important; }
-  #dmStage #dmSeatOpp.seat-left .dm-tilebadge { grid-column: 2 !important; grid-row: 3 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-opptiles { order: 1 !important; margin: 0 0 3px 0 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-avatar { order: 2 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-seatmeta { order: 3 !important; }
+  #dmStage #dmSeatOpp.seat-left .dm-tilebadge { order: 4 !important; }
 
-  /* في وضع لاعبَين: الخصم في منتصف الأعلى والقطع فوق الأفاتار */
+  /* الخصم العلوي (الخصم 2 أو لاعبين): بمحاذاة الضلع العلوي والأفاتار على يمين القطع */
+  #dmStage #dmSeat2,
   #dmStage #dmSeatOpp.seat-2p-top {
-    top: 8px !important; left: 50% !important; transform: translateX(-50%) !important;
-    display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important;
+    top: 6px !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translateX(-50%) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    direction: ltr !important;
+    gap: 8px !important;
   }
-  #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles { order: 1 !important; flex-direction: row !important; margin: 0 0 2px 0 !important; }
-  #dmStage #dmSeatOpp.seat-2p-top .dm-avatar { order: 2 !important; }
-  #dmStage #dmSeatOpp.seat-2p-top .dm-seatmeta { order: 3 !important; }
-  #dmStage #dmSeatOpp.seat-2p-top .dm-tilebadge { order: 4 !important; }
-
-  /* الخصم 2: منتصف الضلع العلوي — الأفاتار تحت قطعه */
-  #dmStage #dmSeat2 {
-    top: 8px !important; left: 50% !important; transform: translateX(-50%) !important;
-    display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important;
+  #dmStage #dmSeat2 .dm-opprow,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles {
+    order: 1 !important;
+    margin: 0 !important;
+    flex-direction: row !important;
+    position: static !important;
+    transform: none !important;
   }
-  #dmStage #dmSeat2 .dm-opprow { order: 1 !important; margin: 0 0 2px 0 !important; position: static !important; transform: none !important; }
-  #dmStage #dmSeat2 .dm-avatar { order: 2 !important; }
-  #dmStage #dmSeat2 .dm-seatmeta { order: 3 !important; }
-  #dmStage #dmSeat2 .dm-tilebadge { order: 4 !important; }
-
-  /* الخصم 3 (اليمين): منتصف الضلع الأيمن — الأفاتار يسار قطعه وقطعه بمحاذاة الضلع الأيمن للشاشة */
-  #dmStage #dmSeat3 {
-    right: 6px !important; top: 48% !important; transform: translateY(-50%) !important;
-    display: grid !important; grid-template-columns: auto auto !important; grid-template-rows: auto auto !important;
-    align-items: center !important; justify-items: center !important; direction: ltr !important; gap: 3px 8px !important;
+  #dmStage #dmSeat2 .dm-avatar,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-avatar {
+    order: 2 !important;
   }
-  #dmStage #dmSeat3 .dm-avatar { grid-column: 1 !important; grid-row: 1 !important; }
-  #dmStage #dmSeat3 .dm-seatmeta { grid-column: 1 !important; grid-row: 2 !important; }
-  #dmStage #dmSeat3 .dm-tilebadge { grid-column: 1 !important; grid-row: 3 !important; }
-  #dmStage #dmSeat3 .dm-opptiles { grid-column: 2 !important; grid-row: 1 / span 3 !important; margin: 0 !important; }
+  #dmStage #dmSeat2 .dm-seatmeta,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-seatmeta {
+    order: 3 !important;
+  }
+  #dmStage #dmSeat2 .dm-tilebadge,
+  #dmStage #dmSeatOpp.seat-2p-top .dm-tilebadge {
+    order: 4 !important;
+  }
 }

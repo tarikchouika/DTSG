@@ -91,7 +91,7 @@
     '</form>' +
     '</div>' +
     '<div class="bc-body bc-pane-pay" id="bcPaneBots" role="tabpanel" hidden>' +
-    '<a class="bc-card" href="' + SUPPORT_BOT + '" target="_blank" rel="noopener">' +
+    '<a class="bc-card" data-bcsupport="1" href="' + SUPPORT_BOT + '" target="_blank" rel="noopener">' +
     '<span class="bc-cic"><i class="fa-brands fa-telegram" aria-hidden="true"></i></span>' +
     '<span><b>' + esc(L('bc.cardSupport', 'بوت خدمة العملاء')) + '</b><small>' + esc(L('bc.cardSupportSub', 'تذاكر وردود الفريق — @dtsgsupports_bot')) + '</small></span>' +
     '<i class="fa-solid fa-chevron-left bc-go" aria-hidden="true"></i></a>' +
@@ -225,10 +225,49 @@
     }).catch(function () { STATE.busy = false; });
   }
 
+  function switchTab(t) {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-bctab]'), function (x) {
+      var on = x.getAttribute('data-bctab') === t;
+      x.classList.toggle('active', on);
+      x.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    var cp = el('bcPaneChat');
+    var bp = el('bcPaneBots');
+    if (cp) cp.hidden = (t !== 'chat');
+    if (bp) bp.hidden = (t !== 'bots');
+  }
+
+  function openUserWallet() {
+    close();
+    try {
+      if (typeof window.openWallet === 'function') { window.openWallet(); return; }
+      if (typeof openWallet === 'function') { openWallet(); return; }
+    } catch (e) { }
+    try {
+      var b = document.getElementById('walletBtn');
+      if (b) { b.click(); return; }
+    } catch (e) { }
+    try { if (typeof nav === 'function') { nav('home', null); } } catch (e) { }
+    location.hash = '#wallet';
+  }
+
   function send(text) {
     text = String(text || '').trim();
     if (!text) return;
     if (STATE.logged === false) { refresh(); return; }
+    var low = text.toLowerCase();
+    if (low === '/account' || low === '/last' || low === '/tx' || low === '/معاملات' || low === '/رصيد' || low === '/status') {
+      quick('last');
+      return;
+    }
+    if (low === '/deposit' || low === '/شحن' || low === '/wallet' || low === '/محفظة') {
+      quick('deposit');
+      return;
+    }
+    if (low === '/link' || low === '/ربط') {
+      quick('link');
+      return;
+    }
     bubble('<b>' + esc(L('bc.you', 'أنت')) + '</b><span class="t">' + fmtTime(Date.now()) + '</span><br>' + esc(text), 'me');
     api('/api/support/message', 'POST', { text: text }).then(function (j) {
       if (!j.ok) {
@@ -246,26 +285,79 @@
   function renderTx(j) {
     if (!j || !j.ok) { bubble(esc(L('bc.noTx', 'لا توجد معاملات بعد — أو سجّل الدخول.')), 'sys'); return; }
     var txs = (j.transactions || []).slice(0, 3);
-    if (!txs.length) { bubble(esc(L('bc.noTx', 'لا توجد معاملات بعد — أو سجّل الدخول.')), 'sys'); return; }
-    var rows = txs.map(function (t) {
-      var st = t.status === 'completed' ? '✅' : t.status === 'pending' ? '⏳' : '❌';
-      return st + ' ' + esc(t.type === 'deposit' ? L('bc.dep', 'إيداع') : L('bc.wd', 'سحب')) + ' · <b>' +
-        (t.amount_usd != null ? t.amount_usd + ' $' : '') + '</b> · ' + esc(t.method || '') +
-        '<br><span class="t">' + esc(t.id) + ' · ' + esc(t.status) + '</span>';
-    }).join('<br>');
-    bubble('<b>' + esc(L('bc.lastTx', 'آخر معاملاتك')) + '</b><br>' + rows +
-      '<br><span class="t">' + esc(L('bc.pendingHint', '«قيد المعالجة» تعني أن الفريق يراجعها — يصلك إشعار عند التأكيد.')) + '</span>', 'sys');
+    var balUsd = (j.balance_usd != null && !isNaN(j.balance_usd)) ? Number(j.balance_usd).toFixed(2) + ' $' : '';
+    var balCoins = (j.coins != null && !isNaN(j.coins)) ? Number(j.coins).toLocaleString('ar-MA') + ' 🪙' : '';
+    var balStr = (balCoins || balUsd) ? (balCoins + (balUsd ? ' (' + balUsd + ')' : '')) : '';
+
+    if (!txs.length) {
+      bubble('<div class="bc-tx-box">' +
+        '<div class="bc-tx-head"><span class="bc-tx-title"><b>📋 ' + esc(L('bc.lastTx', 'آخر معاملاتك')) + '</b></span>' +
+        (balStr ? ('<span class="bc-tx-bal">' + esc(balStr) + '</span>') : '') +
+        '</div><div class="bc-note">' + esc(L('bc.noTx', 'لا توجد معاملات بعد.')) + '</div></div>', 'sys');
+      return;
+    }
+
+    var methodLabels = {
+      binance_readonly: '⚡ Binance Pay',
+      binance_pay: '🟡 Binance Pay',
+      binance: '🟡 Binance TRC20',
+      cash_plus: '💵 Cash Plus',
+      cih: '🏦 CIH Bank',
+      orange_money: '🟠 Orange Money',
+      voucher: '🎟️ كوبون'
+    };
+
+    var listHtml = txs.map(function (t) {
+      var isDep = (t.type === 'deposit');
+      var typeCls = isDep ? 'dep' : 'wd';
+      var typeIc = isDep ? '<i class="fa-solid fa-arrow-down" aria-hidden="true"></i>' : '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
+      var typeText = isDep ? (L('bc.dep', 'إيداع')) : (L('bc.wd', 'سحب'));
+      var amtPrefix = isDep ? '+' : '-';
+      var amtStr = (t.amount_usd != null && !isNaN(t.amount_usd)) ? (amtPrefix + Number(t.amount_usd).toFixed(2) + ' $') : '';
+
+      var stKey = String(t.status || 'pending').toLowerCase();
+      var stCls = (stKey === 'completed') ? 'st-completed' : (stKey === 'rejected' || stKey === 'failed') ? 'st-rejected' : 'st-pending';
+      var stLabel = (stKey === 'completed') ? (L('bc.stDone', 'مكتمل') + ' ✅') :
+                    (stKey === 'rejected') ? (L('bc.stRej', 'مرفوض') + ' ❌') :
+                    (stKey === 'failed') ? (L('bc.stFail', 'فشل') + ' ❌') :
+                    (L('bc.stPend', 'قيد المراجعة') + ' ⏳');
+
+      var mLabel = methodLabels[t.method] || t.method || '-';
+      var rawId = String(t.id || '');
+      var txId = esc(rawId);
+
+      return '<div class="bc-tx-item">' +
+        '<div class="bc-tx-row1">' +
+          '<span class="bc-tx-type ' + typeCls + '">' + typeIc + ' ' + esc(typeText) + '</span>' +
+          (amtStr ? ('<span class="bc-tx-amount">' + esc(amtStr) + '</span>') : '') +
+          '<span class="bc-tx-badge ' + stCls + '">' + esc(stLabel) + '</span>' +
+        '</div>' +
+        '<div class="bc-tx-row2">' +
+          '<span class="bc-tx-method">' + esc(mLabel) + '</span>' +
+          '<span class="bc-tx-id" title="' + txId + '">' + txId + '</span>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    var fullHtml = '<div class="bc-tx-box">' +
+      '<div class="bc-tx-head">' +
+        '<span class="bc-tx-title"><b>📋 ' + esc(L('bc.lastTx', 'آخر معاملاتك')) + '</b></span>' +
+        (balStr ? ('<span class="bc-tx-bal">' + esc(balStr) + '</span>') : '') +
+      '</div>' +
+      '<div class="bc-tx-list">' + listHtml + '</div>' +
+      '<div class="bc-tx-hint">' + esc(L('bc.pendingHint', '«قيد المعالجة» تعني أن الفريق يراجعها — يصلك إشعار عند التأكيد.')) + '</div>' +
+    '</div>';
+
+    bubble(fullHtml, 'sys');
   }
 
   function quick(q) {
     if (q === 'deposit') {
-      close();
-      try { if (typeof wlOpen === 'function') { wlOpen(); return; } } catch (e) { }
-      try { if (typeof nav === 'function') { nav('home', null); } } catch (e) { }
-      location.hash = '#wallet';
+      openUserWallet();
       return;
     }
     if (q === 'last') {
+      switchTab('chat');
       bubble('<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> ' + esc(L('bc.loading', 'جارٍ الجلب…')), 'sys');
       /* [v2.42] نمرّر معرّف المستخدم — المسار يرفض الطلب بلا user_id (bad-input) */
       var uid = null;
@@ -286,6 +378,7 @@
       return;
     }
     if (q === 'link') {
+      switchTab('chat');
       api('/api/support/link-code', 'POST', {}).then(function (j) {
         if (!j.ok) { bubble(esc(L('bc.linkFail', 'تعذّر إنشاء كود الربط — سجّل الدخول أولاً.')), 'err'); return; }
         bubble('<b>' + esc(L('bc.linkTitle', 'اربط حسابك بتيليغرام')) + '</b><br>' +
@@ -307,30 +400,43 @@
     Array.prototype.forEach.call(document.querySelectorAll('[data-bctab]'), function (b) {
       b.addEventListener('click', function () {
         var t = b.getAttribute('data-bctab');
-        Array.prototype.forEach.call(document.querySelectorAll('[data-bctab]'), function (x) {
-          var on = x === b;
-          x.classList.toggle('active', on);
-          x.setAttribute('aria-selected', on ? 'true' : 'false');
-        });
-        el('bcPaneChat').hidden = t !== 'chat';
-        el('bcPaneBots').hidden = t !== 'bots';
+        switchTab(t);
       });
     });
     document.addEventListener('click', function (e) {
+      /* [v2.55] بوت خدمة العملاء الرسمي */
+      var sb = e.target.closest ? e.target.closest('[data-bcsupport]') : null;
+      if (sb) {
+        e.preventDefault();
+        window.open(SUPPORT_BOT, '_blank', 'noopener,noreferrer');
+        return;
+      }
       /* [v2.47] بطاقة بوت أكواد التعبئة: نُحدّث الرابط بمعرّف المستخدم قبل الفتح */
       var v = e.target.closest ? e.target.closest('[data-bcvoucher]') : null;
       if (v) {
+        e.preventDefault();
         syncVoucher();
-        if (!myUid()) bubble(esc(L('bc.cardVoucherLogin', 'سجّل الدخول أولاً ليتعرّف البوت على حسابك تلقائياً — أو اربطه بكود /start من الرسالة.')), 'sys');
+        var url = voucherUrl();
+        if (!myUid()) {
+          switchTab('chat');
+          bubble(esc(L('bc.cardVoucherLogin', 'سجّل الدخول أولاً ليتعرّف البوت على حسابك تلقائياً — أو اربطه بكود /start من الرسالة.')), 'sys');
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
         return;
       }
-      var q = e.target.closest ? e.target.closest('[data-q]') : null;
-      if (q) { quick(q.getAttribute('data-q')); return; }
+      /* [v2.55] فتح المحفظة الرسمي الموثوق من الشات */
       var w = e.target.closest ? e.target.closest('[data-bcwallet]') : null;
       if (w) {
-        e.preventDefault(); close();
-        try { if (typeof wlOpen === 'function') { wlOpen(); return; } } catch (err) { }
-        location.hash = '#wallet';
+        e.preventDefault();
+        openUserWallet();
+        return;
+      }
+      /* [v2.55] روابط الأكشن السريعة */
+      var q = e.target.closest ? e.target.closest('[data-q]') : null;
+      if (q) {
+        e.preventDefault();
+        quick(q.getAttribute('data-q'));
+        return;
       }
     });
     document.addEventListener('keydown', function (e) {
