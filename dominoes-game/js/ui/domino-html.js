@@ -149,15 +149,13 @@ window.DMN_HTML = (function () {
         '</div>' +
       '</div>' +
 
-      /* شارة اللاعب الرئيسي (أسفل الوسط فوق اليد) */
-      '<div class="dm-seat seat-0 me" id="dmSeatMe">' +
-        '<span class="dm-avatar" id="dmMyAvatar"></span>' +
-        '<span class="dm-seatmeta end"><span class="dm-seatname" id="dmMyName" hidden>أنت</span>' +
-        '<span class="dm-seatscore" id="dmMyScore">0</span></span>' +
-      '</div>' +
-
-      /* اليد + أدوات */
+      /* اليد + اللاعب الرئيسي + أدوات */
       '<div class="dm-handwrap">' +
+        '<div class="dm-seat seat-0 me" id="dmSeatMe">' +
+          '<span class="dm-avatar" id="dmMyAvatar"></span>' +
+          '<span class="dm-seatmeta end"><span class="dm-seatname" id="dmMyName" hidden>أنت</span>' +
+          '<span class="dm-seatscore" id="dmMyScore">0</span></span>' +
+        '</div>' +
         '<div class="dm-hand" id="dmHand"></div>' +
         '<div class="dm-tools">' +
           '<button type="button" class="dm-tool" id="dmPassBtn" hidden><i class="fa-solid fa-forward" aria-hidden="true"></i> <span data-i18n="dm.mustPass">مرّر</span></button>' +

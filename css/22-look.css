@@ -20,10 +20,11 @@
 
 /* ═══════════════════ 1) الضومنة — القطع ═══════════════════ */
 
-/* ميزانية ارتفاع القطعة: حدّ من ارتفاع الشاشة + حدّ من العرض (7 قطع في اليد كحد أقصى)
-   ⇒ لا تتجاوز اليد عرض الشاشة ولا تُقتطع من الأسفل. */
+/* ميزانية ارتفاع القطعة: حدّ من ارتفاع الشاشة + حدّ من العرض (ديناميكي حسب عدد قطع اليد لمنع القصّ)
+   ⇒ لا تتجاوز اليد عرض الشاشة ولا تُقتطع من الأسفل حتى عند سحب 14 قطعة. */
 #dmStage {
-  --dm-tile-h: clamp(44px, min(23dvh, calc((100vw - 64px) / 7 * 1.86)), 100px);
+  --dm-hand-count: 7;
+  --dm-tile-h: clamp(30px, min(23dvh, calc(((100vw - 32px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 100px);
   --dm-hand-h: 34%;
 }
 #dmStage .dm-hand .dm-htile,
@@ -53,8 +54,8 @@
   overflow: visible !important;
   flex-wrap: nowrap !important;
   align-items: flex-end !important;
-  gap: 6px !important;
-  padding: 12px 10px 10px !important;       /* حشو علوي يستوعب بروز القطعة المختارة */
+  gap: var(--dm-hand-gap, 6px) !important;
+  padding: 12px var(--dm-hand-pad-x, 6px) 10px !important;       /* حشو علوي يستوعب بروز القطعة المختارة */
   background: none !important; border: 0 !important; box-shadow: none !important;
 }
 /* القطع غير القابلة للّعب تبقى عاجية واضحة (كانت شبه شفافة فتبدو «ناقصة») */
@@ -293,8 +294,6 @@
 @media (orientation: landscape) {
   /* تثبيت صريح للزوايا (كانا معكوسين بسبب ترتيب DOM في RTL) */
   #dmStage #dmSeatOpp { position: absolute !important; top: 8px; left: 12px !important; right: auto !important; }
-  #dmStage #dmSeatMe  { position: absolute !important; right: 12px !important; left: auto !important;
-                        bottom: calc(var(--dm-hand-h, 34%) + 8px) !important; top: auto !important; }
 }
 
 /* ═══ الطاولة (bg): بطاقات اللاعبين في البورتريه — الخصم يساراً وأنا يميناً ═══ */
@@ -839,14 +838,28 @@ body.app-fs-on .game-fs-exit {
     flex-direction: column !important;
     align-items: center !important;
     gap: 2px !important;
+    margin: 0 !important;
+    pointer-events: auto !important;
+    order: 0 !important;
   }
   #dmStage .dm-handwrap {
+    position: absolute !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
     padding: 0 4px 2px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
     justify-content: center !important;
+    pointer-events: none !important;
+  }
+  #dmStage .dm-handwrap > * {
+    pointer-events: auto !important;
+  }
+  #dmStage .dm-hand {
+    order: 2 !important;
   }
 
   /* الخصم 1 (اليسار): قطعه بمحاذاة الضلع الأيسر للشاشة والأيقونة في يمين قطعه متجهة نحو الطاولة */
@@ -894,32 +907,79 @@ body.app-fs-on .game-fs-exit {
 
 /* وضع اللاندسكيب (الأفقي): إبعاد الشارات والأوراق إلى الحواف لتفريغ طاولة اللعب */
 @media (orientation: landscape) {
+  #dmStage {
+    --dm-tile-h: clamp(30px, min(24dvh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px);
+  }
   #dmStage .dm-chain {
     top: 48px !important; bottom: 76px !important; left: 55px !important; right: 55px !important;
   }
+  /* البنك: زاوية الشاشة 90 درجة في الأسفل على اليسار */
   #dmStage .dm-boneyard {
-    top: 56px !important; left: 10px !important; bottom: auto !important; right: auto !important;
+    top: auto !important;
+    bottom: 12px !important;
+    left: 12px !important;
+    right: auto !important;
+  }
+  /* زر التمرير الذهبي: مباشرة فوق البنك عند ظهوره في اللاندسكيب */
+  #dmStage #dmPassBtn {
+    left: 12px !important;
+    bottom: 84px !important;
   }
 
-  /* اللاعب الرئيسي: الأفاتار في الزاوية السفلية اليمنى بجوار أوراق اليد */
-  #dmStage #dmSeatMe {
-    bottom: 4px !important;
-    right: 20px !important;
-    left: auto !important;
-    top: auto !important;
-    transform: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 2px !important;
-  }
+  /* اللاعب الرئيسي: الأفاتار في صف أفقي بجوار قطعه في الأسفل تماماً كالخصم العلوي */
   #dmStage .dm-handwrap {
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    padding: 0 84px 2px 14px !important;
+    padding: 0 16px max(4px, env(safe-area-inset-bottom, 4px)) !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
     justify-content: center !important;
+    gap: 10px !important;
+    direction: ltr !important;
+    pointer-events: none !important;
+  }
+  #dmStage .dm-handwrap > * {
+    pointer-events: auto !important;
+  }
+  #dmStage #dmSeatMe {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 6px !important;
+    direction: ltr !important;
+    flex-shrink: 0 !important;
+    order: 2 !important;
+  }
+  #dmStage #dmSeatMe .dm-avatar {
+    order: 1 !important;
+    width: 38px !important;
+    height: 38px !important;
+    font-size: 16px !important;
+  }
+  #dmStage #dmSeatMe .dm-seatmeta {
+    order: 2 !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 2px !important;
+  }
+  #dmStage .dm-hand {
+    order: 1 !important;
+    flex-shrink: 0 !important;
+  }
+  #dmStage .dm-tools {
+    order: 3 !important;
   }
 
   /* الخصم الأيمن (الخصم 3): بمحاذاة الضلع الأيمن والأفاتار تحت قطعه */
