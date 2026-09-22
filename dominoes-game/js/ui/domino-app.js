@@ -100,6 +100,13 @@
       try { if (root.ST && typeof root.ST.mute !== 'undefined') SFX.setMuted(!!root.ST.mute); } catch (e) {}
       this.refreshResumeBtn();
       this.updateBetUI();
+      this.on(window, 'resize', () => {
+        if (this.game && this.game.state && this.game.state.phase === 'play') {
+          const me = this.mySeatNum();
+          const myHand = (this.game.state.hands && this.game.state.hands[me]) || [];
+          this._updateHandTileScale(myHand.length);
+        }
+      });
       /* [DO-Room] تسجيل معالجات الغرفة عند فتح اللعبة (نمط damaInit→damaRegisterRooms) */
       if (root.DOMINO_ROOM && typeof root.DOMINO_ROOM.register === 'function') {
         try { root.DOMINO_ROOM.register(); } catch (e) { console.error('ضومنة rooms init error:', e); }
@@ -415,6 +422,7 @@
       this.showLayer('dmRoundLayer', false);
       this.showLayer('dmMatchLayer', false);
       this.showLayer('dmResignLayer', false);
+      this._updateHandTileScale(7);
     },
 
     /* ═══════════ أحداث المحرك ═══════════ */
@@ -509,13 +517,14 @@
       /* اليد — أسفل الشاشة = مقعدي دائماً */
       const hand = this.$('dmHand');
       if (hand) {
-        const myHand = view['hand' + me];
-        const myLegalList = view['legal' + me];
+        const myHand = view['hand' + me] || [];
+        const myLegalList = view['legal' + me] || [];
         const myTurn = view.phase === 'play' && !this.busy && (!inRoom || view.turn === me);
         const legalMe = {};
         for (let i = 0; i < myLegalList.length; i++) legalMe[myLegalList[i].tile.id] = 1;
         hand.innerHTML = R.handTilesHTML(myHand, legalMe, view.forcedTile && view.forcedTile.id, 'dmPickHand');
         hand.classList.toggle('myturn', myTurn);
+        this._updateHandTileScale(myHand.length);
       }
 
       /* البنك */
@@ -652,6 +661,20 @@
 
     /* [DO-Room] مقعد المحرك الذي أديره (الغرفة: مقعدي الغرفي · المحلي: 0)
        الحالة المشتركة مطلقة — هذا ترقيم عرض/تفاعل فقط (نمط flipped في ضاما) */
+    _updateHandTileScale: function (count) {
+      const stage = this.$('dmStage');
+      const hand = this.$('dmHand');
+      const n = Math.max(7, Number(count) || 7);
+      if (stage) stage.style.setProperty('--dm-hand-count', String(n));
+      if (hand) {
+        hand.style.setProperty('--dm-hand-count', String(n));
+        const gap = (n > 10) ? '2.5px' : ((n > 7) ? '4px' : '5px');
+        const padX = (n > 10) ? '2px' : ((n > 7) ? '4px' : '5px');
+        hand.style.setProperty('--dm-hand-gap', gap);
+        hand.style.setProperty('--dm-hand-pad-x', padX);
+      }
+    },
+
     mySeatNum: function () {
       return (this.room && this.room.on) ? this.room.mySeat : 0;
     },
