@@ -79,7 +79,7 @@
   <link rel="stylesheet" href="css/05-ronda.css?v=dtsg6">
   <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg10">
   <link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
-  <link rel="stylesheet" href="css/08-rami.css?v=dtsg6">
+  <link rel="stylesheet" href="css/08-rami.css?v=dtsg7">
   <link rel="stylesheet" href="css/09-chrome.css?v=dtsg7">
   <link rel="stylesheet" href="css/10-dama.css?v=dtsg6">
   <link rel="stylesheet" href="css/12-chess.css?v=dtsg7">
@@ -90,9 +90,11 @@
   <!-- [BGDO] الطاولة + الضومنة: هوية المشروعين المستقلين (بادئات bw-/dm-) -->
   <link rel="stylesheet" href="backgammon-game/css/backgammon.css?v=bgdo4">
   <link rel="stylesheet" href="dominoes-game/css/dominoes.css?v=dm251">
-  <link rel="stylesheet" href="css/20-wallet.css?v=pay5">
+  <link rel="stylesheet" href="css/20-wallet.css?v=pay6">
   <link rel="stylesheet" href="css/21-classic.css?v=look3">
-  <link rel="stylesheet" href="css/22-look.css?v=look4">       <!-- [v2.48-LOOK] المرحلة 2: قطع/يد الضومنة + بطاقات الطاولة -->
+  <link rel="stylesheet" href="css/22-look.css?v=look6">       <!-- [v2.48-LOOK] المرحلة 2: قطع/يد الضومنة + بطاقات الطاولة -->
+  <link rel="stylesheet" href="css/23-promotions.css?v=promo2"> <!-- العروض الديناميكية -->
+  <link rel="stylesheet" href="css/24-home.css?v=home2"> <!-- أقسام الصفحة الرئيسية -->
   <!-- تطبيق الثيم قبل الرسم (يمنع الوميض) -->
   <script>
     (function () {
@@ -140,10 +142,6 @@
       <button class="nav-item" data-nav="lb" onclick="nav('lb', this)">
         <span class="ic" aria-hidden="true"><i class="fa-solid fa-ranking-star"></i></span>
         <span data-i18n="ui.lb">المتصدرون</span>
-      </button>
-      <button class="nav-item" data-nav="chat" onclick="nav('chat', this)">
-        <span class="ic" aria-hidden="true"><i class="fa-solid fa-comments"></i></span>
-        <span data-i18n="ui.chat">الدردشة</span>
       </button>
       <button class="nav-item" data-nav="friends" id="navFriends" onclick="nav('friends', this)">
         <span class="ic" aria-hidden="true"><i class="fa-solid fa-user-group"></i></span>
@@ -224,12 +222,56 @@
           </div>
           <!-- [نقل] حاوية الهيرو انتقلت لصفحة «من نحن» (about.html) بطلب المالك -->
           <h1 id="homeTitle" class="sr-only" data-i18n-html="ui.heroTitle">ألعاب فريدة <b>بجرافيك وصوتيات</b></h1>
+
+          <!-- واجهة مختصرة للواجهة الحية: الأكثر لعباً + البطولات + الغرف العامة -->
+          <section class="home-popular" id="homePopular" aria-labelledby="homePopularTitle">
+            <div class="shead home-section-head">
+              <div class="stitle"><span class="bar"></span><i class="fa-solid fa-fire" aria-hidden="true"></i><span id="homePopularTitle" data-i18n="home.popular">الأكثر لعباً</span></div>
+              <button type="button" class="home-section-link" onclick="nav('games', this)" data-i18n="home.viewGames">عرض كل الألعاب</button>
+            </div>
+            <div class="grid g4" id="rowPopular"></div>
+          </section>
+
+          <section class="home-live-hub" id="homeLiveHub" aria-label="محتوى المنصة الحي">
+            <div class="home-feed" id="homeTournamentsFeed">
+              <div class="home-feed-head"><div><span class="home-feed-kicker"><i class="fa-solid fa-signal" aria-hidden="true"></i> <span data-i18n="home.live">مباشر الآن</span></span><h2><i class="fa-solid fa-trophy" aria-hidden="true"></i> <span data-i18n="home.tournaments">البطولات</span></h2></div><button type="button" class="home-section-link" onclick="nav('tourney', this)" data-i18n="home.viewAll">عرض الكل</button></div>
+              <div id="homeTournamentsList" class="home-feed-list"><div class="home-feed-loading"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></div></div>
+            </div>
+            <div class="home-feed" id="homeRoomsFeed">
+              <div class="home-feed-head"><div><span class="home-feed-kicker"><i class="fa-solid fa-circle" aria-hidden="true"></i> <span data-i18n="home.openNow">مفتوحة الآن</span></span><h2><i class="fa-solid fa-users" aria-hidden="true"></i> <span data-i18n="home.rooms">الغرف العامة</span></h2></div><button type="button" class="home-section-link" onclick="nav('rooms', this)" data-i18n="home.viewAll">عرض الكل</button></div>
+              <div id="homeRoomsList" class="home-feed-list"><div class="home-feed-loading"><i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i></div></div>
+            </div>
+          </section>
+
           <div class="shead" id="sheFeatured"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-star" aria-hidden="true"></i> <span data-i18n="ui.featured">ألعاب مميزة</span></div></div>
           <div class="grid g4" id="rowFeatured"></div>
           <div class="shead" id="sheCrash"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-rocket" aria-hidden="true"></i> Crash</div></div>
           <div class="grid g4" id="rowCrash"></div>
           <div class="shead" id="sheInstant"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-bolt" aria-hidden="true"></i> <span data-i18n="ui.instant">فورية</span></div></div>
           <div class="grid g4" id="rowInstant"></div>
+
+          <!-- عروض الشحن والإحالة في نهاية الصفحة الرئيسية -->
+          <section class="home-offers" id="homeOffers" aria-labelledby="offersTitle">
+            <div class="offers-head">
+              <div>
+                <h2 id="offersTitle" class="offers-kicker" data-i18n="promo.kicker">عروض DTSG</h2>
+                <p data-i18n="promo.sub">شرائح مباشرة وبونيس خاص للأدمنز — تتجدد العروض تلقائياً.</p>
+                <span class="offers-rate" data-i18n="promo.rate">1 $ = 10 MAD = 100 COIN · قيمة ثابتة للشحن والسحب</span>
+              </div>
+              <span class="offers-refresh" id="promoUpdated" aria-live="polite"><i class="fa-solid fa-rotate" aria-hidden="true"></i> <span data-i18n="promo.live">مباشر</span></span>
+            </div>
+            <div class="offer-groups">
+              <div class="offer-group direct">
+                <div class="offer-group-title"><i class="fa-solid fa-bolt" aria-hidden="true"></i> <span data-i18n="promo.direct">التعبئة المباشرة</span></div>
+                <div class="offer-cards" id="promoDirectCards"><div class="offer-loading" data-i18n="promo.loading">جارٍ تحديث العروض…</div></div>
+              </div>
+              <div class="offer-group admin">
+                <div class="offer-group-title"><i class="fa-solid fa-crown" aria-hidden="true"></i> <span data-i18n="promo.admin">تعبئة الأدمنز</span></div>
+                <div class="offer-cards" id="promoAdminCards"><div class="offer-loading" data-i18n="promo.loading">جارٍ تحديث العروض…</div></div>
+              </div>
+            </div>
+            <div class="offer-referral" id="promoReferral"><i class="fa-solid fa-user-group" aria-hidden="true"></i><span data-i18n="promo.referral">إحالة صديق = بونيس 10%</span><button type="button" class="offer-action" onclick="openWallet()" data-i18n="promo.cta">اشحن الآن</button></div>
+          </section>
         </section>
         <!-- صفحة الألعاب -->
         <section class="page" id="pg-games" aria-labelledby="gamesTitle">
@@ -252,20 +294,6 @@
         <section class="page" id="pg-lb" aria-labelledby="lbTitle">
           <div class="phead"><div class="ptitle" id="lbTitle"><div class="ibox"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i></div> <span data-i18n="ui.lb">المتصدرون</span></div></div>
           <div class="lb" id="lbList" role="list"></div>
-        </section>
-        <!-- الدردشة -->
-        <section class="page" id="pg-chat" aria-labelledby="chatTitle">
-          <div class="phead"><div class="ptitle" id="chatTitle"><div class="ibox"><i class="fa-solid fa-comments" aria-hidden="true"></i></div> <span data-i18n="ui.chat">الدردشة</span></div></div>
-          <div class="chatpanel">
-            <div class="chead"><b><i class="fa-solid fa-comments" aria-hidden="true"></i> <span data-i18n="ui.chatChannel">القناة العامة</span></b><span class="ctext"><span id="chatOn">342</span><span data-i18n="ui.chatOnline"> متصل</span></span></div>
-            <div class="cmsgs" id="chatMsgs" role="log" aria-live="polite"></div>
-            <div class="crow">
-              <label for="chatIn" class="sr-only">اكتب رسالتك</label>
-              <input class="cin" id="chatIn" placeholder="رسالتك..." data-i18n-placeholder="ui.chatPlaceholder"
-                     onkeypress="if(event.key==='Enter') sendChat()">
-              <button class="btn" onclick="sendChat()" data-i18n="ui.send">إرسال</button>
-            </div>
-          </div>
         </section>
         <!-- الأصدقاء -->
         <section class="page" id="pg-friends" aria-labelledby="friendConvHeader">
@@ -743,12 +771,12 @@
     }
   </script>
   <!-- [v2.26-merge] dtsg4: فوق dtsg3 سام (rami dtsg3/auth dtsg3 مأخوذة) — إصدار موحّد -->
-  <script src="js/core/api.js?v=dtsg9"></script>
+  <script src="js/core/api.js?v=dtsg10"></script>
   <script src="js/core/auth.js?v=dtsg9"></script>
   <script src="js/core/audio.js?v=dtsg6"></script>
-  <script src="js/core/utils.js?v=dtsg6"></script>
+  <script src="js/core/utils.js?v=dtsg7"></script>
   <script src="js/core/fx.js?v=dtsg6"></script>
-  <script src="js/i18n/translations.js?v=dtsg12"></script>
+  <script src="js/i18n/translations.js?v=dtsg14"></script>
   <script src="js/rules/game-rules.js?v=dtsg6"></script>
   <script src="js/games/catalog.js?v=dtsg6"></script>
   <script src="js/games/blackjack.js?v=dtsg6"></script>
@@ -778,13 +806,13 @@
   <script src="dominoes-game/js/engine/domino-game.js?v=dm251"></script>
   <script src="dominoes-game/js/ui/domino-audio.js?v=dm251"></script>
   <script src="dominoes-game/js/ui/domino-i18n.js?v=dm251"></script>
-  <script src="dominoes-game/js/ui/domino-html.js?v=dm251"></script>
+  <script src="dominoes-game/js/ui/domino-html.js?v=dm253"></script>
   <script src="dominoes-game/js/ui/domino-renderer.js?v=dm251"></script>
   <script src="dominoes-game/js/ui/domino-app.js?v=dm251"></script>
   <script src="dominoes-game/js/ui/domino-room.js?v=dm251"></script>
   <script src="dominoes-game/dominoes-bridge.js?v=dm251"></script>
   <script src="js/games/parchisi.js?v=dtsg12"></script>
-  <script src="js/games/rami.js?v=dtsg10"></script>
+  <script src="js/games/rami.js?v=dtsg11"></script>
   <script src="js/games/dama.js?v=dtsg16"></script>
   <script src="js/games/chess.js?v=dtsg8"></script>
   <script src="js/games/billiards-physics.js?v=dtsg6"></script>
@@ -793,13 +821,13 @@
   <script src="js/games/engines.js?v=dtsg11"></script>
   <script type="module" src="js/games/crash.js?v=dtsg6"></script>
   <script src="js/core/rooms.js?v=dtsg6"></script>
-  <script src="js/main.js?v=dtsg12"></script>
-  <script src="js/core/live.js?v=dtsg10"></script>
+  <script src="js/main.js?v=dtsg14"></script>
+  <script src="js/core/live.js?v=dtsg11"></script>
   <script src="js/core/fair.js?v=dtsg6"></script>
   <script src="js/games/group.js?v=dtsg6"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>
-  <script src="js/wallet.js?v=pay10"></script>
+  <script src="js/wallet.js?v=pay11"></script>
 
   <!-- ═══════════ Mobile Bottom Navigation Bar ═══════════ -->
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="التنقل السفلي">
@@ -827,8 +855,8 @@
 
   <!-- ═══════════ مركز المساعدة العائم (شات بوت الدعم + المدفوعات) — [v2.42] ═══════════
        يُبنى من js/ui/bot-chat.js: زر عائم يفتح نافذة تربط المستخدم ببوت خدمة
-       العملاء (تذاكر وردود فورية) وبالمحفظة. مخفي في صفحات الألعاب. -->
-  <script src="js/ui/bot-chat.js?v=dtsg10" defer></script>
+       العملاء، وبوت الدردشة الخاص للمسجلين، وبالمحفظة. مخفي في صفحات الألعاب. -->
+  <script src="js/ui/bot-chat.js?v=dtsg11" defer></script>
 
 </body>
 </html>

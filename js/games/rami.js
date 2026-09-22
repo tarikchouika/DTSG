@@ -104,17 +104,31 @@ const __ramiPartCache = new Map();
 function clearRamiPartitionCache() { __ramiPartCache.clear(); }
 if (typeof window !== 'undefined') window.clearRamiPartitionCache = clearRamiPartitionCache;
 
-function partitionSelectedCards(cards, rules, mode) {
+function partitionSelectedCards(cards, rules, mode, budgetMs) {
   if (!cards || cards.length < 3) return [];
   const validator = rules.validator;
   const n = cards.length;
+  /* [AI-TIME-BOUND] البحث الدقيق مناسب لاختيار اللاعب، لكنه قد يمرّ بملايين
+     التركيبات في يد بوت مليئة بنسخ متساوية. ميزانية اختيارية تعيد أفضل نتيجة
+     وجدت حتى الآن بدل حجب خيط واجهة المتصفح. لا تُطبَّق على استدعاءات اللاعب
+     العادية، لذلك لا تتغير دقة التحقق القانوني. */
+  const budget = Number(budgetMs) > 0 ? Number(budgetMs) : 0;
+  const deadline = budget ? Date.now() + budget : 0;
+  let aborted = false;
+  let searchNodes = 0;
+  const maxSearchNodes = budget ? 24000 : Infinity;
+  const budgetExpired = () => {
+    if (!budget || aborted) return aborted;
+    if ((searchNodes & 127) === 0 && Date.now() >= deadline) aborted = true;
+    return aborted;
+  };
   /* mode='opening': تعظيم النقاط الحرة أولاً (للافتتاح/الإنهاء) —
      الافتراضي تعظيم التغطية (للإنزال بعد الافتتاح) */
   const openingMode = (mode === 'opening');
 
   const cacheKey = (openingMode ? 'O:' : 'C:') + n + '|' + (rules.jokerIndicator ? 'i' + rules.jokerIndicator.id + ':' : '-') +
     cards.map(c => c.id + '#' + c.rank + c.suit + (c.isJoker ? 'J' : '')).sort().join(',');
-  if (__ramiPartCache.has(cacheKey)) {
+  if (!budget && __ramiPartCache.has(cacheKey)) {
     return __ramiPartCache.get(cacheKey).map(m => new RamiMeld(m.type, m.cards.slice()));
   }
 
@@ -124,6 +138,7 @@ function partitionSelectedCards(cards, rules, mode) {
   const validSubsets = [];
   const seenSubset = new Set();
   function pushIfValid(type, combo) {
+    if (budgetExpired()) return;
     const key = combo.map(c => c.id).sort().join(',');
     if (seenSubset.has(key)) return;
     const ok = (type === MELD_TYPE.SET) ? validator.isValidSet(combo, true) : validator.isValidSequence(combo, true);
@@ -135,9 +150,12 @@ function partitionSelectedCards(cards, rules, mode) {
   function getCombos(arr, k) {
     const res = [];
     function bt(start, cur) {
+      if (aborted) return;
       if (cur.length === k) { res.push(cur.slice()); return; }
       for (let i = start; i < arr.length; i++) {
+        if (budget && ((res.length & 127) === 0) && Date.now() >= deadline) { aborted = true; return; }
         cur.push(arr[i]); bt(i + 1, cur); cur.pop();
+        if (aborted) return;
       }
     }
     bt(0, []);
@@ -158,15 +176,23 @@ function partitionSelectedCards(cards, rules, mode) {
     rankGroups.get(c.rank).push(c);
   }
   for (const group of suitGroups.values()) {
+    if (aborted) break;
     const pool = group.concat(wilds);
-    for (let sz = 3; sz <= Math.min(pool.length, 7); sz++) {
-      for (const combo of getCombos(pool, sz)) pushIfValid(MELD_TYPE.SEQUENCE, combo);
+    for (let sz = 3; sz <= Math.min(pool.length, 7) && !aborted; sz++) {
+      for (const combo of getCombos(pool, sz)) {
+        pushIfValid(MELD_TYPE.SEQUENCE, combo);
+        if (aborted) break;
+      }
     }
   }
   for (const group of rankGroups.values()) {
+    if (aborted) break;
     const pool = group.concat(wilds);
-    for (let sz = 3; sz <= Math.min(pool.length, 4); sz++) {
-      for (const combo of getCombos(pool, sz)) pushIfValid(MELD_TYPE.SET, combo);
+    for (let sz = 3; sz <= Math.min(pool.length, 4) && !aborted; sz++) {
+      for (const combo of getCombos(pool, sz)) {
+        pushIfValid(MELD_TYPE.SET, combo);
+        if (aborted) break;
+      }
     }
   }
 
@@ -183,6 +209,8 @@ function partitionSelectedCards(cards, rules, mode) {
   };
 
   function search(idx, currentUsed, currentMelds) {
+    searchNodes++;
+    if (budget && (searchNodes > maxSearchNodes || budgetExpired())) { aborted = true; return; }
     const curFree = currentMelds.reduce((sm, m) => sm + meldFreeScore(m), 0);
     if (openingMode) {
       /* الافتتاح: النقاط الحرة أولاً ثم التغطية */
@@ -195,7 +223,7 @@ function partitionSelectedCards(cards, rules, mode) {
       maxCoveredCards = currentUsed.size;
       bestCombination = currentMelds.slice();
     }
-    for (let i = idx; i < validSubsets.length; i++) {
+    for (let i = idx; i < validSubsets.length && !aborted; i++) {
       const sub = validSubsets[i];
       const hasOverlap = sub.cards.some(c => currentUsed.has(c.id));
       if (!hasOverlap) {
@@ -207,8 +235,10 @@ function partitionSelectedCards(cards, rules, mode) {
   }
 
   search(0, new Set(), []);
-  if (__ramiPartCache.size > 3000) __ramiPartCache.clear();
-  __ramiPartCache.set(cacheKey, bestCombination.map(m => new RamiMeld(m.type, m.cards.slice())));
+  if (!budget) {
+    if (__ramiPartCache.size > 3000) __ramiPartCache.clear();
+    __ramiPartCache.set(cacheKey, bestCombination.map(m => new RamiMeld(m.type, m.cards.slice())));
+  }
   return bestCombination;
 }
 
@@ -222,11 +252,15 @@ function partitionSelectedCards(cards, rules, mode) {
      حية ولا يُطعم خصماً مفتوحاً (خطر قانون الـ12) ويرمي الأعلى قيمة أولاً
    ═══════════════════════════════════════════════════════════════ */
 const RamiExpertAI = {
+  /* [AI-TIME-BOUND] القرار الخبير لا يملك حق حجب خيط الواجهة؛ إذا كانت
+     اليد مليئة بنسخ متساوية يعيد partition أفضل نتيجة خلال هذه الميزانية. */
+  PARTITION_BUDGET_MS: 4,
+
   /* محاكاة إنهاء الشوط بإضافة ورقة: كل اليد مجموعات + ورقة معزولة واحدة */
   simCanFinish(hand, extra, rules) {
     if (!extra) return false;
     const testHand = hand.concat([extra]);
-    const melds = partitionSelectedCards(testHand, rules);
+    const melds = partitionSelectedCards(testHand, rules, undefined, this.PARTITION_BUDGET_MS);
     if (!melds || melds.length === 0) return false;
     const ids = new Set();
     for (const m of melds) for (const c of m.cards) ids.add(c.id);
@@ -239,7 +273,7 @@ const RamiExpertAI = {
   /* هل تُكمل الورقة الإضافية مجموعة جديدة في اليد (ستُنزّل هذا الدور)؟ */
   completesNewMeld(hand, extra, rules) {
     if (!extra) return false;
-    const melds = partitionSelectedCards(hand.concat([extra]), rules);
+    const melds = partitionSelectedCards(hand.concat([extra]), rules, undefined, this.PARTITION_BUDGET_MS);
     if (!melds) return false;
     for (const m of melds) if (m.cards.some(c => c.id === extra.id)) return true;
     return false;
@@ -304,7 +338,7 @@ const RamiExpertAI = {
        الافتتاح الكامل يشترط صحة شروط الافتتاح — يُحسم في الفحص أدناه */
     if (player.hasOpened && this.simCanFinish(player.hand, top, game.rules)) {
       const testHand = player.hand.concat([top]);
-      const hm = partitionSelectedCards(testHand, game.rules);
+      const hm = partitionSelectedCards(testHand, game.rules, undefined, this.PARTITION_BUDGET_MS);
       if (hm && hm.length) {
         player._drawPlanIds = hm.flatMap(m => m.cards.map(c => c.id));
       }
@@ -346,7 +380,7 @@ const RamiExpertAI = {
            المسموح فقط: المسحوبة نفسها تُدرج (إلزام طالاج، ولها أولوية
            داخل _runBotTurn قبل الرمي) — أو اليد ≥ 4 (إدراج آمن دائماً) */
         const testHand = player.hand.concat([top]);
-        const hm = partitionSelectedCards(testHand, game.rules);
+        const hm = partitionSelectedCards(testHand, game.rules, undefined, this.PARTITION_BUDGET_MS);
         const ids = new Set(hm && hm.length ? hm.flatMap(m => m.cards.map(c => c.id)) : []);
         const leftovers = testHand.length - ids.size;
         const fullPartition = (ids.size === testHand.length);
@@ -369,7 +403,7 @@ const RamiExpertAI = {
        صالحة) فتبقى ورقة الإنهاء = إنزال 3+ ورمي واحدة = فوز قانوني */
     if (this.completesNewMeld(player.hand, top, game.rules)) {
       const testHand = player.hand.concat([top]);
-      const hm = partitionSelectedCards(testHand, game.rules);
+      const hm = partitionSelectedCards(testHand, game.rules, undefined, this.PARTITION_BUDGET_MS);
       if (hm && hm.length) {
         const ids = new Set(hm.flatMap(m => m.cards.map(c => c.id)));
         const leftovers = testHand.length - ids.size;
@@ -526,11 +560,13 @@ const RamiExpertAI = {
     return res;
   },
 
-  expertOpening(game, player) {
+  expertOpening(game, player, decisionDeadline) {
     const rm = game.roundManager;
     if (player.id === rm.dealerIndex && rm.dealerFirstCycle) return null;
     const rules = game.rules;
-    let melds = partitionSelectedCards(player.hand, rules, 'opening');
+    const deadline = decisionDeadline || (Date.now() + 45);
+    const partBudget = () => Math.max(1, Math.min(this.PARTITION_BUDGET_MS, deadline - Date.now()));
+    let melds = partitionSelectedCards(player.hand, rules, 'opening', partBudget());
     if (!melds || melds.length === 0) return null;
     /* [0% خطأ] لا محاولة افتتاح إلا إذا كانت الشروط مستوفاة فعلاً.
        تقسيم التغطية القصوى قد يُفقد المتتالية/المتماثلة النقية المطلوبة —
@@ -541,7 +577,7 @@ const RamiExpertAI = {
       const tryFix = (anchor) => {
         const anchorIds = new Set(anchor.map(c => c.id));
         const restCards = player.hand.filter(c => !anchorIds.has(c.id));
-        const rest = partitionSelectedCards(restCards, rules, 'opening');
+        const rest = partitionSelectedCards(restCards, rules, 'opening', partBudget());
         const cand = [new RamiMeld(
           (anchor[1] && anchor[0] && anchor[0].suit !== undefined && new Set(anchor.map(c => c.suit)).size === 1)
             ? MELD_TYPE.SEQUENCE : MELD_TYPE.SET, anchor.slice())].concat(rest || []);
@@ -575,7 +611,7 @@ const RamiExpertAI = {
         if (total - keepCards.length >= 3) {
           /* تحقق على إعادة تقسيم الأوراق نفسها — نفس ما سيراه المحرك */
           const rePart = partitionSelectedCards(
-            keepCards.map(id => player.hand.find(c => c.id === id)), game.rules);
+            keepCards.map(id => player.hand.find(c => c.id === id)), game.rules, undefined, partBudget());
           const chk = game.rules.validateOpening(rePart, player.drawnDiscardCard, rm.jokerIndicator, rm.highestOpeningScore || 0, !!player.tookLaTour);
           if (chk.valid) { chosen = rePart.length ? rePart : keep; ok = true; }
         }
@@ -627,9 +663,12 @@ const RamiExpertAI = {
 
   /* رمي مرحلة ما قبل الافتتاح: تحليل حديّ — أي ورقة إزالتها أخسر
      للمسار نحو 71 نقطة حرة؟ + كيمياء الثنائيات المستقبلية */
-  _chooseOpeningDiscard(game, player, banned) {
+  _chooseOpeningDiscard(game, player, banned, decisionDeadline) {
     const rules = game.rules, hand = player.hand;
-    const melds = partitionSelectedCards(hand, rules, 'opening');
+    const partBudget = () => decisionDeadline
+      ? Math.max(1, Math.min(this.PARTITION_BUDGET_MS, decisionDeadline - Date.now()))
+      : this.PARTITION_BUDGET_MS;
+    const melds = partitionSelectedCards(hand, rules, 'opening', partBudget());
     const F0 = this._freeScore(melds, rules);
     const C0 = melds ? melds.reduce((sm, m) => sm + m.cards.length, 0) : 0;
     /* [AI-FIX] خطر الإطعام قبل الافتتاح أيضاً: لا ترمِ ورقة تدخل مجموعة ظاهرة لخصم مفتوح */
@@ -646,13 +685,14 @@ const RamiExpertAI = {
     const jokerCount = hand.filter(c => rules.isWildCard(c)).length;
     let best = null, bestScore = Infinity;
     for (const c of hand) {
+      if (decisionDeadline && Date.now() >= decisionDeadline) break;
       if (banned.has(c.id)) continue;
       let keep;
       if (rules.isWildCard(c)) {
         keep = (jokerCount <= 2) ? 1e6 : 60000;   /* الفائض أقل قداسة */
       } else {
         const sub = hand.filter(x => x.id !== c.id);
-        const pm = partitionSelectedCards(sub, rules, 'opening');
+        const pm = partitionSelectedCards(sub, rules, 'opening', partBudget());
         const F = this._freeScore(pm, rules);
         const C = pm ? pm.reduce((sm, m) => sm + m.cards.length, 0) : 0;
         const loss = (F0 - F) * 6 + (C0 - C) * 30;         /* ما نخسره بإزالتها */
@@ -708,8 +748,11 @@ const RamiExpertAI = {
     if (player.drawnDiscardCard) banned.add(player.drawnDiscardCard.id);
     if (player.drawnLaTourCard) banned.add(player.drawnLaTourCard.id);
     if (player.drawnFojokCard) banned.add(player.drawnFojokCard.id);
-    if (!player.hasOpened) return this._chooseOpeningDiscard(game, player, banned);
-    const melds = partitionSelectedCards(hand, game.rules);
+    if (!player.hasOpened) {
+      /* سقف إجمالي واحد للقرار، لا ميزانية منفصلة لكل ورقة تعيد التجمّد. */
+      return this._chooseOpeningDiscard(game, player, banned, Date.now() + 45);
+    }
+    const melds = partitionSelectedCards(hand, game.rules, undefined, this.PARTITION_BUDGET_MS);
     const inMeldIds = new Set();
     if (melds) for (const m of melds) for (const c of m.cards) inMeldIds.add(c.id);
     let best = null, bestScore = Infinity;
@@ -767,7 +810,7 @@ const RamiExpertAI = {
           return { move: { type: 'open', playerId: player.id, cardIds: planIds }, done: false };
         }
       }
-      const handMelds = partitionSelectedCards(player.hand.slice(), game.rules);
+      const handMelds = partitionSelectedCards(player.hand.slice(), game.rules, undefined, this.PARTITION_BUDGET_MS);
       if (handMelds && handMelds.length > 0) {
         let dumpIds = handMelds.flatMap(m => m.cards.map(c => c.id));
         /* [R15-FIX] يد كاملة القسمة: اقتطاع ورقة من مجموعة 4+ يترك ورقة الإنهاء */
@@ -2642,17 +2685,56 @@ class RamiGame {
 var RAMI_STATE = null;
 var RAMI_BET = 50;
 var RAMI_BUSY = false;
+var RAMI_BUSY_OWNER = null;
 var _lastBusyTime = 0;
 var _draggedCardId = null;
 
-function setRamiBusy(val) {
+/* [Safety 2026-09-22] الافتتاح والإنهاء إجراءان قد يطبّقان جزاءً عند الخطأ.
+   لا ننفّذ أي حركة من النقرة الأولى: نطلب نقرة ثانية مستقلة خلال 2.5 ثانية. */
+var _ramiConfirm = { action: '', at: 0, timer: null };
+function ramiConfirmPending(action) {
+  return !!(_ramiConfirm.action === action && (Date.now() - _ramiConfirm.at) <= 2500);
+}
+function clearRamiConfirm() {
+  if (_ramiConfirm.timer) { clearTimeout(_ramiConfirm.timer); _ramiConfirm.timer = null; }
+  _ramiConfirm.action = '';
+  _ramiConfirm.at = 0;
+}
+function requireRamiConfirm(action) {
+  if (ramiConfirmPending(action)) {
+    clearRamiConfirm();
+    return true;
+  }
+  clearRamiConfirm();
+  _ramiConfirm.action = action;
+  _ramiConfirm.at = Date.now();
+  _ramiConfirm.timer = setTimeout(function () {
+    if (ramiConfirmPending(action)) {
+      clearRamiConfirm();
+      try { if (window.RamiAdapter) window.RamiAdapter._updateControls(); } catch (e) {}
+    }
+  }, 2550);
+  _ramiToast(action === 'open'
+    ? 'اضغط «افتتاح» مرة ثانية خلال ثانيتين ونصف للتأكيد — لن تُحتسب أي مخالفة الآن.'
+    : 'اضغط «إنهاء» مرة ثانية خلال ثانيتين ونصف للتأكيد — لن تُحتسب أي مخالفة الآن.', 'warn');
+  try { if (window.RamiAdapter) window.RamiAdapter._updateControls(); } catch (e) {}
+  return false;
+}
+
+function setRamiBusy(val, owner) {
   RAMI_BUSY = !!val;
-  if (val) _lastBusyTime = Date.now();
+  if (val) {
+    _lastBusyTime = Date.now();
+    RAMI_BUSY_OWNER = owner || null;
+  } else {
+    RAMI_BUSY_OWNER = null;
+  }
 }
 
 function checkRamiBusy() {
   if (RAMI_BUSY && Date.now() - _lastBusyTime > 1200) {
     RAMI_BUSY = false;
+    RAMI_BUSY_OWNER = null;
   }
   return RAMI_BUSY;
 }
@@ -2670,9 +2752,18 @@ function initRami() {
         if (document.hidden) return;
         const ad = window.RamiAdapter;
         if (!ad || !ad.game || ad.game.gamePhase !== 'PLAYING') return;
-        RAMI_BUSY = false;   /* أي busy قديمة صارت لاغية بعد الغياب */
         const cur = ad.game.roundManager.getCurrentPlayer();
-        if (cur && cur.isBot) ad._runBotTurn(cur);
+        if (!cur || !cur.isBot) return;
+        /* لا نلغي خطوة صحيحة عند العودة: نشغّلها فوراً إن حان موعدها،
+           وإلا نترك مؤقتها يكمل. أما الخطوة القديمة فنلغيها ونبدأ السياق الحالي. */
+        const step = ad._botStep;
+        if (step && ad._botStepIsCurrent(step)) {
+          if (Date.now() >= step.at) step.run();
+          return;
+        }
+        if (step) ad._cancelBotStep();
+        RAMI_BUSY = false;   /* busy قديمة من سياق انتهى */
+        ad._runBotTurn(cur);
       } catch (e) {}
     });
   }
@@ -2742,6 +2833,12 @@ class RamiUIAdapter {
     this.room = null;           // { id, code, isOwner, order, players, mode, target, bet, seed, seq }
     this._netSeq = 0;           // عدّاد تسلسل حركاتي المُصدَرة
     this._netApplied = 0;       // آخر تسلسل طُبّق (إزالة التكرار)
+    /* [BOT-TURN-GUARD] كل خطوة مؤجلة مرتبطة بهوية اللعبة والدور نفسه.
+       لا يكفي إلغاء المؤقت المرئي: قد يكون callback قد دخل طابور المتصفح
+       أثناء الخلفية أو قبل إعادة الدخول، لذلك نتحقق من السياق قبل كل تنفيذ. */
+    this._botTurnEpoch = 0;
+    this._botStepToken = 0;
+    this._botStep = null;
   }
 
   start(containerId) {
@@ -2858,6 +2955,12 @@ class RamiUIAdapter {
   }
 
   destroy() {
+    /* [BOT-TURN-GUARD] مغادرة اللعبة تلغي callback البوت نفسه، لا المؤقت المرئي
+       فقط. callback قديم يجب ألا يلمس الجولة التي ستُنشأ عند العودة. */
+    this._cancelBotStep();
+    this._botTurnEpoch = (this._botTurnEpoch || 0) + 1;
+    this._botStepToken = (this._botStepToken || 0) + 1;
+    setRamiBusy(false);
     if (this.timerId) clearInterval(this.timerId);
     if (this.watchdogId) clearInterval(this.watchdogId);
     if (this._resizeT) clearTimeout(this._resizeT);
@@ -3074,6 +3177,46 @@ class RamiUIAdapter {
     this._startTimer();
   }
 
+  /* [BOT-TURN-GUARD] لقطة ثابتة للدور الذي يُسمح لخطوة البوت أن تلمسه. */
+  _captureBotContext(bot) {
+    const rm = this.game && this.game.roundManager;
+    return {
+      game: this.game,
+      epoch: this._botTurnEpoch || 0,
+      botId: bot && bot.id,
+      playerIndex: rm ? rm.currentPlayerIndex : -1,
+      roundNumber: rm ? (rm.roundNumber || 0) : 0,
+      turnStartedAt: rm ? (rm._turnStartedAt || 0) : 0
+    };
+  }
+
+  _botContextIsCurrent(ctx) {
+    if (!ctx || !this.game || this.game !== ctx.game || this.game.gamePhase !== 'PLAYING') return false;
+    if ((this._botTurnEpoch || 0) !== ctx.epoch) return false;
+    const rm = this.game.roundManager;
+    const cur = rm && rm.getCurrentPlayer ? rm.getCurrentPlayer() : null;
+    if (!rm || !cur || cur.id !== ctx.botId) return false;
+    if (rm.currentPlayerIndex !== ctx.playerIndex || (rm.roundNumber || 0) !== ctx.roundNumber) return false;
+    /* بعض اختبارات المحرك لا تضع ختم البداية؛ في المتصفح نتحقق منه أيضاً. */
+    if (ctx.turnStartedAt && rm._turnStartedAt && rm._turnStartedAt !== ctx.turnStartedAt) return false;
+    return true;
+  }
+
+  _botStepIsCurrent(step) {
+    return !!(step && !step.done && this._botStep === step && this._botContextIsCurrent(step.context));
+  }
+
+  _cancelBotStep() {
+    const step = this._botStep;
+    if (!step) return;
+    step.done = true;
+    if (step.timerId) {
+      try { clearTimeout(step.timerId); } catch (e) {}
+      step.timerId = null;
+    }
+    if (this._botStep === step) this._botStep = null;
+  }
+
   /* [v2.43 TIMER-FIX] سبب تجمّد المؤقّت في دور البوت:
      كان كل tick يُلغي `this.timerId` الحاليّ إذا لم تكن المرحلة PLAYING —
      وبين الأشواط تمرّ المرحلة بـ LOBBY/ROUND_END، فأي tick متأخر (خلفية الهاتف/
@@ -3102,34 +3245,57 @@ class RamiUIAdapter {
     this.watchdogId = wd;
   }
 
-  /* [v2.43] خطوة بوت مؤجّلة بمرجع واحد: لا تُنفَّذ مرتين، ويستعيدها الـ watchdog
-     إن تأخّر/سقط مؤقّت الصفحة (خلفية الهاتف، إعادة الرسم، تسريع المتصفح...). */
-  _deferBotStep(bot, fn, delay) {
+  /* [v2.43 + BOT-TURN-GUARD] خطوة بوت مؤجلة بمرجع واحد.
+     كل استبدال يلغي المؤقت السابق، وكل callback يتحقق من اللعبة/الشوط/الدور
+     قبل لمس الحالة. هذا يمنع callbackاً قديماً من تنفيذ سحب أو رمي بعد العودة
+     من الخلفية أو بعد انتقال الدور. */
+  _deferBotStep(bot, fn, delay, context) {
     const token = (this._botStepToken || 0) + 1;
     this._botStepToken = token;
     const now = Date.now();
-    const step = { token: token, botId: bot.id, at: now + (delay || 0), createdAt: now, fn: fn, done: false };
+    const ctx = context || this._captureBotContext(bot);
+
+    /* لا يسمح بوجود خطوتين متنافستين في الدور نفسه. */
+    this._cancelBotStep();
+    const step = {
+      token: token,
+      botId: bot && bot.id,
+      at: now + (delay || 0),
+      createdAt: now,
+      fn: fn,
+      context: ctx,
+      done: false,
+      timerId: null
+    };
     this._botStep = step;
+
     const run = () => {
       if (step.done) return;
+      /* callback قديم لا يحرر RAMI_BUSY الخاص بخطوة أحدث ولا يمرر دوراً جديداً. */
+      if (!this._botStepIsCurrent(step)) {
+        step.done = true;
+        if (this._botStep === step) this._botStep = null;
+        return;
+      }
       step.done = true;
+      step.timerId = null;
       if (this._botStep === step) this._botStep = null;
       try { fn(); } catch (e) {
         console.error('[Rami] bot step error:', e && e.message, e);
         try {
+          /* لا نصلح إلا نفس السياق؛ الدور الجديد قد يكون بدأ بالفعل. */
+          if (!this._botContextIsCurrent(ctx)) return;
           setRamiBusy(false);
-          if (this.game && this.game.gamePhase === 'PLAYING') {
-            const rm = this.game.roundManager;
-            if (rm && rm.getCurrentPlayer() && rm.getCurrentPlayer().id === bot.id) {
-              rm.nextPlayer();
-            }
-            this._processTurn();
+          const rm = this.game && this.game.roundManager;
+          if (rm && rm.getCurrentPlayer() && rm.getCurrentPlayer().id === bot.id) {
+            rm.nextPlayer();
           }
+          this._processTurn();
         } catch (e2) {}
       }
     };
     step.run = run;
-    setTimeout(run, Math.max(0, delay || 0));
+    step.timerId = setTimeout(run, Math.max(0, delay || 0));
     return step;
   }
 
@@ -3141,9 +3307,17 @@ class RamiUIAdapter {
     /* [v2.43] شفاء ذاتي: مؤقّت/حارس متوقفان والمرحلة جارية ⇒ أعد تشغيلهما */
     if (!this.timerId || !this.watchdogId) { try { this._startTimer(); } catch (e) {} }
 
-    /* [v2.43] خطوة بوت مؤجّلة تأخّرت أكثر من 3 ثوانٍ ⇒ نفّذها الآن */
-    const step = this._botStep;
-    if (step && !step.done && (Date.now() - (step.createdAt || step.at)) > 3000) {
+    /* [BOT-TURN-GUARD] تخلّص من خطوة تخص دوراً قديماً قبل أي استرداد. */
+    let step = this._botStep;
+    if (step && !this._botStepIsCurrent(step)) {
+      this._cancelBotStep();
+      step = null;
+    }
+
+    /* [v2.43] خطوة بوت مؤجّلة تأخّرت أكثر من 3 ثوانٍ ⇒ نفّذها الآن.
+       استخدام at يجعل الاسترداد فورياً بعد عودة الصفحة، وشرط العمر يحافظ
+       على اختبار/حالة المؤقت المتأخر حتى لو تغيرت ساعة الجهاز. */
+    if (step && (Date.now() >= step.at || (Date.now() - (step.createdAt || step.at)) > 3000)) {
       console.warn('[Rami] watchdog: running delayed bot step for bot', step.botId);
       step.run();
       return;
@@ -3208,7 +3382,10 @@ class RamiUIAdapter {
 
   /* [Resilience] تنفيذ اللعب الآلي (سحب إن لزم + رمي ورقة لا منتمية) مع بثّ اختياري */
   _doAutoPlay(curP, rm, broadcast) {
-    setRamiBusy(true);
+    /* انتهاء الوقت/الاسترداد يتغلب على أي خطوة خبير مؤجلة؛ لا نتركها
+       تستيقظ بعد الرمي الآلي وتنفذ حركة ثانية. */
+    this._cancelBotStep();
+    setRamiBusy(true, this);
     var drew = false, discardCardId = null;
     try {
       if (rm.turnPhase === 'WAITING_DRAW' && curP.hand.length < this.game.rules.playHandSize) {
@@ -3256,6 +3433,8 @@ class RamiUIAdapter {
 
   _handleTurnTimeout() {
     if (!this.game || this.game.gamePhase !== 'PLAYING') return;
+    /* timeout هو مسار استرداد حتمي؛ ألغِ خطة البوت القديمة قبل تنفيذها. */
+    this._cancelBotStep();
     const rm = this.game.roundManager;
     const curP = rm.getCurrentPlayer();
     if (!curP) return;
@@ -3307,6 +3486,10 @@ class RamiUIAdapter {
   }
   _processTurn() {
     if (!this.game || this.game.gamePhase !== 'PLAYING') return;
+    /* [BOT-TURN-GUARD] الانتقال إلى أي دور جديد يبطل كل callback سابق،
+       حتى لو بقي مؤقت setTimeout في طابور المتصفح. */
+    this._cancelBotStep();
+    this._botTurnEpoch = (this._botTurnEpoch || 0) + 1;
     /* [Spectator] عرض فقط — لا مؤقّتات ولا أفعال */
     if (this.isSpectator) { this._updateUI(); return; }
     setRamiBusy(false);
@@ -3396,16 +3579,32 @@ class RamiUIAdapter {
 
   _runBotTurn(bot) {
     if (!this.game || this.game.gamePhase !== 'PLAYING') return;
-    if (checkRamiBusy()) return; // منع الاستدعاء المزدوج من الـ watchdog
     /* [MP-AI] في الوضع الجماعي السائق وحده يُشغّل البوت ويبثّه؛ البقية يطبّقون عبر room:move */
     if (this.multiplayer && !this._isDriver()) return;
-    const curP = this.game.roundManager.getCurrentPlayer();
-    if (!curP || curP.id !== bot.id) return;
-
-    setRamiBusy(true);
     const rm = this.game.roundManager;
+    const curP = rm && rm.getCurrentPlayer ? rm.getCurrentPlayer() : null;
+    if (!curP || !bot || curP.id !== bot.id) return;
+
+    /* tick/visibility قد يستدعيان هذا أكثر من مرة. وجود خطوة صحيحة يعني أن
+       الدور جارٍ فعلاً، حتى لو انتهت مهلة RAMI_BUSY العامة البالغة 1.2s. */
+    if (this._botStep) {
+      if (this._botStepIsCurrent(this._botStep)) return;
+      this._cancelBotStep();
+      setRamiBusy(false);
+    }
+    if (checkRamiBusy()) {
+      /* RAMI_BUSY عالمي تاريخياً؛ قد يكون من adapter غادر الصفحة. لا تسمح
+         بهوية قديمة أن تمنع adapter الحالي من بدء دور البوت. */
+      if (RAMI_BUSY_OWNER && RAMI_BUSY_OWNER !== this) setRamiBusy(false);
+      else if (!RAMI_BUSY_OWNER || (RAMI_BUSY_OWNER === this && !this._botStep)) setRamiBusy(false);
+      else return;
+    }
+
+    const botContext = this._captureBotContext(bot);
+    setRamiBusy(true, this);
 
     this._deferBotStep(bot, () => {
+      if (!this._botContextIsCurrent(botContext)) return;
       try {
       if (!this.game || this.game.gamePhase !== 'PLAYING') { setRamiBusy(false); return; }
 
@@ -3488,7 +3687,7 @@ class RamiUIAdapter {
               }
             }
           }
-          const handMelds = partitionSelectedCards(bot.hand.slice(), this.game.rules);
+          const handMelds = partitionSelectedCards(bot.hand.slice(), this.game.rules, undefined, RamiExpertAI.PARTITION_BUDGET_MS);
           if (handMelds && handMelds.length > 0) {
             let dumpIds = handMelds.flatMap(m => m.cards.map(c => c.id));
             /* [R15-FIX] يد كاملة القسمة: استثناء ورقة من مجموعة 4+ يترك ورقة
@@ -3698,6 +3897,7 @@ class RamiUIAdapter {
         }
         } catch (e) {
           console.error('[Rami] bot turn error:', e && e.message, e);
+          if (!this._botContextIsCurrent(botContext)) return;
           setRamiBusy(false);
           if (this.game && this.game.gamePhase === 'PLAYING') {
             if (rm.getCurrentPlayer() && rm.getCurrentPlayer().id === bot.id) {
@@ -3706,9 +3906,10 @@ class RamiUIAdapter {
             this._processTurn();
           }
         }
-      }, 450);
+      }, 450, botContext);
       } catch (e) {
         console.error('[Rami] bot draw error:', e && e.message, e);
+        if (!this._botContextIsCurrent(botContext)) return;
         setRamiBusy(false);
         if (this.game && this.game.gamePhase === 'PLAYING') {
           if (rm.getCurrentPlayer() && rm.getCurrentPlayer().id === bot.id) {
@@ -3717,7 +3918,7 @@ class RamiUIAdapter {
           this._processTurn();
         }
       }
-    }, 350);
+    }, 350, botContext);
   }
 
   toggleHumanAutoPlay() {
@@ -4010,9 +4211,10 @@ class RamiUIAdapter {
 
     // [V25] أقصى اليسار: زر افتتاح / إنزال الأوراق (أصفر)
     const isReady = (humanPlayer && humanPlayer.hasOpened);
-    const openCls = isReady ? 'rbtn rbtn-open ready' : 'rbtn rbtn-open';
+    const openPending = ramiConfirmPending('open');
+    const openCls = (isReady ? 'rbtn rbtn-open ready' : 'rbtn rbtn-open') + (openPending ? ' confirm-pending' : '');
     const modeName = _ramiT(this.game.mode === 'talaj' ? 'rami.talaj' : 'rami.simple', this.game.mode === 'talaj' ? 'طالاج' : 'سامبل');
-    const openTitle = isReady ? 'إنزال مجموعات جديدة' : ('إظهار الأوراق (' + modeName + ' ≥ ' + threshold + ')');
+    const openTitle = (isReady ? 'إنزال مجموعات جديدة' : ('إظهار الأوراق (' + modeName + ' ≥ ' + threshold + ')')) + ' — اضغط مرتين للتأكيد';
     html += '<button class="' + openCls + '" onclick="ramiOpenMelds()" title="' + openTitle + '">' +
       '<i class="fa-solid fa-lock-open"></i> ' + (_ramiT('rami.open') || 'افتتاح') +
     '</button>';
@@ -4029,8 +4231,9 @@ class RamiUIAdapter {
       this._isolateSlotHtml() +
     '</div>';
 
-    // [V25] أقصى اليمين: زر إنهاء الشوط
-    html += '<button class="rbtn rbtn-finish" onclick="ramiAction(\'finish\')" title="إنهاء الشوط">' +
+    // [V25] أقصى اليمين: زر إنهاء الشوط — يتطلب تأكيداً بالنقرة الثانية
+    const finishPending = ramiConfirmPending('finish');
+    html += '<button class="rbtn rbtn-finish' + (finishPending ? ' confirm-pending' : '') + '" onclick="ramiAction(\'finish\')" title="إنهاء الشوط — اضغط مرتين للتأكيد">' +
       '<i class="fa-solid fa-trophy"></i> ' + (_ramiT('rami.finish') || 'إنهاء') +
     '</button>';
 
@@ -5133,6 +5336,8 @@ function ramiAction(type, cardId) {
   if (!game || checkRamiBusy()) return;
   const player = game.roundManager.getCurrentPlayer();
   if (!player || player.isBot) return;
+  /* لا نبني ولا ننفذ حركة الإنهاء من النقرة الأولى */
+  if (type === 'finish' && !requireRamiConfirm('finish')) return;
 
   const adapter = (typeof window !== 'undefined' && (window.RamiAdapter || window.RAMI_ADAPTER)) ? (window.RamiAdapter || window.RAMI_ADAPTER) : null;
   if (typeof game.normalizeTurnPhase === 'function') game.normalizeTurnPhase();
@@ -5218,6 +5423,8 @@ function ramiOpenMelds() {
   if (!game || checkRamiBusy()) return;
   const player = game.roundManager.getCurrentPlayer();
   if (!player || player.isBot) return;
+  /* لا ننزل مجموعات ولا نتحقق من الجزاء حتى تأتي النقرة الثانية */
+  if (!requireRamiConfirm('open')) return;
 
   const adapter = (typeof window !== 'undefined' && (window.RamiAdapter || window.RAMI_ADAPTER)) ? (window.RamiAdapter || window.RAMI_ADAPTER) : null;
   if (!adapter) return;

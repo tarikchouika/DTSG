@@ -12,7 +12,7 @@
 
    التشغيل على الخادم/الهاتف:
      VOUCHER_BOT_TOKEN=123:ABC  API_BASE=http://127.0.0.1:8080 \
-     SUPER_TG=5700612979  node scripts/voucher-bot.js
+     SUPER_TG=<ADMIN_CHAT_ID>  node scripts/voucher-bot.js
    متغيرات اختيارية: ADMIN_API_SECRET، CASH_PLUS_NAME، BOT_POLL_MS (افتراضي 1200)،
    STATE_FILE (افتراضي data/voucher-bot-state.json)، SUPPORT_BOT_URL، PLATFORM_URL.
 

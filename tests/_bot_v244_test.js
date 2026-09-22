@@ -5,7 +5,7 @@ process.chdir(require('path').resolve(__dirname, '..'));
    تفعيل الكود ← شحن الرصيد بالكوينز مرة واحدة بالضبط.
    تلغرام مُستبدَل (لا شبكة) وكل ما عداه حقيقي على خادم الاختبار. ═══ */
 const API_BASE = process.env.BASE || 'http://127.0.0.1:3971';
-const SUPER = process.env.SUPER_TG || '5700612979';
+const SUPER = process.env.SUPER_TG || '999000001';
 const USER_TG = 555000111;
 const USERNAME = 'qa_player';
 

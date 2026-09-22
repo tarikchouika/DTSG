@@ -67,12 +67,41 @@ ls -1 css/15-edge.css tests/_layout_edge_test.js scripts/phone-tunnel.sh
 | `PORT` | منفذ الخادم محلياً (3000) |
 | `ADMIN_API_SECRET` | حماية مسارات `/api/admin/*` |
 | `PAYMENTS_SHARED_SECRET` | توقيع طلبات المدفوعات |
-| `USD_GOLD_RATE` | 100 ⇒ 1$ = 100 كوين |
+| `USD_GOLD_RATE` | 100 ⇒ 1$ = 10 MAD = 100 COIN (قيمة ثابتة) |
 | `DM_TEST_MODE` | `0` في الإنتاج (يمنع وضع الاختبار) |
 | `SUPPORT_BOT_TOKEN` · `SUPPORT_WEBHOOK_SECRET` · `SUPPORT_BOT_USERNAME` · `SUPPORT_SUPER_TG` | بوت الدعم (تيليغرام) — من BotFather و`openssl rand -hex 24` |
+| `PRIVATE_CHAT_BOT_TOKEN` · `PRIVATE_CHAT_BOT_USERNAME` · `PRIVATE_CHAT_WEBHOOK_SECRET` · `PRIVATE_CHAT_TG_API` | بوت الدردشة الخاصة للمستخدمين المرتبطين فقط؛ لا تُشارك التوكن أو سر الويبهوك |
 | `TELEGRAM_BOT_TOKEN` · `TELEGRAM_ADMIN_CHAT_ID` · `TELEGRAM_ADMIN_PIN` | بوت المنصة/الإشعارات (إن كان مستعملاً) |
 
 > 🔐 المفتاحان المكشوفان سابقاً (`SUPPORT_BOT_TOKEN` و`SUPPORT_WEBHOOK_SECRET` القديمان) يجب أن يبقيا **مُدوَّرين**: BotFather → `/revoke` ثم تصدير التوكن الجديد، ثم `bash scripts/setup-telegram-bots.sh` لتفعيل الويبهوك بالسرّ الجديد.
+
+### 1.3.1 بوت الدردشة الخاصة — ربط آمن لا يكشف هويات تيليغرام
+
+1. سجّل المستخدم دخوله إلى المنصة واضغط بطاقة **بوت الدردشة الخاصة**؛ المسار `POST /api/private-chat/link` يُصدر رابط `/start` أحادي الاستعمال، صالحاً 15 دقيقة.
+2. بعد فتح الرابط، يستهلك الخادم الكود بشكل ذري ويربط شات تيليغرام بالحساب المقصود فقط. لا تُرسل إلى الطرف الآخر أرقام Telegram أو أسماء Telegram؛ تظهر أسماء المستخدمين داخل DTSG فقط.
+3. لا يُسمح بالمراسلة إلا بين صديقين مقبولين أو حساب وأدمنه الرسمي/أدمن رسمي، وبعد ربط الطرفين. الشات غير المرتبط يظل مقفلاً.
+4. اضبط `PRIVATE_CHAT_BOT_TOKEN` و`PRIVATE_CHAT_WEBHOOK_SECRET` و`PRIVATE_CHAT_BOT_USERNAME` في بيئة الهاتف فقط، ثم نفّذ:
+
+```bash
+export PRIVATE_CHAT_BOT_TOKEN='<توكن من BotFather>'
+export PRIVATE_CHAT_WEBHOOK_SECRET="$(openssl rand -hex 24)"
+export PRIVATE_CHAT_BOT_USERNAME='<اسم البوت من getMe>'
+bash scripts/setup-telegram-bots.sh
+pm2 restart casino-server --update-env
+```
+
+5. تحقق من الحماية دون إرسال بيانات مستخدم:
+
+```bash
+PUBLIC_BASE="${PUBLIC_BASE:-http://127.0.0.1:3000}"
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \\
+  -H 'content-type: application/json' \\
+  "$PUBLIC_BASE/api/private-chat/webhook" -d '{"update_id":1}'
+# المتوقع 403 عند غياب السر
+curl -s "$PUBLIC_BASE/api/private-chat/status"  # 401 بلا جلسة، ولا يعرض أي معرّف Telegram
+```
+
+> لا تضع التوكن أو السر في `~/.bash_history` إن أمكن؛ استوردهما من ملف بيئة خارج المستودع، واضبط صلاحياته `chmod 600`.
 
 ### 1.4 التشغيل
 
@@ -216,7 +245,20 @@ curl -s https://dtsg.pages.dev/tunnel-live.json                   # المرجع
 
 > كاش الووركر **15 ثانية** ⇒ انتظر ربع دقيقة بعد النشر ثم أعد الفحص.
 
-### 2.6 تشغيل تلقائي بعد إقلاع الهاتف
+### 2.6 نشر Cloudflare Pages/Worker (بعد اعتماد `main`)
+
+- `scripts/deploy-pages.sh` يبني من `origin/main` فقط؛ لا تستخدم نسخة الهاتف أو worktree القديم كمصدر للنشر.
+- انشر واجهة Pages بعد فحص الهوية:
+
+```bash
+bash scripts/preflight-repo.sh   # قد يرفض فرع جلسة Arena؛ لا تتجاوز الحارس خارج مسار الدمج المعتمد
+bash scripts/deploy-pages.sh
+```
+
+- انشر Worker الاحتياطي عند تغييره عبر `scripts/deploy-casino-api.sh`. كلا السكربتين يقرآن مفاتيح Cloudflare من البيئة فقط، ولا تُسجّل مخرجات تحتوي على توكنات.
+- بعد النشر، افحص `api-url2.json`، `/api/health`، ومسار الدفع، ثم انتظر كاش الووركر 15 ثانية قبل إعلان الإصدار.
+
+### 2.7 تشغيل تلقائي بعد إقلاع الهاتف
 
 ```bash
 mkdir -p ~/.termux/boot && cat > ~/.termux/boot/dtsg.sh <<'EOS'
@@ -256,6 +298,8 @@ chmod +x ~/.termux/boot/dtsg.sh
 | الووركر يردّ لكن البيانات لا تُحفظ | عنوان KV قديم | `publish` العنوان الجديد |
 | `SQLITE_BUSY` / «قاعدة مقفلة» | عمليتان على نفس الملف | خادم واحد فقط: `pm2 delete` للنسخة المكررة |
 | الكوينز لا تزيد بعد تأكيد الشحن | الويبهوك لم يصل | افحص `SUPPORT_WEBHOOK_SECRET` ثم `setup-telegram-bots.sh` |
+| بوت الدردشة الخاصة يرد 403 | سر الويبهوك غير مطابق | وحّد `PRIVATE_CHAT_WEBHOOK_SECRET` مع `setup-telegram-bots.sh` ثم أعد تشغيل pm2 |
+| رابط بوت الدردشة لا يظهر | الحساب غير مسجل أو الخادم قديم | سجّل الدخول، افحص `/api/private-chat/link` وحدّث `server-private-chat.js` |
 | النفق يقف عند قفل الشاشة | توفير طاقة أندرويد | `termux-wake-lock` + استثناء البطارية |
 | `EADDRINUSE` على 3000 | نسخة قديمة تعمل | `pm2 delete casino-server` ثم `pm2 start` |
 | 404 على `/api/bot/request` | خادم قديم (قبل v2.44) | القسم 1.2 ثم إعادة التشغيل |

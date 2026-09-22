@@ -79,7 +79,7 @@ window.PWAL = window.PWAL || {};
       '  <div class="wl-head"><h3>💳 ' + (typeof T === 'function' ? (T('wl.title') || 'المحفظة') : 'المحفظة') + '</h3>' +
       '    <button class="wl-x" onclick="closeWallet()" aria-label="إغلاق">✕</button></div>' +
       '  <div class="wl-bal"><div><div class="usd" id="wlUsd">0.00 USD</div>' +
-      '    <div class="gold" id="wlGold"></div></div>' +
+      '    <div class="gold" id="wlGold"></div><div class="wl-rate-note" data-i18n="wl.rate">1 USD = 10 MAD = 100 COIN · قيمة ثابتة للشحن والسحب</div></div>' +
       '    <button class="wl-copy" id="wlTgLink" type="button" data-i18n="wl.tgLink">🔗 ربط تيليغرام</button></div>' +
       '  <div class="wl-tabs">' +
       '    <button id="wlTabDep" class="on" type="button" data-i18n="wl.dep">⬇️ شحن</button>' +
@@ -396,6 +396,19 @@ window.PWAL = window.PWAL || {};
     overlay.querySelector('#wlVoucherRow').hidden = true;
     overlay.querySelector('#wlVGo').hidden = true;
     wlRefresh();
+  };
+  /* فتح المحفظة من بطاقة عرض مع تحديد مبلغ العرض بالدولار مسبقاً، مع إبقاء اختيار الوسيلة للمستخدم. */
+  window.openWalletOffer = function (amount) {
+    var value = Number(amount);
+    var opened;
+    try { opened = window.openWallet(); } catch (e) { opened = null; }
+    Promise.resolve(opened).then(function () {
+      var input = overlay && overlay.querySelector('#wlAmt');
+      if (input && value > 0) {
+        input.value = String(Math.round(value * 100) / 100);
+        input.focus();
+      }
+    });
   };
   window.closeWallet = function () { if (overlay) overlay.hidden = true; };
 })();

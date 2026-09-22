@@ -262,4 +262,59 @@ for (let cycle = 0; cycle < 30; cycle++) {
 assert.ok(rm.turnCount >= 20, 'Must successfully execute 20+ turn transitions across all players without freeze');
 console.log(`  ✅ Continuous play verified: executed ${rm.turnCount} turns smoothly (${humanTimeouts} human timeouts, ${botTurns} bot turns, 0 deadlocks)`);
 
+// ── 9. Stale Callback / Re-entry Guard ──
+console.log('── 9) Testing stale bot callbacks after turn change and re-entry ──');
+const guardGame = new RamiGame('simple', 4, 3, 777, 90);
+guardGame.startMatch(501);
+guardGame.roundManager.currentPlayerIndex = 1; // bot 1
+guardGame.roundManager.turnPhase = 'WAITING_DRAW';
+guardGame.roundManager._turnStartedAt = Date.now();
+const guardAdapter = new RamiUIAdapter();
+guardAdapter.game = guardGame;
+const guardBot = guardGame.roundManager.getCurrentPlayer();
+let staleRan = false;
+const staleStep = guardAdapter._deferBotStep(guardBot, () => { staleRan = true; }, 500);
+// The turn changes before the browser callback fires.
+guardGame.roundManager.currentPlayerIndex = 0;
+guardAdapter._botTurnEpoch++;
+staleStep.run();
+assert.strictEqual(staleRan, false, 'A callback from the previous turn must be ignored');
+assert.strictEqual(guardAdapter._botStep, null, 'Stale callback must not remain registered');
+
+// A visibility/tick retry must not schedule a second step for the same turn.
+guardGame.roundManager.currentPlayerIndex = 1;
+guardGame.roundManager._turnStartedAt = Date.now();
+guardAdapter._botTurnEpoch++;
+timeouts.length = 0;
+guardAdapter._runBotTurn(guardBot);
+const scheduledStep = guardAdapter._botStep;
+const scheduledCount = timeouts.length;
+guardAdapter._runBotTurn(guardBot);
+assert.strictEqual(guardAdapter._botStep, scheduledStep, 'Repeated wake-up must keep the current step');
+assert.strictEqual(timeouts.length, scheduledCount, 'Repeated wake-up must not duplicate timers');
+while (timeouts.length > 0) timeouts.shift().fn();
+console.log('  ✅ Old turn callbacks are ignored and background wake-up is idempotent');
+
+// A pathological duplicate-heavy hand used to make expert discard search block
+// the UI immediately after the draw. The bounded decision must still discard.
+console.log('── 10) Testing draw → discard with a duplicate-heavy bot hand ──');
+const heavyGame = new RamiGame('simple', 4, 3, 778, 90);
+heavyGame.startMatch(501);
+const heavyBot = heavyGame.players[1];
+heavyBot.hand = [1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7]
+  .map((rank, i) => new RamiCard(2000 + i, rank, 'heart'));
+heavyGame.roundManager.currentPlayerIndex = 1;
+heavyGame.roundManager.turnPhase = 'WAITING_DRAW';
+heavyGame.roundManager._turnStartedAt = Date.now();
+const heavyAdapter = new RamiUIAdapter();
+heavyAdapter.game = heavyGame;
+heavyAdapter._updateUI = () => {};
+heavyAdapter._botEmit = () => {};
+timeouts.length = 0;
+heavyAdapter._runBotTurn(heavyBot);
+while (timeouts.length > 0) timeouts.shift().fn();
+assert(heavyGame.roundManager.discardPile.length > 0, 'Bot must discard after drawing from a hard hand');
+assert.notStrictEqual(heavyGame.roundManager.getCurrentPlayer().id, heavyBot.id, 'Draw-heavy bot turn must advance');
+console.log('  ✅ Duplicate-heavy hand completes draw → discard without stalling');
+
 console.log('\n═══ ALL RAMI PERSISTENCE & FREEZE TESTS PASSED (100%) ═══');

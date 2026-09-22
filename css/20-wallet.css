@@ -27,6 +27,7 @@
 }
 .wl-bal .usd { font-size: 1.25rem; font-weight: 800; color: #f2d489; }
 .wl-bal .gold { font-size: .9rem; color: var(--t2, #c6d4ea); }
+.wl-rate-note { margin-top: 3px; color: var(--t3, #8aa0c0); font-size: .62rem; line-height: 1.45; }
 .wl-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
 .wl-tabs button {
   flex: 1; padding: 9px 4px; border-radius: 12px; cursor: pointer;

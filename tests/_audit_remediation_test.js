@@ -202,44 +202,16 @@ async function run() {
   console.log('  ✅ Authenticated GET /api/wallet/balance enforces session user balance, preventing enumeration');
 
 
-  // 6. DTSG-010: Chat Abuse Protection
-  console.log('\n── 6) Testing DTSG-010: Chat Authentication & Rate Limiting ──');
-  // Unauthenticated chat
-  const chatUnauth = await req('/api/chat', {
+  // 6. Privacy: العامة أزيلت — دردشة الغرف فقط، والبوت الخاص خارج هذا المسار
+  console.log('\n── 6) Testing public chat removal & privacy boundary ──');
+  const chatRemoved = await req('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: { message: 'Hello from anonymous' }
+    body: { message: 'This must never enter the public channel' }
   });
-  assert.strictEqual(chatUnauth.status, 401, 'Anonymous chat must return 401');
-  console.log('  ✅ Unauthenticated chat message rejected with 401');
-
-  // Chat message exceeding 300 characters
-  const longMsg = 'A'.repeat(301);
-  const chatTooLong = await req('/api/chat', {
-    method: 'POST',
-    headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' },
-    body: { message: longMsg }
-  });
-  assert.strictEqual(chatTooLong.status, 400, 'Chat > 300 chars must return 400');
-  console.log('  ✅ Oversized chat message rejected with 400');
-
-  // Valid chat message
-  const chatGood = await req('/api/chat', {
-    method: 'POST',
-    headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' },
-    body: { message: 'Valid test message' }
-  });
-  assert.strictEqual(chatGood.status, 200);
-  console.log('  ✅ Valid chat message accepted');
-
-  // Rapid spam
-  const chatSpam = await req('/api/chat', {
-    method: 'POST',
-    headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' },
-    body: { message: 'Rapid spam message' }
-  });
-  assert.strictEqual(chatSpam.status, 429, 'Immediate second chat message must return 429');
-  console.log('  ✅ Rapid chat flooding throttled with 429');
+  assert.strictEqual(chatRemoved.status, 410, 'Public chat endpoint must remain permanently removed');
+  assert(chatRemoved.json && chatRemoved.json.error === 'removed', 'Removed chat returns an explicit privacy response');
+  console.log('  ✅ /api/chat returns 410 Gone; room chat and private Telegram chat are separate');
 
 
   // 7. DTSG-014: Secret Hints Leakage

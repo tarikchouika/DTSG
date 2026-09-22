@@ -1,17 +1,16 @@
 /* ═══════════════════════════════════════════
    DTSG — Digital Traditional Skills Games — Live (SSE) client
-   دردشة حية + عدد المتصلين + شريط الفائزين
-   بيانات حقيقية من الخادم عبر EventSource (/api/live)
+   عدد المتصلين + شريط الفائزين + أحداث الجولات/المال/الغرف
+   الدردشة العامة أزيلت؛ بيانات حقيقية من الخادم عبر EventSource (/api/live)
    ═══════════════════════════════════════════ */
 (function () {
   "use strict";
 
-  /* ── الحالة المشتركة (تُقرأ من main.js) ── */
-  var RC_chatMessages = []; // {username, message, created_at}
+  /* ── الحالة المشتركة (تُقرأ من main.js) ──
+     الدردشة العامة أزيلت؛ يبقى SSE للأرباح والجولات والمال والإدارة فقط. */
   var RC_ticks = [];        // [username, gameName, payout]
   var _source = null;
   var _started = false;
-  var _maxChat = 100;
   var _maxTicks = 24;
   var _palette = ['#F5C518', '#7C3AED', '#10B981', '#3B82F6', '#EF4444', '#F97316', '#06B6D4', '#EC4899'];
 
@@ -29,23 +28,6 @@
   function setOnline(n) {
     var a = document.getElementById('onlineN');
     if (a) a.textContent = fmt(n);
-    var b = document.getElementById('chatOn');
-    if (b) b.textContent = fmt(n);
-  }
-
-  /* ── عرض الدردشة ── */
-  function renderChatNow() {
-    var el = document.getElementById('chatMsgs');
-    if (!el) return;
-    el.innerHTML = RC_chatMessages.map(function (m) {
-      var name = (m.username || '؟').slice(-8);
-      return '<div class="cmsg">' +
-        '<div class="cav" style="background:' + colorFor(name) + '">' + esc(name.slice(-1)) + '</div>' +
-        '<div><div class="cname">' + esc(name) + '</div>' +
-        '<div class="ctext2">' + esc(m.message || '') + '</div></div>' +
-      '</div>';
-    }).join('');
-    el.scrollTop = el.scrollHeight;
   }
 
   /* ── عرض شريط الفائزين (عبر renderTicker في main.js) ── */
@@ -64,11 +46,6 @@
   /* ── معالجات الأحداث ── */
   function onHello(d) {
     if (d && d.online !== undefined) setOnline(d.online);
-    if (d && Array.isArray(d.history)) {
-      RC_chatMessages = d.history.slice(-_maxChat);
-      window.RC_chatMessages = RC_chatMessages;
-      renderChatNow();
-    }
     if (d && Array.isArray(d.winners)) {
       RC_ticks = d.winners.map(function (w) {
         return [w.username, w.game_id, w.payout];
@@ -76,13 +53,6 @@
       window.RC_ticks = RC_ticks;
       renderTickerNow();
     }
-  }
-  function onChat(m) {
-    if (!m || !m.message) return;
-    RC_chatMessages.push({ username: m.username || '؟', message: m.message, created_at: m.created_at });
-    if (RC_chatMessages.length > _maxChat) RC_chatMessages.splice(0, RC_chatMessages.length - _maxChat);
-    window.RC_chatMessages = RC_chatMessages;
-    renderChatNow();
   }
   function onRound(r) {
     if (!r || !(r.won && r.payout > 0)) return;
@@ -102,9 +72,6 @@
     _source.addEventListener('online', function (e) {
       try { var d = JSON.parse(e.data); if (d && d.online !== undefined) setOnline(d.online); }
       catch (err) { console.error('[live] online', err); }
-    });
-    _source.addEventListener('chat', function (e) {
-      try { onChat(JSON.parse(e.data)); } catch (err) { console.error('[live] chat', err); }
     });
     _source.addEventListener('round', function (e) {
       try { onRound(JSON.parse(e.data)); } catch (err) { console.error('[live] round', err); }
@@ -152,30 +119,8 @@
     ensureSource();
   }
 
-  /* ── إرسال رسالة (تجاوز sendChat القديم) ── */
-  function RC_sendChat() {
-    var input = document.getElementById('chatIn');
-    if (!input || !input.value.trim()) return;
-    if (!AUTH || !AUTH.user) {
-      toast(T('ui.chatLogin'), 'warn');
-      return;
-    }
-    var msg = input.value.trim();
-    API.post('/api/chat', { message: msg }).then(function (r) {
-      if (!r.ok) {
-        toast((r.data && r.data.message) || T('auth.error'), 'err');
-        return;
-      }
-      input.value = '';
-      if (typeof SND !== 'undefined' && SND.click) SND.click();
-    });
-  }
-
   /* ── التصدير ── */
-  window.RC_chatMessages = RC_chatMessages;
   window.RC_ticks = RC_ticks;
-  window.RC_renderChat = renderChatNow;
-  window.sendChat = RC_sendChat;
 
   /* ── البدء عند جاهزية DOM ── */
   if (document.readyState === 'loading') {

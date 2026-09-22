@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.40.0';
+window.DTSG_BUILD = 'v2.57.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -2238,7 +2238,92 @@ window.RC_wallet = function (d) {
     if (typeof window.Wallet && typeof window.Wallet.refresh === 'function') { try { window.Wallet.refresh(); } catch (e) {} }
   } catch (e) { console.error('[wallet] push', e); }
 };
-/* ═══════════ Ticker ═══════════ */
+/* ═══════════ Promotions + Ticker ═══════════ */
+/* تُخزّن العروض في حالة واحدة حتى يتطابق الشريط مع بطاقات الصفحة الرئيسية. */
+const PROMO_DEFAULTS = {
+  direct: [{ amount: 10, bonus_pct: 0 }, { amount: 100, bonus_pct: 5 }, { amount: 1000, bonus_pct: 10 }, { amount: 10000, bonus_pct: 15 }],
+  admin: [{ amount: 1000, bonus_pct: 30 }, { amount: 10000, bonus_pct: 35 }, { amount: 100000, bonus_pct: 40 }],
+  referral_pct: 10,
+  currency: 'USD',
+  rates: { usd_to_mad: 10, usd_to_coins: 100 }
+};
+let PROMO_DATA = PROMO_DEFAULTS;
+function promoEsc(value) {
+  return String(value == null ? '' : value).replace(/[&<>\"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+function promoText(key, fallback) {
+  try { if (typeof T === 'function') { const v = T(key); if (v && v !== key) return v; } } catch (e) {}
+  return fallback;
+}
+/* كل مبالغ العرض بالدولار؛ MAD والـCOIN مجرد معادلات ثابتة للعرض والتوضيح. */
+function promoFormatAmount(amount) {
+  try { return Number(amount).toLocaleString('en-US'); }
+  catch (e) { return String(amount); }
+}
+function promoEquivalent(amount) {
+  const rates = PROMO_DATA.rates || PROMO_DEFAULTS.rates;
+  const mad = Number(rates.usd_to_mad) || 10;
+  const coins = Number(rates.usd_to_coins) || 100;
+  return promoFormatAmount(Number(amount) * mad) + ' MAD · ' + promoFormatAmount(Number(amount) * coins) + ' COIN';
+}
+function promoBonusLabel(pct) {
+  return Number(pct) > 0
+    ? promoText('promo.bonus', '+{pct}% بونيس').replace('{pct}', String(pct))
+    : promoText('promo.noBonus', 'السعر الأساسي');
+}
+function openPromoWallet(amount) {
+  const value = Number(amount);
+  if (!(value > 0)) return;
+  if (typeof window.openWalletOffer === 'function') { window.openWalletOffer(value); return; }
+  if (typeof window.openWallet === 'function') window.openWallet();
+}
+window.openPromoWallet = openPromoWallet;
+function renderPromotions(data) {
+  data = data || PROMO_DATA || PROMO_DEFAULTS;
+  PROMO_DATA = {
+    direct: Array.isArray(data.direct) ? data.direct : PROMO_DEFAULTS.direct,
+    admin: Array.isArray(data.admin) ? data.admin : PROMO_DEFAULTS.admin,
+    referral_pct: Number(data.referral_pct) >= 0 ? Number(data.referral_pct) : PROMO_DEFAULTS.referral_pct,
+    currency: 'USD',
+    rates: Object.assign({}, PROMO_DEFAULTS.rates, data.rates || {}),
+    updated_at: data.updated_at || ''
+  };
+  function draw(id, list) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.innerHTML = list.map(function (tier) {
+      const amount = Number(tier.amount) || 0;
+      const pct = Number(tier.bonus_pct) || 0;
+      const label = promoText('promo.cardAria', 'تعبئة بقيمة {amount} دولار').replace('{amount}', promoFormatAmount(amount));
+      return '<button type="button" class="offer-card' + (pct ? '' : ' zero') + '" onclick="openPromoWallet(' + amount + ')" aria-label="' + promoEsc(label) + '">' +
+        '<span class="offer-amount"><b>' + promoEsc(promoFormatAmount(amount)) + '</b><span class="currency">$</span></span>' +
+        '<span class="offer-equivalent">' + promoEsc(promoEquivalent(amount)) + '</span>' +
+        '<span class="offer-bonus">' + promoEsc(promoBonusLabel(pct)) + '</span>' +
+        '<span class="offer-unit">' + promoEsc(promoText('promo.topup', 'تعبئة')) + ' · ' + promoEsc(promoText('promo.click', 'اضغط للشحن')) + '</span>' +
+      '</button>';
+    }).join('');
+  }
+  draw('promoDirectCards', PROMO_DATA.direct);
+  draw('promoAdminCards', PROMO_DATA.admin);
+  const ref = document.querySelector('#promoReferral [data-i18n="promo.referral"]');
+  if (ref) ref.textContent = promoText('promo.referral', 'إحالة صديق = بونيس ' + PROMO_DATA.referral_pct + '%').replace(/\d+%/, PROMO_DATA.referral_pct + '%');
+  const stamp = document.getElementById('promoUpdated');
+  if (stamp) {
+    const label = promoText('promo.live', 'مباشر');
+    stamp.innerHTML = '<i class="fa-solid fa-rotate" aria-hidden="true"></i> ' + promoEsc(label);
+    stamp.title = PROMO_DATA.updated_at ? ('Updated ' + PROMO_DATA.updated_at) : '';
+  }
+  renderTicker();
+}
+function loadPromotions() {
+  if (typeof API === 'undefined' || typeof API.get !== 'function') return;
+  API.get('/api/promotions').then(function (r) {
+    if (r && r.ok && r.data && r.data.ok !== false) renderPromotions(r.data);
+    else renderPromotions(PROMO_DATA);
+  }).catch(function () { renderPromotions(PROMO_DATA); });
+}
 /* [B7] اسم اللعبة في شريط الفائزين يُحوَّل لاسمه المحلي (لا إنجليزي بالواجهة العربية) */
 function tickGameLabel(raw) {
   try {
@@ -2256,28 +2341,84 @@ function tickGameLabel(raw) {
 }
 window.tickGameLabel = tickGameLabel;
 function renderTicker() {
-  /* البيانات الحقيقية تأتي من SSE (RC_ticks) — fallback مؤقت قبل الاتصال */
-  const src = (window.RC_ticks && window.RC_ticks.length) ? window.RC_ticks : [
+  /* الأحداث الحية تضاف من SSE؛ عند الهدوء ندوّر مجموعة عروض رقمية كل 30 ثانية. */
+  const fallback = [
     ['RondaMaster', 'Moroccan Ronda', 15240],
     ['KingPlayer', 'Aviator', 5240],
     ['LuckyGirl', 'Mines', 8900],
     ['ProGamer', 'Blackjack', 3200],
-    ['GoldHunter', 'Plinko', 12500]
+    ['GoldHunter', 'Plinko', 12500],
+    ['AtlasPlayer', 'Dominoes', 6780]
   ];
+  const raw = (window.RC_ticks && window.RC_ticks.length) ? window.RC_ticks.slice(-12) : fallback;
+  const step = Math.floor(Date.now() / 30000);
+  const src = raw.map(function (_, i) { return raw[(i + step) % raw.length]; });
   const el = document.getElementById('ticker');
   if (!el) return;
-  const items = src.map(x =>
-    '<span class="tk"> <span class="p">' + x[0] + '</span> ' + T('tk.won') +
-    ' <span class="w">🪙 ' + fmt(x[2]) + '</span> <span class="g">(' + tickGameLabel(x[1]) + ')</span></span>'
-  ).join('');
+  const won = promoText('tk.won', 'فاز بـ');
+  const winnerItems = src.map(function (x) {
+    return '<span class="tk"> <span class="p">' + promoEsc(x[0]) + '</span> ' + promoEsc(won) +
+      ' <span class="w">🪙 ' + promoEsc(fmt(Number(x[2]) || 0)) + '</span> <span class="g">(' + promoEsc(tickGameLabel(x[1])) + ')</span></span>';
+  });
+  const promoItems = [];
+  const direct = (PROMO_DATA.direct || []).slice();
+  const admin = (PROMO_DATA.admin || []).slice();
+  if (direct.length) {
+    const d = direct[step % direct.length];
+    promoItems.push('<span class="tk promo">🎁 ' + promoEsc(promoText('promo.direct', 'مباشر')) + ': <span class="w">' +
+      promoEsc(promoFormatAmount(d.amount) + ' $ · ' + promoBonusLabel(d.bonus_pct)) + '</span></span>');
+  }
+  if (admin.length) {
+    const a = admin[(step + 1) % admin.length];
+    promoItems.push('<span class="tk promo">👑 ' + promoEsc(promoText('promo.admin', 'أدمنز')) + ': <span class="w">' +
+      promoEsc(promoFormatAmount(a.amount) + ' $ · ' + promoBonusLabel(a.bonus_pct)) + '</span></span>');
+  }
+  promoItems.push('<span class="tk promo">🤝 ' + promoEsc(promoText('promo.referral', 'إحالة صديق = بونيس ' + PROMO_DATA.referral_pct + '%')) + '</span>');
+  const items = winnerItems.concat(promoItems).join('');
   el.innerHTML = items + items;
 }
-/* ═══════════ الدردشة ═══════════ */
-/* الرسائل الحية تُدار من js/core/live.js عبر RC_renderChat — هنا مجرد توجيه */
-function renderChat() {
-  if (typeof window.RC_renderChat === 'function') { window.RC_renderChat(); return; }
-  const el = document.getElementById('chatMsgs');
-  if (el) el.innerHTML = '';
+/* ═══════════ الصفحة الرئيسية: اكتشاف الألعاب والمحتوى الحي ═══════════ */
+function renderHomePopular() {
+  const el = document.getElementById('rowPopular');
+  if (!el) return;
+  const list = GAMES.filter(function (g) { return !DISABLED[g.id]; }).slice()
+    .sort(function (a, b) { return (Number(b.pl) || 0) - (Number(a.pl) || 0); })
+    .slice(0, 4);
+  el.innerHTML = list.map(tileHTML).join('');
+}
+function homeEmptyFeed(kind) {
+  const isRooms = kind === 'rooms';
+  const title = promoText(isRooms ? 'home.noRooms' : 'home.noTournaments', isRooms ? 'لا توجد غرفة عامة مفتوحة الآن' : 'لا توجد بطولة مفتوحة الآن');
+  const desc = promoText(isRooms ? 'home.noRoomsSub' : 'home.noTournamentsSub', isRooms ? 'افتح صفحة الغرف وانضم إلى أول مباراة متاحة.' : 'تابع البطولات القادمة وشارك عندما يفتح التسجيل.');
+  const action = promoText(isRooms ? 'home.openRooms' : 'home.openTournaments', isRooms ? 'فتح الغرف' : 'فتح البطولات');
+  const icon = isRooms ? 'fa-users' : 'fa-trophy';
+  const target = isRooms ? 'rooms' : 'tourney';
+  return '<div class="home-empty"><i class="fa-solid ' + icon + '" aria-hidden="true"></i><strong>' + esc(title) + '</strong><span>' + esc(desc) + '</span><button type="button" class="home-section-link home-empty-action" onclick="nav(\'' + target + '\', this)">' + esc(action) + '</button></div>';
+}
+function renderHomeLive() {
+  const toursEl = document.getElementById('homeTournamentsList');
+  const roomsEl = document.getElementById('homeRoomsList');
+  if (!toursEl && !roomsEl) return;
+  Promise.all([
+    API.get('/api/tournaments').catch(function () { return { ok: false, data: {} }; }),
+    API.get('/api/rooms').catch(function () { return { ok: false, data: {} }; })
+  ]).then(function (rs) {
+    const tours = rs[0] && rs[0].ok && rs[0].data && Array.isArray(rs[0].data.tournaments) ? rs[0].data.tournaments : [];
+    const rooms = rs[1] && rs[1].ok && rs[1].data && Array.isArray(rs[1].data.rooms) ? rs[1].data.rooms : [];
+    if (toursEl) {
+      toursEl.innerHTML = tours.length ? tours.slice(0, 3).map(function (t) {
+        const g = GAMES.find(function (x) { return x.id === t.game_id; });
+        const status = t.status === 'active' ? (T('admin.tActive') || 'مباشرة') : (T('admin.tApproved') || 'مفتوحة');
+        return '<div class="home-mini-card"><span class="home-mini-icon">' + (g ? g.em : '🏆') + '</span><span class="home-mini-copy"><strong>' + esc(t.name || T('ui.weekly')) + '</strong><small>' + esc(g ? gname(g) : t.game_id || '') + ' · ' + Number(t.players_count || 0) + '/' + Number(t.max_players || 0) + '</small></span><span class="home-mini-status">' + esc(status) + '</span></div>';
+      }).join('') : homeEmptyFeed('tournaments');
+    }
+    if (roomsEl) {
+      roomsEl.innerHTML = rooms.length ? rooms.slice(0, 3).map(function (rm) {
+        const g = GAMES.find(function (x) { return x.id === rm.game_id; });
+        return '<button type="button" class="home-mini-card home-mini-room" onclick="joinOpenRoom(\'' + esc(rm.code || '') + '\')"><span class="home-mini-icon">' + (g ? g.em : '🎮') + '</span><span class="home-mini-copy"><strong>' + esc(g ? gname(g) : rm.game_id || 'غرفة لعب') + '</strong><small>' + esc(rm.owner_name || 'DTSG') + ' · ' + Number(rm.players_count || 0) + '/' + Number(rm.max_players || 0) + '</small></span><span class="home-mini-status open">' + esc(T('rooms.join') || 'انضم') + '</span></button>';
+      }).join('') : homeEmptyFeed('rooms');
+    }
+  });
 }
 /* ═══════════ Render All ═══════════ */
 /* مزامنة عدد الألعاب المعروض (الشارة + الإحصائية) مع العدد الفعلي في الكتالوج */
@@ -2290,12 +2431,14 @@ function syncGamesCount() {
 function renderAll() {
   syncGamesCount();
   renderGames();
+  renderHomePopular();
+  renderHomeLive();
   renderLB();
   renderTourney();
   renderFair();
   renderAdmin();
+  renderPromotions(PROMO_DATA);
   renderTicker();
-  renderChat();
   wallet();
 }
 /* ═══════════ التهيئة عند التحميل ═══════════ */
@@ -2344,8 +2487,17 @@ function initApp() {
     const pg = document.getElementById('pg-rooms');
     if (pg && pg.classList.contains('active') && typeof renderRooms === 'function') renderRooms();
   }, 5000);
-  /* رسم كل شيء */
+  /* الصفحة الرئيسية تعرض ملخص الغرف والبطولات — تُراجع بهدوء كل 15 ثانية. */
+  setInterval(function() {
+    const pg = document.getElementById('pg-home');
+    if (pg && pg.classList.contains('active')) renderHomeLive();
+  }, 15000);
+  /* رسم كل شيء ثم جلب عقد العروض من الخادم */
   renderAll();
+  loadPromotions();
+  /* أرقام الشريط تتدوّر حتى بين أحداث الفائزين، والعروض تُراجع دورياً */
+  setInterval(renderTicker, 30000);
+  setInterval(loadPromotions, 300000);
   /* Hash routing: activate the section matching the URL hash (e.g. index.html#games) */
   navFromHash();
   /* [Legal-Fix] قادم من صفحة قانونية ببند حساب: افتح موداله مباشرة

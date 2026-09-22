@@ -311,10 +311,10 @@ var RoomDO = class {
       if (this.roomId === "global") {
         try { await this.grEnsure(); } catch (e) {}
         const online = this.state.getWebSockets().length;
-        const chat = await this.state.storage.get("globalChat") || [];
+        /* لا تُرسل أي سجل دردشة عامة — القناة العامة أزيلت من المنتج. */
         server.send(JSON.stringify({
           event: "hello",
-          data: { online: 42 + online, history: chat.slice(-100), winners: [] }
+          data: { online: 42 + online, winners: [] }
         }));
         return new Response(null, { status: 101, webSocket: client });
       }
@@ -336,8 +336,7 @@ var RoomDO = class {
     }
     const data = await req.json().catch(() => ({}));
     if (p === "/broadcast-chat") {
-      this.broadcast("chat", data);
-      return Response.json({ ok: true });
+      return Response.json({ ok: false, error: "removed" }, { status: 410 });
     }
     if (p === "/gr-ensure") {
       try { await this.grEnsure(); } catch (e) {}
@@ -773,17 +772,7 @@ var RoomDO = class {
         return;
       }
       if (this.roomId === "global") {
-        if (m.event === "global-chat") {
-          this.broadcast("chat", m.data);
-          return;
-        }
-        if (m.event === "chat") {
-          const chat = await this.state.storage.get("globalChat") || [];
-          const msg = { username: m.data && m.data.username || "\u0632\u0627\u0626\u0631", message: String(m.data && m.data.text || "").slice(0, 300), created_at: Date.now() };
-          chat.push(msg);
-          await this.state.storage.put("globalChat", chat.slice(-100));
-          this.broadcast("chat", msg);
-        }
+        /* عدّاد الاتصالات فقط؛ لا توجد رسائل عامة في هذا المسار. */
         if (m.event === "count") {
           this.broadcast("online", { online: 42 + this.state.getWebSockets().length });
         }
@@ -970,7 +959,7 @@ var C = {
     /* [v2.43.1] هذا الووركر السحابي احتياطي: قاعدة D1 الخاصة به محذوفة من الحساب
        (0 قواعد) — نرد JSON واضحاً مع CORS بدل خطأ 1101/HTML، ونترك مسارات
        الغرف (Durable Objects) والثوابت تعمل كالمعتاد. الباك الحقيقي = خادم المنصة. */
-    if (p.startsWith("/api/") && !dbReady(env) && !/^\/api\/(health|tournaments|rooms|live)/.test(p)) {
+    if (p.startsWith("/api/") && !dbReady(env) && !/^\/api\/(health|tournaments|rooms|live|promotions|chat)$/.test(p)) {
       return _json({ ok: false, error: "no-db", message: "\u0642\u0627\u0639\u062f\u0629 \u0627\u0644\u0628\u064A\u0627\u0646\u0627\u062A \u0627\u0644\u0633\u062D\u0627\u0628\u064A\u0629 \u063A\u064A\u0631 \u0645\u062A\u0648\u0641\u0631\u0629 \u2014 \u064A\u064F\u0633\u062A\u062E\u062F\u0645 \u062E\u0627\u062F\u0645 \u0627\u0644\u0645\u0646\u0635\u0629" }, 503);
     }
     /* [Sec] تقييد المعدل حسب حساسية المسار */
@@ -1243,6 +1232,19 @@ var C = {
     }
     if (p === "/api/tournaments") {
       return _json({ ok: true, tournaments: [] });
+    }
+    /* [Promotions 2026-09-22] نفس عقد العروض في الخادم المحلي والووركر */
+    if (p === "/api/promotions" && method === "GET") {
+      return _json({
+        ok: true,
+        updated_at: new Date().toISOString().slice(0, 10),
+        /* المبالغ الأساسية بالدولار؛ التحويل ثابت: 1 USD = 10 MAD = 100 COIN. */
+        currency: "USD",
+        rates: { usd_to_mad: 10, usd_to_coins: 100 },
+        direct: [{ amount: 10, bonus_pct: 0 }, { amount: 100, bonus_pct: 5 }, { amount: 1000, bonus_pct: 10 }, { amount: 10000, bonus_pct: 15 }],
+        admin: [{ amount: 1000, bonus_pct: 30 }, { amount: 10000, bonus_pct: 35 }, { amount: 100000, bonus_pct: 40 }],
+        referral_pct: 10
+      });
     }
     if (p === "/api/games" || p === "/api/games/") {
       /* [Flags] خريطة أعلام الألعاب من D1 — نفس عقد server.js: {game_id: enabled} */
@@ -1650,33 +1652,10 @@ var C = {
       const rows = await dbAll(env, "SELECT id, from_id, from_name, to_id, to_name, amount, created_at FROM transfers WHERE from_id = ? OR to_id = ? ORDER BY id DESC LIMIT 50", [me.id, me.id]);
       return _json({ ok: true, transfers: rows });
     }
-    if (p === "/api/chat" && method === "POST") {
-      /* [SEC-022] الدردشة للمسجلين فقط — الزوار كانوا يرسلون بلا مصادقة */
-      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
-      if (me.muted_until && me.muted_until > Date.now()) {
-        return _json({ ok: false, message: "\u0645\u0648\u0642\u0648\u0641 \u0639\u0646 \u0627\u0644\u0645\u0631\u0627\u0633\u0644\u0629", muted_until: me.muted_until }, 403);
-      }
-      /* [SEC-015] حد حجم الجسد قبل القراءة — رسائل 50KB كانت تُقبل */
-      const clen = parseInt(req.headers.get("content-length") || "0", 10);
-      if (clen > 4096) return _json({ ok: false, message: "\u0637\u0648\u064A\u0644 \u062C\u062F\u0627\u064B" }, 413);
-      /* [SEC-RL] حد معدل بسيط: 10 رسائل/دقيقة لكل مستخدم (لكل نسخة worker) */
-      if (rateLimited("chat:" + me.id, 10, 60000)) return _json({ ok: false, message: "\u0645\u0647\u0644\u0627\u064B \u2014 \u0631\u0633\u0627\u0626\u0644 \u0643\u062B\u064A\u0631\u0629" }, 429);
-      const data = await req.json();
-      const rawMsg = String(data.message || "").slice(0, 300);
-      if (!rawMsg.trim()) return _json({ ok: false, message: "\u0631\u0633\u0627\u0644\u0629 \u0641\u0627\u0631\u063A\u0629" }, 400);
-      /* [SEC-013] تعقيم HTML في الخادم — دفاع في العمق فوق esc() عند العرض */
-      const msg = { username: me.username, message: sanitizeHtml(rawMsg), created_at: Date.now() };
-      const doId = env.ROOMS.idFromName("global");
-      const stub = env.ROOMS.get(doId);
-      await stub.fetch("https://do/broadcast-chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(msg)
-      }).catch(() => {
-      });
-      await dbRun(env, "INSERT INTO global_chat (username, message, created_at) VALUES (?,?,?)", [msg.username, msg.message, msg.created_at]);
-      await dbRun(env, "DELETE FROM global_chat WHERE id NOT IN (SELECT id FROM global_chat ORDER BY id DESC LIMIT 50)");
-      return _json({ ok: true, message: msg });
+    /* [Privacy 2026-09-22] أزيلت الدردشة العامة من المنصة نهائياً.
+       تبقى دردشة غرف اللعب تحت /api/rooms/* فقط. */
+    if (p === "/api/chat") {
+      return _json({ ok: false, error: "removed", message: "الدردشة العامة أُزيلت — استخدم بوت DTSG الخاص." }, 410);
     }
     if (p === "/api/change-password" && method === "POST") {
       if (!me) return _json({ ok: false, message: "\u063A\u064A\u0631 \u0645\u0633\u062C\u0644" }, 401);

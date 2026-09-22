@@ -95,7 +95,7 @@ const bad = (m) => { fail++; console.log('  ❌ ' + m); };
   orphans.length === 0 ? ok('لا وجود لمعاملة يتيمة في قائمة المعلّقات') : bad('وُجدت معاملة يتيمة: ' + JSON.stringify(orphans[0]));
 
   console.log('\n═══ د) الكوبونات: إنشاء بصلاحية سوبر أدمن + استرداد بالاسم ═══');
-  const mk = await post(A, '/api/vouchers/create', { amount: 10, count: 2, tg_id: '5700612979' });
+  const mk = await post(A, '/api/vouchers/create', { amount: 10, count: 2, tg_id: '999000001' });
   const mj = mk.json || {};
   (mj.ok && Array.isArray(mj.codes) && mj.codes.length === 2) ? ok('إنشاء كودين بصلاحية سوبر أدمن تيليغرام: ' + mj.codes.join(', ')) : bad('إنشاء الأكواد: ' + mk.status + ' ' + JSON.stringify(mj));
   const mkNo = await post(A, '/api/vouchers/create', { amount: 10 });

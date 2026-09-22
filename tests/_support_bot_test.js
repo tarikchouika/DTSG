@@ -14,7 +14,7 @@ const { DatabaseSync } = require('node:sqlite');
 
 /* ── إعداد البيئة قبل تحميل الوحدة ── */
 const TOKEN = '123456:TESTTOKEN';
-const SUPER = '5700612979';
+const SUPER = '999000001';
 let TG_CALLS = [];
 const TG_PORT = 3991;
 process.env.SUPPORT_BOT_TOKEN = TOKEN;

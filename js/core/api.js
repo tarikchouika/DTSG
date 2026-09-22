@@ -6,7 +6,7 @@
 "use strict";
 /* [PhoneLink] اختيار خادم الـAPI حسب نطاق الاستضافة:
    - window.API_BASE_URL (تجاوز يدوي) له الأولوية.
-   - localhost/127.0.0.1 → same-origin (server.js يخدم الواجهة والـAPI معاً).
+   - localhost/127.0.0.1 وArena preview (.e2b.app) → same-origin (server.js يخدم الواجهة والـAPI معاً).
    - الإنتاج → يقرأ /api-url2.json (بلا كاش) للحصول على عنوان الووركر الوسيط الدائم
      (casino-phone.dmgames-api.workers.dev) الذي يمرر الطلبات إلى نفق الهاتف
      حيث تعمل server.js + SQLite المحلية. عند فشل الجلب → Worker السحابي (D1) كاحتياط.
@@ -15,7 +15,7 @@
 const API_BASE_FALLBACK = 'https://casino-api.dmgames-api.workers.dev';
 var API_BASE_PROMISE = (typeof window !== 'undefined' && typeof window.API_BASE_URL === 'string')
   ? Promise.resolve(window.API_BASE_URL)
-  : ((typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname))
+  : ((typeof location !== 'undefined' && (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname) || /\.e2b\.app$/i.test(location.hostname)))
     ? Promise.resolve(location.origin)
     : fetch('/api-url2.json', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })

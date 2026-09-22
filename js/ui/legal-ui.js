@@ -46,10 +46,6 @@ return '<aside class="sidebar" id="sidebar" role="navigation" aria-label="الق
 '<span class="ic" aria-hidden="true"><i class="fa-solid fa-ranking-star"></i></span>' +
 '<span data-i18n="ui.lb">المتصدرون</span>' +
 '</a>' +
-'<a class="nav-item" data-nav="chat" href="index.html#chat">' +
-'<span class="ic" aria-hidden="true"><i class="fa-solid fa-comments"></i></span>' +
-'<span data-i18n="ui.chat">الدردشة</span>' +
-'</a>' +
 '<a class="nav-item" data-nav="tourney" href="index.html#tourney">' +
 '<span class="ic" aria-hidden="true"><i class="fa-solid fa-award"></i></span>' +
 '<span data-i18n="ui.tourney">البطولات</span>' +

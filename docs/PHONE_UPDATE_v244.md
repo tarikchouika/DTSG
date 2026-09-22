@@ -38,7 +38,7 @@ grep -c "money_log" server.js && grep -c "settleGoldLocal" server-payments.js &&
 export TELEGRAM_BOT_TOKEN="<توكن بوت المنصة>"      # كما كان
 export ADMIN_API_SECRET="<سرّ الإدارة>"
 export USD_GOLD_RATE=100
-export TELEGRAM_ADMIN_CHAT_ID=5700612979
+export TELEGRAM_ADMIN_CHAT_ID="<ADMIN_CHAT_ID_FROM_ENV>"
 export SUPPORT_BOT_TOKEN="<توكن بوت الدعم>"        # كما كان
 node --experimental-sqlite server.js
 ```
@@ -49,7 +49,7 @@ node --experimental-sqlite server.js
 curl -s localhost:PORT/api/health | head -c 200                       # يجب build محدّث
 curl -s -X POST localhost:PORT/api/bot/request \
   -H 'content-type: application/json' \
-  -d '{"tg_id":"5700612979","kind":"topup","amount_usd":100,"method":"cash_plus","details":"TEST"}'
+  -d "{\"tg_id\":\"${TELEGRAM_ADMIN_CHAT_ID}\",\"kind\":\"topup\",\"amount_usd\":100,\"method\":\"cash_plus\",\"details\":\"TEST\"}"
 # المتوقع: {"ok":true,...,"bonus_pct":25,"coins_on_approve":12500}
 # إن ظهر bad-input مع missing ⇒ الخادم قديم (لم يُحدَّث).
 ```
@@ -80,7 +80,7 @@ ADMIN_API_SECRET="$ADMIN_API_SECRET" bash scripts/verify-phone-v244.sh http://12
 cd ~/DTSG
 export VOUCHER_BOT_TOKEN="<توكن بوت الفوتشير>"
 export API_BASE="http://127.0.0.1:PORT"        # نفس منفذ خادم المنصة على الهاتف
-export SUPER_TG=5700612979                     # شات السوبر أدمن
+export SUPER_TG="${TELEGRAM_ADMIN_CHAT_ID}"       # من البيئة فقط
 export ADMIN_API_SECRET="<سرّ الإدارة>"        # لتمرير المصادقة من البوت
 export CASH_PLUS_NAME="Tarik chouika"
 nohup node scripts/voucher-bot.js > data/voucher-bot.log 2>&1 &

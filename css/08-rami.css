@@ -491,6 +491,16 @@
 .rbtn:hover { transform: translateY(-2px); background: rgba(242, 212, 137, 0.2); border-color: var(--gold, #d9b45c); }
 .rbtn.rbtn-open { background: rgba(242, 212, 137, 0.2); border-color: var(--gold, #d9b45c); color: var(--gold, #d9b45c); }
 .rbtn.rbtn-open.ready { background: linear-gradient(135deg, #f2d489, #b8892f); color: #0b1526; box-shadow: 0 0 16px rgba(242, 212, 137, 0.7); }
+/* [Safety] النقرة الأولى لا تنفذ الحركة؛ هذه الحالة المرئية تطلب النقرة الثانية */
+.rbtn.confirm-pending {
+  border-style: double !important;
+  border-width: 2px !important;
+  animation: ramiConfirmPulse 0.8s ease-in-out infinite alternate;
+}
+@keyframes ramiConfirmPulse {
+  from { box-shadow: 0 0 0 rgba(242, 212, 137, 0); }
+  to { box-shadow: 0 0 18px rgba(242, 212, 137, 0.85); }
+}
 .rbtn.rbtn-finish { background: rgba(16, 185, 129, 0.25); border-color: rgba(16, 185, 129, 0.6); color: #6EE7B7; }
 .rbtn.rbtn-clear { padding: 4px 8px; color: #F87171; border-color: rgba(239, 68, 68, 0.4); }
 .rbtn.btn-cancel-auto { padding: 4px 8px; color: #FBBF24; }

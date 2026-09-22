@@ -40,7 +40,7 @@ tail -f /root/.pm2/logs/dtsg-voucher-bot-error.log           # يجب أن يت�
 curl -s http://127.0.0.1:3000/api/payments/methods | grep -o '"binance_readonly":"[^"]*"'
 
 # ٢) فحص المفتاح (أدمن): ok=true ⇒ جاهز للتحقق التلقائي
-curl -s "http://127.0.0.1:3000/api/payments/binance-probe?tg_id=5700612979" | python3 -m json.tool
+curl -s "http://127.0.0.1:3000/api/payments/binance-probe?tg_id=${TELEGRAM_ADMIN_CHAT_ID}" | python3 -m json.tool
 
 # ٣) التحقق من تحويل فعلي: حوّل مبلغاً لمعرّف Binance ثم
 curl -s -X POST http://127.0.0.1:3000/api/payments/binance-verify \
