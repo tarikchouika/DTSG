@@ -356,23 +356,36 @@ server.js لا يبث `blindResult` إطلاقاً — ألعاب penalty/rps ف
 1. ✅ البوابة + الحد (هذا المستودع) — **شرط التشغيل**: `BOT_API_SECRET` في بيئة
    `casino-server` و`dtsg-voucher-bot` (دليل cat §6).
 2. ✅ الساندبوكس خلف العَلَم + حارس الإقلاع (هذا المستودع).
-3. ⏳ **الهاتف**: `git fetch origin main && git reset --hard origin/main` ثم
-   `bash scripts/phone-env-restart.sh` (يُضبط `BOT_API_SECRET` قبل/أثناء الإقلاع)
-   ثم `BOT_API_SECRET=*** bash scripts/verify-phone-v244.sh` ⇒ كل الفحوص خضراء.
-4. ⏳ **حساب dmgames-api**: رقعة الوسيط `casino-phone` (3 تعديلات حرفية — قسم
-   v2.58-أ أعلاه) + إعادة نشر الوسيط + تأكيد `x-backend-addr` فارغة و
-   preflight شرير ⇒ 403.
-5. ⏳ **Pages**: `bash scripts/deploy-pages.sh` (يجلب أحدث GitHub أولاً).
-6. ⏳ **نافذة تحقق ≥ ساعة** بعد النشر — أُرسل طلبنا ونعيد التدقيم السلبي +
-   المرور الموثق.
+3. ✅ **الهاتف** (نُفِّذ — v2.59.1): `git fetch origin main && git reset --hard origin/main`
+   ⇒ `613c8a7` ثم `56b0c10` · `BOT_API_SECRET` جديد (64 حرفاً) في `.env.local` ·
+   `bash scripts/phone-env-restart.sh` ⇒ **16 مفتاحاً** حيّاً + `pm2 save` · بوابة البوت
+   حيّاً: بلا سرّ **401** وبالسِرّ **400 bad-input** · CORS: أصل شرير **403** والموثوق
+   **204 + ACAO** · الحراس على نسخة QA معزولة (3999): **ops-guards 48/48 · sec-audit 32/32**.
+   ملاحظة: `verify-phone-v244.sh` افتراضه `TG_ID=999000001` غير موجود في قاعدة الإنتاج
+   (fixture QA) ⇒ 4 فحوص شكلية تسقط؛ الجوهرية خضراء.
+4. ✅ **حساب dmgames-api**: رقعة الوسيط `casino-phone` نُشرت (Version `da380a50`) —
+   CORS صريح (403 لأي أصل غير موثوق بما فيه GET/HEAD) · إسقاط `x-backend-addr`
+   (DTSG-008) · توحيد `Set-Cookie` مع `SameSite=None; Secure`. تحقق حيّ: صفر
+   `x-backend-addr` · preflight شرير **403** · الموثوق **204 + ACAO** ·
+   `/api/health` و`/api/payments/methods` سليمان عبر الوسيط.
+5. ✅ **Pages**: `deploy-pages.sh` بحساب `758fcc82…` ⇒ `dtsg.pages.dev` —
+   بصمة `index.html` الحيّة = بصمة المستودع حرفياً (`001f009d…`) · `api-url2.json`
+   ما زال → `casino-phone…` · الأصول الجديدة (`coin-reverse.svg` · `css/09-chrome.css`) تُخدَم.
+6. ⏳ **نافذة تحقق ≥ ساعة** بعد النشر — أُرسل طلبنا ونعيد التدقيق السلبي +
+   المرور الموثق (جلسة Arena).
 
-### تنظيف الإنتاج (أوامر cat الحرفية — `docs/V259_DB_CAT.md` §3-§5)
+### تنظيف الإنتاج (أوامر cat الحرفية — `docs/V259_DB_CAT.md` §3-§5) — نُفِّذ
 
-- رفض السحبين المعلّقين: **`wd-mudoc0qe11yh64`** (جولة-3) + **`wd-mudeheka5h75oc`**
-  (جولة-2/3) — عبر `/api/admin/payments/act` (استرداد تلقائي) أو بديل SQL موثق.
-- فك ربط **`999888777`** عن حساب المالك (id **252**) — `users.telegram_id = NULL`.
-- إغلاق **تذكرة الدعم #3** (رسالة XSS جولة-1).
-- الحساب `Tarikch` (id 252): لم يمسه شيء في جولة-4 — التأكيد في فحوص cat §5.
+- السحبان **`wd-mudoc0qe11yh64`** + **`wd-mudeheka5h75oc`**: **مرفوضان مسبقاً من المالك**
+  عبر الواجهة (`reviewed_by = المالك · Tarikchouika`) ⇒ لا معلّق (0 صف) — لا حاجة لأمر.
+- فك ربط **`999888777`** عن حساب المالك (id **252**) بالأمر الحرفي ⇒ `telegram_id = NULL`.
+  الربط الأصلي كان `8245481030` (دليل: `sup_users` + اللقطة الأمنية) ⇒ يُعاد الربط من
+  الواجهة عند الرغبة.
+- إغلاق **تذكرة الدعم #3** ⇒ `closed` (`close_reason = poC-test-message-round1`).
+- نسخة احتياطية قبل التنفيذ في `backups/` (خارج git) + `PRAGMA integrity_check` = **ok**.
+- **متبقٍّ للتدقيق (لم يُلمس)**: `money_log` بلا سطر تسوية للسحبين المرفوضين
+  (`id=40` عالق `pending`، والآخر بلا سطر) لأن مسار رفض الواجهة لا يكتب سجل المال —
+  لم يُعدَّل (منع صريح في الدليل).
 
 ### مخاطر مقبولة (مسجلة — لا إجراء قبل الإطلاق)
 
