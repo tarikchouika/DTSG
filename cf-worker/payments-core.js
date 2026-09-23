@@ -1117,7 +1117,12 @@ function payDebug(env, entry) {
     const txId = pickStr(b.tx, b.tx_id, b.id, b.ref, b.reference);
     const act = pickStr(b.act, b.action, b.op).toLowerCase();
     const who = pickStr(b.tg_id, b.telegram_id, b.chat_id, b.from_id);
-    const secretOk = env.ADMIN_API_SECRET && (pickStr(b.admin_secret, b.secret) === env.ADMIN_API_SECRET);
+    /* [v2.59 BOT-GATE] السِرّ المقبول: admin_secret في الجسم (الوضع القديم) أو
+       ترويسة x-bot-secret/x-admin-secret (BOT_API_SECRET) — نفس البوابة التي
+       يفرضها server-payments.js على الهاتف. */
+    const _hdrSec = String(request.headers['x-bot-secret'] || request.headers['x-admin-secret'] || '');
+    const secretOk = (env.ADMIN_API_SECRET && pickStr(b.admin_secret, b.secret) === env.ADMIN_API_SECRET) ||
+      (env.BOT_API_SECRET && _hdrSec && _hdrSec === env.BOT_API_SECRET);
     let okActor = secretOk;
     if (!okActor) {
       /* جلسة super عبر الكوكي */

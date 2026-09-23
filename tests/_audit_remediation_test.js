@@ -1,5 +1,5 @@
 /**
- * tests/_audit_remediation_test.js — بطارية تدقيق DTSG (28 فحصاً)
+ * tests/_audit_remediation_test.js — بطارية تدقيق DTSG (32 فحصاً)
  * ═════════════════════════════════════════════════════════════════════════
  * ثغرات التدقيق الأصلية: DTSG-001/002/003/005/006/007/010/014/019
  * + إصلاحات v2.58: CORS لكل الطرق · ثغرة 2FA · أنواع الرهانات الخام ·
@@ -369,7 +369,30 @@ async function run() {
   assert(rootRes.headers['strict-transport-security'].includes('preload'));
   ok('28', 'HSTS preload + XFO DENY + CORP + nosniff (DTSG-017/020)');
 
-  console.log('\n═══ sec-audit 28/28 خضر ═══\n');
+  /* ═══ 9) [v2.59] بوابة البوت — ردها-4 R3-001 (حرجة) / R3-002 (عالية) ═══ */
+  // 29) طلب سحب غريب بلا سِرّ ⇒ 401 (كان يُنقِض رصيد الضحية فوراً)
+  const botReqNoSec = await req('/api/bot/request', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { kind: 'withdrawal', user_id: 1, amount_usd: 5, method: 'binance' } });
+  assert.strictEqual(botReqNoSec.status, 401, 'bot/request anonymous must be 401');
+  assert.strictEqual(botReqNoSec.json.ok, false);
+  ok('29', 'bot/request بلا سِرّ ⇒ 401 (R3-001: السحب الشبحي أُغلق)');
+
+  // 30) ربط تيليغرام غريب بلا سِرّ ⇒ 401
+  const botLinkNoSec = await req('/api/bot/link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: { tg_id: '999888777', username: 'Tarikch' } });
+  assert.strictEqual(botLinkNoSec.status, 401, 'bot/link anonymous must be 401');
+  ok('30', 'bot/link بلا سِرّ ⇒ 401 (R3-002: الربط الشبحي أُغلق)');
+
+  // 31) سِرّ خاطئ ⇒ 401 (مقارنة ثابتة الزمن)
+  const botReqBadSec = await req('/api/bot/request', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-bot-secret': 'audit-wrong-secret' }, body: {} });
+  assert.strictEqual(botReqBadSec.status, 401, 'bot/request wrong secret must be 401');
+  ok('31', 'bot/request بسِرّ خاطئ ⇒ 401 (لا oracle زمني)');
+
+  // 32) السِرّ الصالح يعبر البوابة (يصل المعالج فيُعيد 400 bad-input)
+  const botReqGoodSec = await req('/api/bot/request', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-bot-secret': 'qa-admin-secret' }, body: {} });
+  /* 400 = وصل المعالج (bad-input) · 429 = عبر المصادقة ثم لمس حدّ المعدل — كلاهما يثبت قبول السِرّ */
+  assert(botReqGoodSec.status === 400 || botReqGoodSec.status === 429, 'valid secret should pass the gate (got ' + botReqGoodSec.status + ')');
+  ok('32', 'bot/request بسِرّ صالح يعبر البوابة ⇒ المعالج يستجيب (R3-001/2)');
+
+  console.log('\n═══ sec-audit 32/32 خضر ═══\n');
 }
 
 run().catch(err => { console.error('❌ Test failed:', err); process.exit(1); });

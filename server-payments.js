@@ -9,7 +9,36 @@ BINANCE_PAY_MERCHANT_ID, BINANCE_PAY_API_KEY, BINANCE_PAY_SECRET_KEY, SELLIX_WEB
      TELEGRAM_BOT_TOKEN, TELEGRAM_ADMIN_CHAT_ID, ADMIN_API_SECRET,
      USD_GOLD_RATE, CASH_PLUS_NAME, CASH_PLUS_ACCOUNT, PLATFORM_PUBLIC_URL
    ════════════════════════════════════════════════════════════════ */
+const crypto = require('crypto');
 const core = require('./cf-worker/payments-core.js');
+
+/* ═══ [v2.59 BOT-GATE] (جولة-4: R3-001/R3-002) بوابة البوت تتطلب سراً مشتركاً ═══
+   البوت الشرعي (scripts/voucher-bot.js) يرسل ترويسة x-bot-secret (من BOT_API_SECRET
+   أو ADMIN_API_SECRET). الخادم لم يكن يميّز البوت عن أي عميل إنترنت: أي غريب كان
+   يستطيع سحب رصيد أي ضحية (خصم فوري) أو ربط أي تيليغرام بأي حساب — بلا جلسة.
+   القاعدة: مقارنة بثابت الزمن (timing-safe) + حدّ معدل لكل IP (30/دقيقة). */
+const _botBuckets = new Map();
+function _botSecretOk(given, secret) {
+  if (!given || !secret) return false;
+  try {
+    const a = Buffer.from(String(given)), c = Buffer.from(String(secret));
+    return a.length === c.length && crypto.timingSafeEqual(a, c);
+  } catch (e) { return false; }
+}
+function _botRateHit(limit, ip) {
+  if (!ip) return false;
+  const now = Date.now();
+  let b = _botBuckets.get(ip);
+  if (!b || now - b.start > 60000) { b = { start: now, n: 0 }; _botBuckets.set(ip, b); }
+  b.n += 1;
+  if (_botBuckets.size > 2000) { for (const [k, v] of _botBuckets) if (now - v.start > 60000) _botBuckets.delete(k); }
+  return b.n > limit;
+}
+function _botIp(req) {
+  /* لا نثق بأي ترويسة محوّلة (x-real-ip…): من يديرها يستطيع تدوير «الـIP»
+     والتهام حدّ المعدل. المعيار الوحيد: عنوان الجوار الفعلي. */
+  return req.socket ? (req.socket.remoteAddress || '') : '';
+}
 
 /* ── المخطط: توسيع users + جدولا transactions/vouchers (إن لم توجد) ── */
 function initPaymentsTables(db) {
@@ -388,7 +417,14 @@ function isOriginAllowed(origin) {
     const u = new URL(origin);
     const host = u.hostname;
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return true;
-    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true;
+    /* [v2.59 R4-001] لاحقات الساندبوكس العامة (.e2b.app / .arena.ai) لم تعد موثوقة
+       افتراضياً — طرف ثالث يستطيع إنشاء دومين هناك ويحصل على CORS موثوق.
+       تُسمح الآن فقط في DM_TEST_MODE أو عبر قائمة صريحة DM_DEV_ORIGINS (مفصولة بفواصل). */
+    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) {
+      return process.env.DM_TEST_MODE === '1';
+    }
+    const devOrigins = (process.env.DM_DEV_ORIGINS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    for (const d of devOrigins) if (host === d || host.endsWith('.' + d)) return true;
     for (const h of ALLOWED_ORIGIN_HOSTS) {
       if (host === h || host.endsWith('.' + h)) return true;
     }
@@ -411,6 +447,30 @@ async function handlePayments(req, res, bodyStr, me) {
       res.writeHead(403, { 'content-type': 'application/json', 'x-content-type-options': 'nosniff' });
       res.end(JSON.stringify({ ok: false, error: 'forbidden_origin', message: 'Cross-origin request blocked' }));
       return;
+    }
+
+    /* [v2.59 BOT-GATE] (R3-001/R3-002): /api/bot/request و /api/bot/link بلا جلسة —
+       يُطلب سراً مشتركاً في الترويسة (x-bot-secret / x-admin-secret) بمقارنة ثابتة
+       الزمن، وحدّ 30/دقيقة لكل IP. admin-act يحتفظ بمصادقته داخل المعالج
+       (سرّ الجسم/جلسة السوبر/تيليغرام الأدمن) مع حدّ معدل إضافي 20/دقيقة. */
+    if (pathname === '/api/bot/request' || pathname === '/api/bot/link' || pathname === '/api/bot/admin-act') {
+      /* 1) السِرّ أولاً: الطلبات بلا سِرّ (أو بسِرّ خاطئ) تُرفض فوراً وبأرخص كلفة —
+         لا تستهلك حدّ المعدل إطلاقاً. */
+      if (pathname !== '/api/bot/admin-act') {
+        const secret = process.env.BOT_API_SECRET || process.env.ADMIN_API_SECRET || '';
+        const given = req.headers['x-bot-secret'] || req.headers['x-admin-secret'] || '';
+        if (!_botSecretOk(given, secret)) {
+          res.writeHead(401, { 'content-type': 'application/json' });
+          res.end(JSON.stringify({ ok: false, error: 'unauthorized', message: 'x-bot-secret مطلوبة' }));
+          return;
+        }
+      }
+      /* 2) حدّ المعدل للطلب الموثّق (30/د للبوت، 20/د لـadmin-act) لكل IP جاور فعلي. */
+      if (_botRateHit(pathname === '/api/bot/admin-act' ? 20 : 30, _botIp(req))) {
+        res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '60' });
+        res.end(JSON.stringify({ ok: false, error: 'rate_limited' }));
+        return;
+      }
     }
 
     const out = {};

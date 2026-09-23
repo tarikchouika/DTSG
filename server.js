@@ -894,7 +894,14 @@ function isOriginAllowed(origin) {
     const u = new URL(origin);
     const host = u.hostname;
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return true;
-    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true; /* معاينات تطوير */
+    /* [v2.59 R4-001] لاحقات الساندبوكس العامة (.e2b.app / .arena.ai) لم تعد موثوقة
+       افتراضياً — أي طرف ثالث يستطيع إنشاء دومين هناك. تُسمح فقط في DM_TEST_MODE
+       أو عبر قائمة صريحة DM_DEV_ORIGINS (مفصولة بفواصل). */
+    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) {
+      return process.env.DM_TEST_MODE === '1';
+    }
+    const devOrigins = (process.env.DM_DEV_ORIGINS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+    for (const d of devOrigins) if (host === d || host.endsWith('.' + d)) return true;
     for (const h of ALLOWED_ORIGIN_HOSTS) {
       if (host === h || host.endsWith('.' + h)) return true;
     }
@@ -2702,6 +2709,22 @@ const server = http.createServer((req, res) => {
 
 /* ── [Group] تشغيل حلقتي جولات كينو وكراش الجماعية ── */
 groupStartAll();
+
+/* [v2.59 R4-003] حارس الإقلاع: DM_TEST_MODE يجمع ثلاثة سلوكيات خطرة معاً
+   (باب qa-admin-secret + تسجيل مفتوح بشحن 100,000 كوينز + CORS من localhost).
+   إن وُجدت مع علامات إنتاج (أسرار تيليغرام/بينانس الحقيقية) فاحتمال الخطأ
+   التشغيلي عالٍ — نطلق تحذيراً صاخباً دائماً بدل الصمت. */
+if (process.env.DM_TEST_MODE === '1') {
+  const prodMarkers = ['TELEGRAM_BOT_TOKEN', 'BINANCE_PAY_API_KEY', 'BINANCE_PAY_SECRET_KEY',
+    'SUPPORT_BOT_TOKEN', 'SUPPORT_WEBHOOK_SECRET'].filter(k => process.env[k]);
+  if (prodMarkers.length >= 2) {
+    console.warn('═══════════════════════════════════════════════════════════════════════');
+    console.warn('⚠️️  DM_TEST_MODE=1 مفعّل مع علامات إنتاج (' + prodMarkers.join(', ') + ') ⚠️️');
+    console.warn('   => تسجيل مفتوح بشحن 100,000 كوينز + باب qa-admin-secret + CORS موسّع');
+    console.warn('   إن لم يكن هذا بيئة اختبار مقصودة: أطفئ DM_TEST_MODE وأعد الإقلاع!');
+    console.warn('═══════════════════════════════════════════════════════════════════════');
+  }
+}
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('DTSG (Digital Traditional Skills Games) Live Server running at http://0.0.0.0:' + PORT);

@@ -413,6 +413,19 @@ async function runLive() {
   const alive = await req(QA_PORT, '/api/health');
   check('L28', alive.status === 200, 'الخادم حي بعد عاصفة الاختراقات التجريبية');
 
+  /* L31-L35: [v2.59] بوابة البوت (R3-001/R3-002) + أصول الساندبوكس (R4-001) — بيئة QA (DM_TEST_MODE=1) */
+  const botNoSec = await post(QA_PORT, '/api/bot/request', {}, {});
+  check('L31', botNoSec.status === 401, 'bot/request بلا سِرّ ⇒ 401 (السحب الشبحي أُغلق — R3-001)');
+  const botLinkNoSec = await post(QA_PORT, '/api/bot/link', { tg_id: '777000999', username: 'qa_player' }, {});
+  check('L32', botLinkNoSec.status === 401, 'bot/link بلا سِرّ ⇒ 401 (الربط الشبحي أُغلق — R3-002)');
+  const botBadSec = await post(QA_PORT, '/api/bot/request', {}, { 'x-bot-secret': 'ops-wrong-secret' });
+  check('L33', botBadSec.status === 401, 'bot/request بسِرّ خاطئ ⇒ 401 (مقارنة ثابتة الزمن)');
+  const botGoodSec = await post(QA_PORT, '/api/bot/request', {}, { 'x-bot-secret': 'qa-admin-secret' });
+  /* 400 = وصل المعالج (bad-input) · 429 = عبر المصادقة ثم لمس حدّ المعدل — كلاهما يثبت قبول السِرّ */
+  check('L34', botGoodSec.status === 400 || botGoodSec.status === 429, 'bot/request بسِرّ صالح يعبر البوابة (HTTP ' + botGoodSec.status + ')');
+  const e2bQa = await req(QA_PORT, '/api/wallet/balance', { method: 'OPTIONS', headers: { origin: 'https://attacker-sandbox.e2b.app' } });
+  check('L35', e2bQa.status === 204, 'في DM_TEST_MODE تُقبل أصول .e2b.app (سلوك الاختبار الموثَّق — R4-001)');
+
   /* L29-L30: البواب الخلفي qa-admin-secret — نسخة بلا DM_TEST_MODE */
   console.log('  … نسخة ثانية بلا DM_TEST_MODE (منع البواب الخلفي)');
   let noMode = null, noModeDir = null;
@@ -426,9 +439,24 @@ async function runLive() {
     check('L29', backdoor.status === 401, 'qa-admin-secret بلا DM_TEST_MODE ⇒ 401 (البواب مغلقة في الإنتاج)');
     const ctrl = await req(NOMODE_PORT, '/api/wallet/balance?user_id=1', { headers: { 'x-admin-secret': 'guard-real-secret-xyz' } });
     check('L30', ctrl.status === 200, 'السر الحقيقي من env يعمل (التحكم الصحي)');
+
+    /* L36-L40: [v2.59] نفس الفحوص في وضع الإنتاج (بلا DM_TEST_MODE) */
+    const e2bProd = await req(NOMODE_PORT, '/api/wallet/balance', { method: 'OPTIONS', headers: { origin: 'https://attacker-sandbox.e2b.app' } });
+    check('L36', e2bProd.status === 403, 'إنتاج: أصل .e2b.app ⇒ 403 (اللاحقة العامة لم تعد موثوقة — R4-001)');
+    const arenaProd = await req(NOMODE_PORT, '/api/wallet/balance', { method: 'OPTIONS', headers: { origin: 'https://attacker-sandbox.arena.ai' } });
+    check('L37', arenaProd.status === 403, 'إنتاج: أصل .arena.ai ⇒ 403 (R4-001)');
+    const nmBot = await post(NOMODE_PORT, '/api/bot/request', {}, { 'x-bot-secret': 'guard-real-secret-xyz' });
+    check('L38', nmBot.status === 400, 'إنتاج: سِرّ البوت من ADMIN_API_SECRET يعبر البوابة (R3-001)');
+    const nmBotLink = await post(NOMODE_PORT, '/api/bot/link', { tg_id: '777000998', username: 'no-such-user-xyz' }, { 'x-bot-secret': 'guard-real-secret-xyz' });
+    check('L39', nmBotLink.status !== 401, 'إنتاج: bot/link بسِرّ صالح يعبر البوابة (HTTP ' + nmBotLink.status + ' — R3-002)');
+    let saw429 = false;
+    for (let i = 0; i < 31; i++) {
+      const rb = await post(NOMODE_PORT, '/api/bot/request', {}, { 'x-bot-secret': 'guard-real-secret-xyz' });
+      if (rb.status === 429) { saw429 = true; break; }
+    }
+    check('L40', saw429, 'حدّ المعدل: 31 طلباً موثقاً من نفس الـIP ⇒ 429 (≤30/دقيقة)');
   } catch (e) {
-    check('L29', false, 'نسخة بلا DM_TEST_MODE: ' + e.message);
-    check('L30', false, 'نسخة بلا DM_TEST_MODE: ' + e.message);
+    for (const id of ['L29', 'L30', 'L36', 'L37', 'L38', 'L39', 'L40']) check(id, false, 'نسخة بلا DM_TEST_MODE: ' + e.message);
   } finally {
     if (noMode) { try { noMode.kill('SIGKILL'); } catch (e) {} }
     if (noModeDir) { try { fs.rmSync(noModeDir, { recursive: true, force: true }); } catch (e) {} }
@@ -436,7 +464,7 @@ async function runLive() {
 }
 
 async function main() {
-  console.log('═══ حارس «cat» الميكانيكي — v2.58 ═══');
+  console.log('═══ حارس «cat» الميكانيكي — v2.59 ═══');
   runStatic();
   await runLive();
   console.log('\n═══ النتيجة: ' + passed + '/' + (passed + failed) + ' ═══');

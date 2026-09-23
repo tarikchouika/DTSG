@@ -13,8 +13,10 @@
    التشغيل على الخادم/الهاتف:
      VOUCHER_BOT_TOKEN=123:ABC  API_BASE=http://127.0.0.1:8080 \
      SUPER_TG=<ADMIN_CHAT_ID>  node scripts/voucher-bot.js
-   متغيرات اختيارية: ADMIN_API_SECRET، CASH_PLUS_NAME، BOT_POLL_MS (افتراضي 1200)،
-   STATE_FILE (افتراضي data/voucher-bot-state.json)، SUPPORT_BOT_URL، PLATFORM_URL.
+   متغيرات اختيارية: ADMIN_API_SECRET، BOT_API_SECRET [v2.59: سِرّ بوابة البوت —
+   يُرسل كـ x-bot-secret نحو /api/bot/* (بدونَه يرفض الخادم كل استدعاء: 401)]،
+   CASH_PLUS_NAME، BOT_POLL_MS (افتراضي 1200)، STATE_FILE (افتراضي
+   data/voucher-bot-state.json)، SUPPORT_BOT_URL، PLATFORM_URL.
 
    ملاحظات معمارية:
    • يستخدم Long-Polling (getUpdates) ⇒ لا يتعارض مع بوت المنصة ذي الـwebhook.
@@ -45,9 +47,14 @@ async function tg(method, payload) {
   return r.json().catch(() => ({}));
 }
 async function api(pathname, body, method) {
+  /* [v2.59 BOT-GATE] الخادم يرفض /api/bot/* دون سِرّ مشترك (R3-001/2):
+     نرسل x-bot-secret من BOT_API_SECRET (أو ADMIN_API_SECRET إن لم يُعيّن). */
+  const hdrs = { 'content-type': 'application/json' };
+  const botSecret = process.env.BOT_API_SECRET || process.env.ADMIN_API_SECRET || '';
+  if (botSecret) hdrs['x-bot-secret'] = botSecret;
   const r = await fetch(API_BASE + pathname, {
     method: method || (body ? 'POST' : 'GET'),
-    headers: { 'content-type': 'application/json' },
+    headers: hdrs,
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(15000)
   });
