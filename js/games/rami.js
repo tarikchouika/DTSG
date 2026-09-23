@@ -104,6 +104,14 @@ const __ramiPartCache = new Map();
 function clearRamiPartitionCache() { __ramiPartCache.clear(); }
 if (typeof window !== 'undefined') window.clearRamiPartitionCache = clearRamiPartitionCache;
 
+/* [FREEZE-CORE 2026-09-23] سقوف حتمية (بلا ساعة جدارية — قابلة للإعادة بالضبط):
+   • PARTITION_FALLBACK_NODES: سقف عقد DFS لمسار الطوارئ فقط (أيدي أسوأ من كل
+     ما يُلعب فعلياً — كانت تتجمد للأبد قبل هذا السقف).
+   • PARTITION_EXACT_STATES: سقف حالات المحرك المُخزَّن؛ عند تجاوزه يُستدعى
+     DFS المحدود كاحتياط حتمي بدل حجب الواجهة. */
+const PARTITION_FALLBACK_NODES = 30000;
+const PARTITION_EXACT_STATES = 250000;
+
 function partitionSelectedCards(cards, rules, mode, budgetMs) {
   if (!cards || cards.length < 3) return [];
   const validator = rules.validator;
@@ -111,12 +119,19 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
   /* [AI-TIME-BOUND] البحث الدقيق مناسب لاختيار اللاعب، لكنه قد يمرّ بملايين
      التركيبات في يد بوت مليئة بنسخ متساوية. ميزانية اختيارية تعيد أفضل نتيجة
      وجدت حتى الآن بدل حجب خيط واجهة المتصفح. لا تُطبَّق على استدعاءات اللاعب
-     العادية، لذلك لا تتغير دقة التحقق القانوني. */
+     العادية، لذلك لا تتغير دقة التحقق القانوني.
+     [FREEZE-CORE 2026-09-23] الاستدعاء بلا ميزانية (getLegalMoves / canFinish /
+     _doOpen / _doFinish — مسار اللاعب القانوني) كان يشغّل DFS أسّياً بلا سقف:
+     يد طالاج واقعية (متتاليات مكررة + جوكرات) = 139 ألف عقدة ≈ 2.4 ثانية حجب
+     للخيط الرئيسي بعد سحب البوت ⇒ «تجمّد» بالضبط عند أول ثانية من العدّاد.
+     الآن مسار الميزانية يبقى DFS القديم حرفياً (قرارات الخبير كما هي)، ومسار
+     اللاعب ينتقل إلى محرك DP مُخزَّن (bestInc/firstHit) مطابق تماماً للنتائج
+     وكسر التعادل (أول عقدة في pre-order) — انظر tests/_rami_partition_exact_test.js. */
   const budget = Number(budgetMs) > 0 ? Number(budgetMs) : 0;
   const deadline = budget ? Date.now() + budget : 0;
   let aborted = false;
   let searchNodes = 0;
-  const maxSearchNodes = budget ? 24000 : Infinity;
+  let maxSearchNodes = budget ? 24000 : PARTITION_FALLBACK_NODES;
   const budgetExpired = () => {
     if (!budget || aborted) return aborted;
     if ((searchNodes & 127) === 0 && Date.now() >= deadline) aborted = true;
@@ -210,7 +225,7 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
 
   function search(idx, currentUsed, currentMelds) {
     searchNodes++;
-    if (budget && (searchNodes > maxSearchNodes || budgetExpired())) { aborted = true; return; }
+    if (searchNodes > maxSearchNodes || budgetExpired()) { aborted = true; return; }
     const curFree = currentMelds.reduce((sm, m) => sm + meldFreeScore(m), 0);
     if (openingMode) {
       /* الافتتاح: النقاط الحرة أولاً ثم التغطية */
@@ -234,7 +249,77 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
     }
   }
 
-  search(0, new Set(), []);
+  /* [FREEZE-CORE] محرك مُخزَّن مطابق تماماً لـ DFS أعلاه (نفس النتائج ونفس
+     كسر التعادل: أول عقدة في pre-order تحقق أحسن قيمة) — بلا انفجار أسّي.
+     bestInc(idx, used) = أحسن (نقاط حرة، تغطية) إضافي فوق العقدة الفارغة (0,0)،
+     لأن قيمة التركيب جمعية على مجموعاته المختارة والاختيار المستقبلي مستقل
+     عن السياق (مقارنة لكسية). firstHit يعيد بناء أول عقدة محقِّقة للقيمة
+     بترتيب زيارة DFS نفسه (الفرع الأصغر فهرساً أولاً). */
+  function exactMemoSearch() {
+    const idxOf = new Map();
+    for (let ci = 0; ci < cards.length; ci++) idxOf.set(cards[ci].id, ci);
+    for (const s of validSubsets) {
+      let mask = 0;
+      for (const c of s.cards) mask |= (1 << idxOf.get(c.id));
+      s.mask = mask;
+      s.size = s.cards.length;
+      s.free = meldFreeScore(new RamiMeld(s.type, s.cards.slice()));
+    }
+    const memo = new Map();
+    let states = 0;
+    let overflow = false;
+    const better = (aF, aS, bF, bS) => openingMode
+      ? (aF > bF || (aF === bF && aS > bS))
+      : (aS > bS);
+    function bestInc(idx, used) {
+      const key = idx * 1048576 + used;
+      const hit = memo.get(key);
+      if (hit) return hit;
+      if (++states > PARTITION_EXACT_STATES) { overflow = true; return { f: 0, s: 0, take: -1 }; }
+      let bF = 0, bS = 0, bTake = -1;
+      for (let i = idx; i < validSubsets.length; i++) {
+        const sub = validSubsets[i];
+        if ((used & sub.mask) !== 0) continue;
+        const rest = bestInc(i + 1, used | sub.mask);
+        const cF = sub.free + rest.f, cS = sub.size + rest.s;
+        if (better(cF, cS, bF, bS)) { bF = cF; bS = cS; bTake = i; }
+      }
+      const out = { f: bF, s: bS, take: bTake };
+      memo.set(key, out);
+      return out;
+    }
+    function firstHit(idx, used, tF, tS) {
+      if (tF === 0 && tS === 0) return [];
+      for (let i = idx; i < validSubsets.length; i++) {
+        const sub = validSubsets[i];
+        if ((used & sub.mask) !== 0) continue;
+        if (sub.free === tF && sub.size === tS) return [i];
+        const rest = bestInc(i + 1, used | sub.mask);
+        if (sub.free + rest.f === tF && sub.size + rest.s === tS) {
+          return [i].concat(firstHit(i + 1, used | sub.mask, tF - sub.free, tS - sub.size));
+        }
+      }
+      return [];
+    }
+    const top = bestInc(0, 0);
+    if (overflow) return null;
+    const chosen = firstHit(0, 0, top.f, top.s);
+    return chosen.map(i => new RamiMeld(validSubsets[i].type, validSubsets[i].cards.slice()));
+  }
+
+  if (budget) {
+    /* مسار الخبير: DFS القديم داخل الميزانية — بلا أي تغيير سلوكي */
+    search(0, new Set(), []);
+  } else {
+    /* مسار اللاعب: نتائج مطابقة حرفياً بلا حجب الخيط */
+    const exact = exactMemoSearch();
+    if (exact) {
+      bestCombination = exact;
+    } else {
+      /* طوارئ حتمية (أيدي خارج كل القياسات): DFS محدود العقد */
+      search(0, new Set(), []);
+    }
+  }
   if (!budget) {
     if (__ramiPartCache.size > 3000) __ramiPartCache.clear();
     __ramiPartCache.set(cacheKey, bestCombination.map(m => new RamiMeld(m.type, m.cards.slice())));

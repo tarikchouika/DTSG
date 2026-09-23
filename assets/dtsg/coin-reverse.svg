@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  [DTSG 2026] وجه ظهر العملة الرسمية — medallion ذهبي مطابق لوجه الأسد (coin-obverse.webp).
+  نقشة خاتم الزليج الثمانية = هوية المنصة التراثية • شعار DTSG • 2026.
+  ملف SVG مكتوب يدوياً (لا صور خارجية) — يُستخدم خلفيةً لـ .coinFace.tails.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" viewBox="0 0 800 800">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="78%">
+      <stop offset="0%" stop-color="#241c12"/>
+      <stop offset="65%" stop-color="#0c0906"/>
+      <stop offset="100%" stop-color="#000000"/>
+    </radialGradient>
+    <radialGradient id="gold" cx="36%" cy="28%" r="88%">
+      <stop offset="0%" stop-color="#f7e5a8"/>
+      <stop offset="30%" stop-color="#e6c66e"/>
+      <stop offset="58%" stop-color="#c79c3e"/>
+      <stop offset="82%" stop-color="#9a7428"/>
+      <stop offset="100%" stop-color="#6e5016"/>
+    </radialGradient>
+    <radialGradient id="goldField" cx="42%" cy="34%" r="82%">
+      <stop offset="0%" stop-color="#efd68e"/>
+      <stop offset="45%" stop-color="#dcb862"/>
+      <stop offset="78%" stop-color="#b98e33"/>
+      <stop offset="100%" stop-color="#8a6520"/>
+    </radialGradient>
+    <radialGradient id="goldStar" cx="38%" cy="30%" r="85%">
+      <stop offset="0%" stop-color="#f9ecc0"/>
+      <stop offset="40%" stop-color="#e9cb79"/>
+      <stop offset="75%" stop-color="#c39a3c"/>
+      <stop offset="100%" stop-color="#8f6a22"/>
+    </radialGradient>
+    <!-- مسار النقش الأسطواني (علوي) -->
+    <path id="legendArc" d="M 400,400 m -288,0 a 288,288 0 1,1 576,0" fill="none"/>
+  </defs>
+
+  <!-- خلفية سوداء كالوجه -->
+  <rect width="800" height="800" fill="url(#bg)"/>
+
+  <!-- حافة العملة الخارجية -->
+  <circle cx="400" cy="400" r="352" fill="url(#gold)"/>
+  <circle cx="400" cy="400" r="352" fill="none" stroke="#5c4212" stroke-width="3" opacity="0.8"/>
+  <circle cx="400" cy="400" r="338" fill="none" stroke="#f2ddA0" stroke-width="2" opacity="0.55"/>
+
+  <!-- حلقة النقش (الأسطوانة) -->
+  <circle cx="400" cy="400" r="322" fill="url(#goldField)"/>
+  <circle cx="400" cy="400" r="322" fill="none" stroke="#7a5a1c" stroke-width="2" opacity="0.7"/>
+  <circle cx="400" cy="400" r="252" fill="none" stroke="#7a5a1c" stroke-width="3" opacity="0.75"/>
+  <circle cx="400" cy="400" r="246" fill="none" stroke="#f2dda0" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- النقش الأسطواني: اسم المنصة الكامل (نفس بنية الوجه) -->
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" letter-spacing="3.5" fill="#7a5a1c">
+    <textPath href="#legendArc" startOffset="50%" text-anchor="middle">✦ DIGITAL TRADITIONAL SKILLS GAMES ✦</textPath>
+  </text>
+  <text font-family="Georgia, 'Times New Roman', serif" font-size="34" font-weight="700" letter-spacing="3.5" fill="#f7e5a8" opacity="0.35" transform="translate(-1.5,-1.5)">
+    <textPath href="#legendArc" startOffset="50%" text-anchor="middle">✦ DIGITAL TRADITIONAL SKILLS GAMES ✦</textPath>
+  </text>
+
+  <!-- النقاط المحيطة (نفس عقد الوجه) -->
+  <circle cx="400" cy="400" r="228" fill="none" stroke="#7a5a1c" stroke-width="7" stroke-linecap="round" stroke-dasharray="0.5 15" opacity="0.9"/>
+
+  <!-- حقل داخلي -->
+  <circle cx="400" cy="400" r="214" fill="url(#goldField)"/>
+  <circle cx="400" cy="400" r="214" fill="none" stroke="#6e5016" stroke-width="2.5" opacity="0.8"/>
+
+  <!-- خاتم الزليج الثمانية (نجمة ثمانية صريحة) — نقش بارز -->
+  <g transform="translate(400 392)">
+    <polygon points="0,-150 35,-85 106.1,-106.1 85,-35 150,0 85,35 106.1,106.1 35,85 0,150 -35,85 -106.1,106.1 -85,35 -150,0 -85,-35 -106.1,-106.1 -35,-85"
+      fill="url(#goldStar)" stroke="#6e5016" stroke-width="4" stroke-linejoin="round"/>
+    <polygon points="0,-150 35,-85 106.1,-106.1 85,-35 150,0 85,35 106.1,106.1 35,85 0,150 -35,85 -106.1,106.1 -85,35 -150,0 -85,-35 -106.1,-106.1 -35,-85"
+      fill="none" stroke="#f7e5a8" stroke-width="1.5" opacity="0.45" stroke-linejoin="round" transform="scale(0.92)"/>
+    <!-- قلب مثمّن داخلي -->
+    <circle r="86" fill="url(#goldField)" stroke="#6e5016" stroke-width="3.5"/>
+    <circle r="78" fill="none" stroke="#f7e5a8" stroke-width="1.5" opacity="0.5"/>
+    <!-- الشعار DTSG -->
+    <text x="0" y="20" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="56" font-weight="700" letter-spacing="4" fill="#6e5016">DTSG</text>
+    <text x="0" y="18.5" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="56" font-weight="700" letter-spacing="4" fill="#f9ecc0" opacity="0.4" transform="translate(-1,-1)">DTSG</text>
+  </g>
+
+  <!-- السنة أسفل النقش (نفس الوجه) -->
+  <text x="400" y="668" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="700" letter-spacing="8" fill="#7a5a1c">2026</text>
+  <text x="400" y="666.5" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="700" letter-spacing="8" fill="#f7e5a8" opacity="0.35">2026</text>
+
+  <!-- نجيمتا الفاصل (شموع) جانباً 2026 -->
+  <circle cx="300" cy="650" r="6" fill="#7a5a1c"/>
+  <circle cx="500" cy="650" r="6" fill="#7a5a1c"/>
+</svg>
