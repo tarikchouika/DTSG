@@ -283,7 +283,7 @@ server.js لا يبث `blindResult` إطلاقاً — ألعاب penalty/rps ف
 
 ## v2.58 (2026-09-23) — حصانة أمنية: ما أنجز داخل المستودع + ما تبقّى للمالك (خارجه)
 
-> الجلسة أُنجزت محلياً (الإيداع على فرع الجلسة). كل إصلاحات P0/NEW + الثغرتين
+> ✅ **دُمج في `main` (0899954) — 2026-09-23.** كل إصلاحات P0/NEW + الثغرتين
 > الدّاخليتين حية في `server.js` / `server-payments.js` / `cf-worker/payments-core.js`
 > + حارسان: `tests/_audit_remediation_test.js` (sec-audit 28/28) و
 > `tests/_ops_guards_test.js` (حارس «cat» 38/38 ثابت + حيّ — يكشف النسخ البالية).
