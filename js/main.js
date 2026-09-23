@@ -263,8 +263,11 @@ function openTcModal() {
   if (!AUTH.user) { toast(T('auth.sessionExpired'), 'warn'); return; }
   const sel = document.getElementById('tcGame');
   if (sel) {
-    /* [Policy 2026-09-16] تُعاد التعبئة عند كل فتح — المعطلة تختفي */
-    const allowed = ['rn', 'rp', 'pn', 'pr', 'ke', 'av', 'rl', 'bj', 'bc'];
+    /* [Policy 2026-09-16] تُعاد التعبئة عند كل فتح — المعطلة تختفي
+       [tourney-fix 2026-09-23] البطولات = ألعاب المواجهة 2+ فقط: المصدر roomGameIds (ألعاب الأونلاين)
+       ناقصة ما عطّله السوبر أدمن (DISABLED) — لا كينو/aviator/روليت (ليست مواجهة لاعبين). */
+    const roomIds = (typeof Rooms !== 'undefined' && Rooms.roomGameIds) ? Object.keys(Rooms.roomGameIds) : ['rn', 'rp', 'pn', 'pr', 'rm', 'rd', 'bj', 'dm', 'ch', 'bg', 'do', 'bl8', 'blbb', 'blgv', 'blsn', 'blca'];
+    const allowed = roomIds.filter(function (id) { return !DISABLED[id]; });
     sel.innerHTML = GAMES.filter(function (g) { return allowed.indexOf(g.id) >= 0 && !DISABLED[g.id]; })
       .map(function (g) { return '<option value="' + g.id + '">' + g.em + ' ' + esc(gname(g)) + '</option>'; })
       .join('');
@@ -611,6 +614,7 @@ function openGame(id) {
      وإلا صُفّر scene ثلاثي الأبعاد أثناء await التهيئة فيكسر لعبة Crash */
   closeModal();
   window._currentGameId = id;
+  setGameLeaveAccent(g);   /* [Leave] هوية كل لعبة في زر المغادرة + وسوم إتاحة */
   /* [Training 2026-09-16] كل لعبة تبدأ غير تدريبية؛ أوضاع البوت/المحلي فقط تفعّلها */
   window.TRAINING = window.TRAINING || { on: false };
   window.TRAINING.on = false;
@@ -707,6 +711,62 @@ function openGame(id) {
   setTimeout(checkRotateHint, 180);
   /* [Layout] تحجيم ديناميكي: اللعبة تملأ الإطار بالكامل وتتوسّع/تتقلّص حسب الشاشة */
   fitGameStageSoon();
+}
+/* ═══════════ [Leave 2026-09-23] مغادرة اللعبة بتأكيد ═══════════ */
+/* هوية كل لعبة في زر المغادرة: هالة لونية من عائلة اللعبة (art) حول الذهبي */
+const GAME_LEAVE_ACCENTS = {
+  rami: '#c0392b', rn: '#d94f2b', ch: '#3f7d3f', bg: '#a16207', do: '#8b5e3c', dm: '#0d9488',
+  bl8: '#1f8b4c', blbb: '#1f8b4c', blgv: '#1f8b4c', blca: '#1f8b4c', blsn: '#b91c1c',
+  bj: '#16a34a', poker: '#3b82f6', pk: '#3b82f6', rl: '#dc2626', keno: '#0ea5e9',
+  cr: '#f59e0b', slots: '#a855f7', money: '#a855f7', gates: '#a855f7', olympus: '#a855f7',
+  rose: '#a855f7', lightning: '#a855f7', crabbin: '#06b6d4', fishing: '#06b6d4',
+  lottery: '#0ea5e9', mahjong: '#16a34a'
+};
+function gameLeaveAccent(g) {
+  if (!g) return '#d9b45c';
+  if (g.eng === 'crash') return GAME_LEAVE_ACCENTS.cr;
+  return GAME_LEAVE_ACCENTS[g.art] || GAME_LEAVE_ACCENTS[g.id] || '#d9b45c';
+}
+function setGameLeaveAccent(g) {
+  const acc = gameLeaveAccent(g);
+  const gid = (g && g.id) || (window._currentGameId || '');
+  ['gameLeaveBtn', 'gameLeaveBtnHead', 'leaveModal'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.style.setProperty('--ga', acc);
+    if (el.hasAttribute('data-gid')) el.setAttribute('data-gid', gid);
+  });
+  const aria = T('g.leaveAria');
+  ['gameLeaveBtn', 'gameLeaveBtnHead'].forEach(function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.setAttribute('aria-label', aria);
+    el.setAttribute('title', aria);
+  });
+}
+function confirmLeaveGame() {
+  const gp = document.getElementById('pg-game');
+  if (!gp || !gp.classList.contains('active') || !window._currentGameId) { closeGamePage(); return; }
+  if (typeof SND !== 'undefined' && SND.click) SND.click();
+  const mw = document.getElementById('leaveModal');
+  if (!mw) { closeGamePage(); return; }
+  const g = (typeof GAMES !== 'undefined') ? GAMES.find(x => x.id === window._currentGameId) : null;
+  const emEl = document.getElementById('leaveGameEm');
+  const nmEl = document.getElementById('leaveGameName');
+  if (emEl) emEl.textContent = g ? g.em : '\u{1F3AE}';
+  if (nmEl) nmEl.textContent = g ? gname(g) : '';
+  setGameLeaveAccent(g);
+  mw.classList.add('show');
+  const stay = document.getElementById('leaveStayBtn');
+  if (stay) { try { stay.focus(); } catch (e) {} }  /* التركيز على «البقاء» — لا خروج بزر Enter المفاجئ */
+}
+function closeLeaveModal() {
+  const mw = document.getElementById('leaveModal');
+  if (mw) mw.classList.remove('show');
+}
+function doLeaveGame() {
+  closeLeaveModal();
+  closeGamePage();
 }
 function closeGamePage() {
   /* الخروج من وضع الشاشة الممتلئة أولاً */
@@ -943,6 +1003,9 @@ if (typeof window !== 'undefined') {
   window.enterAppFullscreen = enterAppFullscreen;
   window.exitAppFullscreen = exitAppFullscreen;
   window.toggleGameFullscreen = toggleGameFullscreen;
+  window.confirmLeaveGame = confirmLeaveGame;
+  window.closeLeaveModal = closeLeaveModal;
+  window.doLeaveGame = doLeaveGame;
 }
 /* ═══════════ فرض الوضع العرضي للألعاب العريضة (عرض > طول) ═══════════ */
 function isRotateRelevant() {
@@ -1354,7 +1417,7 @@ function renderAdmin() {
       '<button class="atab' + (ADMIN_TAB === 'games' ? ' active' : '') + '" role="tab" onclick="adminTab(\'games\')">' + T('admin.gamesTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'rewards' ? ' active' : '') + '" role="tab" onclick="adminTab(\'rewards\')">' + T('admin.rewardsTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'fin' ? ' active' : '') + '" role="tab" onclick="adminTab(\'fin\')">' + T('admin.finTab') + '</button>' +
-      '<button class="atab' + (ADMIN_TAB === 'codes' ? ' active' : '') + '" role="tab" onclick="adminTab(\'codes\')">🎟️ أكواد الشحن</button>' +
+      '<button class="atab' + (ADMIN_TAB === 'codes' ? ' active' : '') + '" role="tab" onclick="adminTab(\'codes\')">' + T('admin.codesTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'money' ? ' active' : '') + '" role="tab" onclick="adminTab(\'money\')">💰 ' + (T('admin.moneyTab') || 'سجل المال') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'botpl' ? ' active' : '') + '" role="tab" onclick="adminTab(\'botpl\')">📊 ' + T('admin.botPL') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'logs' ? ' active' : '') + '" role="tab" id="logs" onclick="adminTab(\'logs\')"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ' + T('admin.logsTab') + '</button>'
@@ -1386,16 +1449,16 @@ function adminLoadCodes() {
   if (!c) return;
   const kind = window._codeKind || 'admin';
   const tierOpts = Object.keys(CODE_TIERS[kind]).map(t =>
-    '<option value="' + t + '">' + Number(t).toLocaleString('ar-MA') + ' — بونص ' + CODE_TIERS[kind][t] + '%</option>').join('');
+    '<option value="' + t + '">' + Number(t).toLocaleString('ar-MA') + ' — ' + T('admin.bonusPct') + ' ' + CODE_TIERS[kind][t] + '%</option>').join('');
   c.innerHTML =
-    '<div class="note">أنشئ أكواد شحن بالكوينز. أدمنز: بونص حسب الشريحة. مباشر: للمستخدمين (تيليغرام/Binance Pay). السعر: 100 كوين/$ و10 كوين/درهم.</div>' +
+    '<div class="note">' + T('admin.codesNote') + '</div>' +
     '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end;margin:10px 0">' +
-      '<label>النوع<br><select id="codeKind" onchange="window._codeKind=this.value;adminLoadCodes()">' +
-        '<option value="admin"' + (kind === 'admin' ? ' selected' : '') + '>أدمنز (بونص)</option>' +
-        '<option value="direct"' + (kind === 'direct' ? ' selected' : '') + '>مباشر</option></select></label>' +
-      '<label>العملة<br><select id="codeCur"><option value="usd">USD ($)</option><option value="mad">MAD (درهم)</option></select></label>' +
-      '<label>الشريحة<br><select id="codeTier">' + tierOpts + '</select></label>' +
-      '<button class="btn" onclick="adminMakeCode()">إنشاء الكود</button>' +
+      '<label>' + T('admin.codesKind') + '<br><select id="codeKind" onchange="window._codeKind=this.value;adminLoadCodes()">' +
+        '<option value="admin"' + (kind === 'admin' ? ' selected' : '') + '>' + T('admin.codesKindAdmin') + '</option>' +
+        '<option value="direct"' + (kind === 'direct' ? ' selected' : '') + '>' + T('admin.codesKindDirect') + '</option></select></label>' +
+      '<label>' + T('admin.codesCur') + '<br><select id="codeCur"><option value="usd">USD ($)</option><option value="mad">' + T('admin.codesCurMad') + '</option></select></label>' +
+      '<label>' + T('admin.codesTier') + '<br><select id="codeTier">' + tierOpts + '</select></label>' +
+      '<button class="btn" onclick="adminMakeCode()">' + T('admin.codesCreate') + '</button>' +
     '</div>' +
     '<div id="codeOut"></div>';
 }
@@ -1413,16 +1476,16 @@ async function adminMakeCode() {
     const r = await API.post('/api/vouchers/create', { kind: kind, tier: tier, currency: currency });
     const j = (r && r.data) || {};
     if (r && r.ok && j.ok) {
-      out.innerHTML = '<div class="note ok">✅ <b>' + j.codes[0] + '</b> — يشحن ' + Number(j.coins).toLocaleString('ar-MA') + ' كوين (بونص ' + j.bonus + '%) ' +
-        '<button class="btn small" onclick="navigator.clipboard.writeText(\'' + j.codes[0] + '\')">نسخ</button></div>';
+      out.innerHTML = '<div class="note ok">✅ <b>' + j.codes[0] + '</b> ' + T('admin.codesCharges') + ' ' + Number(j.coins).toLocaleString('ar-MA') + ' ' + T('admin.codesCoins') + ' (' + T('admin.bonusPct') + ' ' + j.bonus + '%) ' +
+        '<button class="btn small" onclick="navigator.clipboard.writeText(\'' + j.codes[0] + '\')">' + T('admin.codesCopy') + '</button></div>';
       return;
     }
     let msg = j.error || ('HTTP ' + (r ? r.status : '?'));
-    if (r && r.status === 403) msg = 'غير مصرح — إنشاء الأكواد للسوبر أدمن فقط. سجّل الخروج ثم الدخول بحساب السوبر.';
-    else if (r && r.status === 400 && j.error === 'bad-tier') msg = 'شريحة غير صالحة';
-    if (j.tiers) msg += ' — الشرائح المتاحة: ' + j.tiers.join(' / ');
+    if (r && r.status === 403) msg = T('admin.codesSuperOnly');
+    else if (r && r.status === 400 && j.error === 'bad-tier') msg = T('admin.codesBadTier');
+    if (j.tiers) msg += ' — ' + T('admin.codesTiersAvail') + ': ' + j.tiers.join(' / ');
     out.innerHTML = '<div class="note err">❌ ' + msg + '</div>';
-  } catch (e) { out.innerHTML = '<div class="note err">❌ تعذّر الاتصال بالخادم: ' + e + '</div>'; }
+  } catch (e) { out.innerHTML = '<div class="note err">❌ ' + T('admin.serverUnreachable') + ': ' + e + '</div>'; }
 }
 
 function adminTab(tab) {
@@ -1494,17 +1557,17 @@ function adminLoadUsers() {
           ? '<td>🪙 ' + fmt(u.gold) + '</td>' +
             '<td>' + (u.last_seen ? new Date(u.last_seen * 1000).toLocaleString() : '—') + '</td>' +
             '<td>' + (u.banned ? '<span class="spill bad">' + T('admin.banned') + '</span>' : '<span class="spill ok">' + T('admin.active') + '</span>') + '</td>' +
-            '<td class="abal"><input class="ainp" id="bal-' + u.id + '" type="number" value="' + u.gold + '" min="0" aria-label="رصيد ' + esc(u.username) + '" style="width:90px">' +
+            '<td class="abal"><input class="ainp" id="bal-' + u.id + '" type="number" value="' + u.gold + '" min="0" aria-label="' + T('admin.balance') + ' ' + esc(u.username) + '" style="width:90px">' +
             '<button class="abtn" onclick="adminSetBalance(' + u.id + ')">' + T('admin.save') + '</button></td>'
           : '<td>🪙 ' + fmt(u.gold) + '</td>';
         const chargeCell =
-          '<input class="ainp" id="ch-' + u.id + '" type="number" value="100" min="1" aria-label="شحن ' + esc(u.username) + '" style="width:80px">' +
+          '<input class="ainp" id="ch-' + u.id + '" type="number" value="100" min="1" aria-label="' + T('admin.charge') + ' ' + esc(u.username) + '" style="width:80px">' +
           '<button class="abtn ok" onclick="adminChargeDeduct(' + u.id + ',\'charge\')">+' + T('admin.charge') + '</button>';
         const deductCell =
-          '<input class="ainp" id="dc-' + u.id + '" type="number" value="100" min="1" aria-label="خصم ' + esc(u.username) + '" style="width:80px">' +
+          '<input class="ainp" id="dc-' + u.id + '" type="number" value="100" min="1" aria-label="' + T('admin.deduct') + ' ' + esc(u.username) + '" style="width:80px">' +
           '<button class="abtn bad" onclick="adminChargeDeduct(' + u.id + ',\'deduct\')">−' + T('admin.deduct') + '</button>';
         const passCell =
-          '<input class="ainp" id="pw-' + u.id + '" type="password" placeholder="' + T('admin.newPass') + '" aria-label="كلمة مرور ' + esc(u.username) + '" style="width:110px">' +
+          '<input class="ainp" id="pw-' + u.id + '" type="password" placeholder="' + T('admin.newPass') + '" aria-label="' + T('admin.password') + ' ' + esc(u.username) + '" style="width:110px">' +
           '<button class="abtn" onclick="adminSetPassword(' + u.id + ')">' + T('admin.save') + '</button>';
         /* إسكات عن الصوت والمراسلة: 24 ساعة فأكثر */
         const muteCell = u.muted_until
@@ -1514,7 +1577,7 @@ function adminLoadUsers() {
             '<button class="abtn bad" onclick="adminMute(' + u.id + ',1)">🔇 ' + T('admin.mute') + '</button>';
         /* [Logs] زر «سجل»: فتح تبويب السجلات مُصفّى على هذا المستخدم (سوبر فقط) */
         const delCell = isSuper
-          ? '<td style="white-space:nowrap"><button class="abtn" onclick="adminViewUserTx(' + u.id + ')" title="سجل المعاملات">🧾 سجل</button> ' +
+          ? '<td style="white-space:nowrap"><button class="abtn" onclick="adminViewUserTx(' + u.id + ')" title="' + T('admin.userLogTitle') + '">' + T('admin.userLogBtn') + '</button> ' +
             '<button class="abtn bad" onclick="adminDeleteUser(' + u.id + ',\'' + esc(u.username).replace(/'/g, '') + '\')">🗑 ' + T('admin.deleteUser') + '</button></td>'
           : '';
         const banCell = isSuper
@@ -1523,7 +1586,7 @@ function adminLoadUsers() {
               : '<button class="abtn bad" onclick="adminToggleBan(' + u.id + ',1)">' + T('admin.ban') + '</button>') + '</td>'
           : '';
         const roleCell = isSuper
-          ? '<td><select class="ainp" id="role-' + u.id + '" aria-label="دور ' + esc(u.username) + '">' +
+          ? '<td><select class="ainp" id="role-' + u.id + '" aria-label="' + T('admin.role') + ' ' + esc(u.username) + '">' +
               ['user', 'admin', 'super'].map(function (ro) {
                 return '<option value="' + ro + '"' + (u.role === ro ? ' selected' : '') + '>' + roleLabel(ro) + '</option>';
               }).join('') +
@@ -1686,7 +1749,7 @@ function adminSetRole(id) {
   const sel = document.getElementById('role-' + id);
   if (!sel) return;
   if (AUTH.user && id === AUTH.user.id) {
-    toast('لا يمكنك تغيير دورك', 'warn');
+    toast(T('admin.cantChangeOwnRole'), 'warn');
     return;
   }
   API.post('/api/admin/user/' + id + '/role', { role: sel.value }).then(function (r) {
@@ -1703,15 +1766,17 @@ function adminSetRole(id) {
 /* أسماء الأنواع بالعربية للعرض */
 function txTypeLabel(ty) {
   const map = {
-    bet: 'رهان',
-    win: 'فوز',
-    transfer_out: 'تحويل صادر',
-    transfer_in: 'تحويل وارد',
-    charge: 'شحن',
-    deduct: 'سحب',
-    set_balance: 'ضبط رصيد',
-    referral_bonus: 'هدية إحالة',
-    claim: 'مكافأة'
+    deposit: T('admin.txDeposit'),
+    withdrawal: T('admin.txWithdrawal'),
+    bet: T('admin.txBet'),
+    win: T('admin.txWin'),
+    transfer_out: T('admin.txTransferOut'),
+    transfer_in: T('admin.txTransferIn'),
+    charge: T('admin.txCharge'),
+    deduct: T('admin.txDeduct'),
+    set_balance: T('admin.txSetBalance'),
+    referral_bonus: T('admin.txReferral'),
+    claim: T('admin.txClaim')
   };
   return map[ty] || ty || '—';
 }
@@ -1739,18 +1804,18 @@ function adminLoadTransactions() {
   const curType = curTy ? curTy.value : '';
   c.innerHTML = '<div class="note">…</div>';
   /* بناء واجهة التصفية مع جدول المستخدمين (أول خيار «الكل») */
-  const typeOpts = ['', 'bet', 'win', 'transfer_out', 'transfer_in', 'charge', 'deduct', 'set_balance', 'referral_bonus', 'claim'];
+  const typeOpts = ['', 'deposit', 'withdrawal', 'bet', 'win', 'transfer_out', 'transfer_in', 'charge', 'deduct', 'set_balance', 'referral_bonus', 'claim'];
   const buildFilters = function (users) {
     return '<div class="reg-row" style="flex-wrap:wrap;gap:8px;margin-bottom:12px;align-items:center">' +
-      '<select class="ainp" id="txUser" onchange="adminLoadTransactions()" aria-label="تصفية بالمستخدم" style="width:180px">' +
-        '<option value="">' + T('admin.users') + ': ' + 'الكل' + '</option>' +
+      '<select class="ainp" id="txUser" onchange="adminLoadTransactions()" aria-label="' + T('admin.filterUser') + '" style="width:180px">' +
+        '<option value="">' + T('admin.users') + ': ' + T('admin.allFilter') + '</option>' +
         users.map(function (u) {
           return '<option value="' + u.id + '"' + (String(u.id) === String(curUid) ? ' selected' : '') + '>' + esc(u.username) + ' (#' + u.id + ')</option>';
         }).join('') +
       '</select>' +
-      '<select class="ainp" id="txType" onchange="adminLoadTransactions()" aria-label="تصفية بالنوع" style="width:150px">' +
+      '<select class="ainp" id="txType" onchange="adminLoadTransactions()" aria-label="' + T('admin.filterType') + '" style="width:150px">' +
         typeOpts.map(function (ty) {
-          return '<option value="' + ty + '"' + (ty === curType ? ' selected' : '') + '>' + (ty === '' ? 'الكل' : txTypeLabel(ty)) + '</option>';
+          return '<option value="' + ty + '"' + (ty === curType ? ' selected' : '') + '>' + (ty === '' ? T('admin.allFilter') : txTypeLabel(ty)) + '</option>';
         }).join('') +
       '</select>' +
       '<button class="abtn" onclick="adminLoadTransactions()">🔄 ' + T('ui.refresh') + '</button>' +
@@ -1773,7 +1838,7 @@ function adminLoadTransactions() {
       const txs = r.data.transactions || [];
       const total = r.data.total || 0;
       /* عرض total في عنوان فرعي صغير */
-      const sub = '<div class="note" style="font-size:.78rem;margin-bottom:8px">' + total + ' معاملة</div>';
+      const sub = '<div class="note" style="font-size:.78rem;margin-bottom:8px">' + total + ' ' + T('admin.txCountUnit') + '</div>';
       if (!txs.length) {
         box.innerHTML = sub + '<div class="note">' + T('admin.txEmpty') + '</div>';
         return;
@@ -1781,8 +1846,8 @@ function adminLoadTransactions() {
       box.innerHTML = sub +
         '<div class="atable-wrap"><table class="atable">' +
         '<thead><tr>' +
-          '<th>الوقت</th><th>المستخدم</th><th>النوع</th><th>المبلغ</th><th>الرصيد بعدها</th>' +
-          '<th>الطرف الآخر</th><th>اللعبة</th><th>المنفذ</th><th>ملاحظة</th>' +
+          '<th>' + T('admin.thTime') + '</th><th>' + T('admin.txUser') + '</th><th>' + T('admin.thType') + '</th><th>' + T('admin.thAmount') + '</th><th>' + T('admin.thBalanceAfter') + '</th>' +
+          '<th>' + T('admin.thCounterparty') + '</th><th>' + T('admin.thGame') + '</th><th>' + T('admin.thActor') + '</th><th>' + T('admin.thNote') + '</th>' +
         '</tr></thead><tbody>' +
         txs.map(function (tx) {
           const t = tx.created_at ? new Date(tx.created_at * 1000).toLocaleString() : '—';
@@ -1790,9 +1855,12 @@ function adminLoadTransactions() {
           return '<tr>' +
             '<td style="white-space:nowrap">' + t + '</td>' +
             '<td>' + (tx.username ? '<b>' + esc(tx.username) + '</b>' : '—') + '</td>' +
-            '<td><span class="spill ' + (tx.type === 'bet' || tx.type === 'transfer_out' || tx.type === 'deduct' ? 'bad' : (tx.type === 'set_balance' ? '' : 'ok')) + '">' + txTypeLabel(tx.type) + '</span></td>' +
-            '<td>' + txAmountSign(tx.type, tx.amount) + '</td>' +
-            '<td>🪙 ' + fmt(tx.balance_after) + '</td>' +
+            '<td><span class="spill ' + (tx.type === 'bet' || tx.type === 'transfer_out' || tx.type === 'deduct' || tx.type === 'withdrawal' ? 'bad' : (tx.type === 'set_balance' ? '' : 'ok')) + '">' + txTypeLabel(tx.type) + '</span>' +
+              (tx.status ? ' <span class="spill ' + (tx.status === 'completed' ? 'ok' : (tx.status === 'rejected' ? 'bad' : '')) + '">' + ({ completed: T('admin.stCompleted'), pending: T('admin.stPending'), rejected: T('admin.stRejected') }[tx.status] || esc(tx.status)) + '</span>' : '') + '</td>' +
+            '<td>' + (tx.amount_usd != null
+              ? ((tx.type === 'withdrawal' ? '💸 − ' : '📥 + ') + Number(tx.amount_usd).toFixed(2) + ' $')
+              : txAmountSign(tx.type, tx.amount)) + '</td>' +
+            '<td>' + (tx.balance_after != null ? '🪙 ' + fmt(tx.balance_after) : '—') + '</td>' +
             '<td>' + (tx.counterparty_name ? esc(tx.counterparty_name) : '—') + '</td>' +
             '<td>' + (tx.game_id ? esc(tx.game_id) : '—') + '</td>' +
             '<td>' + (tx.actor_name ? esc(tx.actor_name) : '—') + '</td>' +
@@ -1835,12 +1903,12 @@ function adminLoadTourneys() {
   Promise.all([API.get('/api/tournaments'), API.get('/api/games')]).then(function (rs) {
     const ts = (rs[0].ok && rs[0].data && rs[0].data.tournaments) ? rs[0].data.tournaments : [];
     if (!ts.length) {
-      c.innerHTML = '<div class="note">لا توجد بطولات بعد</div>';
+      c.innerHTML = '<div class="note">' + T('admin.noTourneys') + '</div>';
       return;
     }
     const statusLabel = { pending: '⏳ ' + T('admin.tPending'), approved: '✅ ' + T('admin.tApproved'), active: '🔴 ' + T('admin.tActive'), finished: '🏁 ' + T('admin.tFinished'), rejected: '❌ ' + T('admin.tRejected') };
     c.innerHTML = '<div class="atable-wrap"><table class="atable">' +
-      '<thead><tr><th>الاسم</th><th>اللعبة</th><th>المنشئ</th><th>الجائزة</th><th>اللاعبون</th><th>الحالة</th><th></th></tr></thead><tbody>' +
+      '<thead><tr><th>' + T('admin.thName') + '</th><th>' + T('admin.thGame') + '</th><th>' + T('admin.thCreator') + '</th><th>' + T('admin.thPrize') + '</th><th>' + T('admin.thPlayers') + '</th><th>' + T('admin.thStatus') + '</th><th></th></tr></thead><tbody>' +
       ts.map(function (t) {
         let actions = '';
         if (t.status === 'pending') {
@@ -1926,7 +1994,7 @@ function adminLoadGames() {
         : '<button class="abtn ok" onclick="adminToggleGame(\'' + g.id + '\')">' + T('admin.enable') + '</button>';
       return '<tr>' +
         '<td>' + g.em + ' <b>' + esc(gname(g)) + '</b></td>' +
-        '<td>' + g.cat + '</td>' +
+        '<td>' + T('admin.cat' + g.cat.charAt(0).toUpperCase() + g.cat.slice(1)) + '</td>' +
         '<td>' + g.rtp + '%</td>' +
         '<td>' + st + '</td>' +
         '<td>' + btn + '</td>' +
@@ -1935,7 +2003,7 @@ function adminLoadGames() {
     c.innerHTML =
       '<div class="note" style="margin-top:0">' + T('admin.gamesDisabled') + '</div>' +
       '<div class="atable-wrap"><table class="atable">' +
-        '<thead><tr><th>اللعبة</th><th>التصنيف</th><th>RTP</th><th>' + T('admin.status') + '</th><th></th></tr></thead>' +
+        '<thead><tr><th>' + T('admin.thGame') + '</th><th>' + T('admin.thCategory') + '</th><th>RTP</th><th>' + T('admin.status') + '</th><th></th></tr></thead>' +
         '<tbody>' + rows + '</tbody>' +
       '</table></div>';
   }).catch(function () {
@@ -2006,7 +2074,7 @@ function adminLoadFinance() {
     const gs = (rs[1].ok && rs[1].data && rs[1].data.games) ? rs[1].data.games : [];
     const rows = gs.length
       ? '<div class="atable-wrap"><table class="atable">' +
-        '<thead><tr><th>اللعبة</th><th>' + T('admin.plays') + '</th><th>' + T('admin.wins') + '</th><th>' + T('admin.coinsWon') + '</th></tr></thead><tbody>' +
+        '<thead><tr><th>' + T('admin.thGame') + '</th><th>' + T('admin.plays') + '</th><th>' + T('admin.wins') + '</th><th>' + T('admin.coinsWon') + '</th></tr></thead><tbody>' +
         gs.map(function (g) {
           return '<tr><td><b>' + esc(g.game_id) + '</b></td><td>' + fmt(g.plays) + '</td><td>' + fmt(g.wins) + '</td><td>🪙 ' + fmt(g.coins_won) + '</td></tr>';
         }).join('') +
@@ -2072,11 +2140,11 @@ function adminLoadMoneyLog() {
     if (!r.ok) { c.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; return; }
     const rows = (r.data && r.data.log) || [];
     const kindLbl = {
-      deposit: '📥 إيداع', withdrawal: '💸 سحب', voucher: '🎟️ كوبون',
-      voucher_issued: '🎟️ كود تعبئة صادر',
-      adjust: '⚙️ تسوية', note: '📝 ملاحظة', game: '🎮 لعبة'
+      deposit: '📥 ' + T('admin.mkDeposit'), withdrawal: '💸 ' + T('admin.mkWithdrawal'), voucher: '🎟️ ' + T('admin.mkVoucher'),
+      voucher_issued: '🎟️ ' + T('admin.mkVoucherIssued'),
+      adjust: '⚙️ ' + T('admin.mkAdjust'), note: '📝 ' + T('admin.mkNote'), game: '🎮 ' + T('admin.mkGame')
     };
-    const stLbl = { completed: '✅ مكتمل', pending: '⏳ قيد المراجعة', rejected: '❌ مرفوض', approved: '✅ مصادَق', issued: '🎟️ صادر', note: 'ℹ️' };
+    const stLbl = { completed: '✅ ' + T('admin.stCompleted'), pending: '⏳ ' + T('admin.stPending'), rejected: '❌ ' + T('admin.stRejected'), approved: '✅ ' + T('admin.stApproved'), issued: '🎟️ ' + T('admin.stIssued'), note: 'ℹ️' };
     const body = rows.length ? rows.map(function (t) {
       const usd = Number(t.usd || 0), coins = Number(t.coins || 0);
       const sign = coins > 0 ? '+' : (coins < 0 ? '' : '');
@@ -2089,7 +2157,7 @@ function adminLoadMoneyLog() {
         '<td style="max-width:180px;word-break:break-all;opacity:.8">' + esc(t.ref || t.note || '—') + '</td>' +
         '<td style="opacity:.7;font-size:.75rem">' + (t.at ? new Date(t.at * 1000).toLocaleString('ar-MA') : '—') + '</td>' +
         '</tr>';
-    }).join('') : '<tr><td colspan="7" style="text-align:center;opacity:.7">لا حركات مالية بعد</td></tr>';
+    }).join('') : '<tr><td colspan="7" style="text-align:center;opacity:.7">' + T('admin.noMoneyMoves') + '</td></tr>';
     const totals = rows.reduce(function (a, t) {
       const c = Number(t.coins || 0);
       if (t.kind === 'deposit' && t.status === 'completed') a.dep += Number(t.usd || 0);
@@ -2099,13 +2167,13 @@ function adminLoadMoneyLog() {
     }, { dep: 0, wd: 0, in: 0, out: 0 });
     c.innerHTML =
       '<div class="grid g3" style="margin-bottom:12px">' +
-        '<div class="stat"><div class="si">📥</div><div><div class="sv">' + totals.dep.toFixed(2) + ' $</div><div class="sl">إيداعات مكتملة</div></div></div>' +
-        '<div class="stat"><div class="si">💸</div><div><div class="sv">' + totals.wd.toFixed(2) + ' $</div><div class="sl">سحوبات منفَّذة</div></div></div>' +
-        '<div class="stat"><div class="si">🪙</div><div><div class="sv">' + fmt(totals.in) + ' / ' + fmt(Math.abs(totals.out)) + '</div><div class="sl">كوينز داخلة / خارجة</div></div></div>' +
+        '<div class="stat"><div class="si">📥</div><div><div class="sv">' + totals.dep.toFixed(2) + ' $</div><div class="sl">' + T('admin.depDone') + '</div></div></div>' +
+        '<div class="stat"><div class="si">💸</div><div><div class="sv">' + totals.wd.toFixed(2) + ' $</div><div class="sl">' + T('admin.wdDone') + '</div></div></div>' +
+        '<div class="stat"><div class="si">🪙</div><div><div class="sv">' + fmt(totals.in) + ' / ' + fmt(Math.abs(totals.out)) + '</div><div class="sl">' + T('admin.coinsInOut') + '</div></div></div>' +
       '</div>' +
-      '<div class="note">آخر ' + rows.length + ' حركة — تُحدَّث لحظياً عند أي شحن/سحب/كوبون.</div>' +
+      '<div class="note">' + T('admin.moneyFootnote').replace('{n}', rows.length) + '</div>' +
       '<div class="atable-wrap"><table class="atable"><thead><tr>' +
-        '<th>المستخدم</th><th>النوع</th><th>المبلغ</th><th>كوينز</th><th>الحالة</th><th>المرجع</th><th>التاريخ</th>' +
+        '<th>' + T('admin.txUser') + '</th><th>' + T('admin.thType') + '</th><th>' + T('admin.thAmount') + '</th><th>' + T('admin.thCoins') + '</th><th>' + T('admin.thStatus') + '</th><th>' + T('admin.thRef') + '</th><th>' + T('admin.thDate') + '</th>' +
       '</tr></thead><tbody>' + body + '</tbody></table></div>';
   }).catch(function () { c.innerHTML = '<div class="note">' + T('auth.error') + '</div>'; });
 }
@@ -2121,7 +2189,7 @@ function adminLoadBotPL() {
   const cur = function (v) { return '<span style="color:' + (v >= 0 ? 'var(--ok, #22c55e)' : 'var(--err, #ef4444)') + ';font-weight:700">' + (v >= 0 ? '+' : '') + fmt(v) + '</span>'; };
   const rows = st.rows.length
     ? '<div class="atable-wrap"><table class="atable">' +
-      '<thead><tr><th>' + T('admin.game') + '</th><th>' + T('admin.platWin') + '</th><th>' + T('admin.platLose') + '</th><th>Net</th><th>' + T('admin.rounds') + '</th></tr></thead><tbody>' +
+      '<thead><tr><th>' + T('admin.game') + '</th><th>' + T('admin.platWin') + '</th><th>' + T('admin.platLose') + '</th><th>' + T('admin.thNet') + '</th><th>' + T('admin.rounds') + '</th></tr></thead><tbody>' +
       st.rows.map(function (r) {
         const name = (typeof gname === 'function' && typeof GAMES !== 'undefined')
           ? (GAMES.filter(function (g) { return g.id === r.gid; }).map(function (g) { return gname(g); })[0] || r.gid)
@@ -2176,7 +2244,7 @@ function loadAdminCoordinationMessages() {
       const mine = (AUTH.user && m.sender_id === AUTH.user.id);
       return '<div class="coord-msg' + (mine ? ' mine' : '') + '">' +
         '<div class="cm-head"><span class="cm-name">' + esc(m.sender_name || ('user' + m.sender_id)) + '</span>' +
-        '<span class="cm-time">' + new Date(m.created_at).toLocaleString('ar') + '</span></div>' +
+        '<span class="cm-time">' + new Date(m.created_at).toLocaleString(ST.lang === 'fr' ? 'fr-MA' : ST.lang === 'en' ? 'en-GB' : 'ar-MA') + '</span></div>' +
         '<div class="cm-text">' + esc(m.text) + '</div></div>';
     }).join('');
     box.scrollTop = box.scrollHeight;
@@ -2531,12 +2599,19 @@ function initApp() {
   document.addEventListener('fullscreenchange', function () {
     setTimeout(checkRotateHint, 300);
   });
-  /* إغلاق بمفتاح Escape */
+  /* إغلاق بمفتاح Escape — [Leave 2026-09-23]: لا خروج من اللعبة بأمر مفاجئ؛
+     يُغلق المودال المفتوح أولاً، ثم يُسأل التأكيد قبل مغادرة اللعبة */
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+      const lm = document.getElementById('leaveModal');
+      if (lm && lm.classList.contains('show')) { closeLeaveModal(); return; }
+      const tO = document.getElementById('ticketsOverlay');
+      if (tO && tO.getAttribute('aria-hidden') === 'false') return;  /* لوحة التيكيتس تُغلق بمعالجها الخاص */
+      const openMw = document.querySelector('.mwrap.show');
+      if (openMw) { const c = openMw.querySelector('.mclose'); if (c) c.click(); else openMw.classList.remove('show'); return; }
       const gp = document.getElementById('pg-game');
       if (gp && gp.classList.contains('active')) {
-        closeGamePage();
+        confirmLeaveGame();
         return;
       }
       closeModal();

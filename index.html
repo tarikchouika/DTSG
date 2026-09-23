@@ -75,12 +75,12 @@
   <link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
   <link rel="stylesheet" href="css/02-base.css?v=dtsg6">
   <link rel="stylesheet" href="css/03-components.css?v=dtsg6">
-  <link rel="stylesheet" href="css/04-games.css?v=dtsg6">
+  <link rel="stylesheet" href="css/04-games.css?v=dtsg7">
   <link rel="stylesheet" href="css/05-ronda.css?v=dtsg6">
   <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg10">
   <link rel="stylesheet" href="css/07-responsive.css?v=dtsg6">
   <link rel="stylesheet" href="css/08-rami.css?v=dtsg7">
-  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg7">
+  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg9">
   <link rel="stylesheet" href="css/10-dama.css?v=dtsg6">
   <link rel="stylesheet" href="css/12-chess.css?v=dtsg7">
   <link rel="stylesheet" href="css/11-game-theme.css?v=dtsg6">
@@ -443,7 +443,10 @@
         <section class="page" id="pg-game" aria-labelledby="gamePageName">
           <div class="gp-head">
             <div class="gp-head-left">
-              <button class="btn icon-btn" onclick="closeGamePage()" aria-label="رجوع" title="رجوع"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+              <!-- [Leave 2026-09-23] زر مغادرة اللعبة: واضح، ذهبي بهوية المنصة + هالة هوية كل لعبة، ولا يخرج إلا بتأكيد -->
+              <button class="btn gl-leave-head" id="gameLeaveBtnHead" onclick="confirmLeaveGame()" aria-label="مغادرة اللعبة" title="مغادرة اللعبة" data-gid="">
+                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="gl-txt" data-i18n="g.leaveShort">مغادرة</span>
+              </button>
               <div class="ptitle" id="gamePageTitle">
                 <div class="ibox" id="gamePageIcon"><i class="fa-solid fa-dice" aria-hidden="true"></i></div>
                 <span id="gamePageName" class="gp-name-text"></span>
@@ -747,6 +750,24 @@
       </div>
     </div>
   </div>
+  <!-- ═══════════ [Leave 2026-09-23] مودال تأكيد مغادرة اللعبة ═══════════ -->
+  <div class="mwrap" id="leaveModal" role="dialog" aria-modal="true" aria-labelledby="leaveTitle" aria-describedby="leaveMsg"
+       onclick="if(event.target.id==='leaveModal') closeLeaveModal()">
+    <div class="modal modal-sm leave-modal">
+      <div class="mhead">
+        <h3 id="leaveTitle"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> <span data-i18n="g.leaveTitle">مغادرة اللعبة</span></h3>
+        <button class="mclose" onclick="closeLeaveModal()" aria-label="إغلاق">✕</button>
+      </div>
+      <div class="mbody leave-body">
+        <div class="leave-game-chip" id="leaveGameChip"><span id="leaveGameEm">🎮</span><b id="leaveGameName"></b></div>
+        <p class="leave-msg" id="leaveMsg"><span data-i18n="g.leaveMsg">هل أنت متأكد من أنك تريد مغادرة اللعبة؟</span></p>
+        <div class="leave-actions">
+          <button class="btn gl-stay" id="leaveStayBtn" onclick="closeLeaveModal()"><i class="fa-solid fa-gamepad" aria-hidden="true"></i> <span data-i18n="g.leaveCancel">البقاء في اللعبة</span></button>
+          <button class="btn gl-confirm" id="leaveConfirmBtn" onclick="doLeaveGame()"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> <span data-i18n="g.leaveConfirm">نعم، مغادرة</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- ═══════════ تلميح تدوير الهاتف (للألعاب العرضية) ═══════════ -->
   <div id="rotateHint" class="rotate-hint" role="alert" aria-live="assertive" hidden>
     <div class="rotate-phone" aria-hidden="true"><i class="fa-solid fa-mobile-screen-button"></i></div>
@@ -759,6 +780,10 @@
   <!-- ═══════════ زر الخروج الذهبي العائم (وضع الشاشة الممتلئة) ═══════════ -->
   <button class="game-fs-exit" id="gameFsExit" onclick="exitAppFullscreen()" aria-label="الخروج من الشاشة الممتلئة" title="الخروج من الشاشة الممتلئة">
     <i class="fa-solid fa-compress" aria-hidden="true"></i>
+  </button>
+  <!-- ═══════════ [Leave 2026-09-23] زر مغادرة اللعبة العائم — يسار زر الخروج من ملء الشاشة مباشرة (صف كروم واحد، بلا تراكب) ═══════════ -->
+  <button class="game-fs-exit game-leave-btn" id="gameLeaveBtn" onclick="confirmLeaveGame()" aria-label="مغادرة اللعبة" title="مغادرة اللعبة" data-gid="">
+    <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
   </button>
   <!-- ═══════════ Scripts ═══════════ -->
   <script src="js/core/session.js?v=dtsg6"></script>
@@ -776,7 +801,7 @@
   <script src="js/core/audio.js?v=dtsg6"></script>
   <script src="js/core/utils.js?v=dtsg7"></script>
   <script src="js/core/fx.js?v=dtsg6"></script>
-  <script src="js/i18n/translations.js?v=dtsg14"></script>
+  <script src="js/i18n/translations.js?v=dtsg17"></script>
   <script src="js/rules/game-rules.js?v=dtsg6"></script>
   <script src="js/games/catalog.js?v=dtsg6"></script>
   <script src="js/games/blackjack.js?v=dtsg6"></script>
@@ -821,7 +846,7 @@
   <script src="js/games/engines.js?v=dtsg11"></script>
   <script type="module" src="js/games/crash.js?v=dtsg6"></script>
   <script src="js/core/rooms.js?v=dtsg6"></script>
-  <script src="js/main.js?v=dtsg14"></script>
+  <script src="js/main.js?v=dtsg17"></script>
   <script src="js/core/live.js?v=dtsg11"></script>
   <script src="js/core/fair.js?v=dtsg6"></script>
   <script src="js/games/group.js?v=dtsg6"></script>

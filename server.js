@@ -2010,29 +2010,83 @@ const server = http.createServer((req, res) => {
       /* [server-tx] سجل كل المعاملات المالية — سوبر أدمن فقط (مع فلترة اختيارية وترقيم) */
       if (pathname === '/api/admin/transactions' && req.method === 'GET') {
         if (!isSuper(me)) { json({ ok: false, message: 'سوبر أدمن فقط' }, 403); return; }
-        const where = [];
-        const params = [];
-        if (parsedUrl.query.user_id != null && parsedUrl.query.user_id !== '') {
-          const uid = parseInt(parsedUrl.query.user_id, 10);
-          if (!isNaN(uid)) { where.push('t.user_id = ?'); params.push(uid); }
+        /* [FIN-LOGS 2026-09-23] إصلاح «ثلاث خصائص لا تستجيب» (سجل الرهان/الفوز/السحب):
+           الاستعلام كان يقرأ جدول transactions وحده، بينما رهانات وفوز الألعاب تعيش في
+           bet_tickets (POST /api/rounds ← logTicket) وطلبات الشحن/السحب الحقيقية في
+           pay_transactions (pay_*). الدمج الآن مصادر ثلاثة مرتّبة زمنياً تنازلياً:
+           transactions (تحويل/شحن يدوي/خصم/ضبط/مكافآت + رهان وفوز جولات غرف الأونلاين)
+           + bet_tickets (كل تذكرة = رهان، والرابحة تضيف فوزاً بقيمة payout)
+           + pay_transactions (شحن/سحب بالدولار مع الحالة والطريقة). */
+        const uidRaw = parsedUrl.query.user_id;
+        const uid = (uidRaw != null && uidRaw !== '') ? parseInt(uidRaw, 10) : null;
+        const type = parsedUrl.query.type ? String(parsedUrl.query.type) : '';
+        const limit = Math.min(1000, Math.max(1, parseInt(parsedUrl.query.limit, 10) || 200));
+        const offset = Math.max(0, parseInt(parsedUrl.query.offset, 10) || 0);
+        const out = [];
+        /* أ) معاملات الرصيد الكلاسيكية */
+        if (type !== 'deposit' && type !== 'withdrawal') {
+          const where = [];
+          const params = [];
+          if (uid) { where.push('t.user_id = ?'); params.push(uid); }
+          if (type) { where.push('t.type = ?'); params.push(type); }
+          const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
+          try {
+            const rowsTx = db.prepare(
+              'SELECT t.id, t.user_id, u.username AS username, t.type, t.amount, t.balance_after, t.counterparty_name, t.actor_name, t.game_id, t.note, t.created_at ' +
+              'FROM transactions t LEFT JOIN users u ON u.id = t.user_id' + whereSql +
+              ' ORDER BY t.id DESC LIMIT 1000'
+            ).all(...params);
+            for (const r of rowsTx) out.push(r);
+          } catch (e) {}
         }
-        if (parsedUrl.query.type) {
-          where.push('t.type = ?'); params.push(String(parsedUrl.query.type));
+        /* ب) تذاكر الرهان (bet_tickets): رهان + فوز */
+        if (type === '' || type === 'bet' || type === 'win') {
+          const where = [];
+          const params = [];
+          if (uid) { where.push('tk.user_id = ?'); params.push(uid); }
+          const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
+          try {
+            const rowsTk = db.prepare(
+              'SELECT tk.id, tk.user_id, u.username AS username, tk.game_id, tk.bet, tk.won, tk.payout, tk.result_txt, tk.created_at ' +
+              'FROM bet_tickets tk LEFT JOIN users u ON u.id = tk.user_id' + whereSql +
+              ' ORDER BY tk.id DESC LIMIT 1000'
+            ).all(...params);
+            for (const tk of rowsTk) {
+              const base = { user_id: tk.user_id, username: tk.username || null, balance_after: null, counterparty_name: null, actor_name: null, game_id: tk.game_id || null, created_at: tk.created_at, src: 'ticket' };
+              if (type !== 'win') out.push(Object.assign({}, base, { id: 'tk' + tk.id, type: 'bet', amount: tk.bet, note: tk.result_txt || null }));
+              if (tk.won && type !== 'bet') out.push(Object.assign({}, base, { id: 'tkw' + tk.id, type: 'win', amount: tk.payout, note: tk.result_txt || null }));
+            }
+          } catch (e) {}
         }
-        const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
-        let total = 0;
-        let rows = [];
-        try {
-          total = db.prepare('SELECT COUNT(*) AS c FROM transactions t' + whereSql).get(...params).c;
-          const limit = Math.min(1000, Math.max(1, parseInt(parsedUrl.query.limit, 10) || 200));
-          const offset = Math.max(0, parseInt(parsedUrl.query.offset, 10) || 0);
-          rows = db.prepare(
-            'SELECT t.id, t.user_id, u.username AS username, t.type, t.amount, t.balance_after, t.counterparty_name, t.actor_name, t.game_id, t.note, t.created_at ' +
-            'FROM transactions t LEFT JOIN users u ON u.id = t.user_id' + whereSql +
-            ' ORDER BY t.id DESC LIMIT ? OFFSET ?'
-          ).all(...params, limit, offset);
-        } catch (e) {}
-        json({ ok: true, total: total, transactions: rows });
+        /* ج) شحن/سحب حقيقي من المحفظة (pay_transactions) — بالدولار */
+        if (type === '' || type === 'deposit' || type === 'withdrawal') {
+          const where = ["p.type IN ('deposit','withdrawal')"];
+          const params = [];
+          if (uid) { where.push('p.user_id = ?'); params.push(String(uid)); }
+          if (type) { where.push('p.type = ?'); params.push(type); }
+          try {
+            const rowsPay = db.prepare(
+              'SELECT p.id, p.user_id, u.username AS username, p.type, p.amount_usd, p.method, p.status, p.proof_details, p.created_at ' +
+              'FROM pay_transactions p LEFT JOIN users u ON u.id = CAST(p.user_id AS INTEGER) WHERE ' + where.join(' AND ') +
+              ' ORDER BY p.id DESC LIMIT 1000'
+            ).all(...params);
+            for (const p of rowsPay) {
+              out.push({
+                id: 'pay' + p.id, user_id: p.user_id, username: p.username || null,
+                type: (p.type === 'withdrawal') ? 'withdrawal' : 'deposit',
+                amount: null, amount_usd: Number(p.amount_usd || 0), balance_after: null,
+                counterparty_name: null, actor_name: null, game_id: null,
+                status: p.status || null, method: p.method || null,
+                note: ((p.method || '') + (p.proof_details ? ' — ' + String(p.proof_details).slice(0, 40) : '')) || null,
+                created_at: Math.floor((Number(p.created_at) || 0) / 1000), src: 'pay'
+              });
+            }
+          } catch (e) {}
+        }
+        /* ترتيب زمني تنازلي ثم تقليم (كل created_at بالثواني) */
+        out.sort(function (a, b) { return ((Number(b.created_at) || 0) - (Number(a.created_at) || 0)) || String(a.id).localeCompare(String(b.id)); });
+        const total = out.length;
+        json({ ok: true, total: total, transactions: out.slice(offset, offset + limit) });
         return;
       }
 

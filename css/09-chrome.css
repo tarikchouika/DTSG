@@ -364,6 +364,138 @@ html:-webkit-full-screen body {
 .game-fs-exit:active { transform: scale(.92); }
 body.app-fs-on .game-fs-exit { display: inline-flex; }
 
+/* ═══════════ [Leave 2026-09-23] زر مغادرة اللعبة + مودال التأكيد ═══════════ */
+/* زر 🚪 العائم: يسار زر الخروج من ملء الشاشة مباشرة (صف كروم واحد في الزاوية العليا)
+   — نفس الهوية الذهبية + هالة لون هوية كل لعبة (--ga). لا يعلو أي عنصر لعب:
+   يبقى كله في الشريط الذهبي أعلى اليمين خارج شبكة الطاولات. */
+/* القياسات بـ !important + محدّد #id لأن 05-ronda.css و22-look.css يفرضان قياسات
+   الزر الذهبي بـ !important وspecificity (0,2,1) — ومحدّد المعرّف (1,0,0) يكسر الجميع.
+   الزوج كله يتبع نفس قياسات الزر الذهبي حرفياً + 6px فراغ */
+#gameLeaveBtn {
+  top: 10px !important;
+  right: calc(10px + clamp(30px, 7vw, 36px) + 6px) !important;
+  width: clamp(30px, 7vw, 36px) !important;
+  height: clamp(30px, 7vw, 36px) !important;
+}
+.game-leave-btn i { font-size: clamp(.95rem, 3.2vw, 1.1rem); }
+.game-leave-btn {
+  border-color: color-mix(in srgb, var(--ga, #d9b45c) 65%, rgba(247, 232, 200, .7));
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 6px 16px rgba(0,0,0,.45),
+    0 0 14px color-mix(in srgb, var(--ga, #d9b45c) 55%, transparent);
+}
+.game-leave-btn:hover {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 6px 16px rgba(0,0,0,.45),
+    0 0 22px color-mix(in srgb, var(--ga, #d9b45c) 80%, transparent);
+}
+
+/* زر المغادرة في شريط اللعبة (خارج ملء الشاشة): حبّة ذهبية واضحة بعنوان نصي */
+#pg-game .gp-head .gl-leave-head {
+  height: clamp(36px, 9vw, 44px);
+  padding: 0 clamp(10px, 2.6vw, 14px);
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: clamp(.78rem, 2.4vw, .92rem);
+  color: #241b04;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 45%),
+    linear-gradient(160deg, #f2d489, #d9b45c 40%, #b8892f);
+  border: 1px solid color-mix(in srgb, var(--ga, #d9b45c) 55%, rgba(247, 232, 200, .7));
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 4px 12px rgba(0,0,0,.4),
+    0 0 12px color-mix(in srgb, var(--ga, #d9b45c) 45%, transparent);
+  flex: 0 0 auto;
+  white-space: nowrap;
+  transition: transform .16s var(--ease), box-shadow .16s var(--ease);
+}
+#pg-game .gp-head .gl-leave-head i {
+  color: #241b04;
+  filter: none;
+}
+#pg-game .gp-head .gl-leave-head:hover {
+  transform: translateY(-2px) scale(1.04);
+  color: #1a1301;
+  border-color: var(--gold);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 8px 18px rgba(0,0,0,.45),
+    0 0 18px color-mix(in srgb, var(--ga, #d9b45c) 75%, transparent);
+}
+#pg-game .gp-head .gl-leave-head:hover i { color: #1a1301; }
+#pg-game .gp-head .gl-leave-head:active { transform: scale(.93); }
+#pg-game .gp-head .gl-leave-head:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+@media (max-width: 380px) {
+  #pg-game .gp-head .gl-leave-head .gl-txt { display: none; }
+  #pg-game .gp-head .gl-leave-head { padding: 0; width: clamp(36px, 9vw, 44px); border-radius: 50% !important; }
+}
+
+/* مودال تأكيد المغادرة: فوق كل طبقات الألعاب (billiards z-index 14500) */
+#leaveModal { z-index: 16000; }
+#leaveModal .modal { max-width: 380px; }
+#leaveModal .mhead h3 i { color: var(--ga, var(--gold, #d9b45c)); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ga, #d9b45c) 55%, transparent)); }
+#leaveModal .leave-body { text-align: center; }
+#leaveModal .leave-game-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ga, #d9b45c) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ga, #d9b45c) 45%, transparent);
+}
+#leaveModal .leave-game-chip span { font-size: 1.55rem; line-height: 1; }
+#leaveModal .leave-game-chip b { font-size: 1rem; }
+#leaveModal .leave-msg {
+  margin: 14px 0 2px;
+  color: var(--t2, #aab3c5);
+  font-weight: 700;
+  line-height: 1.8;
+}
+#leaveModal .leave-actions { display: flex; gap: 10px; margin-top: 16px; }
+#leaveModal .leave-actions .btn {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 12px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+#leaveModal .gl-stay {
+  background: var(--card, #101a2e);
+  border: 1px solid var(--bd, #2a3142);
+  color: var(--t1, #eef2f8);
+}
+#leaveModal .gl-stay i { color: var(--gold, #d9b45c); filter: none; }
+#leaveModal .gl-stay:hover { border-color: var(--gold, #d9b45c); background: rgba(242, 212, 137, 0.12); }
+#leaveModal .gl-confirm {
+  color: #241b04;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 45%),
+    linear-gradient(160deg, #f2d489, #d9b45c 40%, #b8892f);
+  border: 1px solid rgba(247, 232, 200, .7);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 4px 12px rgba(0,0,0,.4),
+    0 0 12px color-mix(in srgb, var(--ga, #d9b45c) 55%, transparent);
+}
+#leaveModal .gl-confirm i { color: #241b04; filter: none; }
+#leaveModal .gl-confirm:hover { transform: translateY(-2px); }
+
 /* ═══════════════════ 4) RESUME BANNER (استئناف الجولة) ═══════════════════ */
 .resume-banner {
   position: fixed;
