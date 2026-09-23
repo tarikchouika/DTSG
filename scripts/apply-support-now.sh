@@ -83,8 +83,9 @@ if grep -q "server-support.js" server.js; then ok "مربوطة سلفاً"; els
 fi
 
 say "4) إعادة التشغيل + التحقق"
+# [v2.58-GUARD] لا --update-env حرّ: المسار المعتمد phone-env-restart.sh (بيئة كاملة + تحقق حيّ)
 if [ "${SKIP_RESTART:-0}" != "1" ] && have pm2 && pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 restart "$PM2_NAME" --update-env >/dev/null 2>&1 && sleep 5 && ok "أُعيد التشغيل"
+  bash "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/scripts/phone-env-restart.sh" >/dev/null 2>&1 && sleep 5 && ok "أُعيد التشغيل (بيئة كاملة)"
 else
   echo "   (تخطّي إعادة التشغيل)"
 fi
@@ -106,7 +107,7 @@ cat <<EOF
 ═══════════════════════════════════════════════════════════════════════════
 إن كانت النتائج أعلاه ✓ فالطبقة جاهزة. للتأكيد الخارجي (من هذا الجهاز أو أي جهاز):
 
-  curl -s -o /dev/null -w '%{http_code}\n' -X POST \\
+  curl -sL -o /dev/null -w '%{http_code}\n' -X POST \\
     https://casino-phone.dmgames-api.workers.dev/api/support/webhook \\
     -H 'content-type: application/json' \\
     -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:?}" -d '{"update_id":1}'

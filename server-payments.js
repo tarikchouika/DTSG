@@ -124,10 +124,23 @@ function rewrite(sql) {
 function d1shim(db) {
   function stmt(sql, args) {
     sql = rewrite(sql);
+    /* [v2.58-FIX] أماكن الربط ?1..?N (صياغة D1) غير مدعومة في node:sqlite
+       (كانت تسقط بحالة «column index out of range» ⇒ /api/wallet/balance بـ500).
+       نُعيد ترقيمها إلى ? متسلسل مع توسيع الفهارس المتكررة (مثل balance >= ?2). */
+    const map = {};
+    let nParams = 0;
+    sql = sql.replace(/\?(\d+)/g, (m, n) => { const k = Number(n); if (!(k in map)) map[k] = ++nParams; return '?'; });
+    function remap(a2) {
+      const all = (args || []).concat(a2 || []);
+      if (!nParams) return all;
+      const out = new Array(nParams);
+      for (const k of Object.keys(map)) out[map[k] - 1] = all[Number(k) - 1];
+      return out;
+    }
     return {
-      run: (...a2) => { const r = db.prepare(sql).run(...(args || []).concat(a2)); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) }, results: [] }; },
-      all: (...a2) => ({ results: db.prepare(sql).all(...(args || []).concat(a2)) }),
-      first: (...a2) => { const rows = db.prepare(sql).all(...(args || []).concat(a2)); return rows.length ? rows[0] : null; }
+      run: (...a2) => { const r = db.prepare(sql).run(...remap(a2)); return { meta: { changes: Number(r.changes), last_row_id: Number(r.lastInsertRowid) }, results: [] }; },
+      all: (...a2) => ({ results: db.prepare(sql).all(...remap(a2)) }),
+      first: (...a2) => { const rows = db.prepare(sql).all(...remap(a2)); return rows.length ? rows[0] : null; }
     };
   }
   return { prepare: (sql) => ({ bind: (...args) => stmt(sql, args) }) };
@@ -363,15 +376,22 @@ const PAY_PATHS = [
 ];
 function isPaymentsPath(p) { return PAY_PATHS.indexOf(p) >= 0; }
 
+/* [CORS DTSG-005 v2.58] نفس القائمة الصارمة في server.js — النسخة القديمة قبلت أي
+   *.pages.dev / *.workers.dev (أصل شرير مجاني = موثوق). */
+const ALLOWED_ORIGIN_HOSTS = [
+  'dtsg.pages.dev', 'dmgames.pages.dev', 'dmcasino.pages.dev', 'casino-9xj.pages.dev',
+  'casino-api.tarikc.workers.dev', 'casino-api.dmgames-api.workers.dev', 'casino-phone.dmgames-api.workers.dev'
+];
 function isOriginAllowed(origin) {
   if (!origin) return false;
   try {
     const u = new URL(origin);
     const host = u.hostname;
-    if (host === 'dtsg.pages.dev' || host.endsWith('.dtsg.pages.dev') || host.endsWith('.pages.dev')) return true;
-    if (host.endsWith('.workers.dev')) return true;
-    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true;
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return true;
+    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true;
+    for (const h of ALLOWED_ORIGIN_HOSTS) {
+      if (host === h || host.endsWith('.' + h)) return true;
+    }
     return false;
   } catch (e) {
     return false;
@@ -385,7 +405,14 @@ async function handlePayments(req, res, bodyStr, me) {
     const pathname = parsed.pathname;
     const reqOrigin = req.headers.origin;
 
-    /* [DTSG-005] CORS: السماح فقط للأصول الموثوقة */
+    /* [DTSG-005 v2.58] CORS: يُرفض كل الطرق (بما فيها GET/HEAD) من أصل غير موثوق —
+       النسخة السابقة كانت تضبط الترويسة فقط وتُمرّر GET (قراءات الأرصدة/المعاملات). */
+    if (reqOrigin && reqOrigin !== 'null' && !isOriginAllowed(reqOrigin)) {
+      res.writeHead(403, { 'content-type': 'application/json', 'x-content-type-options': 'nosniff' });
+      res.end(JSON.stringify({ ok: false, error: 'forbidden_origin', message: 'Cross-origin request blocked' }));
+      return;
+    }
+
     const out = {};
     if (isOriginAllowed(reqOrigin)) {
       out['access-control-allow-origin'] = reqOrigin;
@@ -397,7 +424,10 @@ async function handlePayments(req, res, bodyStr, me) {
       const h = req.headers['x-admin-secret'] || req.headers['x-pay-secret'];
       const q = parsed.searchParams.get('admin_secret');
       const sec = process.env.ADMIN_API_SECRET || '';
-      return !!((sec && (h === sec || q === sec)) || (h && h === 'qa-admin-secret'));
+      /* [SEC v2.58] qa-admin-secret مفعّل فقط في بيئة الاختبار المحلية (DM_TEST_MODE=1).
+         النسخة السابقة كانت باباً خلفياً ثابتاً يعمل في الإنتاج على كل مسارات الدفع! */
+      const qaOk = process.env.DM_TEST_MODE === '1' && !!h && h === 'qa-admin-secret';
+      return !!(sec && (h === sec || q === sec)) || qaOk;
     };
 
     /* [DTSG-002 SEC] السحب يتطلب جلسة موثقة حصراً — تثبيت user_id على هوية الجلسة لمنع سرقة أرصدة الغير */
@@ -455,8 +485,14 @@ async function handlePayments(req, res, bodyStr, me) {
     res.writeHead(resp.status, out);
     res.end(text);
   } catch (e) {
-    res.writeHead(500, { 'content-type': 'application/json' });
-    res.end(JSON.stringify({ ok: false, error: 'payments-internal', detail: String(e && e.message || e) }));
+    /* [NEW-6 v2.58] خطأ عام موحّد — بلا كشف تفاصيل داخلية (كان يفضح e.message للعميل) */
+    try {
+      if (!res.headersSent) {
+        res.writeHead(500, { 'content-type': 'application/json', 'x-content-type-options': 'nosniff' });
+        res.end(JSON.stringify({ ok: false, error: 'payments-internal' }));
+      } else { res.end(); }
+    } catch (_) { try { res.destroy(); } catch (_2) {} }
+    console.error('[payments-error]', req.url, e && e.stack ? e.stack : e);
   }
 }
 

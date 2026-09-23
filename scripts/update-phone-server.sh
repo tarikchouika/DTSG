@@ -43,8 +43,10 @@ ok()  { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }
 bad() { printf '   \033[1;31m✗\033[0m %s\n' "$*"; }
 die() { printf '\n\033[1;31m✗ %s\033[0m\n' "$*"; exit 1; }
 have() { command -v "$1" >/dev/null 2>&1; }
-jget() { curl -s -m 10 "$1" 2>/dev/null; }
-code() { curl -s -m 10 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
+# [v2.58-GUARD] -L إلزامية في كل فحص حالة: بلاها يعيد redirect فارغاً ⇒ نتيجة «0» زائفة
+# (الدرس الموثّق من حادثة cat: v2.48.1). المحلية لا تتأثر (لا redirect على 127.0.0.1).
+jget() { curl -sL -m 10 "$1" 2>/dev/null; }
+code() { curl -sL -m 10 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 
 say "0) فحص البيئة"
 have node || die "node غير مثبّت"
@@ -182,7 +184,10 @@ done
 [ -z "$MISSING_KEYS" ] || die "بيئة ناقصة:$MISSING_KEYS — اضبط $ENV_FILE ثم أعد المحاولة (أُوقف التشغيل لحماية المنصة)."
 ok "البيئة مكتملة (12 مفتاحاً حرجاً)"
 if have pm2 && pm2 describe "$PM2_NAME" >/dev/null 2>&1; then
-  pm2 restart "$PM2_NAME" --update-env
+  # [v2.58-GUARD] إعادة التشغيل حصراً عبر المسار المعتمد: phone-env-restart.sh
+  # (بيئة كاملة من .env.local + تحقق حيّ من متغيرات العملية) — لا --update-env حرّ أبداً
+  # (حادثة 2026-09-22: --update-env من صدفة ناقصة مسح كل متغيرات الدفع والبوتات).
+  bash "$APP_DIR/scripts/phone-env-restart.sh" || die "phone-env-restart.sh فشل — راجع $ENV_FILE (لا نستمر ببيئة مكسورة)"
   sleep 5
   pm2 logs "$PM2_NAME" --lines 30 --nostream 2>/dev/null | grep -iE "payments|migrat|running at" || true
   echo "   حالة pm2: $(pm2 jlist 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{let a=[];try{a=JSON.parse(s||"[]")}catch(e){};const w=process.env.DTSG_PM2||"casino-server";const h=a.find(x=>x.name===w);process.stdout.write(h?((h.pm2_env.status||"?")+" · إعادات="+(h.pm2_env.restart_time||0)):"غير موجودة")})')"
@@ -225,7 +230,7 @@ printf '   %-46s ' "$PUBLIC/api/health"; PH="$(jget "$PUBLIC/api/health")"; echo
 BUILD_PUB="$(printf '%s' "$PH" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).build||""))}catch(e){}})')"
 printf '   %-46s ' "$PUBLIC/api/payments/methods"; PM="$(jget "$PUBLIC/api/payments/methods")"; echo "${PM:0:110}"
 printf '   %-46s ' "$PUBLIC/data/royalcoin.db (يجب 404)"; echo "$(code "$PUBLIC/data/royalcoin.db")"
-printf '   %-46s ' "$PUBLIC/api/support/webhook (بوت الدعم)"; SWC="$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $SUPPORT_WEBHOOK_SECRET" -d '{"update_id":900002}')"; echo "$SWC"
+printf '   %-46s ' "$PUBLIC/api/support/webhook (بوت الدعم)"; SWC="$(curl -sL -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $SUPPORT_WEBHOOK_SECRET" -d '{"update_id":900002}')"; echo "$SWC"
 printf '   %-46s ' "$PUBLIC/support.html"; echo "$(code "$PUBLIC/support.html")"
 
 RC=0

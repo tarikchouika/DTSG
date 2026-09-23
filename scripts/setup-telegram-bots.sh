@@ -128,18 +128,18 @@ if [ -f "$AV" ]; then
 else warn "لا توجد صورة في $AV (تخطّي)"; fi
 
 say "4) هل يصل الويب هوك للخادم فعلاً؟"
-CODE="$(curl -s -m 25 -o /tmp/_wh.txt -w '%{http_code}' -X POST "$WH_URL" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $WEBHOOK_SECRET" -d '{"update_id":1}')"
+CODE="$(curl -sL -m 25 -o /tmp/_wh.txt -w '%{http_code}' -X POST "$WH_URL" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $WEBHOOK_SECRET" -d '{"update_id":1}')"
 echo "   POST $WH_URL → $CODE  $(head -c 120 /tmp/_wh.txt)"
 case "$CODE" in
   200) ok "الخادم يعالج تحديثات الدعم ✅ (البوت جاهز تماماً)" ;;
   403) bad "السرّ غير مطابق على الخادم — اضبط SUPPORT_WEBHOOK_SECRET=$WEBHOOK_SECRET في بيئة الهاتف ثم أعد التشغيل" ;;
-  404) warn "المسار غير موجود على الخادم بعد — نفّذ على الهاتف: git fetch && git reset --hard origin/main && pm2 restart casino-server --update-env" ;;
+  404) warn "المسار غير موجود على الخادم بعد — نفّذ على الهاتف: cd /root/DTSG && git fetch && git reset --hard origin/main && bash scripts/phone-env-restart.sh" ;;
   *)   warn "استجابة غير متوقعة ($CODE) — راجع سجل الخادم" ;;
 esac
 
 if [ -n "$PRIVATE_CHAT_BOT_TOKEN" ]; then
   say "4.b) فحص وصول بوت الدردشة الخاص للخادم"
-  P_CODE="$(curl -s -m 25 -o /tmp/_private_wh.txt -w '%{http_code}' -X POST "$BASE/api/private-chat/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $PRIVATE_WEBHOOK_SECRET" -d '{"update_id":2}')"
+  P_CODE="$(curl -sL -m 25 -o /tmp/_private_wh.txt -w '%{http_code}' -X POST "$BASE/api/private-chat/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $PRIVATE_WEBHOOK_SECRET" -d '{"update_id":2}')"
   echo "   POST $BASE/api/private-chat/webhook → $P_CODE  $(head -c 120 /tmp/_private_wh.txt)"
   case "$P_CODE" in
     200) ok "الخادم يعالج تحديثات بوت الدردشة الخاص ✅" ;;
@@ -186,7 +186,7 @@ cat <<'EOF'
   cd /root/DTSG && git fetch origin && git reset --hard origin/main
   bash scripts/phone-env-restart.sh        # يقرأ .env.local ثم يعيد تشغيل pm2 بالبيئة الكاملة
 (السكربت يضبط SUPPORT_BOT_TOKEN و SUPPORT_WEBHOOK_SECRET وPRIVATE_CHAT_BOT_TOKEN وPRIVATE_CHAT_WEBHOOK_SECRET من البيئة)
-⚠️ لا تستعمل `pm2 restart casino-server --update-env` من صدفة ناقصة — يمسح كل متغيرات المنصة (حادثة 2026-09-22).
+⚠️ لا تُعد تشغيل pm2 بترقية البيئة (ترقية المتغيرات من صدفة ناقصة) — يمسح كل متغيرات المنصة (حادثة 2026-09-22). المسار المعتمد الوحيد: bash scripts/phone-env-restart.sh
 
 للتجربة: افتح https://t.me/dtsgsupports_bot واكتب /start، أو أنشئ رابط البوت الخاص من نافذة مركز المساعدة في المنصة.
   رابط /start الخاص يُستهلك مرة واحدة فقط ولا تشاركه مع أي شخص.

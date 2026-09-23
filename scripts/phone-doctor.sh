@@ -24,8 +24,9 @@ say()  { printf '\n\033[1;36m── %s\033[0m\n' "$*"; }
 ok()   { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }
 bad()  { printf '   \033[1;31m✗\033[0m %s\n' "$*"; }
 warn() { printf '   \033[1;33m⚠\033[0m %s\n' "$*"; }
-jget() { curl -s -m 12 "$1" 2>/dev/null; }
-code() { curl -s -m 12 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
+# [v2.58-GUARD] -L إلزامية في الفحوص: بلاها يعيد redirect فارغاً ⇒ «0» زائفة (درس حادثة cat)
+jget() { curl -sL -m 12 "$1" 2>/dev/null; }
+code() { curl -sL -m 12 -o /dev/null -w '%{http_code}' "$1" 2>/dev/null; }
 have() { command -v "$1" >/dev/null 2>&1; }
 jfield() { printf '%s' "$1" | ${NODE_BIN:-node} -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{try{process.stdout.write(String(JSON.parse(s)$2||''))}catch(e){}})"; }
 
@@ -108,7 +109,7 @@ done
 say "7) الرابط العام (ما يراه اللاعبون) $PUBLIC"
 PH="$(jget "$PUBLIC/api/health")"; echo "   /api/health           → ${PH:0:120}"
 PM="$(jget "$PUBLIC/api/payments/methods")"; echo "   /api/payments/methods → ${PM:0:140}"
-SW="$(curl -s -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:-${SUPPORT_WEBHOOK_SECRET_MISSING}}" -d '{"update_id":900101}')"
+SW="$(curl -sL -m 20 -o /dev/null -w '%{http_code}' -X POST "$PUBLIC/api/support/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: ${SUPPORT_WEBHOOK_SECRET:-${SUPPORT_WEBHOOK_SECRET_MISSING}}" -d '{"update_id":900101}')"
 printf '   %-46s %s\n' "$PUBLIC/api/support/webhook (بوت الدعم)" "$SW"
 printf '   %-46s %s\n' "$PUBLIC/support.html" "$(code "$PUBLIC/support.html")"
 DBC="$(code "$PUBLIC/data/royalcoin.db")"; printf '   /data/royalcoin.db     → %s' "$DBC"; [ "$DBC" = "404" ] && echo '  ✓' || echo '  ✗ مكشوف عمومياً! (قاعدة بيانات المستخدمين)'

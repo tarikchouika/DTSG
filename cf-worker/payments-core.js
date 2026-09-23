@@ -15,6 +15,26 @@ async function hmacSha256Hex(secret, data) {
   return Array.from(new Uint8Array(sig)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 function uid(prefix) { return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+/* [NEW-3 v2.58] مقيد معدل للقسائم (في الذاكرة — best-effort لكل نسخة):
+   10 محاولات/دقيقة لكل حساب (أو IP للطلب بلا جلسة) ⇒ 429. يمنع التخمين/التكرار الآلي. */
+var __rateWindows = new Map();
+function rateLimitedKey(key, maxPerMin) {
+  var now = Date.now();
+  var w = __rateWindows.get(key);
+  if (!w || now - w.t0 > 60000) { w = { t0: now, n: 0 }; __rateWindows.set(key, w); }
+  w.n++;
+  if (__rateWindows.size > 20000) __rateWindows.clear();
+  return w.n > maxPerMin;
+}
+function voucherRateKey(request, env) {
+  try {
+    var su = env.SESSION_USER;
+    if (su && su.id != null) return 'vch-u' + String(su.id);
+    var ip = '';
+    try { ip = String((request.headers && request.headers.get) ? (request.headers.get('cf-connecting-ip') || request.headers.get('x-forwarded-for') || '') : (request.headers['cf-connecting-ip'] || request.headers['x-forwarded-for'] || '')); } catch (e) {}
+    return 'vch-ip' + String(ip).split(',')[0].trim().slice(0, 64) || 'vch-ip-na';
+  } catch (e) { return 'vch-ip-na'; }
+}
 /* [v2.45.1-FIX] Binance Pay: merchantTradeNo «حروف وأرقام فقط» وبحد أقصى 32 (وثيقة order/create-v2:
    "letter or digit, no other symbol allowed") ⇒ لا نستعمل uid() لأنها تولّد «dtsg-…» بشرطة،
    فكانت الطلبات تُرفض 400103 INVALID_PARAM_ILLEGAL_CHAR / 400201 INVALID_MERCHANT_TRADE_NO. */
@@ -653,7 +673,8 @@ async function handleFetch(request, env) {
     if (!binanceOk(result)) {
       const detail = binanceFail(result);
       await tgNotifyAdmin(env, '⚠️ تعذّر إنشاء طلب Binance Pay\nالمستخدم: ' + String(b.user_id) + ' · المبلغ: ' + amt + ' ' + binanceCurrency(env) + '\nالسبب: ' + detail);
-      return json({ ok: false, error: 'order-failed', gateway: 'binance_pay', detail: detail }, 502);
+      /* [v2.58] أخطاء JSON بحالة 503 (خدمة غير متاحة) — لا 502 (ليس خطأ بوابة) */
+      return json({ ok: false, error: 'order-failed', gateway: 'binance_pay', detail: detail }, 503);
     }
     const data = result.data;
     await db.prepare('INSERT INTO transactions (id, user_id, type, amount_usd, method, status, proof_details) VALUES (?1,?2,\'deposit\',?3,\'binance_pay\',\'pending\',?4)')
@@ -852,18 +873,41 @@ function payDebug(env, entry) {
   if (p === '/api/payments/binance-verify' && request.method === 'POST') {
     let b = {};
     try { b = await request.json(); } catch (e) { b = {}; }
+    /* [SEC v2.58] جلسة إلزامية (أو سرّ أدمن): النسخة السابقة سمحت لأي غريب — بمعرفة
+       user_id/username فقط — بتشغيل التحقق وشحن الرصيد لأي حساب (بلا أي مصادقة). */
+    const su = env.SESSION_USER || null;
+    const adminOk = adminSecretOk(request, env, b);
+    if (!su && !adminOk) {
+      return json({ ok: false, error: 'unauthorized',
+        hint: 'سجّل الدخول أولاً — التحقق التلقائي متاح لحسابك فقط' }, 401);
+    }
+    const suRole = su ? String(su.role || '') : 'admin';
+    const isPriv = suRole === 'admin' || suRole === 'super';
+    if (su && !isPriv) {
+      /* تثبيت الهوية: غير الأدمن يتحقق لإيداعات حسابه فقط (لا user_id للغير) */
+      const asked = pickStr(b.user_id, b.userId, b.uid, b.id_user, b.platform_user_id);
+      if (asked && String(asked) !== String(su.id)) {
+        return json({ ok: false, error: 'forbidden', hint: 'يمكنك التحقق لإيداعات حسابك فقط' }, 403);
+      }
+      b.user_id = su.id; /* تثبيت على الجلسة */
+    }
     const amt = Math.round(Number(pickNum(b.amount_usd, b.amount, b.usd, b.value)) * 100) / 100;
     const uidResolved = await resolveUid(db, env, b);
     const missing = [];
     if (!uidResolved) missing.push('user_id|username|tg_id');
     if (!(amt >= 1)) missing.push('amount_usd');
     if (missing.length) return json({ ok: false, error: 'bad-input', missing: missing,
-      hint: 'أرسل user_id (أو username/tg_id) + amount_usd' }, 400);
+      hint: isPriv ? 'أرسل user_id (أو username/tg_id) + amount_usd' : 'أرسل amount_usd (+ ref مرجع التحويل)' }, 400);
     if (!(await userExists(db, env, uidResolved))) return json({ ok: false, error: 'user-not-found' }, 404);
     if (!binanceReadOnlyReady(env)) {
       return json({ ok: false, error: 'readonly-unconfigured',
         hint: 'اضبط BINANCE_PAY_API_KEY + BINANCE_PAY_SECRET_KEY (صلاحية قراءة فقط — بلا تفعيل السحب)' }, 503);
     }
+    /* [SEC v2.58] مرجع فريد: إن أرسل المستخدم ref (transactionId من تطبيق Binance)
+       يُقبل التحويل المماثل حرفياً وحده. وإن لم يُرسل: يُقبل فقط إن كان هناك
+       مطابق وحيد للمبلغ (أكثر من مطابق ⇒ غموض يُرفض حتى يُرسل ref) — النسخة
+       السابقة كانت تتطابق بالمبلغ وحده فيمكن لأول طلب «سحب» تحويل مستخدم آخر. */
+    const refAsk = String(b.ref || b.ref_code || b.reference || '').trim();
     const winMin = Math.min(1440, Math.max(5, Number(b.within_minutes || b.window_minutes || env.BINANCE_VERIFY_WINDOW_MIN || 120)));
     const ourId = String(env.BINANCE_PAY_ID || env.BINANCE_PAY_MERCHANT_ID || '');
     const hist = await binancePayHistory(env, Date.now() - winMin * 60000, 60);
@@ -872,10 +916,23 @@ function payDebug(env, entry) {
         (hist.request_ip ? ('\nIP الطلب: ' + hist.request_ip) : ''));
       return json({ ok: false, error: 'readonly-unavailable', code: hist.code || null, message: hist.msg || null,
         request_ip: hist.request_ip || null,
-        hint: 'مفتاح القراءة فقط مرفوض: أزل قيد IP من المفتاح أو أضف IP السيرفر — ولا تُفعّل صلاحية السحب' }, 502);
+        hint: 'مفتاح القراءة فقط مرفوض: أزل قيد IP من المفتاح أو أضف IP السيرفر — ولا تُفعّل صلاحية السحب' }, 503);
     }
+    const matches = [];
+    for (const row of (hist.data || [])) { const m = binanceIncomingMatch(row, amt, ourId); if (m) matches.push(m); }
     let hit = null;
-    for (const row of (hist.data || [])) { hit = binanceIncomingMatch(row, amt, ourId); if (hit) break; }
+    if (refAsk) {
+      hit = matches.find(function (h) { return h.ref && h.ref.toLowerCase() === refAsk.toLowerCase(); }) || null;
+      if (!hit) {
+        return json({ ok: false, error: 'not-found-yet', window_minutes: winMin,
+          hint: 'لم يظهر تحويل بهذا المرجع — راجع رقم مرجع التحويل (Transaction ID) من تطبيق Binance' }, 404);
+      }
+    } else if (matches.length === 1) {
+      hit = matches[0];
+    } else if (matches.length > 1) {
+      return json({ ok: false, error: 'ambiguous', window_minutes: winMin,
+        hint: 'يوجد أكثر من تحويل مطابق للمبلغ في هذه الفترة — أرسل ref (مرجع التحويل من تطبيق Binance) للتمييز' }, 409);
+    }
     if (!hit) {
       return json({ ok: false, error: 'not-found-yet', window_minutes: winMin,
         hint: 'لم يظهر تحويل مطابق للمبلغ ' + amt + ' بعد — أعد المحاولة بعد لحظات (أو راجع المبلغ/المعرّف)' }, 404);
@@ -924,7 +981,7 @@ function payDebug(env, entry) {
       request_ip: probe.request_ip || null, rows: probe.ok ? (probe.data || []).length : 0,
       hint: probe.ok ? 'جاهز للتحقق التلقائي من التحويلات (لا صلاحية سحب مستعملة)'
         : 'أعد ضبط قيود المفتاح: أزل قيد IP أو أضف IP السيرفر — مع إبقاء «قراءة فقط» بلا تفعيل السحب'
-    }, probe.ok ? 200 : 502);
+    }, probe.ok ? 200 : 503);
   }
 
 /* ── إيداع P2P محلي (وصل/كود تحويل) ── */
@@ -1087,6 +1144,12 @@ function payDebug(env, entry) {
 
   /* ── استبدال كوبون (Atomic) ── */
   if (p === '/api/vouchers/redeem' && request.method === 'POST') {
+    /* [NEW-3 v2.58] قسائم ≤10/دقيقة لكل حساب (أو IP) — بلا جلسة سابقة كان المسار
+       بلا أي مقيّد (تكرار/تخمين آلي بلا كلفة). */
+    if (rateLimitedKey(voucherRateKey(request, env), 10)) {
+      return json({ ok: false, error: 'rate-limited',
+        hint: 'محاولات كثيرة — انتظر دقيقة قبل المحاولة' }, 429);
+    }
     const b = await request.json();
     const code = pickStr(b.code, b.voucher, b.coupon, b.voucher_code, b.pin).trim().toUpperCase();
     const uidResolved = await resolveUid(db, env, b);
@@ -1136,8 +1199,8 @@ function payDebug(env, entry) {
     /* [v2.43] البوتات تنادي بلا ترويسة: نقبل السرّ من الجسم/الاستعلام/الترويسات + دور super من الجلسة */
     if (!voucherActorOk(request, env, b)) {
       payDebug(env, { path: p, status: 403, keys: Object.keys(b || {}) });
-      return json({ ok: false, error: 'forbidden',
-        hint: 'مطلوب: ترويسة x-admin-secret (أو admin_secret في الجسم/الاستعلام) أو tg_id لسوبر أدمن' }, 403);
+      /* [NEW-6 v2.58] خطأ عام بلا «عقد المصادقة» (كان يكشف للهاجم بالضبط كيف يتوثق) */
+      return json({ ok: false, error: 'forbidden' }, 403);
     }
     const kind = pickStr(b.kind, b.type, b.mode).toLowerCase();
     if (kind === 'admin' || kind === 'direct') {

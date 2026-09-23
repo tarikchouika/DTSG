@@ -278,3 +278,49 @@ server.js لا يبث `blindResult` إطلاقاً — ألعاب penalty/rps ف
 - جزئية: DTSG-005 (CORS reads)، DTSG-006 (rate limiter leaky)، DTSG-009 (نزاهة نتائج الألعاب)، DTSG-014 (رسائل الأخطاء).
 - مستجدات LOW/NEW-1..4 (Binance verify، حد أدنى رهان كينو، rate limit قسائم/2FA، قائمة المتصدرين بالدولار).
 تُسجَّل هنا كمسار متابعة معروف (لم يُطلب إصلاحها في هذه الجلسة) — لا تُمسّ دون طلب صريح.
+
+---
+
+## v2.58 (2026-09-23) — حصانة أمنية: ما أنجز داخل المستودع + ما تبقّى للمالك (خارجه)
+
+> الجلسة أُنجزت محلياً (الإيداع على فرع الجلسة). كل إصلاحات P0/NEW + الثغرتين
+> الدّاخليتين حية في `server.js` / `server-payments.js` / `cf-worker/payments-core.js`
+> + حارسان: `tests/_audit_remediation_test.js` (sec-audit 28/28) و
+> `tests/_ops_guards_test.js` (حارس «cat» 38/38 ثابت + حيّ — يكشف النسخ البالية).
+
+### أ) رقعة الوسيط `casino-phone` (خارج المستودع — نفّذها المالك على حساب dmgames-api)
+الوسيط `https://casino-phone.dmgames-api.workers.dev` يضيف ترويسة `x-backend-addr`
+(عنوان النفق الحي) ويستجيب CORS عريضاً. الرقعة الحرفية (3 تعديلات في الـWorker):
+
+```js
+// 1) حذف ترويسة التسريب (DTSG-008) — من المكان الذي يضبط فيه رؤوس الاستجابة:
+//    احذف/عطّل السطر المشابه:
+//    headers.set("x-backend-addr", backendUrl);   // ← حُذفت: تكشف نفق الهاتف
+
+// 2) CORS صارم يشمل GET (DTSG-005) — استبدل منطق أصل الاستجابة بما يقبل حصراً:
+//    ["dtsg.pages.dev","dmgames.pages.dev","dmcasino.pages.dev","casino-9xj.pages.dev"]
+//    (ومضاناتها) + العناوين المحلية للتطوير — ورفض كل الطرق (بما فيها GET/HEAD)
+//    من أي Origin آخر برد 403 بلا Access-Control-Allow-Origin.
+//    ممنوع: endsWith(".pages.dev") أو endsWith(".workers.dev") wildcard عريض.
+
+// 3) توحيد Set-Cookie (DTSG-011): ترويسة كوكي واحدة عند الدخول (لا تكرار) —
+//    والخطوة الكاملة (SameSite=Lax) مع نقل الـAPI إلى api.dtsg.pages.dev:
+//    Set-Cookie: sid=<v>; Path=/; HttpOnly; Secure; SameSite=Lax
+```
+
+### ب) Checklist النشر للمالك
+- [ ] دفع فرع الجلسة + دمج PR (الجلسة السابقة أُغلقت لعمليات GitHub بعد دمج #7).
+- [ ] رقعة `casino-phone` أعلاه + نشر الوسيط + تأكيد: `curl -sI https://casino-phone.dmgames-api.workers.dev/api/health | grep -i x-backend-addr` ⇒ **فارغ**.
+- [ ] اختياري (متوسط المدى): نقل الـAPI إلى `api.dtsg.pages.dev` ⇒ `SameSite=Lax` آمن (نفس الأصل) + حذف `SameSite=None` من `startSession` في `server.js` بعد التأكد أن لا مستعمل يتصل عبر نطاق آخر.
+- [ ] **تنظيف أثر الفحص**: سحب معلّق `wd-mudeheka5h75oc` ($1) + تذكرة الدعم #3 — راجعها وأرسلها (رفض/إغلاق) قبل الإطلاق.
+- [ ] على الهاتف: `bash scripts/update-phone-server.sh` (يُعيد التشغيل حصراً عبر `phone-env-restart.sh` — لا --update-env حرّ بعد اليوم).
+
+### ج) ماذا يثبّت الحارس ميكانيكياً (يُسقط فوراً عند أي تكرار)
+- لا `cd` نحو dmgames-arena/digital-moroccan-casino · لا `git checkout main && git pull`
+  (نمط cat الذي طمس الشجرة الحيّة).
+- `pm2 restart --update-env` **حصراً** في `scripts/phone-env-restart.sh`
+  (حادثة 2026-09-22: صدفة ناقصة مسحت كل متغيرات الدفع/البوتات).
+- كل `curl` فحص-حالة على `https` حرفي يحمل `-L` (حادثة «0» الزائفة في v2.48.1).
+- `qa-admin-secret` خلف `DM_TEST_MODE` · لا wildcard CORS · لا `x-backend-addr`.
+- حيّاً: ثغرة 2FA · CORS لكل الطرق · أنواع الرهانات · binance-verify بجلسة · قسائم 429 ·
+  المتصدرون بلا أرصدة · البواب الخلفية مغلقة بلا `DM_TEST_MODE`.

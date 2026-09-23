@@ -243,7 +243,8 @@ window.PWAL = window.PWAL || {};
         '<div class="wl-acct">' + (typeof T === 'function' ? T('wl.roPayId') : 'معرّف Binance Pay (Pay ID)') + ': <b>' + esc(pid) + '</b>' +
         (pid ? ' <button class="wl-copy" type="button" onclick="navigator.clipboard.writeText(\'' + esc(pid) + '\').catch(function(){})">' + (typeof T === 'function' ? T('wl.copy') : 'نسخ') + '</button>' : '') +
         '<br><span class="wl-note">' + (typeof T === 'function' ? T('wl.roHint') : 'حوِّل المبلغ إلى هذا المعرّف ثم اضغط «تحقّق من التحويل» — يُشحن رصيدك تلقائياً.') + '</span></div>';
-      acct.hidden = false; proof.hidden = true;
+      /* [v2.58] حقل المرجع اختياري: يُطابق التحويل الفريد (Transaction ID) ويمنع التباس المبالغ المتقاربة */
+      acct.hidden = false; proof.hidden = false;
       if (goBtn) goBtn.textContent = (typeof T === 'function' ? T('wl.roVerify') : '⚡ تحقّق من التحويل');
       return;
     }
@@ -314,7 +315,10 @@ window.PWAL = window.PWAL || {};
         /* [v2.47-BNB-RO] تحقّق من التحويل بوضع القراءة فقط ثم شحن تلقائي */
         if (!(amt >= 1)) { msg(mm, '❌ أدخل مبلغاً صحيحاً (1 USD على الأقل)', false); btn.disabled = false; return; }
         msg(mm, '⏳ جارٍ التحقق من التحويل في Binance (قراءة فقط)…', true);
-        const rv = await api('/api/payments/binance-verify', { user_id: u.id, username: u.username, amount_usd: amt });
+        /* [v2.58] ref اختياري: مرجع التحويل الفريد من تطبيق Binance (يُطابق حرفياً) */
+        var rvRefEl = overlay.querySelector('#wlProof');
+        var rvRef = rvRefEl ? String(rvRefEl.value || '').trim() : '';
+        const rv = await api('/api/payments/binance-verify', { user_id: u.id, username: u.username, amount_usd: amt, ref: rvRef });
         if (rv && rv.ok && rv.credited) {
           msg(mm, '✅ تم التحقق من التحويل وشحن رصيدك: ' + Number(rv.amount_usd).toFixed(2) + ' USD' +
             (rv.bonus ? (' + بونص ' + rv.bonus + ' 🪙') : ''), true);

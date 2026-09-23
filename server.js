@@ -880,23 +880,34 @@ function reassignDriver(room) {
   if (before !== room.driverId) { updateRoom(room); }
 }
 
-/* [CORS DTSG-005] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي عشوائي */
+/* [CORS DTSG-005 v2.58] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي عشوائي.
+   [SEC 2026-09-23] القائمة القديمة كانت تقبل أي *.pages.dev وأي *.workers.dev
+   (حساب Cloudflare مجاني = أصل «موثوق» بالكامل!) ⇒ قراءات المحفظة كانت تتسرّب
+   لأي صفحة شريرة على هذين النطاقين. الآن: نطاقات المنصة حصراً + محلي للتطوير. */
+const ALLOWED_ORIGIN_HOSTS = [
+  'dtsg.pages.dev', 'dmgames.pages.dev', 'dmcasino.pages.dev', 'casino-9xj.pages.dev',
+  'casino-api.tarikc.workers.dev', 'casino-api.dmgames-api.workers.dev', 'casino-phone.dmgames-api.workers.dev'
+];
 function isOriginAllowed(origin) {
   if (!origin) return false;
   try {
     const u = new URL(origin);
     const host = u.hostname;
-    if (host === 'dtsg.pages.dev' || host.endsWith('.dtsg.pages.dev') || host.endsWith('.pages.dev')) return true;
-    if (host.endsWith('.workers.dev')) return true;
-    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true;
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0') return true;
+    if (host.endsWith('.e2b.app') || host.endsWith('.arena.ai')) return true; /* معاينات تطوير */
+    for (const h of ALLOWED_ORIGIN_HOSTS) {
+      if (host === h || host.endsWith('.' + h)) return true;
+    }
     return false;
   } catch (e) {
     return false;
   }
 }
 
-/* [DTSG-006] مقيد معدل محاولات تسجيل الدخول في الذاكرة */
+/* [DTSG-006 v2.58] مقيد معدل محاولات تسجيل الدخول في الذاكرة — تراجع أُسّي:
+   5 إخفاقات خلال نافذة ⇒ قفل، وعند كل تكرار يزداد مدة القفل 1→2→4→8→15 دقيقة (قفل IP + اسم).
+   النسخة السابقة كانت 10 محاولات/دقيقة ثم قفل 60ث فقط (leaky bucket ⇒ التخمين مستدام). */
+const LOGIN_LADDER_MS = [60000, 120000, 240000, 480000, 900000];
 const loginAttempts = new Map();
 function checkLoginRateLimit(ip, username) {
   const now = Date.now();
@@ -912,14 +923,55 @@ function recordFailedLogin(ip, username) {
   const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
   let rec = loginAttempts.get(key);
   if (!rec || now - rec.firstAt > 60000) {
-    rec = { count: 1, firstAt: now, lockedUntil: 0 };
+    /* نافذة جديدة: إذا قُفل هذا المفتاح ضمن آخر ساعة ⇒ نواصل التصعيد (لا صفر جديد) */
+    rec = { count: 1, firstAt: now, lockedUntil: 0, stage: (rec && rec.stage || 0), lastLockAt: (rec && rec.lastLockAt) || 0 };
+    if (rec.stage > 0 && now - rec.lastLockAt > 3600000) rec.stage = 0;
   } else {
     rec.count++;
   }
-  if (rec.count >= 10) {
-    rec.lockedUntil = now + 60000;
+  if (rec.count >= 5) {
+    const dur = LOGIN_LADDER_MS[Math.min(rec.stage, LOGIN_LADDER_MS.length - 1)];
+    rec.lockedUntil = now + dur;
+    rec.lastLockAt = now;
+    rec.stage = Math.min(rec.stage + 1, LOGIN_LADDER_MS.length);
   }
   loginAttempts.set(key, rec);
+}
+/* [2FA v2.58] رمز مؤقت يُصدَر حصراً بعد فحص كلمة مرور ناجح — ما يغلق ثغرة
+   «جلسة لأي userId بكلمة مرور صفرية» عبر /api/2fa/login (كان بلا أي إثبات). */
+const pending2fa = new Map(); /* token -> { uid, ip, createdAt, expiresAt } */
+function issuePending2fa(userId, ip) {
+  const token = crypto.randomBytes(24).toString('hex');
+  const now = Date.now();
+  pending2fa.set(token, { uid: String(userId), ip: String(ip || ''), createdAt: now, expiresAt: now + 300000 });
+  return token;
+}
+function consumePending2fa(token, userId) {
+  if (!token || typeof token !== 'string') return null;
+  const rec = pending2fa.get(token);
+  if (!rec || rec.expiresAt < Date.now()) { pending2fa.delete(token); return null; }
+  if (rec.uid !== String(userId)) return null;
+  pending2fa.delete(token); /* استخدام واحد */
+  return rec;
+}
+/* [2FA v2.58] قفل رموز TOTP: 5 أخطاء خلال 10 دقائق ⇒ قفل 15 دقيقة (IP + مستخدم) */
+const twofaAttempts = new Map();
+function twofaLocked(ip, uid) {
+  const now = Date.now();
+  const key = String(ip || '0') + '|' + String(uid);
+  const rec = twofaAttempts.get(key);
+  return !!(rec && rec.lockedUntil > now);
+}
+function twofaFail(ip, uid) {
+  const now = Date.now();
+  const key = String(ip || '0') + '|' + String(uid);
+  let rec = twofaAttempts.get(key);
+  if (!rec || now - rec.firstAt > 600000) rec = { count: 0, firstAt: now, lockedUntil: 0 };
+  rec.count++;
+  let locked = false;
+  if (rec.count >= 5) { locked = true; rec.lockedUntil = now + 900000; rec.count = 0; rec.firstAt = now; }
+  twofaAttempts.set(key, rec);
+  return locked;
 }
 function clearFailedLogin(ip, username) {
   const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
@@ -930,7 +982,9 @@ const server = http.createServer((req, res) => {
   const parsedUrl = url.parse(req.url, true);
   const pathname = parsedUrl.pathname;
 
-  /* [CORS & CSRF DTSG-005 / DTSG-011] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي وحجب طلبات CSRF */
+  /* [CORS & CSRF DTSG-005 / DTSG-011 v2.58] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي وحجب طلبات CSRF.
+     [SEC 2026-005] يُرفض الآن كل الطرق (GET/HEAD/POST/OPTIONS…) من أصل غير موثوق:
+     النسخة السابقة مرّرت GET/HEAD فتسرّبت قراءات (محافظ/تذاكر) لأي صفحة شريرة. */
   const reqOrigin = req.headers.origin;
   if (reqOrigin && reqOrigin !== 'null') {
     if (isOriginAllowed(reqOrigin)) {
@@ -938,14 +992,9 @@ const server = http.createServer((req, res) => {
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Vary', 'Origin');
     } else {
-      if (req.method === 'OPTIONS') {
-        res.writeHead(403, { 'Content-Type': 'text/plain' }); res.end('CORS forbidden'); return;
-      }
-      if (req.method === 'POST' || req.method === 'PUT' || req.method === 'DELETE' || req.method === 'PATCH') {
-        res.writeHead(403, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ ok: false, error: 'forbidden_origin', message: 'Cross-origin request blocked' }));
-        return;
-      }
+      res.writeHead(403, { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' });
+      res.end(JSON.stringify({ ok: false, error: 'forbidden_origin', message: 'Cross-origin request blocked' }));
+      return;
     }
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
@@ -1019,6 +1068,9 @@ const server = http.createServer((req, res) => {
     let body = '';
     req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
+      /* [NEW-6 v2.58] حارس عام: أي استثناء غير متوقع ⇒ 500 JSON موحّد
+         (بدل انهيار العملية كاملة) وبلا كشف تفاصيل داخلية للعميل. */
+      try {
       let data = {};
       try { data = body ? JSON.parse(body) : {}; } catch (e) {}
       const me = getUser(req);
@@ -1119,10 +1171,12 @@ const server = http.createServer((req, res) => {
         }
         if (existing.banned) { json({ ok: false, message: 'تم حظر هذا الحساب' }, 403); return; }
 
-        /* [2FA] إذا كانت المصادقة الثنائية مفعّلة يلزم رمز TOTP صالح قبل إصدار الجلسة */
+        /* [2FA v2.58] إذا كانت المصادقة الثنائية مفعّلة يلزم رمز TOTP صالح قبل إصدار الجلسة.
+           يُصدَر رمز مؤقت (two_fa_token) مقيد بالهوية — يثبّت أن كلمة المرور فُحصت هنا الآن. */
         if (existing.twofaEnabled) {
           if (!data.totp || !totpVerify(existing.totpSecret, data.totp)) {
-            json({ twofa_required: true, userId: existing.id });
+            const tk = issuePending2fa(existing.id, clientIp);
+            json({ twofa_required: true, userId: existing.id, two_fa_token: tk });
             return;
           }
         }
@@ -1230,12 +1284,28 @@ const server = http.createServer((req, res) => {
         json({ ok: true, message: 'تم تغيير كلمة المرور' });
         return;
       }
-      /* ── [2FA] المصادقة الثنائية ── */
+      /* ── [2FA v2.58] المصادقة الثنائية ── */
       if (pathname === '/api/2fa/login') {
-        /* إكمال الدخول بعد إدخال رمز TOTP (userId + code) */
+        /* إكمال الدخول بعد إدخال رمز TOTP (two_fa_token + userId + code)
+           [SEC 2026-09-23] الرمز المؤقت يُصدَر فقط بعد فحص كلمة مرور ناجح ⇒
+           إغلاق الثغرة: النسخة السابقة كانت تُصدر جلسة كاملة (حتى للسوبر أدمن)
+           لأي userId بلا كلمة مرور ولا رمز عندما تكون 2FA معطّلة. */
+        const ip2fa = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+        if (data.userId != null && twofaLocked(ip2fa, data.userId)) {
+          json({ ok: false, message: 'محاولات رمز كثيرة — انتظر قبل المحاولة مجدداً' }, 429);
+          return;
+        }
         const user = (data.userId != null) ? users[data.userId] : null;
         if (!user) { json({ ok: false, message: 'المستخدم غير موجود' }, 401); return; }
-        if (user.twofaEnabled && !totpVerify(user.totpSecret, data.code)) { json({ ok: false, message: 'رمز التحقق غير صحيح' }, 401); return; }
+        const pending = consumePending2fa(data.two_fa_token, user.id);
+        if (!pending) { json({ ok: false, message: 'رمز الإكمال غير صالح أو منتهٍ — سجّل الدخول من جديد' }, 401); return; }
+        if (user.twofaEnabled) {
+          if (!totpVerify(user.totpSecret, data.code)) {
+            const locked = twofaFail(ip2fa, user.id);
+            json({ ok: false, message: locked ? 'خمسة أخطاء — قُفل الإدخال لمدة 15 دقيقة' : 'رمز التحقق غير صحيح' }, locked ? 429 : 401);
+            return;
+          }
+        }
         try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), user.id); } catch (e) {}
         user.last_seen = Math.floor(Date.now() / 1000);
         startSession(res, user);
@@ -1495,13 +1565,14 @@ const server = http.createServer((req, res) => {
         json({ ok: false, error: 'removed', message: 'الدردشة العامة أُزيلت — استعمل بوت DTSG الخاص.' }, 410);
         return;
       }
-      /* [DTSG-019] نقطة قائمة المتصدرين */
+      /* [DTSG-019 / NEW-4 v2.58] نقطة قائمة المتصدرين: مرتبة + اسم فقط —
+         الأرصدة خصوصية ولا تُكشف للعموم (كانت تكشف ذهب كل متصدر بالدولار). */
       if (pathname === '/api/lb' || pathname === '/api/leaderboard') {
         const top = Object.values(users)
           .filter(u => u && u.role !== 'admin' && u.role !== 'super' && !u.banned)
           .sort((a, b) => (b.gold || 0) - (a.gold || 0))
           .slice(0, 20)
-          .map(u => ({ username: u.username, gold: u.gold || 0 }));
+          .map((u, i) => ({ rank: i + 1, username: u.username }));
         json({ ok: true, leaderboard: top });
         return;
       }
@@ -1511,12 +1582,13 @@ const server = http.createServer((req, res) => {
       }
       if (pathname === '/api/games' || (pathname === '/api/admin/games' && req.method === 'GET')) { json({ ok: true, games: gameFlags }); return; }
       if (pathname === '/api/rounds' && req.method === 'POST') {
-        /* [server-tx] تسجيل تذكرة رهان — للضيف قبول صامت بلا تسجيل */
+        /* [server-tx] تسجيل تذكرة رهان — للضيف قبول صامت بلا تسجيل
+           [NEW-2 v2.58] القيم تُقبل أرقاماً خاماً صحيحة فقط (لا نصوص ولا كسور) */
         if (me) {
           const gid = String(data.game_id || '').slice(0, 64);
-          const bet = Math.max(0, r2(Number(data.bet)) || 0);
+          const bet = validBetAmount(data.bet) ? data.bet : 0;
           const won = !!data.won;
-          const payout = Math.max(0, r2(Number(data.payout)) || 0);
+          const payout = (typeof data.payout === 'number' && Number.isFinite(data.payout) && Number.isInteger(data.payout) && data.payout >= 0 && data.payout <= 100000000) ? data.payout : 0;
           logTicket(me.id, gid, bet, won, payout, data.result_txt);
         }
         json({ ok: true });
@@ -1562,6 +1634,12 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      /* [NEW-2 v2.58] مبلغ الرهان: رقم خام (typeof number) + عدد صحيح (الذهب بلا كسور)
+         + حد أدنى 1. النسخة السابقة كانت تقبل النصوص ("10") والكسور (0.5/10.5)
+         ⇒ ذهب كسري يتسرّب في رصيد المستخدم ويضطرب مع التسويات (Math.round). */
+      function validBetAmount(v) {
+        return typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 1 && v <= 100000000;
+      }
       if (pathname === '/api/games/ke/bet' && req.method === 'POST') {
         if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
         const r = groupRounds.ke;
@@ -1569,6 +1647,8 @@ const server = http.createServer((req, res) => {
         if (r.status !== 'betting' || Date.now() >= r.bet_ends_at) {
           json({ ok: false, message: 'انتهى وقت الرهان — انتظر الجولة التالية' }, 400); return;
         }
+        const amount = data.amount;
+        if (!validBetAmount(amount)) { json({ ok: false, message: 'مبلغ غير صالح — عدد صحيح 1 على الأقل' }, 400); return; }
         const picksRaw = data.picks;
         if (!Array.isArray(picksRaw) || picksRaw.length < 1 || picksRaw.length > 10) {
           json({ ok: false, message: 'اختر من 1 إلى 10 أرقام' }, 400); return;
@@ -1580,10 +1660,6 @@ const server = http.createServer((req, res) => {
             json({ ok: false, message: 'أرقام غير صالحة (1-80، بدون تكرار)' }, 400); return;
           }
           picks.push(n);
-        }
-        const amount = r2(Number(data.amount));
-        if (isNaN(amount) || amount < 0.01 || amount > 100000000) {
-          json({ ok: false, message: 'مبلغ غير صالح' }, 400); return;
         }
         if ((me.gold || 0) < amount) { json({ ok: false, message: 'رصيد غير كافٍ' }, 400); return; }
         /* [MultiBet] رهانات متعددة في نفس الجولة مسموحة — لكن بأرقام مختلفة:
@@ -1636,10 +1712,8 @@ const server = http.createServer((req, res) => {
         if (r.status !== 'betting' || Date.now() >= r.bet_ends_at) {
           json({ ok: false, message: 'انتهى وقت الرهان — انتظر الجولة التالية' }, 400); return;
         }
-        const amount = r2(Number(data.amount));
-        if (isNaN(amount) || amount < 0.01 || amount > 100000000) {
-          json({ ok: false, message: 'مبلغ غير صالح' }, 400); return;
-        }
+        const amount = data.amount;
+        if (!validBetAmount(amount)) { json({ ok: false, message: 'مبلغ غير صالح — عدد صحيح 1 على الأقل' }, 400); return; }
         if ((me.gold || 0) < amount) { json({ ok: false, message: 'رصيد غير كافٍ' }, 400); return; }
         /* [Group] الخصم من الذاكرة + DB معاً (نمط هذا المشروع) */
         me.gold = me.gold - amount;
@@ -2589,6 +2663,16 @@ const server = http.createServer((req, res) => {
 
       // Default API fallback
       json({ ok: false, error: 'not_found', path: pathname }, 404);
+      } catch (e) {
+        /* [NEW-6 v2.58] خطأ عام موحّد — لا تفاصيل داخلية (مصدر/مكدس/حسابات) في الاستجابة */
+        try {
+          if (!res.headersSent) {
+            res.writeHead(500, { 'Content-Type': 'application/json', 'X-Content-Type-Options': 'nosniff' });
+            res.end(JSON.stringify({ ok: false, error: 'internal' }));
+          } else { res.end(); }
+        } catch (_) { try { res.destroy(); } catch (_2) {} }
+        console.error('[api-error]', pathname, req.method, e && e.stack ? e.stack : e);
+      }
     });
     return;
   }
