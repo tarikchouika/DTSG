@@ -884,8 +884,12 @@ function reassignDriver(room) {
    [SEC 2026-09-23] القائمة القديمة كانت تقبل أي *.pages.dev وأي *.workers.dev
    (حساب Cloudflare مجاني = أصل «موثوق» بالكامل!) ⇒ قراءات المحفظة كانت تتسرّب
    لأي صفحة شريرة على هذين النطاقين. الآن: نطاقات المنصة حصراً + محلي للتطوير. */
+/* [v2.59.1 OPS] مضيف ثانٍ حقيقي لمشروع Pages «dtsg» (حساب Cloudflare الآخر،
+   ID 03efbdbe…) — نطاقه dtsg-3e0.pages.dev وكان يخدم المنصة فعلاً قبل v2.59.
+   بالقائمة الصارمة وحدها كان سيُرفض بـ403 فينكسر الدخول لمن يزور ذلك المضيف.
+   مطابقة تامة (لا wildcard) — إن حُذف المشروع فاحذف السطر. */
 const ALLOWED_ORIGIN_HOSTS = [
-  'dtsg.pages.dev', 'dmgames.pages.dev', 'dmcasino.pages.dev', 'casino-9xj.pages.dev',
+  'dtsg.pages.dev', 'dtsg-3e0.pages.dev', 'dmgames.pages.dev', 'dmcasino.pages.dev', 'casino-9xj.pages.dev',
   'casino-api.tarikc.workers.dev', 'casino-api.dmgames-api.workers.dev', 'casino-phone.dmgames-api.workers.dev'
 ];
 function isOriginAllowed(origin) {

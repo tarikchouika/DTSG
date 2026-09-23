@@ -407,8 +407,10 @@ function isPaymentsPath(p) { return PAY_PATHS.indexOf(p) >= 0; }
 
 /* [CORS DTSG-005 v2.58] نفس القائمة الصارمة في server.js — النسخة القديمة قبلت أي
    *.pages.dev / *.workers.dev (أصل شرير مجاني = موثوق). */
+/* [v2.59.1 OPS] نفس قائمة server.js — مع مضيف Pages الثانٍ dtsg-3e0.pages.dev
+   (مشروع «dtsg» في حساب Cloudflare الآخر) لمنع 403 على من يزوره. مطابقة تامة. */
 const ALLOWED_ORIGIN_HOSTS = [
-  'dtsg.pages.dev', 'dmgames.pages.dev', 'dmcasino.pages.dev', 'casino-9xj.pages.dev',
+  'dtsg.pages.dev', 'dtsg-3e0.pages.dev', 'dmgames.pages.dev', 'dmcasino.pages.dev', 'casino-9xj.pages.dev',
   'casino-api.tarikc.workers.dev', 'casino-api.dmgames-api.workers.dev', 'casino-phone.dmgames-api.workers.dev'
 ];
 function isOriginAllowed(origin) {
