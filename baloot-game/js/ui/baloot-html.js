@@ -119,9 +119,9 @@
 
           /* ── المقاعد ── */
           '<div class="bl-seat bl-seat-top" id="blSeatTop"><div class="bl-stack" id="blStack2"></div>' +
-            '<div class="bl-plate" id="blPlate2"><span class="bl-platebadge" id="blBadge2"></span><p class="bl-platename" id="blName2">\u2026</p><span class="bl-platecount" id="blCount2">8</span><p class="bl-platesub" id="blSub2"></p></div></div>' +
-          '<div class="bl-seat bl-seat-right" id="blSeatRight"><div class="bl-plate" id="blPlate1"><span class="bl-platebadge" id="blBadge1"></span><p class="bl-platename" id="blName1">\u2026</p><span class="bl-platecount" id="blCount1">8</span><p class="bl-platesub" id="blSub1"></p></div><div class="bl-stack" id="blStack1"></div></div>' +
-          '<div class="bl-seat bl-seat-left" id="blSeatLeft"><div class="bl-stack" id="blStack3"></div><div class="bl-plate" id="blPlate3"><span class="bl-platebadge" id="blBadge3"></span><p class="bl-platename" id="blName3">\u2026</p><span class="bl-platecount" id="blCount3">8</span><p class="bl-platesub" id="blSub3"></p></div></div>' +
+            '<div class="bl-plate" id="blPlate2"><span class="bl-platebadge" id="blBadge2"></span><div class="bl-av" id="blName2">\u2026</div><span class="bl-platecount" id="blCount2">8</span><p class="bl-platesub" id="blSub2"></p></div></div>' +
+          '<div class="bl-seat bl-seat-right" id="blSeatRight"><div class="bl-stack" id="blStack1"></div><div class="bl-plate" id="blPlate1"><span class="bl-platebadge" id="blBadge1"></span><div class="bl-av" id="blName1">\u2026</div><span class="bl-platecount" id="blCount1">8</span><p class="bl-platesub" id="blSub1"></p></div></div>' +
+          '<div class="bl-seat bl-seat-left" id="blSeatLeft"><div class="bl-stack" id="blStack3"></div><div class="bl-plate" id="blPlate3"><span class="bl-platebadge" id="blBadge3"></span><div class="bl-av" id="blName3">\u2026</div><span class="bl-platecount" id="blCount3">8</span><p class="bl-platesub" id="blSub3"></p></div></div>' +
 
           /* ── منطقة الأكلة ── */
           '<div class="bl-trickzone" id="blTrickZone">' +
@@ -137,8 +137,8 @@
 
           /* ── يد اللاعب ── */
           '<div class="bl-handwrap" id="blHandWrap">' +
+            '<div class="bl-handplate" id="blHandPlate"><div class="bl-av" id="blName0">\u0623\u0646\u062a</div><span class="bl-platecount" id="blCount0">8</span></div>' +
             '<div class="bl-hand" id="blHand"></div>' +
-            '<div class="bl-handplate" id="blHandPlate"><p class="bl-platename" id="blName0">\u0623\u0646\u062a</p><span class="bl-platecount" id="blCount0">8</span></div>' +
           '</div>' +
 
         '</div>' +

@@ -520,7 +520,10 @@
       for (const k in seats) {
         const seat = parseInt(k, 10);
         const name = this.$('blName' + k);
-        if (name) name.textContent = this.seatName(seat);
+        if (name) {
+          const fn = this.seatName(seat);
+          name.textContent = fn.substring(0, 2).toUpperCase();
+        }
         const count = this.$('blCount' + k);
         if (count) count.textContent = s.hands[seat].length;
         const sub = this.$('blSub' + k);
@@ -566,9 +569,11 @@
       }
       const np = this.$('blName0');
       if (np) {
-        if (mode === 'room') np.textContent = this._roomSeat >= 0 ? this.seatName(this._roomSeat) : T('blt.spectator');
-        else if (mode === 'local') np.textContent = this.seatName(this._activeSeat());
-        else np.textContent = T('blt.name.0');
+        let fn = '';
+        if (mode === 'room') fn = this._roomSeat >= 0 ? this.seatName(this._roomSeat) : T('blt.spectator');
+        else if (mode === 'local') fn = this.seatName(this._activeSeat());
+        else fn = T('blt.name.0');
+        np.textContent = fn.substring(0, 2).toUpperCase();
       }
     },
 

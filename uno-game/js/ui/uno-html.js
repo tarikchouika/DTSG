@@ -73,15 +73,15 @@
         /* ── المقاعد ── */
         '<div class="un-seat un-seat-top" id="unSeatTop">' +
           '<div class="un-stack" id="unStack2"></div>' +
-          '<div class="un-plate" id="unPlate2"><span class="un-platebadge" id="unBadge2"></span><p class="un-platename" id="unName2">…</p><span class="un-platecount" id="unCount2">7</span></div>' +
+          '<div class="un-plate" id="unPlate2"><span class="un-platebadge" id="unBadge2"></span><div class="un-av" id="unName2">…</div><span class="un-platecount" id="unCount2">7</span></div>' +
         '</div>' +
         '<div class="un-seat un-seat-right" id="unSeatRight">' +
-          '<div class="un-plate" id="unPlate1"><span class="un-platebadge" id="unBadge1"></span><p class="un-platename" id="unName1">…</p><span class="un-platecount" id="unCount1">7</span></div>' +
           '<div class="un-stack" id="unStack1"></div>' +
+          '<div class="un-plate" id="unPlate1"><span class="un-platebadge" id="unBadge1"></span><div class="un-av" id="unName1">…</div><span class="un-platecount" id="unCount1">7</span></div>' +
         '</div>' +
         '<div class="un-seat un-seat-left" id="unSeatLeft">' +
           '<div class="un-stack" id="unStack3"></div>' +
-          '<div class="un-plate" id="unPlate3"><span class="un-platebadge" id="unBadge3"></span><p class="un-platename" id="unName3">…</p><span class="un-platecount" id="unCount3">7</span></div>' +
+          '<div class="un-plate" id="unPlate3"><span class="un-platebadge" id="unBadge3"></span><div class="un-av" id="unName3">…</div><span class="un-platecount" id="unCount3">7</span></div>' +
         '</div>' +
 
         /* ── الوسط: طاقم + رمية + اتجاه ── */
@@ -93,8 +93,8 @@
 
         /* ── يد اللاعب ── */
         '<div class="un-handwrap" id="unHandWrap">' +
+          '<div class="un-handplate" id="unHandPlate"><span class="un-platebadge" id="unBadge0"></span><div class="un-av" id="unName0">…</div><span class="un-platecount" id="unCount0">7</span></div>' +
           '<div class="un-hand" id="unHand"></div>' +
-          '<div class="un-handplate" id="unHandPlate"><span class="un-platebadge" id="unBadge0"></span><p class="un-platename" id="unName0">…</p><span class="un-platecount" id="unCount0">7</span></div>' +
         '</div>' +
 
         /* ── زر UNO ── */

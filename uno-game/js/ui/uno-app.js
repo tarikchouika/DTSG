@@ -267,7 +267,7 @@
       const p = this.$('unPlate' + k);
       if (!p) return;
       p.style.display = count == null ? 'none' : '';
-      const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(seat);
+      const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(seat).substring(0, 2).toUpperCase();
       const ct = this.$('unCount' + k); if (ct) ct.textContent = count == null ? '–' : count;
       const bd = this.$('unBadge' + k); if (bd) bd.textContent = seat === this._mySeat(NS.st) ? T('un.you') : '';
       p.classList.toggle('un-turn-seat', NS.st && NS.st.phase === 'play' && NS.st.turn === seat);
@@ -311,7 +311,7 @@
       for (let i = 0; i < cards.length; i++) this.on(cards[i], 'click', (e) => this._onHandCard(e.currentTarget.getAttribute('data-card')));
       if (hp) {
         hp.style.display = '';
-        const nm = this.$('unName0'); if (nm) nm.textContent = this._seatName(my);
+        const nm = this.$('unName0'); if (nm) nm.textContent = this._seatName(my).substring(0, 2).toUpperCase();
         const ct = this.$('unCount0'); if (ct) ct.textContent = hand.length;
       }
     },
