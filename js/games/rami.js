@@ -2855,6 +2855,47 @@ function eRami(g) {
 }
 
 function initRami() {
+  /* [R6-META-WATCHDOG 2026-09-25] حارس أعلى على مستوى النافذة (يُنشأ مرة واحدة):
+     أثبت التشخيص الحي أن مؤقتات النافذة تنجو بينما تموت مؤقتات المحوّل داخلياً
+     (سباقات gen / سلاسل مقدمة الشوط الميتة) فيتجمد الشوط الجديد على 90s.
+     هذا الحارس لا يمكن لمحوّل معطوب أن يقتله: كل 2 ثانية يفحص الجولة الحية
+     ويصلح ثلاث حالات: مقدمة عالقة، عدّاد ميت، قفل انشغال معلق. */
+  if (typeof window !== 'undefined' && !window.__ramiMetaWd) {
+    window.__ramiMetaWd = setInterval(function () {
+      try {
+        const ad = window.RamiAdapter || window.RAMI_ADAPTER;
+        const g = window.RAMI_STATE;
+        if (!ad || !g || !ad.game || ad.game !== g) return;
+        if (g.gamePhase !== 'PLAYING') return;
+
+        /* 1) مقدمة شوط عالقة بعد مهلتها القصوى ⇒ أتممها قسراً */
+        if (typeof ad._introComplete === 'function' && ad._introDone === false &&
+            ad._introStartedAt && (Date.now() - ad._introStartedAt) > 8000) {
+          console.warn('[Rami] meta-watchdog: forcing stalled intro completion');
+          ad._introComplete();
+        }
+
+        /* 2) عدّاد ميت (المعرفات معبأة لكن _lastTickAt متقادمة) ⇒ إعادة بناء */
+        if (ad._tickEverStarted && ad._lastTickAt && (Date.now() - ad._lastTickAt) > 8000) {
+          console.warn('[Rami] meta-watchdog: dead tick detected — restarting timers');
+          try { ad._startTimer(true); } catch (e) {}
+        }
+
+        /* 3) قفل انشغال معلق بلا تقدم ⇒ حرّره وشغّل دور البوت إن لزم */
+        if (RAMI_BUSY && (Date.now() - (_lastBusyTime || 0)) > 8000) {
+          console.warn('[Rami] meta-watchdog: releasing stuck RAMI_BUSY');
+          setRamiBusy(false);
+          const cur = g.roundManager && g.roundManager.getCurrentPlayer ? g.roundManager.getCurrentPlayer() : null;
+          if (cur && cur.isBot) {
+            const st = ad._botStep;
+            if (!(st && ad._botStepIsCurrent && ad._botStepIsCurrent(st))) {
+              try { ad._runBotTurn(cur); } catch (e) {}
+            }
+          }
+        }
+      } catch (e) { /* الحارس الأعلى لا يرمي أبداً */ }
+    }, 2000);
+  }
   /* [FREEZE-FIX] العودة من خلفية الهاتف: المؤقتات كانت مجمدة — إيقاظ دور البوت فوراً */
   if (typeof document !== 'undefined' && typeof window !== 'undefined' && !window.__rmVisBound) {
     window.__rmVisBound = true;
@@ -3169,13 +3210,27 @@ class RamiUIAdapter {
     const table = document.getElementById('ramiRoundTable');
     if (!table || !this.game) { this._processTurn(); return; }
 
-    setRamiBusy(true);
+    /* [R6-INTRO-FREEZE-FIX 2026-09-25] المقدمة كانت تقفل RAMI_BUSY=true بلا مالك
+       وتعتمد كلياً على سلسلة setTimeout (1100ms→900ms) لتحريره. أي موت/تأخير
+       لتلك السلسلة (خنق المؤقتات على الهاتف، ثقل الرسم، سباقات gen للمؤقتات)
+       يترك القفل معلقاً فيتجمد أول دور بوت في الشوط الجديد والمؤقت واقف على
+       90s/89s — عطل المالك المُبلَّغ "التجمد بعد 10+ أشواط". الإصلاح:
+       أ) القفل بمالك، ب) إتمام idempotent برمز لكل مقدمة يمنع سباق المقدمات،
+       ج) مهلة قصوى تُنهي المقدمة قسراً وتحرر القفل وتشغّل الدور. */
+    setRamiBusy(true, this);
     const players = this.game.players;
     const mode = this.game.mode;
 
     // اختيار الموزع بأصغر ورقة يحدث في الشوط الأول فقط؛
     // في باقي الأشواط ينتقل دور التوزيع للاعب التالي تلقائياً (nextRound)
     const isFirstRound = (this.game.roundManager.roundNumber === 0);
+    const INTRO_MAX_MS = isFirstRound ? 6500 : 4000;
+
+    /* رمز لكل مقدمة: مقدمة جديدة تُبطل كل callbacks للمقدمة السابقة */
+    const myToken = (this._introToken = (this._introToken || 0) + 1);
+    if (this._introDeadlineTimer) { try { clearTimeout(this._introDeadlineTimer); } catch (e) {} }
+    this._introDone = false;
+    this._introStartedAt = Date.now();
 
     const overlay = document.createElement('div');
     overlay.className = 'rami-intro-overlay';
@@ -3191,20 +3246,38 @@ class RamiUIAdapter {
 
     if (typeof SND !== 'undefined' && SND.shuffle) SND.shuffle();
 
+    /* الإتمام النهائي idempotent: يُنفَّذ مرة واحدة مهما تعددت مسارات الوصول
+       (السلسلة الطبيعية أو المهلة القصوى أو meta-watchdog). */
+    const completeIntro = () => {
+      if (this._introToken !== myToken || this._introDone) return;
+      this._introDone = true;
+      if (this._introDeadlineTimer) { try { clearTimeout(this._introDeadlineTimer); } catch (e) {} this._introDeadlineTimer = null; }
+      setRamiBusy(false);
+      try {
+        const ov = document.getElementById('ramiIntroOverlay');
+        if (ov && ov.parentNode) ov.parentNode.removeChild(ov);
+      } catch (e) {}
+      this._renderGame();
+      this._processTurn();
+    };
+    /* نموذج الإتمام قابل للاستدعاء من الخارج (meta-watchdog) */
+    this._introComplete = completeIntro;
+
+    /* شبكة الأمان: تنتهي المقدمة قسراً بعد INTRO_MAX_MS حتى لو ماتت سلسلة
+       المؤقتات كلها — العدّاد يتحرر والدور يبدأ مهما حدث. */
+    this._introDeadlineTimer = setTimeout(completeIntro, INTRO_MAX_MS);
+
     const finishIntro = () => {
-      if (!this.game) { setRamiBusy(false); return; }
+      if (this._introToken !== myToken || this._introDone) return;
+      if (!this.game) { completeIntro(); return; }
       overlay.innerHTML = '<div class="rami-intro-title">🃏 ' + (_ramiT('rami.dealing') || 'توزيع الأوراق في الطاولة...') + '</div>';
       if (typeof SND !== 'undefined' && SND.deal) SND.deal();
-      setTimeout(() => {
-        setRamiBusy(false);
-        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
-        this._renderGame();
-        this._processTurn();
-      }, 900);
+      setTimeout(() => { completeIntro(); }, 900);
     };
 
     setTimeout(() => {
-      if (!this.game) { setRamiBusy(false); return; }
+      if (this._introToken !== myToken || this._introDone) return;
+      if (!this.game) { completeIntro(); return; }
 
       // الأشواط اللاحقة: التوزيع تم مسبقاً في nextRound — لا إعادة اختيار للموزع
       if (!isFirstRound) {
@@ -3334,7 +3407,13 @@ class RamiUIAdapter {
      شوط جديد) كان يُلغي **المؤقّت الجديد** بدل مؤقّته ⇒ يتوقف العدّاد ولا يلعب البوت.
      الحل: كل مؤقّت يحمل رقم جيل (gen) ولا يلمس إلا نفسه، والمرحلة غير PLAYING
      = إيقاف مؤقت (return) لا إتلاف، مع شفاء ذاتي داخل الـ watchdog. */
-  _startTimer() {
+  _startTimer(force) {
+    /* [R6-TIMER-FIX 2026-09-25] idempotent: كانت _renderGame تعيد بناء المؤقتات
+       في كل رسم (قتل+إحياء بأرقام gen متلاحقة) فتنشأ سباقات يموت فيها المؤقت
+       الحي وتظل this.timerId معبأة بمعرف ميّت — يتعطل العدّ وwatchdog معاً
+       (شوهد حياً: turnSecondsRemaining واقفة على 90 طوال 66 ثانية). الآن:
+       مؤقتات حية = لا لمس إطلاقاً؛ الإعادة فقط بـ force أو عند فقد معرّف. */
+    if (!force && this.timerId && this.watchdogId) return;
     if (this.timerId) { clearInterval(this.timerId); this.timerId = null; }
     if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = null; }
     this._timerGen = (this._timerGen || 0) + 1;
@@ -3415,8 +3494,15 @@ class RamiUIAdapter {
     if (!this.game) return;
     if (this.game.gamePhase !== 'PLAYING') return;
 
-    /* [v2.43] شفاء ذاتي: مؤقّت/حارس متوقفان والمرحلة جارية ⇒ أعد تشغيلهما */
-    if (!this.timerId || !this.watchdogId) { try { this._startTimer(); } catch (e) {} }
+    /* [v2.43] شفاء ذاتي: مؤقّت/حارس متوقفان والمرحلة جارية ⇒ أعد تشغيلهما
+       [R6-TIMER-FIX] + كشف العدّ الميت بالزمن: _lastTickAt متقادمة >6 ثوانٍ
+       والمرحلة جارية = المؤقت معرّفه معبأ لكنه ميّت ⇒ إعادة بناء قسرية. */
+    if (!this.timerId || !this.watchdogId ||
+        (this._lastTickAt && (Date.now() - this._lastTickAt) > 6000) ||
+        (!this._lastTickAt && this._tickEverStarted)) {
+      try { this._startTimer(true); } catch (e) {}
+    }
+    this._tickEverStarted = true;
 
     /* [BOT-TURN-GUARD] تخلّص من خطوة تخص دوراً قديماً قبل أي استرداد. */
     let step = this._botStep;
@@ -3438,6 +3524,13 @@ class RamiUIAdapter {
     if (RAMI_BUSY && Date.now() - (_lastBusyTime || 0) > 5000) {
       console.warn('[Rami] watchdog: clearing stuck RAMI_BUSY');
       setRamiBusy(false);
+      /* [R6-INTRO-FREEZE-FIX] تحرير القفل وحده لم يكن يكفي: إن كان دور بوت
+         فالدور لا يبدأ من تلقاء نفسه — نشغّله فوراً بعد التحرير. */
+      try {
+        const rmB = this.game && this.game.roundManager;
+        const curB = rmB && rmB.getCurrentPlayer ? rmB.getCurrentPlayer() : null;
+        if (curB && curB.isBot && this.game.gamePhase === 'PLAYING') this._runBotTurn(curB);
+      } catch (e) {}
     }
 
     // 2) دور بوت عالق بلا حركة لأكثر من 4 ثوانٍ → تشغيل اللعب الآلي لتمرير الدور فوراً ومنع أي تجمد
@@ -3454,6 +3547,9 @@ class RamiUIAdapter {
   }
 
   _tick() {
+    /* [R6-TIMER-FIX] بصمة الحياة: الـ watchdog والـ meta-watchdog يقرآنها
+       لكشف مؤقت عدّ ميت (المعرفات لا تكفي — قد تشير لمؤقت ميّت). */
+    this._lastTickAt = Date.now();
     if (!this.game || this.game.gamePhase !== 'PLAYING') return;
     const rm = this.game.roundManager;
     rm.turnSecondsRemaining--;

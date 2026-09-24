@@ -921,7 +921,8 @@ function corsHeaders(req) {
   try {
     const o = new URL(origin);
     const h = o.hostname;
-    if (o.protocol === "https:" && (h === "casino-9xj.pages.dev" || h.endsWith(".casino-9xj.pages.dev") || h === "dmcasino.pages.dev" || h.endsWith(".dmcasino.pages.dev") || h === "dmgames.pages.dev" || h.endsWith(".dmgames.pages.dev") || h === "dtsg.pages.dev" || h.endsWith(".dtsg.pages.dev") || h === "casino-api.tarikc.workers.dev" || h === "casino-api.dmgames-api.workers.dev")) allowed = origin;
+    /* [v2.59.2 R6] + dtsg.vercel.app (نشر Vercel للمالك) + dtsg-3e0.pages.dev (المضيف الثانوي) */
+    if (o.protocol === "https:" && (h === "casino-9xj.pages.dev" || h.endsWith(".casino-9xj.pages.dev") || h === "dmcasino.pages.dev" || h.endsWith(".dmcasino.pages.dev") || h === "dmgames.pages.dev" || h.endsWith(".dmgames.pages.dev") || h === "dtsg.pages.dev" || h.endsWith(".dtsg.pages.dev") || h === "dtsg-3e0.pages.dev" || h === "dtsg.vercel.app" || h === "casino-api.tarikc.workers.dev" || h === "casino-api.dmgames-api.workers.dev")) allowed = origin;
   } catch (e) {}
   const base = {
     "Access-Control-Allow-Headers": "Content-Type, Authorization, Cookie",
