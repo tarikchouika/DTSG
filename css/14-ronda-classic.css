@@ -317,11 +317,16 @@ body.app-fs-on #rdStage,
   text-align: center;
   transition: border-color .2s, box-shadow .2s;
 }
-#rdStage .rd-seat.rd-active-turn {
-  border-radius: 14px;
-  border: 1px solid var(--rd-gold);
-  box-shadow: 0 0 0 1px rgba(226,184,87,.45), 0 0 26px rgba(226,184,87,.45);
+#rdStage .rd-seat.rd-active-turn .rd-av {
+  box-shadow: 0 0 14px rgba(226,184,87,.85);
+  animation: rdNamePulse 1.7s ease-in-out infinite;
 }
+@keyframes rdNamePulse {
+  0%, 100% { filter: drop-shadow(0 0 2px rgba(226,184,87,.4)); }
+  50% { filter: drop-shadow(0 0 8px rgba(226,184,87,.9)); }
+}
+/* إخفاء الإطار القديم */
+#rdStage .rd-seat.rd-active-turn { border: none; box-shadow: none; }
 #rdStage .rd-seat.rd-me-seat .rd-av { background: linear-gradient(160deg, #fbeecb, var(--rd-gold) 62%, #c89a3a); }
 
 /* حلقة ذهبية حول أيقونة صاحب الدور + مؤقت بجانبها */
@@ -408,6 +413,15 @@ body.app-fs-on #rdStage,
   border: 1px solid rgba(226,184,87,.8);
   box-shadow: 0 4px 10px rgba(0,0,0,.45);
   margin-inline-start: calc(var(--cw) * -.6);
+  --rd-d: calc(var(--i, 0) - (var(--n, 1) - 1) / 2);
+  transition: transform 0.2s;
+}
+/* [Fans-2] تقويسة أفقية: العلوية (◡) والسفلية (⌒) */
+#rdStage .rd-corner-tl .rd-back-card, #rdStage .rd-corner-tr .rd-back-card {
+  transform: translateY(calc(var(--rd-d) * var(--rd-d) * -2px)) rotate(calc(var(--rd-d) * -3deg));
+}
+#rdStage .rd-corner-bl .rd-back-card, #rdStage .rd-corner-br .rd-back-card {
+  transform: translateY(calc(var(--rd-d) * var(--rd-d) * 2px)) rotate(calc(var(--rd-d) * 3deg));
 }
 /* صف الخصم السفلي-يمين: أصغر من يدي (×0.78) كي لا يغطي أوراقي ولا يزاحمها
    في نفس الصف — اليد المكشوفة هي العنصر الأكبر دائماً (z-index أعلى أيضاً) */
@@ -557,7 +571,17 @@ body.app-fs-on #rdStage,
   border-radius: 12px;
 }
 /* أوراق يدي بأقصى اليسار بحجم الستة المتقاسم (نفس صف الخصم السفلي-يمين) */
-#rdStage .rd-hand .rd-card { width: var(--cwB); height: var(--chB); border-radius: clamp(6px, .8vw, 10px); }
+#rdStage .rd-hand .rd-card { 
+  width: var(--cwB); height: var(--chB); 
+  border-radius: clamp(6px, .8vw, 10px); 
+  --rd-d: calc(var(--i, 0) - (var(--n, 1) - 1) / 2);
+  transform: translateY(calc(var(--rd-d) * var(--rd-d) * 2px)) rotate(calc(var(--rd-d) * 3deg));
+  transition: transform 0.2s, filter 0.2s;
+}
+#rdStage .rd-hand .rd-card:hover {
+  transform: translateY(calc(var(--rd-d) * var(--rd-d) * 2px - 14px)) rotate(calc(var(--rd-d) * 1.5deg)) scale(1.05);
+  z-index: 40 !important;
+}
 
 /* شريط المتفرج (وضع الغرفة) */
 #rdStage .rd-specbar {

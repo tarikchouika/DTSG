@@ -28,7 +28,7 @@
   var Rooms = {
     state: null,
     /* الألعاب المدعومة للغرف: id -> أقصى عدد لاعبين */
-    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, bj: 4, dm: 2, ch: 2, bg: 2, do: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BJMP] بلاك جاك جماعي 2-4 بلا بانكر + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين */
+    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, bj: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BJMP] بلاك جاك جماعي 2-4 بلا بانكر + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين */
 
     isGameSupported: function (id) { return !!Rooms.roomGameIds[id]; },
     /* [Persist] طلب إعادة بناء الجولة: إعادة فتح قناة WS للغرفة — الخادم يعيد
@@ -498,6 +498,16 @@
         { key: 'target', label: T('dm.target') || 'نقاط الفوز', opts: [[50, '50'], [100, '100'], [150, '150'], [200, '200']], def: 100 },
         { key: 'draw', label: T('dm.drawRule') || 'قاعدة السحب', opts: [[1, T('dm.draw.classic') || 'كلاسيكي — اسحب حتى تلعب'], [0, T('dm.draw.block') || 'بدون بنك (Block)']], def: 1 }
       ];
+      if (gid === 'bl') return [
+        /* [BL] البلوت: هدف المباراة + مؤقت الدور (السائق يتولى المنقطع بعد المهلة) */
+        { key: 'target', label: T('blt.target') || 'هدف الفوز', opts: [[51, '51'], [100, '100'], [150, '150'], [152, '152']], def: 51 },
+        timer
+      ];
+      if (gid === 'un') return [
+        /* [UN] أونو: هدف المباراة + مؤقت الدور (السائق يتولى المنقطع بعد المهلة) */
+        { key: 'target', label: T('un.target') || 'نقاط المباراة', opts: [[200, '200'], [500, '500'], [1000, '1000']], def: 200 },
+        timer
+      ];
       if (gid === 'dm' || gid === 'ch') return [timer];
       if (gid === 'blca') return [
         { key: 'disc', label: T('bl.caDisc') || 'الاختصاص', opts: [['FREE', T('bl.caFree') || 'حرة'], ['ONE', T('bl.caOne') || 'وسادة'], ['THREE', T('bl.caThree') || '3 وسائد']], def: 'THREE' },
@@ -610,6 +620,22 @@
         } else if (gid === 'ch') {
           window.CH_ROOM_TIMER = o.timer || 0;
           if (typeof CHESS !== 'undefined' && CHESS) CHESS.timer = o.timer || 0;
+        } else if (gid === 'bl') {
+          /* [BL] إعدادات غرفة البلوت: الهدف + المؤقت (يقرؤها بلوت عند بدء الجولة) */
+          window.BL_ROOM_CFG = o;
+          try {
+            if (window.BalootApp) {
+              if (o.target) window.BalootApp.config.target = Math.max(21, Math.min(400, parseInt(o.target, 10) || 51));
+            }
+          } catch (e) {}
+        } else if (gid === 'un') {
+          /* [UN] إعدادات غرفة أونو: الهدف + المؤقت (يقرؤها أونو عند بدء الجولة) */
+          window.UN_ROOM_CFG = o;
+          try {
+            if (window.UnoApp) {
+              if (o.target) window.UnoApp.config.target = Math.max(100, Math.min(2000, parseInt(o.target, 10) || 200));
+            }
+          } catch (e) {}
         } else if (/^bl/.test(gid || '') && typeof BILLIARDS !== 'undefined' && BILLIARDS) {
           if (o.timer) BILLIARDS.turnTimer = Math.max(30, Math.min(300, o.timer));
           if (o.disc) BILLIARDS.caromDisc = o.disc;
@@ -1008,7 +1034,9 @@
       var isOwner = st.owner_id === (u && u.id);
       /* [RDC] الروندا تشترط اكتمال المقاعد (2 في 1ضد1 أو 4 في 2ضد2) قبل البدء */
       var rdFull = !(st.game_id === 'rd') || (st.seats && st.seats.players >= st.max_players);
-      var allReady = rdFull && st.players.length >= 2 && st.players.every(function (p) { return p.ready; });
+      /* [BL] البلوت يشترط 4 لاعبين كاملين (2 ضد 2) */
+      var blFull = st.game_id !== 'bl' || st.players.filter(function (p) { return !p.spectate; }).length >= 4;
+      var allReady = rdFull && blFull && st.players.length >= 2 && st.players.every(function (p) { return p.ready; });
       var link = location.origin + '/?room=' + st.code;
 
       var rows = st.players.map(function (p) {
@@ -1054,6 +1082,11 @@
           if (st.game_id === 'rd' && !rdFull) {
             btns += '<div class="ctext2" style="width:100%;text-align:center;color:#ffc98a;font-size:.74rem">' +
               (T('rdc.room.badSeats') || 'تحتاج الروندا مقاعد كاملة — أضف لاعبين أو آليين') + '</div>';
+          }
+          /* [BL] تنبيه: البلوت تحتاج 4 لاعبين كاملين */
+          if (st.game_id === 'bl' && !blFull) {
+            btns += '<div class="ctext2" style="width:100%;text-align:center;color:#ffc98a;font-size:.74rem">' +
+              (T('blt.room.needFour') || 'تحتاج البلوت 4 لاعبين كاملين (2 ضد 2)') + '</div>';
           }
         }
       } else {

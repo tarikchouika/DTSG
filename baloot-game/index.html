@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1526">
+  <title>بلوت — DTSG (وضع مستقل للاختبار)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b1526; --gold: #d9b45c; --gold2: #f2d489; --t1: #e9e2cf; --t2: #9aa5b8;
+      --font: 'Cairo', 'Segoe UI', system-ui, sans-serif;
+      --font-display: 'Orbitron', 'Cairo', sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { background: var(--bg); font-family: var(--font); color: var(--t1); overflow: hidden; }
+    .st-bar {
+      position: fixed; top: 0; inset-inline: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; background: rgba(11, 21, 38, 0.92);
+      border-bottom: 1px solid rgba(217, 180, 92, 0.25); backdrop-filter: blur(8px);
+    }
+    .st-logo { font-weight: 900; letter-spacing: 2px; font-size: 15px; color: var(--gold); font-family: var(--font-display); }
+    .st-logo small { color: var(--t2); font-weight: 600; letter-spacing: 0; font-family: var(--font); font-size: 11px; margin-inline-start: 8px; }
+    .st-wallet { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 13px; color: var(--gold2);
+      background: rgba(217, 180, 92, 0.1); border: 1px solid rgba(217, 180, 92, 0.4); border-radius: 20px; padding: 4px 12px; }
+    #app { position: absolute; inset: 0; top: 42px; }
+    #blStage { position: absolute; inset: 0; }
+  </style>
+</head>
+<body>
+  <header class="st-bar">
+    <div class="st-logo">DTSG <small>بلوت — وضع مستقل (QA)</small></div>
+    <div class="st-wallet"><span>🪙</span><span id="stBal">500</span></div>
+  </header>
+  <div id="app">
+    <div class="stage bl-stage" id="blStage"></div>
+  </div>
+
+  <script src="js/engine/baloot-core.js"></script>
+  <script src="js/engine/baloot-game.js"></script>
+  <script src="js/ui/baloot-audio.js"></script>
+  <script src="js/ui/baloot-i18n.js"></script>
+  <script src="js/ui/baloot-renderer.js"></script>
+  <script src="js/ui/baloot-html.js"></script>
+  <script src="js/ui/baloot-app.js"></script>
+  <script>
+    /* حالة الرصيد المستقل في الشريط العلوي */
+    (function () {
+      /* أوراق المنصة الموحدة من جذر المستودع (نفس أصول الرامي/الهاي لو/البلاك جاك) */
+      window.BL_ASSET_BASE = '../assets';
+      BalootApp.attach();
+      const el = document.getElementById('stBal');
+      setInterval(function () {
+        el.textContent = Math.round(BalootApp.walletBalance()).toLocaleString('en-US');
+      }, 400);
+    })();
+  </script>
+</body>
+</html>

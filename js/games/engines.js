@@ -3406,6 +3406,10 @@ const ENG = {
      نفس نمط القراءة الكسولة (eBackgammon/eDominoes من ملفي الجسر) */
   get backgammon() { return (typeof window.eBackgammon === 'function') ? window.eBackgammon : null; },
   get dominoes() { return (typeof window.eDominoes === 'function') ? window.eDominoes : null; },
+  /* [BL] البلوت: مشروع مستقل محكوم بعقد المنصة (نمط الطاولة/الضومنة) */
+  get baloot() { return (typeof window.eBaloot === 'function') ? window.eBaloot : null; },
+  /* [UN] أونو: مشروع مستقل محكوم بعقد المنصة (نفس نمط البلوت) */
+  get uno() { return (typeof window.eUno === 'function') ? window.eUno : null; },
   /* crash.js هو module (يُنفَّذ بعد كل السكربتات العادية) — لذلك نقرأ eCrash
      كسولاً عند الفتح عبر window.eCrash بدلاً من الإشارة المباشرة (ReferenceError) */
   get crash() { return (typeof window.eCrash !== 'undefined') ? window.eCrash : null; },

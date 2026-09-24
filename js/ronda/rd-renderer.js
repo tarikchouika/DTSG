@@ -273,10 +273,12 @@
         const row = document.createElement('div');
         row.className = 'rd-backrow';
         const n = Math.min(p.handCount, 3);
+        row.style.setProperty('--n', n);
         for (let i = 0; i < n; i++) {
           const b = document.createElement('div');
           b.className = 'rd-back-card';
           b.style.zIndex = String(i);
+          b.style.setProperty('--i', i);
           row.appendChild(b);
         }
         if (p.handCount > 3) {
@@ -390,6 +392,8 @@
     /* لا حبة «دورك الآن» — التوهّج الذهبي حول لوحة النشط كافٍ (التصميم المرغوب) */
     const isMyTurn = String(view.currentPlayerId) === String(o.viewerId) && view.phase === 'Playing';
     const captureResolver = new RC.CaptureResolver();
+    
+    hand.style.setProperty('--n', view.myHand.length);
 
     view.myHand.forEach(function (card, i) {
       const capture = captureResolver.resolve(card, view.tableCards);
@@ -401,6 +405,7 @@
         dealing: !!o.animateDeal
       });
       cardEl.style.zIndex = String(10 + i);
+      cardEl.style.setProperty('--i', i);
       if (o.animateDeal) cardEl.style.animationDelay = (i * 90) + 'ms';
       if (capturedTable.length > 0 && isMyTurn) {
         const badge = document.createElement('span');

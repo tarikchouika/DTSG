@@ -4,6 +4,284 @@
 "use strict";
 /* ── قاعدة بيانات القواعد الكاملة ── */
 var FULL_RULES = {
+  /* ═══ البلوت (bl) — 4 لاعبين، فرق 2 ضد 2 ═══ */
+  bl: {
+    name: {
+      ar: 'البلوت 🃏',
+      da: 'Lbaloot 🃏',
+      fr: 'Baloot 🃏',
+      en: 'Baloot 🃏'
+    },
+    goal: {
+      ar: 'فرقتان (كل لاعبين مقابِلَين فريق) تنافسان على بلوغ هدف النقاط (51/100/152) أولًا — النقاط من الأكلات وأوراقها وأشور المعلن عنها والبلوت والكابوت.',
+      da: 'Frin (koul 32b m9abil f riq) khyam 3la l7itab li 7all l3a hadaf l n9at (51/100/152) — l n9at mn l7ikl w l7out w l7ichour w lbaloot w lkabot.',
+      fr: 'Deux équipes (joeurs face à face) s’affrontent pour atteindre l’objectif (51/100/152) — points des plis, des cartes, des Ashour, du Baloot et du Cabot.',
+      en: 'Two teams (opposite players) race to the target score (51/100/152) — points from tricks, card values, declared Ashour, Baloot and Cabot.'
+    },
+    steps: {
+      ar: [
+        'التوزيع: 32 ورقة تُوزَّع كاملة، 8 لكل لاعب؛ كل لاعبين مقابِلَين فريقان (أنت وشريكك مقابل الخصمين).',
+        'مرحلة الأشور: من يملك 4 أوراق متصلة (مثل 7-8-9-10) أو رباعية (مثل 4×9) يُعلن أشوره قبل التسمية — نقاطه تُخزَّن له.',
+        'التسمية: يبدأ يسار الموزع (أو المسمّي) بالتسمية: يرشّح هوكم (سيت) أو يمرّ؛ إن مرّ الجميع تكون يد صن (بلا هوكم).',
+        'اللعب: 8 أكلات؛ صاحب الأكلة يبدأ التالية، ولازم تلوّي السيت المطروح إن كان عندك.',
+        'كل أكلة = مجموع أوراقها + 10، تروح للفريق اللي أخذها.',
+        'الفريق اللي يأخذ الـ8 أكلات كاملة: كابوت — يجيب بونص + أشور الخصم، وتنقلب نقاط أوراق الخصم لصالحه.',
+        'تستمر الجولات حتى فريق يوصل الهدف — والفوز له.'
+      ],
+      da: [
+        'Tawzib: 32 kotta kitawz3o kamlin, 8 lkoul 32b; koul 32b m9abil f 2 riq (nti w shrik m9ab l khsam).',
+        'M7ilat l7ichour: may 3ndo 4 kottat muttasil (bhal 7-8-9-10) wla rbia3a (bhal 4×9) y3lan l7ichor qbl tsmita — n9atoh t7sen lh.',
+        'Tsmiya: yabda ysar l mzyed y3an tsmita: y3tan coup (citt) wla ymer; ila marrou kolhom kayna yd sun (bla coup).',
+        'L7oba: 8 hikl; sd l7ika yabda li mbach, w kanchi talwi l citt lmtrouh ila kan 3ndk.',
+        'Koul 7ika = majmo3 kottath + 10, twah l riq li akhdah.',
+        'Riq li kaykhod l 8 hikl kamlin: kabot — yjib bonus + l7ichor l khsam, w n9at kott l khsam tntagh leh.',
+        'Kiykmlu l joulat hatta riq ywah l hadaf — w l ghaba lih.'
+      ],
+      fr: [
+        'Donne : les 32 cartes sont distribuées, 8 par joueur ; les joueurs face à face forment deux équipes.',
+        'Phase Ashour : quiconque détient 4 cartes consécutives (ex. 7-8-9-10) ou un quadruplet (ex. 4×9) déclare son Ashour avant la nomination — ses points sont mis de côté.',
+        'Nomination : à gauche du donneur, chacun nomme un atout (coup) ou passe ; si tout le monde passe, la donne est « Sun » (sans atout).',
+        'Jeu : 8 plis ; le gagnant du pli mène le suivant ; il faut suivre le premier jeu.',
+        'Chaque pli = somme de ses cartes + 10, pour l’équipe qui l’emporte.',
+        'L’équipe qui prend les 8 plis : Cabot — bonus + les Ashour adverses, et les points de cartes adverses lui reviennent.',
+        'Les manches continuent jusqu’à ce qu’une équipe atteigne l’objectif — et elle gagne.'
+      ],
+      en: [
+        'Deal: all 32 cards are dealt, 8 each; opposite players form two teams.',
+        'Ashour phase: a player holding 4 consecutive cards (e.g. 7-8-9-10) or a quad (e.g. 4×9) declares Ashour before naming — the points are banked.',
+        'Naming: starting left of the dealer, each player names a trump (coup) or passes; if everyone passes the hand is « Sun » (no trump).',
+        'Play: 8 tricks; the trick winner leads next; you must follow the led suit if you can.',
+        'Each trick = its card points + 10, to the winning team.',
+        'A team taking all 8 tricks: Cabot — bonus + the opponents’ Ashour, and the opponents’ card points flip to them.',
+        'Rounds continue until a team reaches the target — it wins.'
+      ]
+    },
+    details: {
+      ar: [
+        { h: 'قيم الأوراق', items: [
+          'بلا هوكم (صن): آس 11 · عشرة 10 · شايب (K) 4 · بنت (Q) 3 · ولد (J) 2 — الإجمالي 120.',
+          'مع هوكم: ولد (J) 20 · تسعة 14 · آس 11 · عشرة 10 · شايب 4 · بنت 3 · الإجمالي 152.'
+        ] },
+        { h: 'الأشور', items: [
+          'سلسلة متصلة: 4 أوراق متتالية من نفس السيت (7-8-9-10 أو 10-J-Q-K) قبل التسمية.',
+          'رباعية: 4 أوراق من نفس الرتبة (4×9 على الأقل؛ رباعية 7 أو 8 لا قيمة لها).',
+          'يُعلن مرة واحدة لكل فريق؛ إن أعلن الخصم بعده بترتيب أقوى تُلغى (قطع).',
+          'أشور غير مثبت (مكذوب) = لا قيمة له.'
+        ] },
+        { h: 'البلوت', items: [
+          'بلوت = رباعية (مثل 4×10 أو 4×K) أو سلسلة طويلة (5 أوراق متصلة) تظهر أثناء اللعب.',
+          'الفريق المعلن عنها يجيب +20 نقطة فورًا.'
+        ] },
+        { h: 'الكابوت', items: [
+          'فريق يأخذ الـ8 أكلات كاملة في يد.',
+          'يجيب بونص الكابوت (0/30/50/90 بالاتفاق) + أشور الخصم + نقاط أوراقه.'
+        ] },
+        { h: 'يد الصن', items: [
+          'لم يسمِّ أحد هوكم: تُلعب بلا هوكم (قيم بلا هوكم: الإجمالي 120).',
+          'البلوت والأشور ما زالوا حاضرين.'
+        ] }
+      ],
+      da: [
+        { h: 'Qim l7out', items: [
+          'Bla coup (sun): as 11 · 10 → 10 · chaib (K) 4 · bnt (Q) 3 · wallad (J) 2 — l3ami 120.',
+          'M3a coup: wallad (J) 20 · 9 → 14 · as 11 · 10 → 10 · chaib 4 · bnt 3 · l3ami 152.'
+        ] },
+        { h: 'L7ichour', items: [
+          'Silsila muttasil: 4 kottat muttalihat mn nafs l citt (7-8-9-10 wla 10-J-Q-K) qbl tsmita.',
+          'Rbia3a: 4 kottat mn nafs rttba (4×9 3la l aqal).',
+          'Y3lan merra wahda lkoul riq; ila 3lan l khsam mbach b trtib a9wa ttaghla (qta3).',
+          '7ichour bla tbit (mkhdo) = bla qima.'
+        ] },
+        { h: 'Lbaloot', items: [
+          'Baloot = rbia3a (bhal 4×10 wla 4×K) wla silsila t7ila (5 kottat) tzher 3d l7oba.',
+          'Riq lm3lan 3ndah yjib +20 n9ta fora.'
+        ] },
+        { h: 'Lkabot', items: [
+          'Riq yakhd l 8 hikl kamlin f yd wahda.',
+          'Yjib bonus l kabot (0/30/50/90 b l ittifagh) + l7ichor l khsam + n9at kottath.'
+        ] },
+        { h: 'Yd sun', items: [
+          'May tsmiya coup: tl3a bla coup (qim bla coup: l3ami 120).',
+          'Baloot w l7ichour mazalou haddirin.'
+        ] }
+      ],
+      fr: [
+        { h: 'Valeurs des cartes', items: [
+          'Sans atout (Sun) : As 11 · 10 → 10 · Roi 4 · Dame 3 · Valet 2 — total 120.',
+          'Avec atout : Valet 20 · 9 → 14 · As 11 · 10 → 10 · Roi 4 · Dame 3 — total 152.'
+        ] },
+        { h: 'Ashour', items: [
+          'Série : 4 cartes consécutives de même couleur (7-8-9-10 ou 10-V-D-R) avant la nomination.',
+          'Quadruplet : 4 cartes de même rang (4×9 minimum).',
+          'Une seule déclaration par équipe ; une déclaration plus forte adverse coupe (annule).',
+          'Un Ashour non validé = sans valeur.'
+        ] },
+        { h: 'Baloot', items: [
+          'Baloot = un quadruplet (ex. 4×10 ou 4×R) ou une série de 5 révélé pendant le jeu.',
+          "L'équipe déclaratrice marque +20 points immédiatement."
+        ] },
+        { h: 'Cabot', items: [
+          "Une équipe prend les 8 plis d'une donne.",
+          'Bonus Cabot (0/30/50/90 convenu) + les Ashour adverses + leurs points de cartes.'
+        ] },
+        { h: 'Donne Sun', items: [
+          'Personne ne nomme d’atout : jeu sans atout (total 120).',
+          'Baloot et Ashour restent en vigueur.'
+        ] }
+      ],
+      en: [
+        { h: 'Card values', items: [
+          'No trump (Sun): Ace 11 · Ten 10 · King 4 · Queen 3 · Jack 2 — total 120.',
+          'With trump: Jack 20 · Nine 14 · Ace 11 · Ten 10 · King 4 · Queen 3 — total 152.'
+        ] },
+        { h: 'Ashour', items: [
+          'Serial: 4 consecutive same-suit cards (7-8-9-10 or 10-J-Q-K) declared before naming.',
+          'Quad: 4 cards of the same rank (4×9 minimum).',
+          'One declaration per team; a stronger late declaration by opponents cancels it.',
+          'An unvalidated Ashour is void.'
+        ] },
+        { h: 'Baloot', items: [
+          'Baloot = a quad revealed in play (e.g. 4×10, 4×K) or a 5-card serial.',
+          'The declaring team banks +20 points immediately.'
+        ] },
+        { h: 'Cabot', items: [
+          'A team takes all 8 tricks of a hand.',
+          'Cabot bonus (0/30/50/90 by agreement) + opponents’ Ashour + their card points.'
+        ] },
+        { h: 'Sun hand', items: [
+          'Nobody named trump: play with no trump (total 120).',
+          'Baloot and Ashour still apply.'
+        ] }
+      ]
+    },
+    payouts: {
+      ar: '<tr><td>فوز مباراة (غرفة)</td><td>الفريق الفائز يقسم الرهان (رسم المنصة 5%)</td></tr><tr><td>أشور</td><td>+8 إلى +36 حسب التشكيلة</td></tr><tr><td>بلوت</td><td>+20</td></tr><tr><td>كابوت</td><td>بونص (0/30/50/90) + أشور الخصم + نقاط أوراقه</td></tr><tr><td>تدريبي (ضد الآلي/محلي)</td><td>تعليمي — بلا رهان</td></tr>',
+      da: '<tr><td>Ghaba match (ghrafya)</td><td>Riq lgheb yqssem l mise (rsm l mnassa 5%)</td></tr><tr><td>7ichour</td><td>+8 3la +36 3la tshkil</td></tr><tr><td>Baloot</td><td>+20</td></tr><tr><td>Kabot</td><td>Bonus (0/30/50/90) + l7ichor l khsam + n9at kottath</td></tr><tr><td>Tadbir (m3a bot/makani)</td><td>Tbdiri — bla mise</td></tr>',
+      fr: '<tr><td>Victoire d’une partie (salle)</td><td>L’équipe gagnante se partage la mise (commission 5%)</td></tr><tr><td>Ashour</td><td>+8 à +36 selon la combinaison</td></tr><tr><td>Baloot</td><td>+20</td></tr><tr><td>Cabot</td><td>Bonus (0/30/50/90) + Ashour adverses + points de cartes</td></tr><tr><td>Entraînement (IA/local)</td><td>Éducatif — sans mise</td></tr>',
+      en: '<tr><td>Match win (room)</td><td>Winning team splits the bet (5% platform fee)</td></tr><tr><td>Ashour</td><td>+8 to +36 by combo</td></tr><tr><td>Baloot</td><td>+20</td></tr><tr><td>Cabot</td><td>Bonus (0/30/50/90) + opponents’ Ashour + card points</td></tr><tr><td>Practice (AI/local)</td><td>Educational — no bet</td></tr>'
+    },
+  },
+  /* ═══ أونو (un) — 2-4 لاعبين، ألوان وأرقام وبراغي ═══ */
+  un: {
+    name: {
+      ar: 'أونو 🃏',
+      da: 'L’Uno 🃏',
+      fr: 'Uno 🃏',
+      en: 'Uno 🃏'
+    },
+    goal: {
+      ar: 'لاعبون (2 إلى 4) يتنافسون على إفراغ أيدائهم أولاً — كل جولة يفوز فيها لاعب تمنح نقاط أوراق الخاسرين، وأول من يبلغ هدف النقاط (200/500/1000) يفوز المباراة.',
+      da: 'L3aeibin (2 l 4) khyam 3la l ifra9 dyal l7itathom ola — kol joule 3et l n9at dyal l kottath dyal l khssasim, w l awla li ywalli l hadaf (200/500/1000) khebba l match.',
+      fr: 'Des joueurs (2 à 4) s’affrontent pour vider leur main en premier — chaque manche rapporte les points des cartes des perdants, et le premier à atteindre l’objectif (200/500/1000) gagne la partie.',
+      en: 'Players (2–4) race to empty their hands first — each round scores the losers’ card points, and the first to reach the target (200/500/1000) wins the match.'
+    },
+    steps: {
+      ar: [
+        'الطابور: 108 بطاقات بأربعة ألوان (أحمر/أزرق/أخضر/أصفر) — من كل لون: 0 واحدة، 1-9 بطاقتان، وتخطي S ورجوع R و+2 D بطاقتان لكل منهما؛ مع 4 براغي W و4 براغي +4 (X).',
+        'التوزيع: 7 بطاقات لكل لاعب، وتُوضع أول بطاقة غير براغي كافتتاح — من يسارها يبدأ اللعب.',
+        'الطابق: تلعب بطاقة تطابق لون الطابق أو رقمه، أو براغي بأي لون.',
+        'الأوراق الخاصة: التخطي S يلغي دور التالي · الرجوع R يعكس اتجاه الدور · +2 D و+4 X التالي يسحب بطاقتين/أربعاً ويُخسر دوره.',
+        'السحب: بلا بطاقة قانونية تسحب من الكوم — إن كانت السحبة مفيدة تبقى يدك (العبها أو مرّر)، وإلا ينتقل الدور.',
+        'UNO: لما يبقالك بطاقة واحدة صوّح UNO — المنسى يسحب بطاقتين جزاءً.',
+        'نهاية الجولة: من يفوّت يده يفوز — نقاط الجولة = مجموع أوراق كل الخاسرين (الرقم بقيمته، S/R/D = 20، براغي = 50) تضاف لفائزها.',
+        'المباراة: تستمر الجولات حتى يبلغ لاعب الهدف — والفوز له.'
+      ],
+      da: [
+        'L tabour: 108 cartes b 4 lwan (7mer/l7der/lkhder/lsfar) — mn kol lo: 7ed 0, 1-9 bj2, w S w R w D bj2 l kol we7da; m3a 4 W w 4 X.',
+        'L tabi3: 7 cartes l kol l3a3ib, w l awla carte li ma kaynach bra7i katwda bch touftah — li f rih ybda yel3ab.',
+        'L tamth: tsawb carte li kayt7ama b lwan l tab9 wla 7erhom, wla bra7i b kol lo.',
+        'Cartes khouss: S katnsa dour l tayfin · R katrdd l atjo · D w X l tayfin yssaf 2/4 w kheir dour.',
+        'L saf: ma l3endkch carte légale — tsaf men l koma; il kan l saf moufa3et tbed b idk (sawbha wla mrr), ila la dour kaymchi.',
+        'UNO: il bqa lik carte we7da — goul UNO; li ynaso yssaf 2 b jaza3.',
+        'Tama l joule: li ifra9 l idt khbeb — n9at l joule = mjmom l kottath dyal khl 7akhsasim (7er b9atou, S/R/D = 20, bra7i = 50).',
+        'L match: les joules kamla l had l w7t li wahd ywalli l hadaf — w l khbba lih.'
+      ],
+      fr: [
+        'Le paquet : 108 cartes en 4 couleurs (rouge/bleu/vert/jaune) — par couleur : un 0, deux 1-9, deux SKIP, deux REVERSE, deux +2 ; plus 4 JOKER et 4 JOKER+4.',
+        'Distribution : 7 cartes par joueur, la première carte non-joker posée en ouverture — le joueur de sa gauche joue le premier.',
+        'Jouer : une carte qui correspond à la couleur ou au chiffre de la carte du dessus, ou un joker n’importe quand.',
+        'Cartes spéciales : SKIP annule le tour du suivant · REVERSE inverse le sens · +2 et +4 : le suivant tire 2/4 cartes et perd son tour.',
+        'Tirer : sans joue possible, piochez — si la carte tirée est jouable, c’est toujours votre tour (jouez-la ou passez), sinon le tour passe.',
+        'UNO : à une carte restante, criez UNO — l’oubli coûte 2 cartes de pénalité.',
+        'Fin de manche : qui vide sa main gagne — points de la manche = somme des cartes des perdants (chiffre = sa valeur, S/R/D = 20, joker = 50).',
+        'Partie : les manches continuent jusqu’à ce qu’un joueur atteigne l’objectif — il gagne.'
+      ],
+      en: [
+        'The deck: 108 cards in 4 colors (red/blue/green/yellow) — per color: one 0, two 1-9, two SKIP, two REVERSE, two +2; plus 4 WILD and 4 WILD+4.',
+        'Dealing: 7 cards each; the first non-wild card opens the game — the player to its left plays first.',
+        'Match: play a card matching the color or number of the top card, or a wild anytime.',
+        'Action cards: SKIP cancels the next player’s turn · REVERSE flips direction · +2 / +4: the next player draws 2/4 and is skipped.',
+        'Draw: with no legal play, draw from the deck — if the drawn card is playable it’s still your turn (play it or pass), otherwise the turn moves on.',
+        'UNO: at one card left, call UNO — forgetting costs a 2-card penalty.',
+        'Round end: emptying your hand wins it — round points = sum of all losers’ cards (number = its value, S/R/D = 20, wild = 50) go to the winner.',
+        'Match: rounds continue until a player reaches the target — they win.'
+      ]
+    },
+    details: {
+      ar: [
+        { h: 'قيم الأوراق في حساب الجولة', items: [
+          'الأرقام 0-9: قيمتها الظاهرة (0 لا يساوي شيئاً).',
+          'التخطي S والرجوع R و+2: 20 نقطة.',
+          'البراغي W والبراغي +4: 50 نقطة.'
+        ] },
+        { h: 'الوضع الفردي والفرقي', items: [
+          'لاعبان: مباراة فردية — الفائز يأخذ نقاط الجميع.',
+          '4 لاعبين: فريقان (المقابِلان) — نقاط الخاسرين تذهب لفريق الفائز.'
+        ] },
+        { h: 'الوضع التعليمي', items: [
+          'ضد البوت (3 مستويات) أو محلياً على جهاز واحد (4 لاعبين بتسليم الجهاز) — مجاني بلا رهان.'
+        ] }
+      ],
+      da: [
+        { h: 'B9a3at l kottath f l joule', items: [
+          'Les 7arag 0-9: b9a3athom l zabha (0 ma kayb9ach 7ta).',
+          'S w R w D: 20 n9at.',
+          'Bra7i W w X: 50 n9a.'
+        ] },
+        { h: 'Wajh frdi w wa9t riq', items: [
+          'L3a3ibin 2: match frdi — l khbeb kaykhod l n9at dyal kol chi.',
+          'L3a3ibin 4: riqayn (l m9abilin) — n9at l khssasim khedha riq l khbeb.'
+        ] },
+        { h: 'L wajh tbdiri', items: [
+          'M3a l bot (3 mstarat) wla makani 3la device we7da (4 l3a3ibin b taslim l device) — mjani bla mise.'
+        ] }
+      ],
+      fr: [
+        { h: 'Valeur des cartes en fin de manche', items: [
+          'Chiffres 0-9 : leur valeur affichée (le 0 ne compte pas).',
+          'SKIP, REVERSE et +2 : 20 points.',
+          'Joker et Joker+4 : 50 points.'
+        ] },
+        { h: 'Individuel et par équipes', items: [
+          '2 joueurs : match individuel — le gagnant prend les points de tous.',
+          '4 joueurs : deux équipes (joeurs face à face) — les points des perdants vont à l’équipe du gagnant.'
+        ] },
+        { h: 'Mode éducatif', items: [
+          'Contre l’IA (3 niveaux) ou en local sur un même appareil (4 joueurs, passage de main) — gratuit, sans mise.'
+        ] }
+      ],
+      en: [
+        { h: 'Card values at round end', items: [
+          'Numbers 0-9: their face value (0 counts nothing).',
+          'SKIP, REVERSE and +2: 20 points each.',
+          'WILD and WILD+4: 50 points each.'
+        ] },
+        { h: 'Individual and teams', items: [
+          '2 players: individual match — the winner takes everyone’s points.',
+          '4 players: two teams (opposite players) — the losers’ points go to the winner’s team.'
+        ] },
+        { h: 'Educational mode', items: [
+          'Vs AI (3 levels) or local on one device (4 players, device passing) — free, no bet.'
+        ] }
+      ]
+    },
+    payouts: {
+      ar: '<tr><td>فوز مباراة (غرفة)</td><td>الفائز يأخذ رهان الخصوم (رسم المنصة 5%)</td></tr><tr><td>بطاقة 0-9</td><td>قيمتها الظاهرة</td></tr><tr><td>S / R / +2</td><td>20 نقطة</td></tr><tr><td>براغي / +4</td><td>50 نقطة</td></tr><tr><td>جزاء UNO</td><td>+2 بطاقات للمنسى</td></tr><tr><td>تدريبي (ضد الآلي/محلي)</td><td>تعليمي — بلا رهان</td></tr>',
+      da: '<tr><td>Ghaba match (ghrafya)</td><td>L khbeb kaykhod l mise dyal l khssasim (rsm l mnassa 5%)</td></tr><tr><td>Carte 0-9</td><td>B9a3a 7a3a</td></tr><tr><td>S / R / D</td><td>20 n9a</td></tr><tr><td>Bra7i / X</td><td>50 n9a</td></tr><tr><td>Jaza3 UNO</td><td>+2 cartes l li ynaso</td></tr><tr><td>Tadbir (m3a bot/makani)</td><td>Tbdiri — bla mise</td></tr>',
+      fr: '<tr><td>Victoire d’une partie (salle)</td><td>Le gagnant prend la mise des adversaires (commission 5%)</td></tr><tr><td>Carte 0-9</td><td>Sa valeur affichée</td></tr><tr><td>S / R / +2</td><td>20 points</td></tr><tr><td>Joker / +4</td><td>50 points</td></tr><tr><td>Pénalité UNO</td><td>+2 cartes à l’oublié</td></tr><tr><td>Entraînement (IA/local)</td><td>Éducatif — sans mise</td></tr>',
+      en: '<tr><td>Match win (room)</td><td>Winner takes the opponents’ bet (5% platform fee)</td></tr><tr><td>Card 0-9</td><td>Face value</td></tr><tr><td>S / R / +2</td><td>20 points</td></tr><tr><td>Wild / +4</td><td>50 points</td></tr><tr><td>UNO penalty</td><td>+2 cards for the forgetful</td></tr><tr><td>Practice (AI/local)</td><td>Educational — no bet</td></tr>'
+    },
+  },
   /* ═══ روندا الكلاسيكية — الطاولة (rd) ═══ */
   rd: {
     name: {

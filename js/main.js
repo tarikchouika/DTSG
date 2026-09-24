@@ -17,7 +17,7 @@ const GAME_IMG = {
   ke: 'keno', sl: 'slot-spin', ab: 'andar-bahar',
   rm: 'rami',
   ch: 'chess', dm: 'dama',
-  bg: 'backgammon', do: 'dominoes',
+  bg: 'backgammon', do: 'dominoes', bl: 'baloot', un: 'uno',
   bl8: 'billiards', blbb: 'billiards', blgv: 'billiards', blsn: 'billiards', blca: 'billiards',
   crabbin: 'crabbin',
   fishing: 'fishing',
@@ -590,6 +590,8 @@ function initFor(eng) {
     rami: (typeof initRami === 'function') ? initRami : null,
     backgammon: (typeof initBackgammon === 'function') ? initBackgammon : null,
     dominoes: (typeof initDominoes === 'function') ? initDominoes : null,
+    baloot: (typeof initBaloot === 'function') ? initBaloot : null,
+    uno: (typeof initUno === 'function') ? initUno : null,
     plinko: (typeof initPlinko === 'function') ? initPlinko : null,
     wheel: (typeof initWheel === 'function') ? initWheel : null,
     hilo: (typeof initHilo === 'function') ? initHilo : null,
@@ -811,6 +813,14 @@ function closeGamePage() {
   if (typeof cleanupDominoes === 'function') {
     try { cleanupDominoes(); } catch (e) { console.error('cleanupDominoes error:', e); }
   }
+  /* [BL] تنظيف البلوت (المشروع المستقل) عند مغادرة الصفحة */
+  if (typeof cleanupBaloot === 'function') {
+    try { cleanupBaloot(); } catch (e) { console.error('cleanupBaloot error:', e); }
+  }
+  /* [UN] تنظيف أونو (المشروع المستقل) عند مغادرة الصفحة */
+  if (typeof cleanupUno === 'function') {
+    try { cleanupUno(); } catch (e) { console.error('cleanupUno error:', e); }
+  }
   if (!keepLive) {
     window._liveGameId = null;
     var gbEl = document.getElementById('gamePageBody');
@@ -875,6 +885,7 @@ function fitGameStage() {
      يقيس صندوقاً متجاوزاً فيضيف scale/margin-bottom فوق CSS ويقتطع اليد أو يظهر تمرير */
   if (stage.id === 'rnContainer' || stage.id === 'damaStage' || stage.id === 'chessStage' ||
       stage.id === 'rdStage' || stage.id === 'dmStage' || stage.id === 'bwStage' ||
+      stage.id === 'blStage' ||
       stage.querySelector('#ramiContainer')) return;
   _observeStage(stage);
   var availW = body.clientWidth;
