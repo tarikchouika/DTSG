@@ -50,15 +50,15 @@
             '</div>' +
           '</div>' +
           '<div class="un-field" id="unTimerField">' +
-            '<p class="un-flabel" data-un-i18n="un.timer"></p>' +
+            '<p class="un-flabel" data-un-i18n="ui.timer"></p>' +
             '<div class="un-seg" id="unTimerSeg">' +
-              '<button type="button" class="un-segbtn on" data-v="0" data-un-i18n="un.timerOff"></button>' +
-              '<button type="button" class="un-segbtn" data-v="30">30ث</button>' +
-              '<button type="button" class="un-segbtn" data-v="60">60ث</button>' +
-              '<button type="button" class="un-segbtn" data-v="90">90ث</button>' +
-              '<button type="button" class="un-segbtn" data-v="120">120ث</button>' +
-              '<button type="button" class="un-segbtn" data-v="180">180ث</button>' +
-              '<button type="button" class="un-segbtn" data-v="300">300ث</button>' +
+              '<button type="button" class="un-segbtn on" data-v="0" data-un-i18n="ui.timerOff"></button>' +
+              '<button type="button" class="un-segbtn" data-v="30" data-un-i18n="ui.sec30"></button>' +
+              '<button type="button" class="un-segbtn" data-v="60" data-un-i18n="ui.sec60"></button>' +
+              '<button type="button" class="un-segbtn" data-v="90" data-un-i18n="ui.sec90"></button>' +
+              '<button type="button" class="un-segbtn" data-v="120" data-un-i18n="ui.sec120"></button>' +
+              '<button type="button" class="un-segbtn" data-v="180" data-un-i18n="ui.sec180"></button>' +
+              '<button type="button" class="un-segbtn" data-v="300" data-un-i18n="ui.sec300"></button>' +
             '</div>' +
           '</div>' +
         '</div>' +

@@ -61,15 +61,15 @@
             '</div>' +
 
             '<div class="bl-field" id="blTimerField">' +
-              '<p class="bl-flabel" data-bl-i18n="blt.timer"></p>' +
+              '<p class="bl-flabel" data-bl-i18n="ui.timer"></p>' +
               '<div class="bl-seg" id="blTimerSeg">' +
-                '<button class="bl-segbtn selected" data-timer="0" data-bl-i18n="blt.timerOff"></button>' +
-                '<button class="bl-segbtn" data-timer="30">30ث</button>' +
-                '<button class="bl-segbtn" data-timer="60">60ث</button>' +
-                '<button class="bl-segbtn" data-timer="90">90ث</button>' +
-                '<button class="bl-segbtn" data-timer="120">120ث</button>' +
-                '<button class="bl-segbtn" data-timer="180">180ث</button>' +
-                '<button class="bl-segbtn" data-timer="300">300ث</button>' +
+                '<button class="bl-segbtn selected" data-timer="0" data-bl-i18n="ui.timerOff"></button>' +
+                '<button class="bl-segbtn" data-timer="30" data-bl-i18n="ui.sec30"></button>' +
+                '<button class="bl-segbtn" data-timer="60" data-bl-i18n="ui.sec60"></button>' +
+                '<button class="bl-segbtn" data-timer="90" data-bl-i18n="ui.sec90"></button>' +
+                '<button class="bl-segbtn" data-timer="120" data-bl-i18n="ui.sec120"></button>' +
+                '<button class="bl-segbtn" data-timer="180" data-bl-i18n="ui.sec180"></button>' +
+                '<button class="bl-segbtn" data-timer="300" data-bl-i18n="ui.sec300"></button>' +
               '</div>' +
             '</div>' +
 

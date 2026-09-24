@@ -543,7 +543,7 @@
         modal.className = 'rd-modal rd-handover';
         modal.style.position = 'absolute';
         modal.style.inset = '0';
-        modal.style.zIndex = '999';
+        modal.style.zIndex = '9999';
         modal.style.background = 'rgba(9, 17, 31, 0.9)';
         modal.style.display = 'flex';
         modal.style.flexDirection = 'column';
@@ -555,7 +555,7 @@
             (R.escapeHtml(App.game.players[playerId].name)) + 
           '</p>' +
           '<button id="rdRevealBtn" style="background:var(--rd-gold);color:#111;border:none;padding:12px 24px;border-radius:12px;font-size:1.1rem;font-weight:bold;cursor:pointer;">' + 
-            (typeof T !== 'undefined' && T.msg ? T.msg('rdc.handoverTap') : 'استلم الهاتف واضغط هنا') + 
+            (typeof RD_T !== 'undefined' && RD_T.msg ? RD_T.msg('rdc.handoverTap') : 'استلم الهاتف واضغط هنا') + 
           '</button>';
         
         const stage = document.getElementById('rdStage');

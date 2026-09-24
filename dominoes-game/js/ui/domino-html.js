@@ -66,15 +66,15 @@ window.DMN_HTML = (function () {
         '</div>' +
 
         '<div class="dm-field" id="dmTimerField">' +
-          '<div class="dm-flabel" data-i18n="dm.timer">مؤقت الدور</div>' +
+          '<div class="dm-flabel" data-i18n="ui.timer">مؤقت الدور</div>' +
           '<div class="dm-seg" id="dmTimerSeg">' +
-            '<button type="button" class="dm-segbtn selected" data-timer="0" data-i18n="dm.timerOff">بدون</button>' +
-            '<button type="button" class="dm-segbtn" data-timer="30">30ث</button>' +
-            '<button type="button" class="dm-segbtn" data-timer="60">60ث</button>' +
-            '<button type="button" class="dm-segbtn" data-timer="90">90ث</button>' +
-            '<button type="button" class="dm-segbtn" data-timer="120">120ث</button>' +
-            '<button type="button" class="dm-segbtn" data-timer="180">180ث</button>' +
-            '<button type="button" class="dm-segbtn" data-timer="300">300ث</button>' +
+            '<button type="button" class="dm-segbtn selected" data-timer="0" data-i18n="ui.timerOff">بدون</button>' +
+            '<button type="button" class="dm-segbtn" data-timer="30" data-i18n="ui.sec30">30ث</button>' +
+            '<button type="button" class="dm-segbtn" data-timer="60" data-i18n="ui.sec60">60ث</button>' +
+            '<button type="button" class="dm-segbtn" data-timer="90" data-i18n="ui.sec90">90ث</button>' +
+            '<button type="button" class="dm-segbtn" data-timer="120" data-i18n="ui.sec120">120ث</button>' +
+            '<button type="button" class="dm-segbtn" data-timer="180" data-i18n="ui.sec180">180ث</button>' +
+            '<button type="button" class="dm-segbtn" data-timer="300" data-i18n="ui.sec300">300ث</button>' +
           '</div>' +
         '</div>' +
 

@@ -468,9 +468,9 @@
         /* عدد المقاعد يحدد نمط روندا: 2 = 1ضد1، 3 = 1ضد2 (فردي)،
            4 = إما 1ضد3 (فردي) أو 2ضد2 (فرق) — يُميّز بينهما خيار "نمط 4 لاعبين". */
         { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين',
-          opts: [[2, '1 ضد 1 — 2'], [3, '1 ضد 2 — 3'], [4, '4 لاعبين (راجع النمط التالي)']], def: 2 },
+          opts: [[2, T('rdc.maxp.2') || '1 ضد 1 — 2'], [3, T('rdc.maxp.3') || '1 ضد 2 — 3'], [4, T('rdc.maxp.4') || '4 لاعبين']], def: 2 },
         { key: 'mode4', label: T('rdc.mode4.label') || 'نمط 4 لاعبين',
-          opts: [['ffa', '1 ضد 3 — فردي'], ['tt', '2 ضد 2 — فرق']], def: 'ffa' },
+          opts: [['ffa', T('rdc.mode4.ffa') || '1 ضد 3 — فردي'], ['tt', T('rdc.mode4.tt') || '2 ضد 2 — فرق']], def: 'ffa' },
         /* [rd-v25] الهدف: «جولة» (تنتهي المباراة بنهاية توزيع الـ40 ورقة) أو 41/51/61 */
         { key: 'target', label: T('rdc.targetLabel') || 'هدف الفوز',
           opts: [['round', (T('rdc.target.round') || 'جولة') + ' (40)'], [41, '41'], [51, '51'], [61, '61']], def: 51 },
@@ -479,24 +479,29 @@
           opts: [[30, sec(30)], [60, sec(60)], [90, sec(90)], [120, sec(120)], [180, sec(180)], [300, sec(300)]], def: 60 }
       ];
       if (gid === 'rp') return [
-        { key: 'rounds', label: T('rp.rounds') || 'عدد الجولات', opts: [[3, '3'], [5, '5'], [7, '7']], def: 3 }
+        { key: 'rounds', label: T('rp.rounds') || 'عدد الجولات', opts: [[3, '3'], [5, '5'], [7, '7']], def: 3 },
+        timer
       ];
       /* [BJMP] بلاك جاك جماعي: عدد المقاعد 2-4 (نتحكم بالخيارات بأنفسنا — لا تُضاف maxp تلقائياً) */
       if (gid === 'bj') return [
-        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: [[2, '2 لاعبين — 2'], [3, '3 لاعبين — 3'], [4, '4 لاعبين — 4']], def: 4 }
+        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: [[2, '2 ' + (T('ui.players') || 'لاعبين')], [3, '3 ' + (T('ui.players') || 'لاعبين')], [4, '4 ' + (T('ui.players') || 'لاعبين')]], def: 4 },
+        timer
       ];
       if (gid === 'pn') return [
-        { key: 'rounds', label: T('pn.rounds') || 'عدد الركلات', opts: [[5, '5'], [7, '7'], [9, '9']], def: 5 }
+        { key: 'rounds', label: T('pn.rounds') || 'عدد الركلات', opts: [[5, '5'], [7, '7'], [9, '9']], def: 5 },
+        timer
       ];
       /* [BGDO] الطاولة: طول المباراة (1/3/5 نقاط) — يعتمده السائق عند البدء */
       if (gid === 'bg') return [
-        { key: 'len', label: T('bg.match') || 'طول المباراة', opts: [[1, '1'], [3, '3'], [5, '5']], def: 3 }
+        { key: 'len', label: T('bg.match') || 'طول المباراة', opts: [[1, '1'], [3, '3'], [5, '5']], def: 3 },
+        timer90
       ];
       /* [BGDO] الضومنة: عدد اللاعبين (2، 3، 4) + نقاط الفوز + قاعدة السحب (كلاسيكي/Block) */
       if (gid === 'do') return [
-        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: [[2, '2 ' + (T('rm.playersCount') || 'لاعبين')], [3, '3 ' + (T('rm.playersCount') || 'لاعبين')], [4, '4 ' + (T('rm.playersCount') || 'لاعبين')]], def: 4 },
+        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: [[2, '2 ' + (T('ui.players') || 'لاعبين')], [3, '3 ' + (T('ui.players') || 'لاعبين')], [4, '4 ' + (T('ui.players') || 'لاعبين')]], def: 4 },
         { key: 'target', label: T('dm.target') || 'نقاط الفوز', opts: [[50, '50'], [100, '100'], [150, '150'], [200, '200']], def: 100 },
-        { key: 'draw', label: T('dm.drawRule') || 'قاعدة السحب', opts: [[1, T('dm.draw.classic') || 'كلاسيكي — اسحب حتى تلعب'], [0, T('dm.draw.block') || 'بدون بنك (Block)']], def: 1 }
+        { key: 'draw', label: T('dm.drawRule') || 'قاعدة السحب', opts: [[1, T('dm.draw.classic') || 'كلاسيكي — اسحب حتى تلعب'], [0, T('dm.draw.block') || 'بدون بنك (Block)']], def: 1 },
+        timer90
       ];
       if (gid === 'bl') return [
         /* [BL] البلوت: هدف المباراة + مؤقت الدور (السائق يتولى المنقطع بعد المهلة) */

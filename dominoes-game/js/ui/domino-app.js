@@ -619,22 +619,41 @@
     },
 
     _showHandover: function (seat) {
-      this.showOverlay(
-        '<div class="dm-modal bl-handover" style="text-align:center;">' +
-          '<p class="bl-oh-title" style="color:var(--dm-gold2);font-size:1.4rem;font-weight:900;margin-bottom:20px;">' + 
+      let overlay = this.$('dmHandoverOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'dmHandoverOverlay';
+        overlay.style.position = 'absolute';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '9999';
+        overlay.style.background = 'rgba(9, 17, 31, 0.9)';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        this.$('dmStage').appendChild(overlay);
+      }
+      overlay.style.display = 'flex';
+      overlay.innerHTML =
+        '<div style="text-align:center;">' +
+          '<p style="color:var(--dm-gold2);font-size:1.4rem;font-weight:900;margin-bottom:20px;">' + 
             (T('dm.p' + (seat + 1)) || ('اللاعب ' + (seat + 1))) + 
           '</p>' +
-          '<button class="dm-go2" id="dmRevealBtn" style="background:var(--dm-gold);color:#111;border:none;padding:12px 24px;border-radius:12px;font-size:1.1rem;font-weight:bold;cursor:pointer;">' + 
+          '<button id="dmRevealBtn" style="background:var(--dm-gold);color:#111;border:none;padding:12px 24px;border-radius:12px;font-size:1.1rem;font-weight:bold;cursor:pointer;">' + 
             (T('dm.handoverTap') || 'استلم الهاتف واضغط هنا') + 
           '</button>' +
-        '</div>'
-      );
+        '</div>';
+        
+      const hand = this.$('dmHand');
+      if (hand) hand.style.opacity = '0';
+
       const btn = this.$('dmRevealBtn');
       if (btn) this.on(btn, 'click', () => {
-        SFX.click();
+        if (typeof SFX !== 'undefined' && SFX.click) SFX.click();
         this._awaitReveal = -1;
         this._revealedSeat = seat;
-        this.hideOverlay();
+        overlay.style.display = 'none';
+        if (hand) hand.style.opacity = '1';
         this._renderState(true);
       });
     },

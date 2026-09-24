@@ -234,6 +234,10 @@ function translateStatic() {
     const k = el.getAttribute('data-i18n');
     if (has(k)) el.textContent = T(k);
   });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function (el) {
+    const k = el.getAttribute('data-i18n-placeholder');
+    if (has(k)) el.setAttribute('placeholder', T(k));
+  });
   document.querySelectorAll('[data-k]').forEach(function (el) {
     const k = el.getAttribute('data-k');
     if (has(k)) el.innerHTML = T(k);
