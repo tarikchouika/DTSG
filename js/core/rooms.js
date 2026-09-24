@@ -447,7 +447,7 @@
        تُطبَّق على حالة المالك محلياً — هو من يبثّ التهيئة (init/cfg) للجميع عند البدء. */
     _gameOptsDefs: function (gid) {
       var sec = function (v) { return v + ' ' + (T('dama.seconds') || 'ث'); };
-      var timer = { key: 'timer', label: T('dama.timer') || 'مؤقت الدور', opts: [[0, T('dama.timerOff') || 'بدون'], [30, sec(30)], [60, sec(60)], [120, sec(120)], [180, sec(180)], [300, sec(300)]], def: 0 };
+      var timer = { key: 'timer', label: T('dama.timer') || 'مؤقت الدور', opts: [[30, sec(30)], [60, sec(60)], [120, sec(120)], [180, sec(180)], [300, sec(300)]], def: 60 };
       var timer90 = { key: 'timer', label: T('dama.timer') || 'مؤقت الدور', opts: [[30, sec(30)], [60, sec(60)], [90, sec(90)], [120, sec(120)], [180, sec(180)], [300, sec(300)]], def: 90 };
       if (gid === 'rm') return [
         { key: 'mode', label: T('rami.roundType') || 'نوع الجولة', opts: [['talaj', T('rami.talaj') || 'طالاج'], ['simple', T('rami.simple') || 'سامبل']], def: 'talaj' },

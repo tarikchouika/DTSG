@@ -312,7 +312,7 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
   transform: translate(-50%, -50%)
     translateY(calc(var(--bl-d) * var(--bl-ostat)))
     translateX(calc(var(--bl-d) * var(--bl-d) * -2.6px))
-    rotate(calc(-90deg + var(--bl-d) * -4.6deg));
+    rotate(calc(-90deg + var(--bl-d) * 4.6deg));
 }
 .bl-stack.bl-turn { filter: drop-shadow(0 0 12px rgba(217, 180, 92, 0.6)); }
 

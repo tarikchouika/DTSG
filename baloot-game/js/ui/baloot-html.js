@@ -60,6 +60,19 @@
               '</div>' +
             '</div>' +
 
+            '<div class="bl-field" id="blTimerField">' +
+              '<p class="bl-flabel" data-bl-i18n="blt.timer"></p>' +
+              '<div class="bl-seg" id="blTimerSeg">' +
+                '<button class="bl-segbtn selected" data-timer="0" data-bl-i18n="blt.timerOff"></button>' +
+                '<button class="bl-segbtn" data-timer="30">30ث</button>' +
+                '<button class="bl-segbtn" data-timer="60">60ث</button>' +
+                '<button class="bl-segbtn" data-timer="90">90ث</button>' +
+                '<button class="bl-segbtn" data-timer="120">120ث</button>' +
+                '<button class="bl-segbtn" data-timer="180">180ث</button>' +
+                '<button class="bl-segbtn" data-timer="300">300ث</button>' +
+              '</div>' +
+            '</div>' +
+
             '<div class="bl-field bl-fieldfold" id="blTableRulesField">' +
               '<p class="bl-flabel bl-foldhead" id="blFoldHead"><span data-bl-i18n="blt.settingsTitle"></span> \u25be</p>' +
               '<div class="bl-foldbody" id="blFoldBody" hidden>' +

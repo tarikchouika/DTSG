@@ -51,6 +51,19 @@ window.BWG_HTML = (function () {
           '</div>' +
         '</div>' +
 
+        '<div class="bw-field" id="bwTimerField">' +
+          '<div class="bw-flabel" data-i18n="bg.timer">مؤقت الدور</div>' +
+          '<div class="bw-seg" id="bwTimerSeg">' +
+            '<button type="button" class="bw-segbtn selected" data-timer="0" data-i18n="bg.timerOff">بدون</button>' +
+            '<button type="button" class="bw-segbtn" data-timer="30">30ث</button>' +
+            '<button type="button" class="bw-segbtn" data-timer="60">60ث</button>' +
+            '<button type="button" class="bw-segbtn" data-timer="90">90ث</button>' +
+            '<button type="button" class="bw-segbtn" data-timer="120">120ث</button>' +
+            '<button type="button" class="bw-segbtn" data-timer="180">180ث</button>' +
+            '<button type="button" class="bw-segbtn" data-timer="300">300ث</button>' +
+          '</div>' +
+        '</div>' +
+
         '<div class="bw-field" id="bwBetField" hidden>' +
           '<div class="bw-flabel" data-i18n="bg.bet">الرهان</div>' +
           '<div class="bw-betrow">' +

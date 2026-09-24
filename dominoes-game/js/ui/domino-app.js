@@ -41,13 +41,15 @@
   const App = {
     /* ═══════════ الحالة ═══════════ */
     /* [AI-MAX] الافتراضي خبير (المستوى 2) — طلب المالك: أعلى مستوى في جميع الألعاب */
-    config: { mode: 'ai', level: 2, target: 100, drawUntilPlayable: true, bet: 25, playersCount: 2 },
+    config: { mode: 'ai', level: 2, target: 100, timer: 0, drawUntilPlayable: true, bet: 25, playersCount: 2 },
     game: null,
     ai: null,
     room: null,               /* [DO-Room] سياق الغرفة (DOMINO_ROOM) — null = محلي */
     betPlaced: 0,
     localWallet: 500,          /* محفظة الوضع المستقل */
     selTile: null,             /* القطعة المختارة (بطرفين) */
+    _revealedSeat: 0,          /* مقعد اللاعب المنكشف (للوضع المحلي) */
+    _awaitReveal: -1,          /* المقعد المنتظر كشفه (حاجب التمرير) */
     selOwner: 0,
     busy: false,
     finished: false,
@@ -126,6 +128,8 @@
          (نفس سلوك الطاولة bg-app)؛ الحفظ يُمسح عند انتهاء/انسحاب المباراة فقط */
       this.game = null; this.ai = null; this.busy = false; this.selTile = null;
       this.room = null;   /* [DO-Room] مغادرة وضع الغرفة — معالجات Rooms تبقى مسجلة */
+      this._revealedSeat = 0;
+      this._awaitReveal = -1;
     },
 
     clearTimers: function () {
@@ -177,6 +181,7 @@
       mark('dmPlayersSeg', 'data-players', this.config.playersCount || 2);
       mark('dmLevelSeg', 'data-level', this.config.level);
       mark('dmTargetSeg', 'data-target', this.config.target);
+      mark('dmTimerSeg', 'data-timer', this.config.timer);
       mark('dmDrawSeg', 'data-draw', this.config.drawUntilPlayable ? 1 : 0);
     },
 
@@ -201,6 +206,7 @@
       seg('dmPlayersSeg', (b) => { this.config.playersCount = parseInt(b.getAttribute('data-players'), 10) || 2; });
       seg('dmLevelSeg', (b) => { this.config.level = parseInt(b.getAttribute('data-level'), 10) || 0; });
       seg('dmTargetSeg', (b) => { this.config.target = parseInt(b.getAttribute('data-target'), 10) || 100; });
+      seg('dmTimerSeg', (b) => { this.config.timer = parseInt(b.getAttribute('data-timer'), 10) || 0; });
       seg('dmDrawSeg', (b) => { this.config.drawUntilPlayable = b.getAttribute('data-draw') === '1'; });
 
       /* الرهان */
@@ -517,14 +523,18 @@
       /* اليد — أسفل الشاشة = مقعدي دائماً */
       const hand = this.$('dmHand');
       if (hand) {
-        const myHand = view['hand' + me] || [];
-        const myLegalList = view['legal' + me] || [];
-        const myTurn = view.phase === 'play' && !this.busy && (!inRoom || view.turn === me);
-        const legalMe = {};
-        for (let i = 0; i < myLegalList.length; i++) legalMe[myLegalList[i].tile.id] = 1;
-        hand.innerHTML = R.handTilesHTML(myHand, legalMe, view.forcedTile && view.forcedTile.id, 'dmPickHand');
-        hand.classList.toggle('myturn', myTurn);
-        this._updateHandTileScale(myHand.length);
+        if (this.config.mode === 'local' && !this.room && this._awaitReveal >= 0) {
+          hand.innerHTML = '';
+        } else {
+          const myHand = view['hand' + me] || [];
+          const myLegalList = view['legal' + me] || [];
+          const myTurn = view.phase === 'play' && !this.busy && (!inRoom || view.turn === me);
+          const legalMe = {};
+          for (let i = 0; i < myLegalList.length; i++) legalMe[myLegalList[i].tile.id] = 1;
+          hand.innerHTML = R.handTilesHTML(myHand, legalMe, view.forcedTile && view.forcedTile.id, 'dmPickHand');
+          hand.classList.toggle('myturn', myTurn);
+          this._updateHandTileScale(myHand.length);
+        }
       }
 
       /* البنك */
@@ -571,7 +581,7 @@
       if (passBtn) {
         const humanTurn = view.phase === 'play' && !this.busy &&
           (inRoom ? (!this.room.spec && view.turn === me)
-                  : (view.turn === me || (!isAI && view.turn === opp)));
+                  : (view.turn === me));
         passBtn.hidden = !(humanTurn && !this.game.hasAnyMove(view.turn) &&
           (view.boneyardCount === 0 || !view.cfg.drawUntilPlayable));
       }
@@ -585,6 +595,16 @@
           if (!this._busyAt) this._busyAt = Date.now();
           else if (Date.now() - this._busyAt > 4000) { this.busy = false; this._busyAt = 0; }
         } else this._busyAt = 0;
+
+        if (this.config.mode === 'local' && !this.room) {
+          if (this._awaitReveal === -1 && this._revealedSeat !== shState.turn && !this.busy) {
+            this._awaitReveal = shState.turn;
+            this._showHandover(shState.turn);
+            return;
+          }
+          if (this._awaitReveal >= 0) return;
+        }
+
         const botDrive = (!this.room && this.config.mode === 'ai') || (this.room && this.room.on && this.room.oppBot);
         if (botDrive && shState.turn !== me && !this.busy && !this._kickPend) {
           this._kickPend = true;
@@ -596,6 +616,27 @@
           }, 900);
         }
       }
+    },
+
+    _showHandover: function (seat) {
+      this.showOverlay(
+        '<div class="dm-modal bl-handover" style="text-align:center;">' +
+          '<p class="bl-oh-title" style="color:var(--dm-gold2);font-size:1.4rem;font-weight:900;margin-bottom:20px;">' + 
+            (T('dm.p' + (seat + 1)) || ('اللاعب ' + (seat + 1))) + 
+          '</p>' +
+          '<button class="dm-go2" id="dmRevealBtn" style="background:var(--dm-gold);color:#111;border:none;padding:12px 24px;border-radius:12px;font-size:1.1rem;font-weight:bold;cursor:pointer;">' + 
+            (T('dm.handoverTap') || 'استلم الهاتف واضغط هنا') + 
+          '</button>' +
+        '</div>'
+      );
+      const btn = this.$('dmRevealBtn');
+      if (btn) this.on(btn, 'click', () => {
+        SFX.click();
+        this._awaitReveal = -1;
+        this._revealedSeat = seat;
+        this.hideOverlay();
+        this._renderState(true);
+      });
     },
 
     /* ═══════════ تفاعل اللاعب 1 (أسفل) ═══════════ */
@@ -676,6 +717,7 @@
     },
 
     mySeatNum: function () {
+      if (this.config.mode === 'local' && !this.room) return this._revealedSeat || 0;
       return (this.room && this.room.on) ? this.room.mySeat : 0;
     },
     oppSeatNum: function () { return 1 - this.mySeatNum(); },

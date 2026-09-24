@@ -537,6 +537,47 @@
       return view;
     },
 
+    _showHandover: function (playerId) {
+      return new Promise(function(resolve) {
+        const modal = document.createElement('div');
+        modal.className = 'rd-modal rd-handover';
+        modal.style.position = 'absolute';
+        modal.style.inset = '0';
+        modal.style.zIndex = '999';
+        modal.style.background = 'rgba(9, 17, 31, 0.9)';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.gap = '20px';
+        modal.innerHTML = 
+          '<p style="color:var(--rd-gold2);font-size:1.4rem;font-weight:900;">' + 
+            (R.escapeHtml(App.game.players[playerId].name)) + 
+          '</p>' +
+          '<button id="rdRevealBtn" style="background:var(--rd-gold);color:#111;border:none;padding:12px 24px;border-radius:12px;font-size:1.1rem;font-weight:bold;cursor:pointer;">' + 
+            (typeof T !== 'undefined' && T.msg ? T.msg('rdc.handoverTap') : 'استلم الهاتف واضغط هنا') + 
+          '</button>';
+        
+        const stage = document.getElementById('rdStage');
+        if (stage) stage.appendChild(modal);
+
+        /* مؤقتاً نخفي اليد الحالية */
+        const handEl = document.getElementById('hand');
+        if (handEl) handEl.style.display = 'none';
+
+        const btn = document.getElementById('rdRevealBtn');
+        if (btn) {
+          btn.addEventListener('click', function () {
+            if (typeof SFX !== 'undefined' && SFX.click) SFX.click();
+            App.currentViewerId = playerId;
+            if (stage) stage.removeChild(modal);
+            if (handEl) handEl.style.display = '';
+            resolve();
+          });
+        } else resolve();
+      });
+    },
+
     /* عرض محايد للمتفرج: الطاولة العامة فقط */
     _neutralView: function () {
       const v0 = this.game.getView(0);
@@ -1069,10 +1110,11 @@
 
         case 'TurnChanged': {
           App._turnStartedAt = Date.now();
-          /* تبديل العارض في الوضع متعدد اللاعبين المحلي (ساخن): صاحب الدور
-             الجديد يرى يده — لا شاشات خصوصية. في الغرفة كل عميل على مقعده. */
+          /* تبديل العارض في الوضع متعدد اللاعبين المحلي (ساخن): مع حاجب لتمرير الجهاز */
           if (!App.roomMode && App.config.family !== 'ai' && App.humanPlayers.indexOf(ev.playerId) >= 0) {
-            App.currentViewerId = ev.playerId;
+            if (App.currentViewerId !== ev.playerId) {
+              await App._showHandover(ev.playerId);
+            }
           }
           App.refreshView({});
           await sleep(120);

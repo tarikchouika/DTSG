@@ -183,7 +183,7 @@
   transform: translate(-50%, -50%)
     translateY(calc(var(--un-d) * var(--un-ostat)))
     translateX(calc(var(--un-d) * var(--un-d) * -2.4px))
-    rotate(calc(-90deg + var(--un-d) * -3.6deg));
+    rotate(calc(-90deg + var(--un-d) * 3.6deg));
 }
 .un-stack.un-turn { filter: drop-shadow(0 0 12px rgba(217, 180, 92, 0.65)); }
 /* [Fans-2] اللوح بلا خلفية: الاسم + عدّاد ذهبي، التوهج على الاسم والسلسلة */

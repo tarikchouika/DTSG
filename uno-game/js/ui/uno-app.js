@@ -15,7 +15,7 @@
   const App = {
     _attached: false,
     _timers: [],
-    config: { mode: 'ai', level: 1, target: 500 },
+    config: { mode: 'ai', level: 1, target: 500, timer: 0 },
     _room: null, roomMode: false,
     _roomSeat: -1, _isDriver: false, _isSpectator: true,
     _roomOrder: null, _roomNames: [], _roundVotes: {},
@@ -91,6 +91,7 @@
       };
       seg('unLevelSeg', 'level', parseInt);
       seg('unTargetSeg', 'target', parseInt);
+      seg('unTimerSeg', 'timer', parseInt);
       const mode = this.$('unModeSeg');
       if (mode) for (let i = 0; i < mode.children.length; i++) this.on(mode.children[i], 'click', (e) => {
         SFX.click();

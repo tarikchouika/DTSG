@@ -24,7 +24,7 @@
 
   const App = {
     /* [AI-MAX] الافتراضي خبير (المستوى 2) — طلب المالك: أعلى مستوى في جميع الألعاب */
-    config: { mode: 'ai', level: 2, len: 5, bet: 25 },
+    config: { mode: 'ai', level: 2, len: 5, timer: 0, bet: 25 },
     game: null,
     ai: null,
     room: null,               /* [BG-Room] سياق الغرفة (BG_ROOM) — null = محلي */
@@ -124,6 +124,7 @@
       mark('bwModeSeg', 'data-mode', this.config.mode);
       mark('bwLevelSeg', 'data-level', this.config.level);
       mark('bwLenSeg', 'data-len', this.config.len);
+      mark('bwTimerSeg', 'data-timer', this.config.timer);
     },
     savePrefs: function () { try { localStorage.setItem(PREFS_KEY, JSON.stringify(Object.assign({}, this.config, { _v: 2 }))); } catch (e) {} },
 
@@ -142,6 +143,7 @@
       seg('bwModeSeg', (b) => { this.config.mode = b.getAttribute('data-mode'); });
       seg('bwLevelSeg', (b) => { this.config.level = parseInt(b.getAttribute('data-level'), 10) || 0; });
       seg('bwLenSeg', (b) => { this.config.len = parseInt(b.getAttribute('data-len'), 10) || 5; });
+      seg('bwTimerSeg', (b) => { this.config.timer = parseInt(b.getAttribute('data-timer'), 10) || 0; });
 
       const betInput = this.$('bwBetInput');
       if (betInput) {

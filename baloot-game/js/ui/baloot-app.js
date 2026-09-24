@@ -22,7 +22,7 @@
   const PREFS_KEY = 'baloot.prefs';
 
   const App = {
-    config: { mode: 'ai', level: 2, target: 152, firstLead: 'left', mustBeat: false, kabotBonus: 30 },
+    config: { mode: 'ai', level: 2, target: 152, firstLead: 'left', mustBeat: false, kabotBonus: 30, timer: 0 },
     game: null,
     betPlaced: 0,
 
@@ -211,6 +211,7 @@
       seg('blModeSeg', 'data-mode', (v) => { this.config.mode = v; this._applyModeUI(); });
       seg('blLevelSeg', 'data-level', (v) => { this.config.level = parseInt(v, 10) || 0; });
       seg('blTargetSeg', 'data-target', (v) => { this.config.target = parseInt(v, 10) || 152; });
+      seg('blTimerSeg', 'data-timer', (v) => { this.config.timer = parseInt(v, 10) || 0; });
       seg('blLeadSeg', 'data-lead', (v) => { this.config.firstLead = v; });
       seg('blKabotSeg', 'data-kabot', (v) => { this.config.kabotBonus = parseInt(v, 10) || 0; });
 
@@ -238,6 +239,7 @@
       mark('blModeSeg', 'data-mode', this.config.mode);
       mark('blLevelSeg', 'data-level', this.config.level);
       mark('blTargetSeg', 'data-target', this.config.target);
+      mark('blTimerSeg', 'data-timer', this.config.timer);
       mark('blLeadSeg', 'data-lead', this.config.firstLead);
       mark('blKabotSeg', 'data-kabot', this.config.kabotBonus);
       this._applyModeUI();
