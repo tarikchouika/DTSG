@@ -111,6 +111,13 @@ if (typeof window !== 'undefined') window.clearRamiPartitionCache = clearRamiPar
      DFS المحدود كاحتياط حتمي بدل حجب الواجهة. */
 const PARTITION_FALLBACK_NODES = 30000;
 const PARTITION_EXACT_STATES = 250000;
+/* [R5-FREEZE-FIX 2026-09-24] مهلة جدارية حقيقية لمسار بلا ميزانية: سقف الحالات
+   (250k) وحده لا يقيّد الزمن — الحالة الواحدة تمرّ على كل المجموعات الجزئية،
+   فكانت الأيدي الغنية (بريات + متتاليات مكررة) تحجب الخيط 1.6 ثانية/استدعاء
+   على الحاسوب و5-20 ثانية على الهاتف، والاحتياطي (DFS 30k عقدة × آلاف
+   المجموعات) يضيف مثلها. المهلة تُطبّق على المحرك المخزّن وعلى DFS
+   الاحتياطي معاً، ويرجع أفضل نتيجة وُجدت — لا حجب للواجهة بعدها. */
+const PARTITION_EXACT_TIME_MS = 120;
 
 function partitionSelectedCards(cards, rules, mode, budgetMs) {
   if (!cards || cards.length < 3) return [];
@@ -132,6 +139,9 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
   let aborted = false;
   let searchNodes = 0;
   let maxSearchNodes = budget ? 24000 : PARTITION_FALLBACK_NODES;
+  /* [R5-FREEZE-FIX] مهلة مسار بلا ميزانية (0 = معطّلة): تُضبط قبل المحرك
+     المخزّن وتشمل DFS الاحتياطي — رؤية الختام (closure) للدالتين معاً. */
+  let exactDeadline = 0;
   const budgetExpired = () => {
     if (!budget || aborted) return aborted;
     if ((searchNodes & 127) === 0 && Date.now() >= deadline) aborted = true;
@@ -168,7 +178,9 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
       if (aborted) return;
       if (cur.length === k) { res.push(cur.slice()); return; }
       for (let i = start; i < arr.length; i++) {
-        if (budget && ((res.length & 127) === 0) && Date.now() >= deadline) { aborted = true; return; }
+        /* [R5-FREEZE-FIX] التعداد أيضاً يحترم مهلة مسار بلا ميزانية — كان يستهلك
+           ~0.6 ثانية وحده على يد غنية قبل أي بحث */
+        if ((budget || exactDeadline) && ((res.length & 127) === 0) && Date.now() >= (budget ? deadline : exactDeadline)) { aborted = true; return; }
         cur.push(arr[i]); bt(i + 1, cur); cur.pop();
         if (aborted) return;
       }
@@ -225,7 +237,11 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
 
   function search(idx, currentUsed, currentMelds) {
     searchNodes++;
-    if (searchNodes > maxSearchNodes || budgetExpired()) { aborted = true; return; }
+    if (searchNodes > maxSearchNodes) { aborted = true; return; }
+    if (budget && budgetExpired()) { aborted = true; return; }
+    /* [R5-FREEZE-FIX] مهلة مسار بلا ميزانية: تشمل التعداد والمحرك والاحتياطي.
+       لاحظ: إيقاف التعداد (aborted) لا يقتل هذا الاحتياطي — له فحصه الخاص. */
+    if (exactDeadline && (searchNodes & 127) === 0 && Date.now() >= exactDeadline) { aborted = true; return; }
     const curFree = currentMelds.reduce((sm, m) => sm + meldFreeScore(m), 0);
     if (openingMode) {
       /* الافتتاح: النقاط الحرة أولاً ثم التغطية */
@@ -272,10 +288,17 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
       ? (aF > bF || (aF === bF && aS > bS))
       : (aS > bS);
     function bestInc(idx, used) {
+      /* [R5-FREEZE-FIX] مسار إيقاف سريع: بعد أول تجاوز (سقف حالات أو مهلة)
+         يجب أن تعود كل الاستدعاءات التالية فوراً — بدون هذا كان فحص المهلة
+         (كل 1024 حالة) يترك الحالات البينية تعيد العمل الكامل فينفجر الزمن. */
+      if (overflow) return { f: 0, s: 0, take: -1 };
       const key = idx * 1048576 + used;
       const hit = memo.get(key);
       if (hit) return hit;
       if (++states > PARTITION_EXACT_STATES) { overflow = true; return { f: 0, s: 0, take: -1 }; }
+      /* [R5-FREEZE-FIX] مهلة جدارية: تُفحص كل 1024 حالة (فحص كل حالة يكلف أكثر
+         من البحث نفسه). التجاوز = نفس مسار overflow الموجود (احتياطي DFS محدود ومهيّل). */
+      if (exactDeadline && (states & 1023) === 0 && Date.now() >= exactDeadline) { overflow = true; return { f: 0, s: 0, take: -1 }; }
       let bF = 0, bS = 0, bTake = -1;
       for (let i = idx; i < validSubsets.length; i++) {
         const sub = validSubsets[i];
@@ -311,14 +334,17 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
     /* مسار الخبير: DFS القديم داخل الميزانية — بلا أي تغيير سلوكي */
     search(0, new Set(), []);
   } else {
+    /* [R5-FREEZE-FIX] ضبط المهلة قبل المحرك المخزّن — تغطيه وتغطي احتياطيه */
+    exactDeadline = Date.now() + PARTITION_EXACT_TIME_MS;
     /* مسار اللاعب: نتائج مطابقة حرفياً بلا حجب الخيط */
     const exact = exactMemoSearch();
     if (exact) {
       bestCombination = exact;
     } else {
-      /* طوارئ حتمية (أيدي خارج كل القياسات): DFS محدود العقد */
+      /* طوارئ حتمية (أيدي خارج كل القياسات أو تجاوز المهلة): DFS محدود */
       search(0, new Set(), []);
     }
+    exactDeadline = 0;
   }
   if (!budget) {
     if (__ramiPartCache.size > 3000) __ramiPartCache.clear();
@@ -3731,7 +3757,12 @@ class RamiUIAdapter {
         try {
         if (!this.game || this.game.gamePhase !== 'PLAYING') { setRamiBusy(false); return; }
 
-        const legalMoves = this.game.getLegalMoves(bot.id);
+        /* [R5-FREEZE-FIX 2026-09-24] استدعاء getLegalMoves هنا كان ميتاً — النتيجة
+           legalMoves لم تُستخدم قط في خطوة اللعب (رميات البوت تُجلب من جديد قبل
+           الرمي عند الحاجة). الاستدعاء كان يشغّل تقسيمين كاملين بلا ميزانية على
+           يد البوت: 1.7+1.7 ثانية حجب للخيط مع يد غنية = «تجمّد المؤقت عند
+           الثانية الأولى أو الثانية العكسية» — عطل المستخدم المُبلّغ. حذفه لا
+           يغيّر أي سلوك. */
         /* [EXPERT-AI] افتتاح خبير يتجنّب حصار الورقتين —
            [PLAN-EXACT] خطة السحب المحفوظة أولاً (كل أوراقها ما زالت في اليد) */
         let openMove = null;
