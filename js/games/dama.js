@@ -763,7 +763,6 @@ function damaSelColor() {
   return on ? on.getAttribute('data-c') : WHITE;
 }
 function damaUpdatePay() {
-  var el = document.getElementById('damaPay');
   
 }
 

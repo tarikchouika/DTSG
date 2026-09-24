@@ -959,9 +959,7 @@
         /* [BotsLedger v2.28] مؤشر المنصة: +الرهان عند خسارة بشري، الرهان−المدفوع عند فوزه */
         try { if (root.BotsLedger) root.BotsLedger.record('do', iWon ? this.betPlaced - payout : this.betPlaced); } catch (e) {}
       }
-      this.$('dmMatchAmt').innerHTML = (isAI && payout)
-        ? '<span class="plus">+' + payout + '</span> <i class="fa-solid fa-coins" aria-hidden="true"></i>'
-        : '';
+      this.$('dmMatchAmt').innerHTML = '';
       this.$('dmMatchRows').innerHTML =
         '<div class="dm-srow"><span>' + nm.me + '</span><b>' + s.scores[0] + '</b></div>' +
         '<div class="dm-srow"><span>' + nm.opp + '</span><b>' + s.scores[1] + '</b></div>';

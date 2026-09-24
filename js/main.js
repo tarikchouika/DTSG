@@ -665,8 +665,8 @@ function openGame(id) {
       ParchisiApp.init();
     }
   } else {
-    const engFn = (typeof ENG !== 'undefined' && ENG[g.eng]) || eSlots;
-    bodyEl.innerHTML = engFn(g);
+    const engFn = (typeof ENG !== 'undefined' && ENG[g.eng]) || null;
+    if (engFn) { bodyEl.innerHTML = engFn(g); } else { console.error("No engine for", g.eng); }
     const initFn = initFor(g.eng);
     if (initFn) {
       try { initFn(); } catch (e) { console.error('Init error:', e); }

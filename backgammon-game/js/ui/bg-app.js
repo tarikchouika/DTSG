@@ -619,8 +619,7 @@
         /* [BotsLedger v2.28] مؤشر المنصة */
         try { if (root.BotsLedger) root.BotsLedger.record('bg', iWon ? this.betPlaced - payout : this.betPlaced); } catch (e) {}
       }
-      if (amt) amt.innerHTML = (isAI && payout && s.phase === 'matchEnd')
-        ? '<span class="plus">+' + payout + '</span> <i class="fa-solid fa-coins" aria-hidden="true"></i>' : '';
+      if (amt) amt.innerHTML = '';
       if (rows) rows.innerHTML = R.scoreRowsHTML(this.game.view(), isAI ? 'ai' : 'local');
       if (btn) btn.innerHTML = (s.phase === 'matchEnd' || resigned) ? T('bg.newMatch') : T('bg.nextGame');
       this.showLayer('bwOverLayer', true);

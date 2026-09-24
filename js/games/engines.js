@@ -1162,3 +1162,28 @@ function pkGo() {
   }
 }
 
+
+/* ═══════════ سجل المحركات ═══════════ */
+const ENG = {
+  ronda: (typeof window.eRonda === 'function') ? window.eRonda : ((typeof eRonda === 'function') ? eRonda : null),
+  get rondacard() { return (typeof window.eRondaCard === 'function') ? window.eRondaCard : null; },
+  chess: (typeof window.eChess === 'function') ? window.eChess : ((typeof eChess === 'function') ? eChess : null),
+  dama: (typeof window.eDama === 'function') ? window.eDama : ((typeof eDama === 'function') ? eDama : null),
+  get billiards() { return (typeof window.eBilliards === 'function') ? window.eBilliards : ((typeof eBilliards === 'function') ? eBilliards : null); },
+  get backgammon() { return (typeof window.eBackgammon === 'function') ? window.eBackgammon : null; },
+  get dominoes() { return (typeof window.eDominoes === 'function') ? window.eDominoes : null; },
+  get baloot() { return (typeof window.eBaloot === 'function') ? window.eBaloot : null; },
+  get uno() { return (typeof window.eUno === 'function') ? window.eUno : null; },
+  get crash() { return (typeof window.eCrash !== 'undefined') ? window.eCrash : null; },
+  rami: (typeof window.eRami === 'function') ? window.eRami : ((typeof eRami === 'function') ? eRami : null),
+  coin: (typeof window.eCoin === 'function') ? window.eCoin : ((typeof eCoin === 'function') ? eCoin : null),
+  hilo: (typeof window.eHilo === 'function') ? window.eHilo : ((typeof eHilo === 'function') ? eHilo : null),
+  rps: (typeof window.eRps === 'function') ? window.eRps : ((typeof eRps === 'function') ? eRps : null),
+  pen: (typeof window.ePenalty === 'function') ? window.ePenalty : ((typeof ePenalty === 'function') ? ePenalty : null),
+  keno: (typeof window.eKeno === 'function') ? window.eKeno : ((typeof eKeno === 'function') ? eKeno : null),
+  poker: (typeof window.ePoker === 'function') ? window.ePoker : ((typeof ePoker === 'function') ? ePoker : null),
+};
+
+if (typeof window !== 'undefined') {
+  window.ENG = ENG;
+}
