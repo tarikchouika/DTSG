@@ -120,23 +120,38 @@
     },
     _applyModeUI: function () {
       const lv = this.$('unLevelField');
-      if (lv) lv.style.display = this.config.mode === 'ai' ? '' : 'none';
+      if (lv) lv.style.display = '';
       const tg = this.$('unTargetField');
-      if (tg) tg.style.display = this.config.mode === 'local' ? 'none' : '';
+      if (tg) tg.style.display = '';
     },
 
     /* ═══════════ بدء المباراة ═══════════ */
     startMatch: function () {
       if (this.roomMode) return;
-      const n = this.config.mode === 'ai' ? 4 : 4;
+      let n = 4;
+      let isTeam = false;
+      let modeStr = this.config.mode || '2v2';
+      if (modeStr === '1v1') n = 2;
+      else if (modeStr === '1v2') n = 3;
+      else if (modeStr === '1v3') n = 4;
+      else if (modeStr === '2v2') { n = 4; isTeam = true; }
+
+      let names = [T('un.you'), T('un.local.1'), T('un.local.2'), T('un.local.3')];
+      if (modeStr !== '2v2') {
+        names[1] = T('un.local.1');
+        names[2] = T('un.local.2');
+        names[3] = T('un.local.3');
+      }
+
       NS.newMatch({
-        mode: this.config.mode,
+        mode: 'ai',
+        teams: isTeam,
         level: this.config.level,
         target: this.config.target || 500,
         players: n,
         seed: ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0) || 1,
         order: [0, 1, 2, 3].map(String),
-        names: [T('un.local.0'), T('un.local.1'), T('un.local.2'), T('un.local.3')]
+        names: names
       });
       this._attachOnChange();
       this.showScreen('game');
@@ -206,7 +221,12 @@
       /* HUD */
       const us = this.$('unHudUs'), them = this.$('unHudThem');
       const scUs = s.cfg.teams ? NS.teamScore(0) : s.scores[0];
-      const scThem = s.cfg.teams ? NS.teamScore(1) : (s.cfg.players === 4 ? s.scores[1] + s.scores[3] : s.scores[1]);
+      let scThem = 0;
+      if (s.cfg.teams) {
+        scThem = NS.teamScore(1);
+      } else {
+        scThem = Math.max(...s.scores.slice(1));
+      }
       const su = this.$('unScoreUs'), st = this.$('unScoreThem');
       if (su) su.textContent = scUs;
       if (st) st.textContent = scThem;
@@ -232,11 +252,27 @@
       if (dz && s.lastCard) dz.innerHTML = '<div class="un-topcard">' + R.cardFace(s.lastCard) + '</div>';
 
       /* مقاعد الخصوم */
+      const vMap = {};
+      if (n === 2) { vMap[1] = 2; }
+      else if (n === 3) { vMap[1] = 1; vMap[2] = 3; }
+      else { vMap[1] = 1; vMap[2] = 2; vMap[3] = 3; }
+
       for (let k = 1; k <= 3; k++) {
-        const seat = k === 2 ? 2 : (k === 1 ? 1 : 3);
-        if (seat >= n) { this._setPlate(seat, null); continue; }
-        const hand = s.hands[seat];
+        let seat = -1;
+        for (const [st, vk] of Object.entries(vMap)) {
+          if (vk === k) seat = parseInt(st, 10);
+        }
+        
         const stack = this.$('unStack' + k);
+        const p = this.$('unPlate' + k);
+        
+        if (seat === -1 || seat >= n) {
+          if (stack) stack.style.display = 'none';
+          if (p) p.style.display = 'none';
+          continue;
+        }
+
+        const hand = s.hands[seat];
         if (stack) {
           /* [Fans-2] سلسلة مقوّسة كاملة بحجم أوراق اللاعب — --i لكل ورقة */
           const show = Math.min(8, hand.length);
@@ -247,7 +283,15 @@
           stack.style.display = hand.length ? '' : 'none';
           stack.classList.toggle('un-turn', s.phase === 'play' && s.turn === seat);
         }
-        this._setPlate(seat, hand.length);
+        
+        if (p) {
+          p.style.display = '';
+          const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(seat).substring(0, 2).toUpperCase();
+          const ct = this.$('unCount' + k); if (ct) ct.textContent = hand.length;
+          const bd = this.$('unBadge' + k); if (bd) bd.textContent = seat === this._mySeat(s) ? T('un.you') : '';
+          p.classList.toggle('un-turn-seat', s.phase === 'play' && s.turn === seat);
+          if (s.cfg.teams) p.classList.toggle('un-team0', this._teamOf(seat) === 0);
+        }
       }
 
       /* يد اللاعب */
@@ -262,18 +306,6 @@
         ub.classList.toggle('armed', showUno);
       }
       this._renderActions();
-    },
-    _setPlate: function (seat, count) {
-      const k = seat === 2 ? 2 : (seat === 1 ? 1 : 3);
-      const p = this.$('unPlate' + k);
-      if (!p) return;
-      p.style.display = count == null ? 'none' : '';
-      const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(seat).substring(0, 2).toUpperCase();
-      const ct = this.$('unCount' + k); if (ct) ct.textContent = count == null ? '–' : count;
-      const bd = this.$('unBadge' + k); if (bd) bd.textContent = seat === this._mySeat(NS.st) ? T('un.you') : '';
-      p.classList.toggle('un-turn-seat', NS.st && NS.st.phase === 'play' && NS.st.turn === seat);
-      const s = NS.st;
-      if (s && s.cfg.teams) p.classList.toggle('un-team0', this._teamOf(seat) === 0);
     },
     _mySeat: function (s) {
       if (!s) return -1;
@@ -679,6 +711,8 @@
       this.config.mode = 'room';
       const rc = (root.UN_ROOM_CFG && typeof root.UN_ROOM_CFG === 'object') ? root.UN_ROOM_CFG : {};
       if (rc.target) this.config.target = parseInt(rc.target, 10) || 500;
+      if (rc.mode4) this.config.teams = rc.mode4 === 'tt';
+      else this.config.teams = false;
       this._roomTimer = Math.max(30, Math.min(300, parseInt(rc.timer, 10) || 60));
       this._recomputeRoomIdentity();
       this.showScreen('game');
@@ -737,11 +771,11 @@
     /* ── السائق: تهيئة موحدة ── */
     _hostInitRoom: function (room) {
       const players = ((room && room.players) || []).filter((p) => !p.spectate).slice(0, 4);
-      if (players.length < 4) { this._renderRoomWaiting(); return; }
+      if (players.length < 2) { this._renderRoomWaiting(); return; }
       const order = players.map((p) => String(p.id));
       const names = players.map((p) => String(p.username || p.id).slice(0, 14));
       const seed = ((Date.now() ^ ((Math.random() * 0xFFFFFFFF) >>> 0)) >>> 0) || 1;
-      const data = { seed: seed, target: this.config.target, order: order, names: names, level: this.config.level };
+      const data = { seed: seed, target: this.config.target, teams: this.config.teams, order: order, names: names, level: this.config.level };
       this._buildRoomGame(data);
       this._netEmit('init', data);
     },
@@ -752,6 +786,7 @@
       this._recomputeRoomIdentity();
       NS.newMatch({
         mode: 'room',
+        teams: !!data.teams,
         level: data.level || 2,
         target: Number(data.target) || 500,
         players: this._roomOrder.length,

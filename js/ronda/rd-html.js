@@ -35,12 +35,9 @@ window.RD_HTML = (function () {
         '<p class="rd-game-subtitle" data-i18n="rdc.subtitle">اللعبة المغربية التقليدية بالأوراق</p>' +
         '<div class="rd-menu-section">' +
           '<h2 class="rd-menu-label" data-i18n="rdc.playLabel">نمط اللعب</h2>' +
-          '<div class="rd-family-options" id="family-options" role="tablist" aria-label="نمط اللعب">' +
-            '<button type="button" class="rd-family-btn selected" id="fam-ai" data-family="ai" role="tab" aria-selected="true">' +
+          '<div class="rd-family-options" id="family-options" role="tablist" aria-label="نمط اللعب" style="display:none;">' +
+            '<button type="button" class="rd-family-btn selected" id="fam-ai" data-family="ai" role="tab" aria-selected="true" style="display:none;">' +
               '<span class="rd-family-name" data-i18n="rdc.mode.ai.fam">ضد الكمبيوتر</span>' +
-            '</button>' +
-            '<button type="button" class="rd-family-btn" id="fam-pvp" data-family="pvp" role="tab" aria-selected="false">' +
-              '<span class="rd-family-name" data-i18n="rdc.mode.pvp.fam">وجهًا لوجه — نفس الجهاز</span>' +
             '</button>' +
           '</div>' +
           '<div class="rd-mode-options" id="mode-options">' +

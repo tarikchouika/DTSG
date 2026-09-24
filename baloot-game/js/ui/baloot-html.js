@@ -34,11 +34,10 @@
           '<div class="bl-menucard">' +
             '<div class="bl-field" id="blModeField">' +
               '<p class="bl-flabel" data-bl-i18n="blt.mode.ai"></p>' +
-              '<div class="bl-seg" id="blModeSeg">' +
+              '<div class="bl-seg" id="blModeSeg" style="display:none;">' +
                 '<button class="bl-segbtn selected" data-mode="ai" data-bl-i18n="blt.mode.ai"></button>' +
-                '<button class="bl-segbtn" data-mode="local" data-bl-i18n="blt.mode.local"></button>' +
               '</div>' +
-              '<p class="bl-mdesc" id="blModeDesc"></p>' +
+              '<p class="bl-mdesc" id="blModeDesc" data-bl-i18n="blt.modeDesc.ai">تعليمي ضد 3 أدمغة اصطناعية — بلا رهان</p>' +
             '</div>' +
 
             '<div class="bl-field" id="blLevelField">' +

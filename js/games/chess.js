@@ -1300,7 +1300,6 @@ function eChess(g) {
         '</div>' +
         '<div class="ch-modes">' +
           '<button class="big dama-go" onclick="chessStartSolo()"><i class="fa-solid fa-robot" aria-hidden="true"></i> ' + chessLevelName() + '</button>' +
-          '<button class="big dama-go" onclick="chessStartLocal()"><i class="fa-solid fa-user-group" aria-hidden="true"></i> ' + T('chess.faceToFace') + '</button>' +
           '<button class="big ch-online" onclick="Rooms.toggleFromGame()"><i class="fa-solid fa-globe" aria-hidden="true"></i> ' + T('chess.onlineRoom') + '</button>' +
         '</div>' +
         '<div class="dama-pay ch-hint">' + T('chess.modeHint') + '</div>' +

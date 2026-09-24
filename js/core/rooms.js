@@ -509,7 +509,10 @@
         timer
       ];
       if (gid === 'un') return [
-        /* [UN] أونو: هدف المباراة + مؤقت الدور (السائق يتولى المنقطع بعد المهلة) */
+        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين',
+          opts: [[2, T('rdc.maxp.2') || '1 ضد 1 — 2'], [3, T('rdc.maxp.3') || '1 ضد 2 — 3'], [4, T('rdc.maxp.4') || '4 لاعبين']], def: 4 },
+        { key: 'mode4', label: T('rdc.mode4.label') || 'نمط 4 لاعبين',
+          opts: [['ffa', T('rdc.mode4.ffa') || '1 ضد 3 — فردي'], ['tt', T('rdc.mode4.tt') || '2 ضد 2 — فرق']], def: 'tt' },
         { key: 'target', label: T('un.target') || 'نقاط المباراة', opts: [[200, '200'], [500, '500'], [1000, '1000']], def: 200 },
         timer
       ];

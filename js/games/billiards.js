@@ -81,7 +81,6 @@ function eBilliards(g) {
           '</div>' +
         '</div>' +
         '<div class="bl-modes">' +
-          '<button class="big dama-go" onclick="billiardsStartLocal()"><i class="fa-solid fa-user-group" aria-hidden="true"></i> ' + T('bl.faceToFace') + '</button>' +
           '<button class="big dama-go" onclick="billiardsStartAI()"><i class="fa-solid fa-robot" aria-hidden="true"></i> ' + T('bl.vsAI') + '</button>' +
           '<button class="big ch-online" onclick="billiardsOnline()"><i class="fa-solid fa-globe" aria-hidden="true"></i> ' + T('chess.onlineRoom') + '</button>' +
         '</div>' +

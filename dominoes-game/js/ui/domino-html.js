@@ -31,9 +31,8 @@ window.DMN_HTML = (function () {
 
         '<div class="dm-field">' +
           '<div class="dm-flabel" data-i18n="dm.mode">نمط اللعب</div>' +
-          '<div class="dm-seg" id="dmModeSeg">' +
+          '<div class="dm-seg" id="dmModeSeg" style="display:none;">' +
             '<button type="button" class="dm-segbtn selected" data-mode="ai" data-i18n="dm.mode.ai">ضد الحاسوب</button>' +
-            '<button type="button" class="dm-segbtn" data-mode="local" data-i18n="dm.mode.local">لاعبان — جهاز واحد</button>' +
           '</div>' +
         '</div>' +
 

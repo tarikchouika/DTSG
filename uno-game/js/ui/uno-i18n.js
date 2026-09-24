@@ -10,8 +10,11 @@
   const UN = {
     'un.title': ['أونو', 'Uno', 'Uno', 'أونو'],
     'un.tagline': ['اللون والرقم — والبراغي يغيّر كل شيء', 'Couleur et chiffre — la jolly change tout', 'Color and number — the wild changes it all', 'اللون والرقم — والبراغي يبدّل كلشي'],
-    'un.mode.ai': ['ضد البوت', 'Contre l\u2019IA', 'vs AI', 'ضد البوت'],
-    'un.mode.local': ['4 لاعبين (محلي)', '4 joueurs (local)', '4 players (hot-seat)', '4 لاعيب (محلي)'],
+    'un.modeLabel': ['نمط اللعب', 'Mode de jeu', 'Game mode', 'نمط اللعب'],
+    'un.mode.1v1': ['1 ضد 1', '1 vs 1', '1 vs 1', '1 ضد 1'],
+    'un.mode.1v2': ['1 ضد 2', '1 vs 2', '1 vs 2', '1 ضد 2'],
+    'un.mode.1v3': ['1 ضد 3 (فردي)', '1 vs 3 (Solo)', '1 vs 3 (FFA)', '1 ضد 3 (فردي)'],
+    'un.mode.2v2': ['2 ضد 2 (فرق)', '2 vs 2 (Équipes)', '2 vs 2 (Teams)', '2 ضد 2 (فراقي)'],
     'un.level.0': ['مبتدئ', 'D\u00e9butant', 'Beginner', 'مبتدئ'],
     'un.level.1': ['متوسط', 'Moyen', 'Medium', 'وسط'],
     'un.level.2': ['خبير', 'Expert', 'Expert', 'خبير'],

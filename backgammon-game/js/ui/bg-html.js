@@ -27,9 +27,8 @@ window.BWG_HTML = (function () {
 
         '<div class="bw-field">' +
           '<div class="bw-flabel" data-i18n="bg.mode">نمط اللعب</div>' +
-          '<div class="bw-seg" id="bwModeSeg">' +
+          '<div class="bw-seg" id="bwModeSeg" style="display:none;">' +
             '<button type="button" class="bw-segbtn selected" data-mode="ai" data-i18n="bg.mode.ai">ضد الحاسوب</button>' +
-            '<button type="button" class="bw-segbtn" data-mode="local" data-i18n="bg.mode.local">لاعبان</button>' +
           '</div>' +
         '</div>' +
 

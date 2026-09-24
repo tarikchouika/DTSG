@@ -26,10 +26,12 @@
         '</header>' +
         '<div class="un-menucard">' +
           '<div class="un-field" id="unModeField">' +
-            '<p class="un-flabel" data-un-i18n="un.mode.ai"></p>' +
-            '<div class="un-seg" id="unModeSeg">' +
-              '<button type="button" class="un-segbtn on" data-v="ai" data-un-i18n="un.mode.ai"></button>' +
-              '<button type="button" class="un-segbtn" data-v="local" data-un-i18n="un.mode.local"></button>' +
+            '<p class="un-flabel" data-un-i18n="un.modeLabel">نمط اللعب</p>' +
+            '<div class="un-seg" id="unModeSeg" style="flex-wrap: wrap;">' +
+              '<button type="button" class="un-segbtn on" data-v="1v1" data-un-i18n="un.mode.1v1">1 ضد 1</button>' +
+              '<button type="button" class="un-segbtn" data-v="1v2" data-un-i18n="un.mode.1v2">1 ضد 2</button>' +
+              '<button type="button" class="un-segbtn" data-v="1v3" data-un-i18n="un.mode.1v3">1 ضد 3</button>' +
+              '<button type="button" class="un-segbtn" data-v="2v2" data-un-i18n="un.mode.2v2">2 ضد 2</button>' +
             '</div>' +
             '<p class="un-mode-desc" id="unModeDesc" data-un-i18n="un.rulesHint"></p>' +
           '</div>' +
