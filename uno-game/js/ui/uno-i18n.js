@@ -97,11 +97,7 @@
 
   function T(key, params) {
     let s = null;
-    if (typeof root.T === 'function') {
-      try { s = root.T(key, params); } catch (e) {}
-      if (!s) s = null;
-    }
-    if (!s && root.TR && root.TR[key]) {
+    if (typeof root.TR === 'object' && root.TR && root.TR[key]) {
       const idx = (typeof root.langIndex === 'function') ? root.langIndex() : 0;
       s = root.TR[key][idx] != null ? root.TR[key][idx] : root.TR[key][0];
     }
@@ -110,12 +106,11 @@
       s = UN[key][li] != null ? UN[key][li] : UN[key][0];
     }
     if (!s) s = key;
-    if (params) {
-      for (const k in params) s = s.replace('{' + k + '}', params[k]);
+    if (params && typeof s === 'string') {
+      for (const k in params) s = s.split('{' + k + '}').join(params[k]);
     }
     return s;
   }
-
   function langIndex() {
     if (typeof root.langIndex === 'function') {
       try { return root.langIndex(); } catch (e) {}

@@ -13,7 +13,7 @@ const GAME_IMG = {
   rn: 'ronda', rd: 'ronda', pr: 'parchisi', av: 'crash', mn: 'mines', pl: 'plinko',
   dc: 'dice', cf: 'coin-flip', hl: 'hi-lo', wf: 'wheel', sc: 'scratch',
   wg: 'wingo', rp: 'rock-paper', pn: 'football', l7: 'lucky-7', sb: 'sic-bo',
-  rl: 'roulette', bj: 'blackjack', bc: 'baccarat', dt: 'dragon', vp: 'poker',
+  rl: 'roulette', bc: 'baccarat', dt: 'dragon', vp: 'poker',
   ke: 'keno', sl: 'slot-spin', ab: 'andar-bahar',
   rm: 'rami',
   ch: 'chess', dm: 'dama',

@@ -1309,6 +1309,7 @@ const TR = {
   'ui.roomAddBot': [ 'أضف لاعباً آلياً', 'Ajouter une IA', 'Add AI player', 'زيد لاعب آلي' ],
   'ui.roomBot': [ 'لاعب آلي', 'IA', 'AI player', 'لاعب آلي' ],
   'ui.roomVsAi': [ '🤖 العب ضد الآلي', '🤖 Jouer vs IA', '🤖 Play vs AI', '🤖 العب مع الآلي' ],
+  'ui.playWithFriend': [ 'اللعب مع صديق', 'Jouer avec un ami', 'Play with a friend', 'العب مع صاحبك' ],
   'ui.roomTitle': [ 'غرفة اللعب', 'Salle de jeu', 'Game room', 'غرفة اللعب' ],
   'ui.roomYou': [ 'أنت', 'vous', 'you', 'أنت' ],
   'ui.rooms': [ 'غرف اللعب', 'Salons de jeu', 'Game Rooms', 'بيوت اللعب' ],

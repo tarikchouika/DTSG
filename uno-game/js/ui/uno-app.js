@@ -15,7 +15,7 @@
   const App = {
     _attached: false,
     _timers: [],
-    config: { mode: 'ai', level: 1, target: 500, timer: 0 },
+    config: { mode: '1v1', level: 1, target: 500, timer: 0 },
     _room: null, roomMode: false,
     _roomSeat: -1, _isDriver: false, _isSpectator: true,
     _roomOrder: null, _roomNames: [], _roundVotes: {},

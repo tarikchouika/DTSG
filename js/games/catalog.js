@@ -176,42 +176,9 @@ const GAMES = [
     d: ['منحنى حي', 'Courbe live', 'Live curve', 'منحنى حي']
   },
   /* ═══ فورية ═══ */
-  {
-    id: 'mn',
-    eng: 'mines',
-    em: '💣',
-    art: 'in',
-    cat: 'instant',
-    tag: 'HOT',
-    rtp: 97,
-    pl: 720,
-    n: ['ماينز', 'Mines', 'Mines', 'ماينز'],
-    d: ['تجنب الألغام', 'Évitez les mines', 'Avoid mines', 'تجنب الألغام']
-  },
-  {
-    id: 'pl',
-    eng: 'plinko',
-    em: '⚪',
-    art: 'in',
-    cat: 'instant',
-    tag: 'HOT',
-    rtp: 98,
-    pl: 534,
-    n: ['بلينكو', 'Plinko', 'Plinko', 'بلينكو'],
-    d: ['فيزياء كرة', 'Physique réelle', 'Ball physics', 'فيزياء كرة']
-  },
-  {
-    id: 'dc',
-    eng: 'dice',
-    em: '🎲',
-    art: 'in',
-    cat: 'instant',
-    tag: 'LIVE',
-    rtp: 98,
-    pl: 411,
-    n: ['دايس', 'Dice', 'Dice', 'دايس'],
-    d: ['هدف متحرك', 'Cible réglable', 'Target', 'هدف متحرك']
-  },
+  
+  
+  
   {
     id: 'cf',
     eng: 'coin',
@@ -236,42 +203,9 @@ const GAMES = [
     n: ['هاي-لو كاردز', 'Hi-Lo Cards', 'Hi-Lo Cards', 'هاي-لو كاردز'],
     d: ['أعلى/أقل', 'Plus haut/bas', 'Higher/lower', 'أعلى/أقل']
   },
-  {
-    id: 'wf',
-    eng: 'wheel',
-    em: '🎡',
-    art: 'in',
-    cat: 'instant',
-    tag: 'HOT',
-    rtp: 97.5,
-    pl: 456,
-    n: ['ويل أوف فورتشن', 'Wheel of Fortune', 'Wheel of Fortune', 'ويل أوف فورتشن'],
-    d: ['12 مضاعفاً', '12 multiplicateurs', '12 multipliers', '12 مضاعفاً']
-  },
-  {
-    id: 'sc',
-    eng: 'scr',
-    em: '🎫',
-    art: 'in',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 94,
-    pl: 187,
-    n: ['سكراتش كارد', 'Scratch Card', 'Scratch Card', 'سكراتش كارد'],
-    d: ['اكشف 3', '3 identiques', 'Match 3', 'اكشف 3']
-  },
-  {
-    id: 'wg',
-    eng: 'wingo',
-    em: '🌈',
-    art: 'in',
-    cat: 'instant',
-    tag: 'LIVE',
-    rtp: 95,
-    pl: 398,
-    n: ['وينجو كولورز', 'Wingo Colors', 'Wingo Colors', 'وينجو كولورز'],
-    d: ['ألوان', 'Couleurs', 'Colors', 'ألوان']
-  },
+  
+  
+  
   {
     id: 'rp',
     eng: 'rps',
@@ -296,92 +230,15 @@ const GAMES = [
     n: ['بينالتي شوت أوت', 'Penalty Shootout', 'Penalty Shootout', 'بينالتي شوت أوت'],
     d: ['حارس متحرك', 'Gardien', 'Keeper', 'حارس متحرك']
   },
-  {
-    id: 'l7',
-    eng: 'l7',
-    em: '7️⃣',
-    art: 'in',
-    cat: 'instant',
-    tag: 'LIVE',
-    rtp: 94.8,
-    pl: 203,
-    n: ['لاكي 7', 'Lucky 7', 'Lucky 7', 'لاكي 7'],
-    d: ['كرة 1-9', 'Boule 1-9', 'Ball 1-9', 'كرة 1-9']
-  },
+  
   /* ═══ كازينو ═══ */
-  {
-    id: 'sb',
-    eng: 'sicbo',
-    em: '🎲',
-    art: 'rl',
-    cat: 'casino',
-    tag: 'LIVE',
-    rtp: 97,
-    pl: 145,
-    n: ['سيك بو', 'Sic Bo', 'Sic Bo', 'سيك بو'],
-    d: ['نرد متدحرج', 'Dés animés', 'Rolling dice', 'نرد متدحرج']
-  },
-  {
-    id: 'rl',
-    eng: 'rl',
-    em: '🎯',
-    art: 'rl',
-    cat: 'casino',
-    tag: 'HOT',
-    rtp: 97,
-    pl: 412,
-    n: ['يوروبيان روليت', 'Roulette Européenne', 'European Roulette', 'يوروبيان روليت'],
-    d: ['كرة دوّارة', 'Bille orbitale', 'Orbiting ball', 'كرة دوّارة']
-  },
+  
+  
   /* ═══ ورق ═══ */
-  {
-    id: 'bj',
-    eng: 'bj',
-    em: '🃏',
-    art: 'bj',
-    cat: 'card',
-    tag: 'HOT',
-    rtp: 98,
-    pl: 256,
-    n: ['بلاك جاك 21', 'Blackjack 21', 'Blackjack 21', 'بلاك جاك 21'],
-    d: ['بلاك جاك فردي ضد الموزع أو جماعي 2-4 لاعبين بلا بانكر', 'Blackjack solo contre le croupier ou multijoueur 2-4 sans croupier', 'Solo blackjack vs dealer or multiplayer 2-4 without banker', 'بلاك جاك فردي ولا جماعي 2-4 بلا بانكر']
-  },
-  {
-    id: 'bc',
-    eng: 'bac',
-    em: '🃏',
-    art: 'bj',
-    cat: 'card',
-    tag: 'LIVE',
-    rtp: 96,
-    pl: 187,
-    n: ['باكارات', 'Baccarat', 'Baccarat', 'باكارات'],
-    d: ['لاعب/موزع', 'Joueur/Banquier', 'Player/Banker', 'لاعب/موزع']
-  },
-  {
-    id: 'dt',
-    eng: 'dt',
-    em: '🐉',
-    art: 'bj',
-    cat: 'card',
-    tag: 'LIVE',
-    rtp: 96,
-    pl: 165,
-    n: ['دراغون تايغر', 'Dragon Tiger', 'Dragon Tiger', 'دراغون تايغر'],
-    d: ['بطاقتان', '2 cartes', '2 cards', 'بطاقتان']
-  },
-  {
-    id: 'vp',
-    eng: 'vp',
-    em: '🃏',
-    art: 'pk',
-    cat: 'card',
-    tag: 'NEW',
-    rtp: 97,
-    pl: 132,
-    n: ['فيديو بوكر', 'Video Poker', 'Video Poker', 'فيديو بوكر'],
-    d: ['Jacks or Better', 'Jacks or Better', 'Jacks or Better', 'Jacks or Better']
-  },
+  
+  
+  
+  
   {
     id: 'ke',
     eng: 'keno',
@@ -394,30 +251,8 @@ const GAMES = [
     n: ['كينو', 'Keno', 'Keno', 'كينو'],
     d: ['20 من 80', '20 sur 80', '20 of 80', '20 من 80']
   },
-  {
-    id: 'sl',
-    eng: 'slots',
-    em: '🎰',
-    art: 'slots',
-    cat: 'slots',
-    tag: 'HOT',
-    rtp: 95.9,
-    pl: 342,
-    n: ['رويال سلوتس', 'Royal Slots', 'Royal Slots', 'رويال سلوتس'],
-    d: ['3 بكرات', '3 rouleaux', '3 reels', '3 بكرات']
-  },
-  {
-    id: 'ab',
-    eng: 'andarbahar',
-    em: '🃏',
-    art: 'bj',
-    cat: 'card',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 134,
-    n: ['أندار باهار', 'Andar Bahar', 'Andar Bahar', 'أندار باهار'],
-    d: ['أندار أم باهار', 'Andar ou Bahar', 'Andar or Bahar', 'أندار أم باهار']
-  },
+  
+  
   /* [BL] البلوت: مشروع مستقل محكوم بعقد المنصة */
   {
     id: 'bl',
@@ -451,102 +286,14 @@ const GAMES = [
       'اللون والرقم — ضد البوت ولا 4 لاعيب (محلي ولا أونلاين) · تعليمي مجاني، والرهان غير الغرف']
   },
   /* ═══ جديدة ═══ */
-  {
-    id: 'crabbin',
-    eng: 'crabbin',
-    em: '🦀',
-    art: 'crabbin',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 94.4,
-    pl: 0,
-    n: ['كرابين', 'Crabbin', 'Crabbin', 'كرابين'],
-    d: ['9 سرطانات: 6 ذهبية و3 حمراء', 'Jeu de crabes', 'Crab game', '9 سرطانات: 6 ذهبية و3 حمراء']
-  },
-  {
-    id: 'fishing',
-    eng: 'fishing',
-    em: '🎣',
-    art: 'fishing',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95.5,
-    pl: 0,
-    n: ['فيشينغ', 'Fishing', 'Fishing', 'فيشينغ'],
-    d: ['اصطد السمكة بالمضاعف', 'Pêche aux multiplicateurs', 'Fishing multipliers', 'اصطد السمكة بالمضاعف']
-  },
-  {
-    id: 'gates',
-    eng: 'gates',
-    em: '⛩️',
-    art: 'gates',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 0,
-    n: ['غيتس', 'Gates', 'Gates', 'غيتس'],
-    d: ['بوابات زيوس الذهبية', 'Portes de Zeus', 'Gates of Zeus', 'بوابات زيوس الذهبية']
-  },
-  {
-    id: 'lightning',
-    eng: 'lightning',
-    em: '⚡',
-    art: 'lightning',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95.8,
-    pl: 0,
-    n: ['لايتنينغ', 'Lightning', 'Lightning', 'لايتنينغ'],
-    d: ['برق ذهبي يحقق الجائزة', 'Éclair doré', 'Golden lightning', 'برق ذهبي يحقق الجائزة']
-  },
-  {
-    id: 'lottery',
-    eng: 'lottery',
-    em: '🎟️',
-    art: 'lottery',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 0,
-    n: ['لوتيري', 'Lottery', 'Lottery', 'لوتيري'],
-    d: ['تذاكر يانصيب محظوظة', 'Billets de loterie', 'Lucky lottery', 'تذاكر يانصيب محظوظة']
-  },
-  {
-    id: 'mahjong',
-    eng: 'mahjong',
-    em: '🀄',
-    art: 'mahjong',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 0,
-    n: ['ماجونغ', 'Mahjong', 'Mahjong', 'ماجونغ'],
-    d: ['بلاطات الحظ الصينية', 'Tuiles de chance chinoises', 'Lucky mahjong tiles', 'بلاطات الحظ الصينية']
-  },
-  {
-    id: 'money',
-    eng: 'money',
-    em: '💰',
-    art: 'money',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 94.4,
-    pl: 0,
-    n: ['ماني', 'Money', 'Money', 'ماني'],
-    d: ['صناديق الكنوز', 'Coffres aux trésors', 'Golden money safes', 'صناديق الكنوز']
-  },
-  {
-    id: 'olympus',
-    eng: 'olympus',
-    em: '🏛️',
-    art: 'olympus',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 0,
-    n: ['أوليمبوس', 'Olympus', 'Olympus', 'أوليمبوس'],
-    d: ['قوة آلهة الأوليمب', 'Puissance des dieux', 'Power of Olympus gods', 'قوة آلهة الأوليمب']
-  },
+  
+  
+  
+  
+  
+  
+  
+  
   {
     id: 'poker',
     eng: 'poker',
@@ -559,30 +306,8 @@ const GAMES = [
     n: ['بوكر', 'Poker', 'Poker', 'بوكر'],
     d: ['البطاقات الملكية للبوكر', 'Cartes royales du poker', 'Royal poker cards', 'البطاقات الملكية للبوكر']
   },
-  {
-    id: 'rose',
-    eng: 'rose',
-    em: '🌹',
-    art: 'rose',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 0,
-    n: ['روز', 'Rose', 'Rose', 'روز'],
-    d: ['وردة الحظ الذهبية', 'Rose dorée de la chance', 'Golden lucky rose', 'وردة الحظ الذهبية']
-  },
-  {
-    id: 'sweet-bonanza',
-    eng: 'sweet-bonanza',
-    em: '🍬',
-    art: 'sweet-bonanza',
-    cat: 'instant',
-    tag: 'NEW',
-    rtp: 95,
-    pl: 0,
-    n: ['سويت بونانزا', 'Sweet Bonanza', 'Sweet Bonanza', 'سويت بونانزا'],
-    d: ['حلوى سكرية محظوظة', 'Bonbons sucrés chanceux', 'Sweet candy bonanza', 'حلوى سكرية محظوظة']
-  }
+  
+  
 ];
 /* ── قواعد مختصرة داخل اللعبة ── */
 const RULES = {

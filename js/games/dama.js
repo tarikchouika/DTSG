@@ -663,7 +663,6 @@ function eDama(g) {
           '<div class="dama-betrow" hidden>' + betRow() + '</div>' +
           '<div class="dama-pay" style="text-align:center;color:var(--t3);font-size:.8rem">🎓 ' + (T('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط') + '</div>' +
         '</div>' +
-        '<div class="dama-pay" id="damaPay"></div>' +
         '<button class="big dama-go" id="damaGo" onclick="damaStart()"><i class="fa-solid fa-trophy" aria-hidden="true"></i> ' + T('dama.startMatch') + '</button>' +
         '<button class="big ch-online" onclick="damaOnline()"><i class="fa-solid fa-globe" aria-hidden="true"></i> ' + T('chess.onlineRoom') + '</button>' +
       '</div>' +
@@ -765,7 +764,7 @@ function damaSelColor() {
 }
 function damaUpdatePay() {
   var el = document.getElementById('damaPay');
-  if (el && DAMA) el.innerHTML = T('dama.winReward') + ': <b>×' + DAMA_LEVELS[DAMA.level].mult.toFixed(1) + '</b> ' + T('dama.yourBet');
+  
 }
 
 
