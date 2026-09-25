@@ -52,6 +52,8 @@
     _roomTimer: 60,          /* مهلة الدور (ثوانٍ) من إعدادات الغرفة */
     _netSeq: 0,
     _lastActAt: 0,
+    _lastTurnId: -1,
+    _turnTimerId: null,
     _aiNext: 0,
     _driverT: null,
     _roundVotes: {},
@@ -132,7 +134,85 @@
       this._settled = false;
       this._overlayKind = null;
     },
-    clearTimers: function () { for (let i = 0; i < this._timers.length; i++) clearTimeout(this._timers[i]); this._timers = []; },
+    clearTimers: function () { 
+      for (let i = 0; i < this._timers.length; i++) clearTimeout(this._timers[i]); 
+      this._timers = []; 
+      this.stopTurnTimer();
+    },
+    stopTurnTimer: function () {
+      if (this._turnTimerId) { clearInterval(this._turnTimerId); this._turnTimerId = null; }
+      for (let i = 0; i < 4; i++) {
+        let el = this.$('bltTimer' + i);
+        if (el) el.style.display = 'none';
+      }
+    },
+    startTurnTimer: function () {
+      this.stopTurnTimer();
+      const isRoom = this.roomMode;
+      const tLimit = isRoom ? (this._roomTimer || 60) : this.config.timer;
+      const s = NS.state;
+      if (!tLimit || !s || (s.phase !== 'ashur' && s.phase !== 'naming' && s.phase !== 'play')) return;
+      
+      const self = this;
+      this._turnTimerId = setInterval(function () {
+        self.renderTurnTimer();
+      }, 1000);
+      this.renderTurnTimer();
+    },
+    renderTurnTimer: function () {
+      const isRoom = this.roomMode;
+      const tLimit = isRoom ? (this._roomTimer || 60) : this.config.timer;
+      const s = NS.state;
+      if (!tLimit || !s || (s.phase !== 'ashur' && s.phase !== 'naming' && s.phase !== 'play')) {
+        this.stopTurnTimer();
+        return;
+      }
+      const grace = tLimit;
+      let left = grace - Math.floor((Date.now() - (this._lastActAt || Date.now())) / 1000);
+      if (left < 0) left = 0;
+      const isLow = left <= 10;
+      
+      const p = s.turn;
+      for (let i = 0; i < 4; i++) {
+        const uiSeat = this._uiSeatMap(i);
+        const el = this.$('bltTimer' + uiSeat);
+        if (el) {
+          if (i === p && this._seatPresent(i)) {
+            el.style.display = 'inline-block';
+            el.textContent = '⏱ ' + left;
+            el.className = 'blt-ptimer' + (isLow ? ' blt-time-low' : '');
+          } else {
+            el.style.display = 'none';
+          }
+        }
+      }
+      
+      // Auto Play
+      const meSeat = isRoom ? this.mySeat() : this._activeSeat();
+      const isHuman = this._isHuman(s, p);
+      if (left <= 0 && isHuman && p === meSeat && (!isRoom || !this._isSpectator)) {
+        if (!this._autoPlayedTurn || this._autoPlayedTurn !== p + s.phase + (s.phase === 'play' ? s.trick.length : 0)) {
+          this._autoPlayedTurn = p + s.phase + (s.phase === 'play' ? s.trick.length : 0);
+          if (s.phase === 'ashur') {
+            if (isRoom) this._netEmit('pass', {});
+            NS.actPass(p);
+          } else if (s.phase === 'naming') {
+            if (isRoom) this._netEmit('pass2', {});
+            NS.actPass2(p);
+          } else if (s.phase === 'play') {
+            const l = NS.legalPlays(s, p);
+            if (l.length) {
+              const act = l[Math.floor(Math.random() * l.length)];
+              if (isRoom) this._netEmit('play', { id: act.id });
+              NS.actPlay(p, act);
+            }
+          }
+          this._lastActAt = Date.now();
+        }
+      } else if (left > 0) {
+        this._autoPlayedTurn = null;
+      }
+    },
     later: function (fn, ms) { const t = setTimeout(fn, ms); this._timers.push(t); return t; },
     on: function (el, ev, fn) { if (!el) return; el.addEventListener(ev, fn); this._handlers.push({ el: el, ev: ev, fn: fn }); },
     _clearHandlers: function (list) {
@@ -1219,7 +1299,7 @@
       if (!tLimit || !s || (s.phase !== 'ashur' && s.phase !== 'naming' && s.phase !== 'play')) {
         for (let i = 0; i < 4; i++) {
           const el = this.$('bltTimer' + i);
-          if (el) el.hidden = true;
+          if (el) el.style.display = 'none';
         }
         return;
       }
@@ -1228,17 +1308,17 @@
       if (left < 0) left = 0;
       const isLow = left <= 10;
       
-      const p = s.turn; // current turn seat
+      const p = s.turn;
       for (let i = 0; i < 4; i++) {
-        const uiSeat = this._uiSeatMap(i); // get which UI element corresponds to seat i
+        const uiSeat = this._uiSeatMap(i);
         const el = this.$('bltTimer' + uiSeat);
         if (el) {
           if (i === p && this._seatPresent(i)) {
-            el.hidden = false;
+            el.style.display = 'inline-block';
             el.textContent = '⏱ ' + left;
-            el.className = 'bl-ptimer' + (isLow ? ' blt-time-low' : '');
+            el.className = 'blt-ptimer' + (isLow ? ' blt-time-low' : '');
           } else {
-            el.hidden = true;
+            el.style.display = 'none';
           }
         }
       }
@@ -1258,8 +1338,9 @@
           } else if (s.phase === 'play') {
             const l = NS.legalPlays(s, p);
             if (l.length) {
-              if (isRoom) this._netEmit('play', { id: l[0].id });
-              NS.actPlay(p, l[0]);
+              const act = l[Math.floor(Math.random() * l.length)];
+              if (isRoom) this._netEmit('play', { id: act.id });
+              NS.actPlay(p, act);
             }
           }
           this._lastActAt = Date.now();

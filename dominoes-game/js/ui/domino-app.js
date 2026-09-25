@@ -145,12 +145,12 @@
       this._turnTimerLeft = 0;
       for (let i = 0; i < 4; i++) {
         let el = document.getElementById('dmTimer' + i);
-        if (el) el.hidden = true;
+        if (el) el.style.display = 'none';
       }
     },
     startTurnTimer: function () {
       this.stopTurnTimer();
-      const s = this.game ? this.game.state : null;
+      const s = this.game ? this.game.view() : null;
       if (!s || s.phase !== 'play' || s.turn === undefined) return;
       const tLimit = (this.room && this.room.on) ? ((this.room.settings && this.room.settings.timer) ? parseInt(this.room.settings.timer, 10) : 60) : this.config.timer;
       if (!tLimit) return;
@@ -158,12 +158,13 @@
       this._turnTimerLeft = tLimit;
       const self = this;
       this._turnTimerId = setInterval(function () {
-        if (!self.game || !self.game.state || self.game.state.phase !== 'play') { self.stopTurnTimer(); return; }
+        const sv = self.game ? self.game.view() : null;
+        if (!sv || sv.phase !== 'play') { self.stopTurnTimer(); return; }
         self._turnTimerLeft--;
         self.renderTurnTimer();
         if (self._turnTimerLeft <= 0) {
           self.stopTurnTimer();
-          const turn = self.game.state.turn;
+          const turn = sv.turn;
           const meSeat = self.mySeatNum();
           if (self.room && self.room.on && !self.room.spec && turn === meSeat) {
             self._autoPlayLocal();
@@ -190,13 +191,12 @@
       }
     },
     renderTurnTimer: function () {
-      const s = this.game ? this.game.state : null;
+      const s = this.game ? this.game.view() : null;
       if (!s || s.phase !== 'play') return;
       const left = this._turnTimerLeft;
       const meSeat = this.mySeatNum();
       const numPlayers = s.scores ? s.scores.length : 2;
       for (let i = 0; i < 4; i++) {
-        // UI IDs map: 0 = me, 1 = opp(right/top), 2 = opp2(top), 3 = opp3(left).
         let uiIdx = 0;
         if (i === meSeat) {
            uiIdx = 0;
@@ -208,11 +208,11 @@
         const el = document.getElementById('dmTimer' + uiIdx);
         if (el) {
           if (i === s.turn) {
-            el.hidden = false;
+            el.style.display = 'inline-block';
             el.textContent = '⏱ ' + Math.max(0, left);
             el.className = 'dm-ptimer' + (left <= 10 ? ' dm-time-low' : '');
           } else {
-            el.hidden = true;
+            el.style.display = 'none';
           }
         }
       }

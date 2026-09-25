@@ -362,6 +362,22 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
   font-family: var(--bl-font-display); font-size: 11px; font-weight: 900;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
+.blt-ptimer {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 10px;
+  border: 1px solid var(--bl-gold2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+.blt-ptimer.blt-time-low { color: #ff5252; animation: bltPulseTimer 1s infinite alternate; }
+@keyframes bltPulseTimer { from { transform: scale(1); } to { transform: scale(1.1); } }
 .bl-platesub { font-size: 9.5px; color: #7fa8e0; margin-top: 1px; font-weight: 700; text-shadow: 0 2px 5px rgba(0, 0, 0, 0.8); }
 .bl-platebadge { position: static; margin-inline-end: 6px; }
 .bl-dchip {

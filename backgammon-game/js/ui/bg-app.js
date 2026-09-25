@@ -109,13 +109,13 @@
       this._turnTimerLeft = 0;
       for (let i = 0; i < 2; i++) {
         let el = document.getElementById('bwTimer' + i);
-        if (el) el.hidden = true;
+        if (el) el.style.display = 'none';
       }
     },
     startTurnTimer: function () {
       this.stopTurnTimer();
       const s = this.game ? this.game.state : null;
-      if (!s || s.phase !== 'PLAY' || s.turn === undefined) return;
+      if (!s || s.over || s.turn === undefined) return;
       
       const inRoom = !!(this.room && this.room.on);
       const tLimit = inRoom ? ((this.room.settings && this.room.settings.timer) ? parseInt(this.room.settings.timer, 10) : 60) : this.config.timer;
@@ -124,7 +124,7 @@
       this._turnTimerLeft = tLimit;
       const self = this;
       this._turnTimerId = setInterval(function () {
-        if (!self.game || !self.game.state || self.game.state.phase !== 'PLAY') { self.stopTurnTimer(); return; }
+        if (!self.game || !self.game.state || self.game.state.over) { self.stopTurnTimer(); return; }
         self._turnTimerLeft--;
         self.renderTurnTimer();
         if (self._turnTimerLeft <= 0) {
@@ -142,7 +142,7 @@
     },
     renderTurnTimer: function () {
       const s = this.game ? this.game.state : null;
-      if (!s || s.phase !== 'PLAY') return;
+      if (!s || s.over) return;
       const left = this._turnTimerLeft;
       const meSeat = (this.room && this.room.on) ? this.room.mySeat : 0;
       for (let i = 0; i < 2; i++) {
@@ -151,11 +151,11 @@
         const el = document.getElementById('bwTimer' + elIdx);
         if (el) {
           if (i === s.turn) {
-            el.hidden = false;
+            el.style.display = 'inline-block';
             el.textContent = '⏱ ' + Math.max(0, left);
             el.className = 'bw-ptimer' + (left <= 10 ? ' bw-time-low' : '');
           } else {
-            el.hidden = true;
+            el.style.display = 'none';
           }
         }
       }

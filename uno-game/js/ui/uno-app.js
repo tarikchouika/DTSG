@@ -159,6 +159,7 @@
       this._overlayKind = null;
       this._awaitReveal = -1;
       this._revealedSeat = -1;
+      this._startDriverTick(); // Start timer loop for local game too
       this._renderAll(true);
       this.tick();
     },
@@ -167,6 +168,7 @@
     },
     toMenu: function () {
       this._detachState();
+      this._stopDriverTick();
       NS.reset();
       this.showScreen('menu');
       this._applyModeUI();
@@ -456,6 +458,10 @@
     tick: function () {
       const s = NS.st;
       if (!s || !this._attached) return;
+      if (s.turn !== this._lastTurnId) {
+        this._lastTurnId = s.turn;
+        this._lastActAt = Date.now();
+      }
       if (this._overlayKind === 'roundEnd' && s.phase !== 'roundEnd') { this.hideOverlay(); this._overlayKind = null; }
       if (this._overlayKind === 'matchEnd' && s.phase !== 'matchEnd') { this.hideOverlay(); this._overlayKind = null; }
       if (this._colorPick && (s.phase !== 'play' || s.turn !== this._mySeat(s))) { this._colorPick = null; this.hideOverlay(); }
@@ -901,16 +907,17 @@
     },
     _stopDriverTick: function () { if (this._driverT) { clearInterval(this._driverT); this._driverT = null; } },
     roomUiTimerTick: function () {
-      if (!this.roomMode) return;
+      const isRoom = this.roomMode;
+      const tLimit = isRoom ? (this._roomTimer || 60) : this.config.timer;
       const s = NS.st;
-      if (!s || s.phase !== 'play') {
+      if (!tLimit || !s || s.phase !== 'play') {
         for (let k = 0; k <= 3; k++) {
           const el = this.$('unTimer' + k);
-          if (el) el.hidden = true;
+          if (el) el.style.display = 'none';
         }
         return;
       }
-      const grace = this._roomTimer || 60;
+      const grace = tLimit;
       let left = grace - Math.floor((Date.now() - (this._lastActAt || Date.now())) / 1000);
       if (left < 0) left = 0;
       const isLow = left <= 10;
@@ -935,31 +942,32 @@
           const el = this.$('unTimer' + uiSeat);
           if (el) {
             if (i === s.turn) {
-              el.hidden = false;
+              el.style.display = 'inline-block';
               el.textContent = '⏱ ' + left;
               el.className = 'un-ptimer' + (isLow ? ' un-time-low' : '');
             } else {
-              el.hidden = true;
+              el.style.display = 'none';
             }
           }
         }
       }
       // auto-play on timeout for local turn in room
-      if (left <= 0 && s.turn === my && !this._isSpectator && this.roomMode) {
-        if (!this._autoPlayedTurn || this._autoPlayedTurn !== s.turn) {
-          this._autoPlayedTurn = s.turn; // prevent spamming
-          const legal = Core.legalMoves(s.hands[my], s.color, Core.top(s.discard).value);
+      const meSeat = this._mySeat(s);
+      if (left <= 0 && this._isHumanSeat(s, s.turn) && s.turn === meSeat && (!isRoom || !this._isSpectator)) {
+        if (!this._autoPlayedTurn || this._autoPlayedTurn !== s.turn + s.discard.length + s.drawn) {
+          this._autoPlayedTurn = s.turn + s.discard.length + s.drawn; // prevent spamming
+          const legal = Core.legalMoves(s.hands[meSeat], s.color, Core.top(s.discard).value);
           if (legal.length) {
-            this._netEmit('play', { card: legal[0] });
-            NS.playCard(my, legal[0]);
+            if (isRoom) this._netEmit('play', { card: legal[0] });
+            NS.playCard(meSeat, legal[0]);
           } else {
-            this._netEmit('draw', {});
-            NS.drawCard(my);
+            if (isRoom) this._netEmit('draw', {});
+            NS.drawCard(meSeat);
           }
           this._lastActAt = Date.now();
         }
       } else if (left > 0) {
-        this._autoPlayedTurn = -1;
+        this._autoPlayedTurn = null;
       }
     },
     roomDriverTick: function () {

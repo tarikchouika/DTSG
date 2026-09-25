@@ -1676,36 +1676,44 @@ function chessPaintSeatTimers(txt, whose) {
   var top = document.getElementById('chessTopTimer');
   var bot = document.getElementById('chessBotTimer');
   if (top) {
-    top.hidden = !((whose === 'top') && !!txt);
-    top.textContent = (whose === 'top') ? txt : '';
-    top.className = 'ch-ptimer' + ((whose === 'top' && low) ? ' low' : '');
+    if (whose === 'top' && !!txt) {
+      top.style.display = 'inline-block';
+      top.textContent = txt;
+      top.className = 'ch-ptimer' + (low ? ' low' : '');
+    } else {
+      top.style.display = 'none';
+    }
   }
   if (bot) {
-    bot.hidden = !((whose === 'bot') && !!txt);
-    bot.textContent = (whose === 'bot') ? txt : '';
-    bot.className = 'ch-ptimer' + ((whose === 'bot' && low) ? ' low' : '');
+    if (whose === 'bot' && !!txt) {
+      bot.style.display = 'inline-block';
+      bot.textContent = txt;
+      bot.className = 'ch-ptimer' + (low ? ' low' : '');
+    } else {
+      bot.style.display = 'none';
+    }
   }
 }
 function chessStartTimer() {
   chessStopTimer();
   if (!CHESS || !CHESS.state || CHESS.state.over) return;
-  if (!CHESS.timer) return;
-  /* [RS-GameOpts] في الغرفة: المؤقت يعمل على دوري فقط وبحركة آلية متزامنة عند انتهائه
-     (لا إنهاء محلي أحادي الجانب يفسد التزامن) */
-  if (CHESS.mode === 'room') {
-    if (CHESS.isSpectator || CHESS.state.turn !== CHESS.myColor) return;
-  } else if (CHESS.mode !== 'local') return;
-  CHESS._turnLeft = CHESS.timer;
+  var tLimit = (CHESS.mode === 'room') ? (window.CH_ROOM_TIMER || 60) : CHESS.timer;
+  if (!tLimit) return;
+  
+  CHESS._turnLeft = tLimit;
   CHESS._turnTi = setInterval(function () {
     if (!CHESS || !CHESS.state || CHESS.state.over) { chessStopTimer(); return; }
     CHESS._turnLeft--;
     chessRenderTimer();
     if (CHESS._turnLeft <= 0) {
-      if (CHESS.mode === 'room') chessRoomAutoMove();
-      else chessTimeout();
+      if (CHESS.mode === 'room') {
+        if (!CHESS.isSpectator && CHESS.state.turn === CHESS.myColor) chessRoomAutoMove();
+      } else {
+        if (CHESS.state.turn === CHESS.myColor) chessTimeout();
+      }
     }
   }, 1000);
-  chessRenderTimer();   /* [Timer-Seat] أول رسم بعد تجهيز _turnTi — تظهر الشارة فور البدء */
+  chessRenderTimer();
 }
 /* [RS-GameOpts] انتهاء مؤقت دورك في الغرفة: حركة قانونية آلية تُبث للجميع */
 function chessRoomAutoMove() {
