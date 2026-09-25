@@ -4065,7 +4065,9 @@ class RamiUIAdapter {
           if (finishRes && (finishRes.success || finishRes.penaltyApplied)) {
             this._botEmit('finish', { playerId: bot.id, isolateCardId: null });
             setRamiBusy(false);
-            if (this.game.gamePhase === 'ROUND_END') {
+            /* [R7-FIX] شوط واحد: _endRound يقفز مباشرة إلى MATCH_END — يجب كشف الحالتين
+               وإلا تبقى الواجهة على الطاولة الحية بعد فوز البوت (تجمّد يراه المستخدم) */
+            if (this.game.gamePhase === 'ROUND_END' || this.game.gamePhase === 'MATCH_END') {
               this._endRoundUI();
             } else {
               this._processTurn();
@@ -4102,7 +4104,9 @@ class RamiUIAdapter {
         }
 
         setRamiBusy(false);
-        if (this.game.gamePhase === 'ROUND_END') {
+        /* [R7-FIX] نهاية مباراة الشوط الواحد تصل هنا كـ MATCH_END لا ROUND_END —
+           الفحص الضيق كان يترك الواجهة مجمدة على الطاولة بعد رمي البوت الورقة الأخيرة */
+        if (this.game.gamePhase === 'ROUND_END' || this.game.gamePhase === 'MATCH_END') {
           this._endRoundUI();
         } else {
           this._processTurn();
@@ -5535,6 +5539,11 @@ function ramiStartGame() {
     window.RamiAdapter.game = RAMI_STATE;
     window.RamiAdapter.selectedCards.clear();
     window.RamiAdapter.handSlots = [[], [], [], [], []];
+    /* [R7-FIX] مباراة جديدة: تصفير مفتاح لقطة الإنهاء — المفتاح القديم
+       (رقم الشوط:المرحلة = 1:MATCH_END) يتعارض مع مباراة الشوط الواحد
+       التالية فتتخطى لقطة المشاهدة وبانر النهاية بعد أول إعادة لعب */
+    window.RamiAdapter._endFreezeDone = null;
+    if (window.RamiAdapter._endFreezeTimer) { clearTimeout(window.RamiAdapter._endFreezeTimer); window.RamiAdapter._endFreezeTimer = null; }
     window.RamiAdapter._renderGame();
     window.RamiAdapter.playIntroAndStart();
   }
@@ -5606,7 +5615,7 @@ function ramiAction(type, cardId) {
       return;
     }
 
-    if (type === 'finish' || result.finished || activeGame.gamePhase === 'ROUND_END' || player.hand.length === 0) {
+    if (type === 'finish' || result.finished || activeGame.gamePhase === 'ROUND_END' || activeGame.gamePhase === 'MATCH_END' || player.hand.length === 0) {
       if (adapter) adapter._endRoundUI();
       return;
     }
@@ -5614,13 +5623,13 @@ function ramiAction(type, cardId) {
     if (type === 'discard') {
       if (adapter) adapter.selectedCards.clear();
       if (typeof SND !== 'undefined' && SND.card) SND.card();
-      if (activeGame.gamePhase === 'ROUND_END' || player.hand.length === 0) {
+      if (activeGame.gamePhase === 'ROUND_END' || activeGame.gamePhase === 'MATCH_END' || player.hand.length === 0) {
         if (adapter) adapter._endRoundUI();
       } else {
         if (adapter) adapter._processTurn();
       }
     } else {
-      if (activeGame.gamePhase === 'ROUND_END' || player.hand.length === 0) {
+      if (activeGame.gamePhase === 'ROUND_END' || activeGame.gamePhase === 'MATCH_END' || player.hand.length === 0) {
         if (adapter) adapter._endRoundUI();
       } else {
         if (adapter) adapter._updateUI();
@@ -5678,7 +5687,8 @@ function ramiOpenMelds() {
       if (typeof SND !== 'undefined' && SND.win) SND.win();
       _ramiToast('🎉 ' + (_ramiT('rami.openedSuccess') || 'تم إنزال الأوراق والافتتاح بنجاح في الطاولة!'), 'ok');
       if (typeof ramiAutoSave === 'function') ramiAutoSave();
-      if (activeGame.gamePhase === 'ROUND_END') {
+      /* [R7-FIX] افتتاح اللاعب أنهى مباراة الشوط الواحد (MATCH_END) — أظهر شاشة النهاية */
+      if (activeGame.gamePhase === 'ROUND_END' || activeGame.gamePhase === 'MATCH_END') {
         adapter._endRoundUI();
       } else {
         adapter._updateUI();
