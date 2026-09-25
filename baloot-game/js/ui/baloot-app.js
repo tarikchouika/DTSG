@@ -1197,10 +1197,77 @@
 
     _startDriverTick: function () {
       this._stopDriverTick();
-      if (!this._isDriver) return;
-      this._driverT = setInterval(() => { try { this.roomDriverTick(); } catch (e) {} }, 1000);
+      this._driverT = setInterval(() => {
+        try { if (this._isDriver) this.roomDriverTick(); } catch (e) {}
+        try { this.roomUiTimerTick(); } catch (e) {}
+      }, 1000);
     },
     _stopDriverTick: function () { if (this._driverT) { clearInterval(this._driverT); this._driverT = null; } },
+    _uiSeatMap: function (logicalSeat) {
+      if (this.roomMode && this._roomSeat >= 0) {
+        if (logicalSeat === this._roomSeat) return 0;
+        // Simple swap for Baloot since the plates don't rotate yet, but we want the timer on the right plate.
+        if (logicalSeat === 0) return this._roomSeat;
+        return logicalSeat;
+      }
+      return logicalSeat;
+    },
+    roomUiTimerTick: function () {
+      const isRoom = this.roomMode;
+      const tLimit = isRoom ? (this._roomTimer || 60) : this.config.timer;
+      const s = NS.state;
+      if (!tLimit || !s || (s.phase !== 'ashur' && s.phase !== 'naming' && s.phase !== 'play')) {
+        for (let i = 0; i < 4; i++) {
+          const el = this.$('bltTimer' + i);
+          if (el) el.hidden = true;
+        }
+        return;
+      }
+      const grace = tLimit;
+      let left = grace - Math.floor((Date.now() - (this._lastActAt || Date.now())) / 1000);
+      if (left < 0) left = 0;
+      const isLow = left <= 10;
+      
+      const p = s.turn; // current turn seat
+      for (let i = 0; i < 4; i++) {
+        const uiSeat = this._uiSeatMap(i); // get which UI element corresponds to seat i
+        const el = this.$('bltTimer' + uiSeat);
+        if (el) {
+          if (i === p && this._seatPresent(i)) {
+            el.hidden = false;
+            el.textContent = '⏱ ' + left;
+            el.className = 'bl-ptimer' + (isLow ? ' blt-time-low' : '');
+          } else {
+            el.hidden = true;
+          }
+        }
+      }
+      
+      // Auto Play
+      const meSeat = isRoom ? this.mySeat() : this._activeSeat();
+      const isHuman = this._isHuman(s, p);
+      if (left <= 0 && isHuman && p === meSeat && (!isRoom || !this._isSpectator)) {
+        if (!this._autoPlayedTurn || this._autoPlayedTurn !== p + s.phase + (s.phase === 'play' ? s.trick.length : 0)) {
+          this._autoPlayedTurn = p + s.phase + (s.phase === 'play' ? s.trick.length : 0);
+          if (s.phase === 'ashur') {
+            if (isRoom) this._netEmit('pass', {});
+            NS.actPass(p);
+          } else if (s.phase === 'naming') {
+            if (isRoom) this._netEmit('pass2', {});
+            NS.actPass2(p);
+          } else if (s.phase === 'play') {
+            const l = NS.legalPlays(s, p);
+            if (l.length) {
+              if (isRoom) this._netEmit('play', { id: l[0].id });
+              NS.actPlay(p, l[0]);
+            }
+          }
+          this._lastActAt = Date.now();
+        }
+      } else if (left > 0) {
+        this._autoPlayedTurn = null;
+      }
+    },
     roomDriverTick: function () {
       if (!this.roomMode || !this._isDriver) return;
       const s = NS.state;

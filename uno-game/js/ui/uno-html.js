@@ -87,15 +87,15 @@
         /* ── المقاعد ── */
         '<div class="un-seat un-seat-top" id="unSeatTop">' +
           '<div class="un-stack" id="unStack2"></div>' +
-          '<div class="un-plate" id="unPlate2"><span class="un-platebadge" id="unBadge2"></span><div class="un-av" id="unName2">…</div><span class="un-platecount" id="unCount2">7</span></div>' +
+          '<div class="un-plate" id="unPlate2"><span class="un-platebadge" id="unBadge2"></span><div class="un-av" id="unName2">…</div><span class="un-platecount" id="unCount2">7</span><span class="un-ptimer" id="unTimer2" hidden>⏱</span></div>' +
         '</div>' +
         '<div class="un-seat un-seat-right" id="unSeatRight">' +
           '<div class="un-stack" id="unStack1"></div>' +
-          '<div class="un-plate" id="unPlate1"><span class="un-platebadge" id="unBadge1"></span><div class="un-av" id="unName1">…</div><span class="un-platecount" id="unCount1">7</span></div>' +
+          '<div class="un-plate" id="unPlate1"><span class="un-platebadge" id="unBadge1"></span><div class="un-av" id="unName1">…</div><span class="un-platecount" id="unCount1">7</span><span class="un-ptimer" id="unTimer1" hidden>⏱</span></div>' +
         '</div>' +
         '<div class="un-seat un-seat-left" id="unSeatLeft">' +
           '<div class="un-stack" id="unStack3"></div>' +
-          '<div class="un-plate" id="unPlate3"><span class="un-platebadge" id="unBadge3"></span><div class="un-av" id="unName3">…</div><span class="un-platecount" id="unCount3">7</span></div>' +
+          '<div class="un-plate" id="unPlate3"><span class="un-platebadge" id="unBadge3"></span><div class="un-av" id="unName3">…</div><span class="un-platecount" id="unCount3">7</span><span class="un-ptimer" id="unTimer3" hidden>⏱</span></div>' +
         '</div>' +
 
         /* ── الوسط: طاقم + رمية + اتجاه ── */
@@ -107,7 +107,7 @@
 
         /* ── يد اللاعب ── */
         '<div class="un-handwrap" id="unHandWrap">' +
-          '<div class="un-handplate" id="unHandPlate"><span class="un-platebadge" id="unBadge0"></span><div class="un-av" id="unName0">…</div><span class="un-platecount" id="unCount0">7</span></div>' +
+          '<div class="un-handplate" id="unHandPlate"><span class="un-platebadge" id="unBadge0"></span><div class="un-av" id="unName0">…</div><span class="un-platecount" id="unCount0">7</span><span class="un-ptimer" id="unTimer0" hidden>⏱</span></div>' +
           '<div class="un-hand" id="unHand"></div>' +
         '</div>' +
 

@@ -131,8 +131,9 @@ function eBilliards(g) {
           '</div>' +
           '<b class="bl-score" id="blScore0" hidden></b>' +
           '<div class="bl-vtray" id="blTrayR"></div>' +
-          '<input id="blPower" type="range" min="1" max="100" value="75" oninput="billiardsPowerUi()">' +
-          '<button class="bl-shoot" id="blShoot" onclick="billiardsShoot()">&#8249;</button>' +
+          '<div class="bl-cue-track" id="blCueTrack">' +
+            '<div class="bl-cue-stick" id="blCueStick"></div>' +
+          '</div>' +
           '<div class="bl-sr">' +
             '<div class="bl-pl" id="blPl0"><span class="bl-nm" id="blNm0">' + T('bl.player1') + '</span><span class="bl-grp" id="blGrp0"></span></div>' +
             '<div class="bl-pl" id="blPl1"><span class="bl-nm" id="blNm1">' + T('bl.player2') + '</span><span class="bl-grp" id="blGrp1"></span></div>' +
@@ -411,16 +412,26 @@ function billiardsShoot() {
   var c = B.G.cue();
   if (!c || c.status !== 'ON_TABLE') return;
   var pl = B.G.shotPayload(B.aim, B.power, (B.spin.x || B.spin.y) ? B.spin : null);
+  
   if (B.mode === 'room') {
-    /* [BL-Anim] عرض متحرك للجميع: الفيزياء بخطوة ثابتة (HZ) في حلقة الرسم —
-       حتمية مطابقة تماماً لـ shootAndResolve لكن الكرات تُرى وهي تتحرك.
-       الوصف يُبث فوراً؛ resolve يقع في blTick عند توقف الكرات. */
     B.G.shoot(B.aim, B.power, (B.spin.x || B.spin.y) ? B.spin : null);
     blSendRoom(pl);
   } else {
     B.G.shoot(B.aim, B.power, (B.spin.x || B.spin.y) ? B.spin : null);
   }
+  
+  /* Reset Power UI */
+  B.power = 75;
+  var stick = document.getElementById('blCueStick');
+  var frm = document.getElementById('blFrame');
+  var lb = document.getElementById('blPowVal');
+  if (lb) lb.textContent = '75';
+  if (stick && frm) {
+    if (frm.classList.contains('bl-land')) { stick.style.bottom = '25%'; stick.style.left = ''; }
+    else { stick.style.left = '25%'; stick.style.bottom = ''; }
+  }
   blResetSpinUi();
+}  blResetSpinUi();
   if (typeof SND !== 'undefined' && SND.peg) { try { SND.peg(); } catch (e) {} }
   blUpdateHud();
 }
@@ -1108,6 +1119,46 @@ function blBindInput() {
     sp.addEventListener('dblclick', blResetSpinUi);
   }
 
+  /* سحب عصا التسديد */
+  var cTrack = document.getElementById('blCueTrack');
+  if (cTrack) {
+    var cueMove = function (e) {
+      var r = cTrack.getBoundingClientRect();
+      var src = (e.touches && e.touches[0]) ? e.touches[0] : e;
+      var land = document.getElementById('blFrame').classList.contains('bl-land');
+      var val = 0;
+      if (land) {
+        /* Landscape: vertical track, tip faces UP. Pulling DOWN (higher Y) = more power */
+        val = ((src.clientY - r.top) / r.height) * 100;
+      } else {
+        /* Portrait: horizontal track, tip faces RIGHT. Pulling LEFT (lower X) = more power */
+        val = 100 - (((src.clientX - r.left) / r.width) * 100);
+      }
+      val = Math.max(1, Math.min(100, val));
+      B.power = val;
+      var lb = document.getElementById('blPowVal');
+      if (lb) lb.textContent = Math.round(val);
+      var stick = document.getElementById('blCueStick');
+      if (stick) {
+        if (land) { stick.style.bottom = (100 - val) + '%'; stick.style.left = ''; }
+        else { stick.style.left = (100 - val) + '%'; stick.style.bottom = ''; }
+      }
+      if (e.cancelable) e.preventDefault();
+    };
+    cTrack.addEventListener('mousedown', function (e) { cueMove(e); cTrack._d = true; });
+    cTrack.addEventListener('touchstart', function(e){ cueMove(e); cTrack._d = true; }, { passive: false });
+    window.addEventListener('mousemove', function (e) { if (cTrack._d) cueMove(e); });
+    window.addEventListener('touchmove', function (e) { if (cTrack._d) cueMove(e); }, { passive: false });
+    var cueUp = function () {
+      if (cTrack._d) {
+        cTrack._d = false;
+        billiardsShoot();
+      }
+    };
+    window.addEventListener('mouseup', cueUp);
+    window.addEventListener('touchend', cueUp);
+  }
+
   /* إعادة القياس */
   var box = document.getElementById('blStageBox');
   if (box && typeof ResizeObserver !== 'undefined') {
@@ -1144,27 +1195,46 @@ function blOrientLayout() {
   B._blLand = land; frame._blOriented = true;
   frame.classList.toggle('bl-land', land);
   frame.classList.toggle('bl-port', !land);
-  /* مسح قوالب grid المضمّنة للاتجاه السابق (كانت تخفي الطاولة) */
   frame.style.gridTemplateColumns = '';
   frame.style.gridTemplateRows = '';
   frame._blColsT = frame._blRowsT = null;
+  
   var g = function (id) { return document.getElementById(id); };
   var lr = g('blLRail'), rail = g('blRail'), ltop = g('blLTop');
   var av0 = g('blAv0'), trayR = g('blTrayR'), spin = g('blSpin'),
-      pow = g('blPower'), sc0 = g('blScore0'), rtop = g('blRTop');
-  if (lr && rail && ltop && av0 && trayR && spin && pow) {
+      pow = g('blPower'), sc0 = g('blScore0'), rtop = g('blRTop'),
+      trayL = g('blTrayL'), av1 = g('blAv1'), sc1 = g('blScore1');
+
+  if (!g('blPortLeft')) {
+    var pL = document.createElement('div'); pL.id = 'blPortLeft'; pL.className = 'bl-port-col bl-port-left';
+    var pR = document.createElement('div'); pR.id = 'blPortRight'; pR.className = 'bl-port-col bl-port-right';
+    if (lr) { lr.appendChild(pL); lr.appendChild(pR); }
+  }
+  var pL = g('blPortLeft'), pR = g('blPortRight');
+
+  if (lr && rail && ltop && av0 && trayR && spin && pow && rtop) {
     if (land) {
-      /* يسار: [تدوير+أفاتار الخصم] فكراته فالسبين — يمين: أفاتاري فكراتي فالقوة فالتنفيذ */
+      lr.appendChild(ltop);
+      if (sc1) lr.appendChild(sc1);
+      lr.appendChild(trayL);
       lr.appendChild(spin);
-      if (rtop) rtop.appendChild(av0);
+      
+      rail.insertBefore(rtop, rail.firstChild);
+      rtop.appendChild(av0);
       if (sc0) rail.insertBefore(sc0, trayR.parentNode === rail ? trayR : null);
       rail.insertBefore(trayR, pow);
     } else {
-      /* بورتريه: الشريط العلوي = تدوير، أفاتار الخصم+كراته | كراتي+أفاتاري.
-         الشريط السفلي = سبين، قوة، تنفيذ. */
-      lr.appendChild(trayR);
-      if (sc0) lr.appendChild(sc0);
-      lr.appendChild(av0);
+      /* Portrait: Opponent (Top) goes to Left column under rotate, Main (Bot) goes to Right column under minimize */
+      if (pL && pR) {
+        pL.appendChild(ltop);
+        if (sc1) pL.appendChild(sc1);
+        pL.appendChild(trayL);
+        
+        pR.appendChild(rtop);
+        rtop.appendChild(av0);
+        if (sc0) pR.appendChild(sc0);
+        pR.appendChild(trayR);
+      }
       rail.insertBefore(spin, rail.firstChild);
     }
   }

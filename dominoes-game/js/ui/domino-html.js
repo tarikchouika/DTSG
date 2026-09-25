@@ -127,7 +127,7 @@ window.DMN_HTML = (function () {
       '<div class="dm-seat seat-1 opp seat-left" id="dmSeatOpp">' +
         '<span class="dm-avatar" id="dmOppAvatar"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
         '<span class="dm-seatmeta"><span class="dm-seatname" id="dmOppName" hidden>الخصم 1</span>' +
-        '<span class="dm-seatscore" id="dmOppScore">0</span></span>' +
+        '<span class="dm-seatscore" id="dmOppScore">0</span><span class="dm-ptimer" id="dmTimer1" hidden>⏱</span></span>' +
         '<span class="dm-tilebadge" id="dmTileBadge1" hidden>7</span>' +
         '<div class="dm-opptiles dm-opptiles-v" id="dmOppTiles1"></div>' +
       '</div>' +
@@ -135,7 +135,7 @@ window.DMN_HTML = (function () {
       '<div class="dm-seat seat-2 opp seat-top" id="dmSeat2" hidden>' +
         '<span class="dm-avatar" id="dmAvatar2"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
         '<span class="dm-seatmeta"><span class="dm-seatname" id="dmName2" hidden>الخصم 2</span>' +
-        '<span class="dm-seatscore" id="dmScore2">0</span></span>' +
+        '<span class="dm-seatscore" id="dmScore2">0</span><span class="dm-ptimer" id="dmTimer2" hidden>⏱</span></span>' +
         '<span class="dm-tilebadge" id="dmTileBadge2" hidden>7</span>' +
         '<div class="dm-opprow" id="dmOppRow"></div>' +
       '</div>' +
@@ -143,7 +143,7 @@ window.DMN_HTML = (function () {
       '<div class="dm-seat seat-3 opp seat-right" id="dmSeat3" hidden>' +
         '<span class="dm-avatar" id="dmAvatar3"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
         '<span class="dm-seatmeta"><span class="dm-seatname" id="dmName3" hidden>الخصم 3</span>' +
-        '<span class="dm-seatscore" id="dmScore3">0</span></span>' +
+        '<span class="dm-seatscore" id="dmScore3">0</span><span class="dm-ptimer" id="dmTimer3" hidden>⏱</span></span>' +
         '<span class="dm-tilebadge" id="dmTileBadge3" hidden>7</span>' +
         '<div class="dm-opptiles dm-opptiles-v" id="dmOppTiles3"></div>' +
       '</div>' +
@@ -166,7 +166,7 @@ window.DMN_HTML = (function () {
         '<div class="dm-seat seat-0 me" id="dmSeatMe">' +
           '<span class="dm-avatar" id="dmMyAvatar"></span>' +
           '<span class="dm-seatmeta end"><span class="dm-seatname" id="dmMyName" hidden>أنت</span>' +
-          '<span class="dm-seatscore" id="dmMyScore">0</span></span>' +
+          '<span class="dm-seatscore" id="dmMyScore">0</span><span class="dm-ptimer" id="dmTimer0" hidden>⏱</span></span>' +
         '</div>' +
         '<div class="dm-hand" id="dmHand"></div>' +
         '<div class="dm-tools">' +

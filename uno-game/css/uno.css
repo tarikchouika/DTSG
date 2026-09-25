@@ -216,6 +216,23 @@
   border-radius: 50%; border: 1.5px solid #8a6a25;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
 }
+.un-ptimer {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  background: rgba(0,0,0,0.8);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 10px;
+  border: 1px solid var(--un-gold2);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  white-space: nowrap;
+}
+.un-ptimer.un-time-low { color: #ff5252; animation: unPulseTimer 1s infinite alternate; }
+@keyframes unPulseTimer { from { transform: scale(1); } to { transform: scale(1.1); } }
+
 .un-platebadge { font-size: 10px; font-weight: 800; color: var(--un-gold2); }
 
 /* ── الوسط: طاقم + رمية ── */

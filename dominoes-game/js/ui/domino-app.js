@@ -55,6 +55,9 @@
     finished: false,
     _attached: false,
     _timers: [],
+    _turnTimerId: null,
+    _turnTimerLeft: 0,
+    _lastTurnId: -1,
     _handlers: [],
 
     /* ═══════════ أدوات منصة اختيارية ═══════════
@@ -135,6 +138,84 @@
     clearTimers: function () {
       for (let i = 0; i < this._timers.length; i++) clearTimeout(this._timers[i]);
       this._timers = [];
+      this.stopTurnTimer();
+    },
+    stopTurnTimer: function () {
+      if (this._turnTimerId) { clearInterval(this._turnTimerId); this._turnTimerId = null; }
+      this._turnTimerLeft = 0;
+      for (let i = 0; i < 4; i++) {
+        let el = document.getElementById('dmTimer' + i);
+        if (el) el.hidden = true;
+      }
+    },
+    startTurnTimer: function () {
+      this.stopTurnTimer();
+      const s = this.game ? this.game.state : null;
+      if (!s || s.phase !== 'play' || s.turn === undefined) return;
+      const tLimit = (this.room && this.room.on) ? ((this.room.settings && this.room.settings.timer) ? parseInt(this.room.settings.timer, 10) : 60) : this.config.timer;
+      if (!tLimit) return;
+      
+      this._turnTimerLeft = tLimit;
+      const self = this;
+      this._turnTimerId = setInterval(function () {
+        if (!self.game || !self.game.state || self.game.state.phase !== 'play') { self.stopTurnTimer(); return; }
+        self._turnTimerLeft--;
+        self.renderTurnTimer();
+        if (self._turnTimerLeft <= 0) {
+          self.stopTurnTimer();
+          const turn = self.game.state.turn;
+          const meSeat = self.mySeatNum();
+          if (self.room && self.room.on && !self.room.spec && turn === meSeat) {
+            self._autoPlayLocal();
+          } else if (!self.room || !self.room.on) {
+            if (turn === meSeat) {
+              self._autoPlayLocal();
+            }
+          }
+        }
+      }, 1000);
+      this.renderTurnTimer();
+    },
+    _autoPlayLocal: function() {
+      if (!this.game || !this.game.state || this.game.state.phase !== 'play') return;
+      const turn = this.game.state.turn;
+      const acts = this.game.legalMoves(turn);
+      if (acts && acts.length > 0) {
+        const act = acts[Math.floor(Math.random() * acts.length)];
+        if (act.type === 'draw') this.tryDraw();
+        else if (act.type === 'pass') this.tryPass();
+        else this.playerPlay(act.tile, act.end, turn);
+      } else {
+        this.tryPass();
+      }
+    },
+    renderTurnTimer: function () {
+      const s = this.game ? this.game.state : null;
+      if (!s || s.phase !== 'play') return;
+      const left = this._turnTimerLeft;
+      const meSeat = this.mySeatNum();
+      const numPlayers = s.scores ? s.scores.length : 2;
+      for (let i = 0; i < 4; i++) {
+        // UI IDs map: 0 = me, 1 = opp(right/top), 2 = opp2(top), 3 = opp3(left).
+        let uiIdx = 0;
+        if (i === meSeat) {
+           uiIdx = 0;
+        } else {
+           let rel = (i - meSeat + numPlayers) % numPlayers;
+           if (numPlayers === 2 && rel === 1) uiIdx = 1;
+           else uiIdx = rel;
+        }
+        const el = document.getElementById('dmTimer' + uiIdx);
+        if (el) {
+          if (i === s.turn) {
+            el.hidden = false;
+            el.textContent = '⏱ ' + Math.max(0, left);
+            el.className = 'dm-ptimer' + (left <= 10 ? ' dm-time-low' : '');
+          } else {
+            el.hidden = true;
+          }
+        }
+      }
     },
     later: function (fn, ms) {
       const t = setTimeout(fn, ms);
@@ -472,6 +553,16 @@
       if (s2) s2.classList.toggle('myturn', !spec && turnNow === 2);
       if (s3) s3.classList.toggle('myturn', !spec && turnNow === 3);
 
+      if (view.phase === 'play') {
+        if (view.turn !== this._lastTurnId) {
+          this._lastTurnId = view.turn;
+          this.startTurnTimer();
+        }
+      } else {
+        this.stopTurnTimer();
+        this._lastTurnId = -1;
+      }
+
       /* شارات عدد القطع المتبقية للخصوم */
       if (this.$('dmTileBadge1') && view.handsCount[opp] !== undefined) {
         this.$('dmTileBadge1').textContent = String(view.handsCount[opp]);
@@ -501,7 +592,7 @@
               return R.handTilesHTML(view['hand' + opp] || [], legalOpp, view.forcedTile && view.forcedTile.id, 'dmPickP2');
             })();
         if (oppTiles1) oppTiles1.innerHTML = html2p;
-        if (oppRow) oppRow.innerHTML = html2p;
+        if (oppRow) oppRow.innerHTML = '';
         if (oppTiles3) oppTiles3.innerHTML = '';
       } else {
         /* الخصم 1 (اليسار) */

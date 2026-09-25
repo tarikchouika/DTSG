@@ -675,6 +675,21 @@
   line-height: 1.3 !important;
 }
 
+#dmStage .dm-ptimer {
+  display: inline-block;
+  margin-inline-start: 4px;
+  font-size: 11px !important;
+  font-weight: 900 !important;
+  color: #fff !important;
+  background: rgba(0, 0, 0, 0.75) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  border-radius: 9px !important;
+  padding: 1px 5px !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+#dmStage .dm-ptimer.dm-time-low { color: #ff5252 !important; animation: dmPulseTime 1s infinite alternate; }
+@keyframes dmPulseTime { from { transform: scale(1); } to { transform: scale(1.1); } }
+
 /* ── 3) قطع الخصوم المقلوبة (العاج الفاخر) ── */
 #dmStage .dm-opprow, #dmStage .dm-opptiles {
   display: flex !important;
@@ -805,6 +820,11 @@
 #dmStage #dmPassBtn[hidden] {
   display: none !important;
 }
+#dmStage .dm-seat[hidden],
+#dmStage #dmSeat2[hidden],
+#dmStage #dmSeat3[hidden] {
+  display: none !important;
+}
 @keyframes dmPassGlow {
   0%, 100% { box-shadow: 0 0 14px rgba(229, 185, 76, 0.7), 0 3px 8px rgba(0, 0, 0, 0.5); transform: scale(1); }
   50% { box-shadow: 0 0 24px rgba(255, 220, 80, 0.95), 0 4px 12px rgba(0, 0, 0, 0.6); transform: scale(1.05); }
@@ -879,6 +899,13 @@ body.app-fs-on .game-fs-exit {
     display: flex !important; flex-direction: column !important; align-items: center !important; gap: 3px !important;
   }
   #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles { order: 1 !important; flex-direction: row !important; margin: 0 0 2px 0 !important; }
+  #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles > .dm-back {
+    width: 20px !important;
+    height: 36px !important;
+  }
+  #dmStage #dmSeatOpp.seat-2p-top .dm-opptiles > .dm-back::after {
+    inset: 1px !important;
+  }
   #dmStage #dmSeatOpp.seat-2p-top .dm-avatar { order: 2 !important; }
   #dmStage #dmSeatOpp.seat-2p-top .dm-seatmeta { order: 3 !important; }
   #dmStage #dmSeatOpp.seat-2p-top .dm-tilebadge { order: 4 !important; }

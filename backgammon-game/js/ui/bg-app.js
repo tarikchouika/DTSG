@@ -36,6 +36,9 @@
     finished: false,
     _attached: false,
     _timers: [],
+    _turnTimerId: null,
+    _turnTimerLeft: 0,
+    _lastTurnId: -1,
     _handlers: [],
 
     /* ═══════════ منصة اختيارية (عقد dmgames-arena) ═══════════ */
@@ -96,7 +99,84 @@
       this.room = null;   /* [BG-Room] مغادرة وضع الغرفة — معالجات Rooms تبقى مسجلة */
     },
 
-    clearTimers: function () { for (let i = 0; i < this._timers.length; i++) clearTimeout(this._timers[i]); this._timers = []; },
+    clearTimers: function () { 
+      for (let i = 0; i < this._timers.length; i++) clearTimeout(this._timers[i]); 
+      this._timers = []; 
+      this.stopTurnTimer();
+    },
+    stopTurnTimer: function () {
+      if (this._turnTimerId) { clearInterval(this._turnTimerId); this._turnTimerId = null; }
+      this._turnTimerLeft = 0;
+      for (let i = 0; i < 2; i++) {
+        let el = document.getElementById('bwTimer' + i);
+        if (el) el.hidden = true;
+      }
+    },
+    startTurnTimer: function () {
+      this.stopTurnTimer();
+      const s = this.game ? this.game.state : null;
+      if (!s || s.phase !== 'PLAY' || s.turn === undefined) return;
+      
+      const inRoom = !!(this.room && this.room.on);
+      const tLimit = inRoom ? ((this.room.settings && this.room.settings.timer) ? parseInt(this.room.settings.timer, 10) : 60) : this.config.timer;
+      if (!tLimit) return;
+      
+      this._turnTimerLeft = tLimit;
+      const self = this;
+      this._turnTimerId = setInterval(function () {
+        if (!self.game || !self.game.state || self.game.state.phase !== 'PLAY') { self.stopTurnTimer(); return; }
+        self._turnTimerLeft--;
+        self.renderTurnTimer();
+        if (self._turnTimerLeft <= 0) {
+          self.stopTurnTimer();
+          const turn = self.game.state.turn;
+          const meSeat = (self.room && self.room.on) ? self.room.mySeat : 0;
+          if (inRoom && !self.room.spec && turn === meSeat) {
+            self.autoMove();
+          } else if (!inRoom && turn === meSeat) {
+            self.autoMove();
+          }
+        }
+      }, 1000);
+      this.renderTurnTimer();
+    },
+    renderTurnTimer: function () {
+      const s = this.game ? this.game.state : null;
+      if (!s || s.phase !== 'PLAY') return;
+      const left = this._turnTimerLeft;
+      const meSeat = (this.room && this.room.on) ? this.room.mySeat : 0;
+      for (let i = 0; i < 2; i++) {
+        // bwTimer0 is bottom (Me), bwTimer1 is top (Opp)
+        const elIdx = (i === meSeat) ? 0 : 1;
+        const el = document.getElementById('bwTimer' + elIdx);
+        if (el) {
+          if (i === s.turn) {
+            el.hidden = false;
+            el.textContent = '⏱ ' + Math.max(0, left);
+            el.className = 'bw-ptimer' + (left <= 10 ? ' bw-time-low' : '');
+          } else {
+            el.hidden = true;
+          }
+        }
+      }
+    },
+    autoMove: function () {
+      const g = this.game;
+      if (!g || !g.state || g.state.phase !== 'PLAY') return;
+      /* Pass if no dice, or roll if needed, or play a random legal move */
+      if (!g.state.dice || !g.state.dice.length) {
+        /* Need to roll */
+        this.actRoll();
+      } else {
+        const moves = g.legalMoves();
+        if (moves && moves.length) {
+          const m = moves[Math.floor(Math.random() * moves.length)];
+          this.actMove(m.from, m.to);
+        } else {
+          this.actRoll(); /* Try to roll or pass */
+        }
+      }
+    },
     later: function (fn, ms) { const t = setTimeout(fn, ms); this._timers.push(t); return t; },
     on: function (el, ev, fn) { if (!el) return; el.addEventListener(ev, fn); this._handlers.push({ el: el, ev: ev, fn: fn }); },
     $(id) { return document.getElementById(id); },
@@ -326,6 +406,17 @@
       this.$('bwStatus').textContent = isRoom
         ? R.statusText(view, this.room.spec ? 'spec' : 'room')
         : R.statusText(view, isAI ? 'ai' : 'local');
+
+      const turn = this.game.state.turn;
+      if (this.game.state.phase === 'PLAY') {
+        if (turn !== this._lastTurnId) {
+          this._lastTurnId = turn;
+          this.startTurnTimer();
+        }
+      } else {
+        this.stopTurnTimer();
+        this._lastTurnId = -1;
+      }
 
       /* زر الرمي */
       const btn = this.$('bwRollBtn');

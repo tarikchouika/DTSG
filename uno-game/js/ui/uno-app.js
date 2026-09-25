@@ -20,7 +20,7 @@
     _roomSeat: -1, _isDriver: false, _isSpectator: true,
     _roomOrder: null, _roomNames: [], _roundVotes: {},
     _matchSettled: false, _roomTimer: 60,
-    _aiNext: 0, _lastActAt: 0, _driverT: null, _replayPollT: null,
+    _aiNext: 0, _lastActAt: 0, _lastTurnId: -1, _driverT: null, _replayPollT: null,
     _schedKey: null, _overlayKind: null, _awaitReveal: -1, _revealedSeat: -1,
     _colorPick: null,
     _prefsKey: 'uno.prefs',
@@ -252,27 +252,28 @@
       if (dz && s.lastCard) dz.innerHTML = '<div class="un-topcard">' + R.cardFace(s.lastCard) + '</div>';
 
       /* مقاعد الخصوم */
+      const my = Math.max(0, this._mySeat(s));
       const vMap = {};
       if (n === 2) { vMap[1] = 2; }
       else if (n === 3) { vMap[1] = 1; vMap[2] = 3; }
       else { vMap[1] = 1; vMap[2] = 2; vMap[3] = 3; }
 
       for (let k = 1; k <= 3; k++) {
-        let seat = -1;
-        for (const [st, vk] of Object.entries(vMap)) {
-          if (vk === k) seat = parseInt(st, 10);
+        let logical = -1;
+        for (const [relSt, vk] of Object.entries(vMap)) {
+          if (vk === k) logical = (parseInt(relSt, 10) + my) % n;
         }
         
         const stack = this.$('unStack' + k);
         const p = this.$('unPlate' + k);
         
-        if (seat === -1 || seat >= n) {
+        if (logical === -1 || logical >= n) {
           if (stack) stack.style.display = 'none';
           if (p) p.style.display = 'none';
           continue;
         }
 
-        const hand = s.hands[seat];
+        const hand = s.hands[logical];
         if (stack) {
           /* [Fans-2] سلسلة مقوّسة كاملة بحجم أوراق اللاعب — --i لكل ورقة */
           const show = Math.min(8, hand.length);
@@ -281,16 +282,16 @@
           stack.innerHTML = h;
           stack.style.setProperty('--n', show);
           stack.style.display = hand.length ? '' : 'none';
-          stack.classList.toggle('un-turn', s.phase === 'play' && s.turn === seat);
+          stack.classList.toggle('un-turn', s.phase === 'play' && s.turn === logical);
         }
         
         if (p) {
           p.style.display = '';
-          const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(seat).substring(0, 2).toUpperCase();
+          const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(logical).substring(0, 2).toUpperCase();
           const ct = this.$('unCount' + k); if (ct) ct.textContent = hand.length;
-          const bd = this.$('unBadge' + k); if (bd) bd.textContent = seat === this._mySeat(s) ? T('un.you') : '';
-          p.classList.toggle('un-turn-seat', s.phase === 'play' && s.turn === seat);
-          if (s.cfg.teams) p.classList.toggle('un-team0', this._teamOf(seat) === 0);
+          const bd = this.$('unBadge' + k); if (bd) bd.textContent = logical === this._mySeat(s) ? T('un.you') : '';
+          p.classList.toggle('un-turn-seat', s.phase === 'play' && s.turn === logical);
+          if (s.cfg.teams) p.classList.toggle('un-team0', this._teamOf(logical) === 0);
         }
       }
 
@@ -889,13 +890,78 @@
     },
 
     /* ── سائق: تولى المنقطعين ── */
+    /* ── سائق ومؤقت مرئي ── */
     _startDriverTick: function () {
       this._stopDriverTick();
-      if (!this._isDriver) return;
       const self = this;
-      this._driverT = setInterval(function () { try { self.roomDriverTick(); } catch (e) {} }, 1000);
+      this._driverT = setInterval(function () {
+        try { if (self._isDriver) self.roomDriverTick(); } catch (e) {}
+        try { self.roomUiTimerTick(); } catch (e) {}
+      }, 1000);
     },
     _stopDriverTick: function () { if (this._driverT) { clearInterval(this._driverT); this._driverT = null; } },
+    roomUiTimerTick: function () {
+      if (!this.roomMode) return;
+      const s = NS.st;
+      if (!s || s.phase !== 'play') {
+        for (let k = 0; k <= 3; k++) {
+          const el = this.$('unTimer' + k);
+          if (el) el.hidden = true;
+        }
+        return;
+      }
+      const grace = this._roomTimer || 60;
+      let left = grace - Math.floor((Date.now() - (this._lastActAt || Date.now())) / 1000);
+      if (left < 0) left = 0;
+      const isLow = left <= 10;
+      
+      const n = s.cfg.players;
+      const my = Math.max(0, this._mySeat(s));
+      const vMap = {};
+      if (n === 2) { vMap[1] = 2; }
+      else if (n === 3) { vMap[1] = 1; vMap[2] = 3; }
+      else { vMap[1] = 1; vMap[2] = 2; vMap[3] = 3; }
+
+      const logicToUi = {};
+      logicToUi[my] = 0;
+      for (let rel = 1; rel < n; rel++) {
+        const logical = (rel + my) % n;
+        logicToUi[logical] = vMap[rel] || -1;
+      }
+      
+      for (let i = 0; i < n; i++) {
+        const uiSeat = logicToUi[i];
+        if (uiSeat >= 0 && uiSeat <= 3) {
+          const el = this.$('unTimer' + uiSeat);
+          if (el) {
+            if (i === s.turn) {
+              el.hidden = false;
+              el.textContent = '⏱ ' + left;
+              el.className = 'un-ptimer' + (isLow ? ' un-time-low' : '');
+            } else {
+              el.hidden = true;
+            }
+          }
+        }
+      }
+      // auto-play on timeout for local turn in room
+      if (left <= 0 && s.turn === my && !this._isSpectator && this.roomMode) {
+        if (!this._autoPlayedTurn || this._autoPlayedTurn !== s.turn) {
+          this._autoPlayedTurn = s.turn; // prevent spamming
+          const legal = Core.legalMoves(s.hands[my], s.color, Core.top(s.discard).value);
+          if (legal.length) {
+            this._netEmit('play', { card: legal[0] });
+            NS.playCard(my, legal[0]);
+          } else {
+            this._netEmit('draw', {});
+            NS.drawCard(my);
+          }
+          this._lastActAt = Date.now();
+        }
+      } else if (left > 0) {
+        this._autoPlayedTurn = -1;
+      }
+    },
     roomDriverTick: function () {
       if (!this.roomMode || !this._isDriver) return;
       const s = NS.st;
