@@ -87,24 +87,18 @@ function eBilliards(g) {
         '<div class="dama-pay bl-hint" id="blVariantHint"></div>' +
       '</div>' +
 
-      /* ── شاشة اللعب [UI-v3] — تصميم الصورة المركبة:
-         بورتريه: شريط علوي (تدوير + صينية) + عمود أيمن يضم كل الأدوات؛
-         لاندسكيب: عمودان خشبيان — يسار (تدوير+أفاتار الخصم/لونه/صينيته/التنفيذ/الدوران)
-         ويمين (أفاتاري+خروج/لوني/صينيتي/شريط القوة الطويل) ── */
+      /* ── شاشة اللعب [R9] — طلب المالك:
+         لاندسكيب: يسار = تدوير أعلى + شريط القوة وسطاً + الكرة البيضاء (السبين) أسفل؛
+         يمين = عمودان رأسيان جنباً إلى جنب (أنا ثم الخصم) تحت أيقونتي التصغير والخروج.
+         بورتريه: تدوير أقصى الزاوية العليا اليسرى ملتصقاً بالهامشين، شريطا
+         اللاعبَين+الكرات أفقياً أسفل الطاولة فوق الكرة البيضاء وشريط القوة
+         (المكبّر مستطيلاً بلا عصا)، والتصغير+الخروج بالزاوية العليا اليمنى ── */
       '<div class="dama-play" id="blPlay" hidden>' +
-      /* [UI-v4] لاندسكيب مرجعي: عمود أيسر (تدوير+أفاتار الخصم بلون كراته
-         وحرفَي اسمه، كراته الساقطة بخط مستقيم تحته، السبين أسفلاً) وعمود
-         أيمن (أفاتاري وكراتي | القوة والتنفيذ تحت زر التصغير). البورتريه =
-         قلب الحاوية 90°: العمود الأيسر يصير الشريط الأعلى والأيمن الأسفل. */
       '<div class="bl-frame" id="blFrame">' +
         '<div class="bl-topbar bl-sr" id="blTopbar"><div class="bl-tray" id="blTray"></div></div>' +
         '<div class="bl-lrail" id="blLRail">' +
-          '<div class="bl-srow" id="blLTop">' +
-            '<button class="bl-rotbtn" id="blRotBtn" onclick="billiardsFlipView()" title="&#8635;">🔄</button>' +
-            '<span class="bl-av p2" id="blAv1">2</span>' +
-          '</div>' +
-          '<b class="bl-score" id="blScore1" hidden></b>' +
-          '<div class="bl-vtray" id="blTrayL"></div>' +
+          '<button class="bl-rotbtn" id="blRotBtn" onclick="billiardsFlipView()" title="&#8635;">🔄</button>' +
+          '<div class="bl-cue-track" id="blCueTrack"><div class="bl-cue-fill" id="blCueFill"></div><b class="bl-powval" id="blPowVal">75</b></div>' +
           '<div class="bl-spin" id="blSpin" title="' + T('bl.spinHint') + '"><i id="blSpinDot"></i></div>' +
         '</div>' +
         '<div class="bl-mid" id="blMid">' +
@@ -126,19 +120,22 @@ function eBilliards(g) {
           '</div></div>' +
         '</div>' +
         '<div class="bl-rail" id="blRail">' +
-          '<div class="bl-srow" id="blRTop">' +
+          '<div class="bl-punit" id="blUnitMe">' +
             '<span class="bl-av p1" id="blAv0">1</span>' +
-          '</div>' +
-          '<b class="bl-score" id="blScore0" hidden></b>' +
-          '<div class="bl-vtray" id="blTrayR"></div>' +
-          '<div class="bl-cue-track" id="blCueTrack">' +
-            '<div class="bl-cue-stick" id="blCueStick"></div>' +
-          '</div>' +
-          '<div class="bl-sr">' +
             '<div class="bl-pl" id="blPl0"><span class="bl-nm" id="blNm0">' + T('bl.player1') + '</span><span class="bl-grp" id="blGrp0"></span></div>' +
-            '<div class="bl-pl" id="blPl1"><span class="bl-nm" id="blNm1">' + T('bl.player2') + '</span><span class="bl-grp" id="blGrp1"></span></div>' +
-            '<b id="blPowVal">75</b>' +
+            '<b class="bl-score" id="blScore0" hidden></b>' +
+            '<div class="bl-vtray" id="blTrayR"></div>' +
           '</div>' +
+          '<div class="bl-punit" id="blUnitOpp">' +
+            '<span class="bl-av p2" id="blAv1">2</span>' +
+            '<div class="bl-pl" id="blPl1"><span class="bl-nm" id="blNm1">' + T('bl.player2') + '</span><span class="bl-grp" id="blGrp1"></span></div>' +
+            '<b class="bl-score" id="blScore1" hidden></b>' +
+            '<div class="bl-vtray" id="blTrayL"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="bl-port-bars" id="blPortBars">' +
+          '<div class="bl-pbar" id="blBarOpp"></div>' +
+          '<div class="bl-pbar" id="blBarMe"></div>' +
         '</div>' +
       '</div>' +
       '</div>' +
@@ -309,6 +306,7 @@ function billiardsStart(mode) {
 
   var pw = document.getElementById('blPower');
   if (pw) pw.value = 75;
+  BILLIARDS.power = 75;
   billiardsPowerUi();
   blResetSpinUi();
 
@@ -381,10 +379,13 @@ function billiardsResign() {
 
 /* ═══════════ التحكم ═══════════ */
 function billiardsPowerUi() {
-  var el = document.getElementById('blPower'), lb = document.getElementById('blPowVal');
-  if (!BILLIARDS || !el) return;
-  BILLIARDS.power = +el.value;
-  if (lb) lb.textContent = el.value;
+  /* [R9] مدخل القوة القديم #blPower أزيل من الواجهة — العرض عبر شريط
+     القوة (blCueTrack) + القيمة blPowVal + تعتيم blCueFill */
+  var B = BILLIARDS;
+  if (!B) return;
+  var lb = document.getElementById('blPowVal');
+  if (lb) lb.textContent = Math.round(B.power);
+  blCueFillUi(B.power);
 }
 
 function blResetSpinUi() {
@@ -422,14 +423,10 @@ function billiardsShoot() {
   
   /* Reset Power UI */
   B.power = 75;
-  var stick = document.getElementById('blCueStick');
-  var frm = document.getElementById('blFrame');
   var lb = document.getElementById('blPowVal');
   if (lb) lb.textContent = '75';
-  if (stick && frm) {
-    if (frm.classList.contains('bl-land')) { stick.style.bottom = '25%'; stick.style.left = ''; }
-    else { stick.style.left = '25%'; stick.style.bottom = ''; }
-  }
+  /* [R9] عصا القوة أزيلت — إعادة ضبط تعتيم شريط القوة إلى 75% */
+  blCueFillUi(75);
   blResetSpinUi();
   if (typeof SND !== 'undefined' && SND.peg) { try { SND.peg(); } catch (e) {} }
   blUpdateHud();
@@ -956,10 +953,11 @@ function blAutoShot() {
   }
   /* ضربة عشوائية: زاوية حرة وقوة متوسطة — تُنفَّذ وتُبثّ بنفس مسار الضربة اليدوية */
   B.aim = Math.random() * Math.PI * 2;
-  var pw = document.getElementById('blPower');
   var p = 25 + Math.round(Math.random() * 55);
-  if (pw) pw.value = p;
   B.power = p;
+  var pwLb = document.getElementById('blPowVal');
+  if (pwLb) pwLb.textContent = String(p);
+  blCueFillUi(p);
   B.spin = { x: 0, y: 0 };
   billiardsShoot();
   blSay('⏱ ' + T('bl.timeUpAuto'));
@@ -1118,7 +1116,8 @@ function blBindInput() {
     sp.addEventListener('dblclick', blResetSpinUi);
   }
 
-  /* سحب عصا التسديد */
+  /* سحب شريط القوة (Drag-to-Shoot): السحب ناحية الأحمر = قوة أكبر،
+     والإفلات ينفّذ الضربة — بورتريه: يميناً، لاندسكيب: أسفل نحو الأحمر أسفل الشريط */
   var cTrack = document.getElementById('blCueTrack');
   if (cTrack) {
     var cueMove = function (e) {
@@ -1127,21 +1126,19 @@ function blBindInput() {
       var land = document.getElementById('blFrame').classList.contains('bl-land');
       var val = 0;
       if (land) {
-        /* Landscape: vertical track, tip faces UP. Pulling DOWN (higher Y) = more power */
+        /* لاندسكيب: شريط عمودي — السحب لأسفل نحو الأحمر = قوة أكبر */
         val = ((src.clientY - r.top) / r.height) * 100;
       } else {
-        /* Portrait: horizontal track, tip faces RIGHT. Pulling LEFT (lower X) = more power */
-        val = 100 - (((src.clientX - r.left) / r.width) * 100);
+        /* [R9-FIX] بورتريه: شريط أفقي — السحب لليمين نحو الأحمر = قوة أكبر.
+           كان معكوساً (السحب لليسار) بينما التدرج يضع الأحمر يميناً، فبدا
+           الشريط معكوساً مقارنة بشريط اللاندسكيب */
+        val = ((src.clientX - r.left) / r.width) * 100;
       }
       val = Math.max(1, Math.min(100, val));
       B.power = val;
       var lb = document.getElementById('blPowVal');
       if (lb) lb.textContent = Math.round(val);
-      var stick = document.getElementById('blCueStick');
-      if (stick) {
-        if (land) { stick.style.bottom = (100 - val) + '%'; stick.style.left = ''; }
-        else { stick.style.left = (100 - val) + '%'; stick.style.bottom = ''; }
-      }
+      blCueFillUi(val, land);
       if (e.cancelable) e.preventDefault();
     };
     cTrack.addEventListener('mousedown', function (e) { cueMove(e); cTrack._d = true; });
@@ -1178,12 +1175,27 @@ function blAimTo(p) {
   B.aim = Math.atan2(p.y - c.y, p.x - c.x);
 }
 
-/* ═══ [UI-v6] الاتجاه حسب الصورتين المرجعيتين ═══
-   لاندسكيب: يسار = تدوير بالزاوية + أفاتار الخصم وكراته بخط عمودي مستقيم
-   تحته + السبين أسفلاً؛ يمين = أفاتاري (بجوار زر الخروج) وكراتي بخط
-   عمودي تحته + القوة + التنفيذ — كله على محور عمودي واحد.
-   بورتريه: شريط علوي واحد مستقيم (تدوير أقصى يسار، أفاتار الخصم+كراته،
-   ثم كراتي+أفاتاري، زر الخروج أقصى يمين) وشريط سفلي (سبين، قوة، تنفيذ). */
+/* ═══ [R9] تعتيم الجزء غير المستعمل من شريط القوة — الجزء المضاء من بداية
+   الشريط (يسار في البورتريه / أعلى في اللاندسكيب) حتى حافة القوة الحالية،
+   والحافة المضيئة (bl-cue-fill::before) تتقدم نحو الأحمر كلما زادت القوة ═══ */
+function blCueFillUi(val, land) {
+  var fill = document.getElementById('blCueFill');
+  if (!fill) return;
+  if (land === undefined) {
+    var f = document.getElementById('blFrame');
+    land = !!(f && f.classList.contains('bl-land'));
+  }
+  if (land) { fill.style.width = ''; fill.style.height = (100 - val) + '%'; }
+  else { fill.style.height = ''; fill.style.width = (100 - val) + '%'; }
+}
+
+/* ═══ [R9] الاتجاه حسب طلب المالك ═══
+   لاندسكيب: عمود أيسر = زر التدوير أعلى ثم شريط القوة (بنفس حجمه وشموله)
+   ثم الكرة البيضاء (السبين) أسفل؛ الجانب الأيمن = عمودان رأسيان جنباً إلى
+   جنب تحت أيقونتي تصغير الشاشة والخروج (أنا الأقرب للطاولة ثم الخصم).
+   بورتريه: زر التدوير أقصى الزاوية العليا اليسرى (حلقة تلامس الهامشين)،
+   وحدتا اللاعبَين تنزلان شريطين أفقيين أسفل الطاولة فوق الكرة البيضاء
+   وشريط القوة، وشريط القوة يكبر مستطيلاً في الشريط السفلي. */
 function blOrientLayout() {
   var B = BILLIARDS;
   if (!B) return;
@@ -1197,45 +1209,32 @@ function blOrientLayout() {
   frame.style.gridTemplateColumns = '';
   frame.style.gridTemplateRows = '';
   frame._blColsT = frame._blRowsT = null;
-  
+
   var g = function (id) { return document.getElementById(id); };
-  var lr = g('blLRail'), rail = g('blRail'), ltop = g('blLTop');
-  var av0 = g('blAv0'), trayR = g('blTrayR'), spin = g('blSpin'),
-      pow = g('blCueTrack'), sc0 = g('blScore0'), rtop = g('blRTop'),
-      trayL = g('blTrayL'), av1 = g('blAv1'), sc1 = g('blScore1');
+  var lr = g('blLRail'), rail = g('blRail');
+  var rot = g('blRotBtn'), track = g('blCueTrack'), spin = g('blSpin');
+  var uMe = g('blUnitMe'), uOpp = g('blUnitOpp');
+  var bars = g('blPortBars'), barOpp = g('blBarOpp'), barMe = g('blBarMe');
 
-  if (!g('blPortLeft')) {
-    var pL = document.createElement('div'); pL.id = 'blPortLeft'; pL.className = 'bl-port-col bl-port-left';
-    var pR = document.createElement('div'); pR.id = 'blPortRight'; pR.className = 'bl-port-col bl-port-right';
-    if (lr) { lr.appendChild(pL); lr.appendChild(pR); }
-  }
-  var pL = g('blPortLeft'), pR = g('blPortRight');
-
-  if (lr && rail && ltop && av0 && trayR && spin && pow && rtop) {
+  if (lr && rail && rot && track && spin && uMe && uOpp && bars && barOpp && barMe) {
     if (land) {
-      lr.appendChild(ltop);
-      if (sc1) lr.appendChild(sc1);
-      lr.appendChild(trayL);
+      /* لاندسكيب: يسار = تدوير ← قوة ← كرة بيضاء؛ يمين = أنا ثم الخصم عمودين */
+      lr.appendChild(rot);
+      lr.appendChild(track);
       lr.appendChild(spin);
-      
-      rail.insertBefore(rtop, rail.firstChild);
-      rtop.appendChild(av0);
-      if (sc0) rail.insertBefore(sc0, trayR.parentNode === rail ? trayR : null);
-      rail.insertBefore(trayR, pow);
+      rail.appendChild(uMe);
+      rail.appendChild(uOpp);
     } else {
-      /* Portrait: Opponent (Top) goes to Left column under rotate, Main (Bot) goes to Right column under minimize */
-      if (pL && pR) {
-        pL.appendChild(ltop);
-        if (sc1) pL.appendChild(sc1);
-        pL.appendChild(trayL);
-        
-        pR.appendChild(rtop);
-        rtop.appendChild(av0);
-        if (sc0) pR.appendChild(sc0);
-        pR.appendChild(trayR);
-      }
-      rail.insertBefore(spin, rail.firstChild);
+      /* بورتريه: التدوير يبقى في الطبقة العلوية (CSS يلصقه بالزاوية 0,0)،
+       وشريطا اللاعبَين أفقياً أسفل الطاولة، والتحكم (كرة بيضاء + قوة) أسفل */
+      lr.appendChild(rot);
+      rail.appendChild(spin);
+      rail.appendChild(track);
+      barOpp.appendChild(uOpp);
+      barMe.appendChild(uMe);
     }
+    /* إعادة ضبط تعتيم القوة بعد انتقال الشريط بين الأوضاع (اتجاه التعبئة يتغير) */
+    blCueFillUi(B.power !== undefined ? B.power : 75, land);
   }
   blTray();
 }
@@ -1281,11 +1280,18 @@ function blFitCanvas() {
     var AR = (W + 120) / (H + 120);
     var wantCols = '', wantRows = '';
     if (B._blLand) {
-      /* عرض العمودين = نصف فائض العرض بعد منح الوسط عرضه الأمثل */
-      var minSide = Math.max(64, Math.round(Math.min(F.width * 0.09, 110)));
-      var midW = Math.min(F.width - minSide * 2, Math.round(F.height * AR));
-      var sideW = Math.max(minSide, Math.floor((F.width - midW) / 2));
-      wantCols = sideW + 'px minmax(0,1fr) ' + sideW + 'px';
+      /* [R9] عمود أيسر نحيف (تدوير+قوة+كرة بيضاء) وعمود أيمن أعرض
+         (عمودا اللاعبَين جنباً إلى جنب) — الوسط يأخذ الأمثل للطاولة */
+      var sideL = Math.max(58, Math.round(Math.min(F.width * 0.08, 96)));
+      var sideR = Math.max(126, Math.round(Math.min(F.width * 0.18, 196)));
+      var midW = Math.min(F.width - sideL - sideR, Math.round(F.height * AR));
+      /* شاشة ضيقة: لا تدع العمودين يخنقان الطاولة — قلّصهما قبل منتصف الشاشة */
+      if (midW < Math.round(F.width * 0.42)) {
+        midW = Math.round(F.width * 0.42);
+        sideL = Math.max(52, Math.round((F.width - midW) * 0.3));
+        sideR = Math.max(104, F.width - midW - sideL);
+      }
+      wantCols = sideL + 'px minmax(0,1fr) ' + sideR + 'px';
       wantRows = 'minmax(0,1fr)';
       if (frame._blColsT !== wantCols || frame._blRowsT !== wantRows) {
         frame._blColsT = wantCols; frame._blRowsT = wantRows;
@@ -1294,11 +1300,9 @@ function blFitCanvas() {
         if (!frame._blRaf) { frame._blRaf = true; requestAnimationFrame(function () { frame._blRaf = false; blFitCanvas(); }); }
       }
     } else {
-      /* [R8-FIX] تخطيط البورتريه الجديد صفّان فقط: الوسط (1fr) ثم الشريط السفلي (auto).
-         القالب القديم كان 3 صفوف (barH/1fr/barH) يطابق الهيكل القديم — مع الهيكل
-         الجديد (mid=row1, rail=row2, lrail=overlay) كان ينضغط الوسط إلى barH
-         (~75px) ويلتهم الشريط السفلي كل المتبقي فتصغر الطاولة جذرياً */
-      wantRows = 'minmax(0,1fr) auto';
+      /* [R9] بورتريه ثلاثة صفوف: الطاولة (1fr) ثم شريطا اللاعبَين (auto)
+         ثم شريط التحكم (auto = كرة بيضاء + شريط القوة المكبّر) */
+      wantRows = 'minmax(0,1fr) auto auto';
       wantCols = 'minmax(0,1fr)';
       if (frame._blColsT !== wantCols || frame._blRowsT !== wantRows) {
         frame._blColsT = wantCols; frame._blRowsT = wantRows;

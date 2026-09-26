@@ -167,17 +167,37 @@
       if (!g || !g.state) return;
       const s = g.state;
       if (s.phase === 'gameEnd' || s.phase === 'matchEnd') return;
-      /* [R8-FIX] انتهاء مؤقت الدور: رمي/لعب تلقائي عبر واجهات التطبيق الحقيقية
-         (rollClick/doMove/passTurn تعالج الغرفة والبث والذكاء داخلياً) —
-         الاستدعاءات القديمة actRoll/actMove لم تكن موجودة أصلاً فتنفجر خطأً */
-      if (s.phase === 'opening' || s.phase === 'roll' || !s.rolled) { this.rollClick(); return; }
-      if (s.phase !== 'move') return;
-      const legal = Core.legalMoves(s, s.turn);
-      if (legal && legal.length) {
-        this.doMove(legal[Math.floor(Math.random() * legal.length)]);
-      } else {
-        this.passTurn();
+      /* [R9-FIX] انتهاء مؤقت الدور: أكمل الدور كاملاً — رمي النرد (إن لزم) ثم كل
+         حركات النردين (حركتان أو أربع للتسابات) ثم تمرير الدور للخصم.
+         المرحلة السابقة كانت تلعب حركة نرد واحدة فقط ثم تتوقف بلا مؤقت ولا
+         تمرير دور — فتبقى اللعبة معلقة بانتظار اللاعب الغائب الذي انتهى وقته. */
+      this._autoChain = true;
+      if (s.phase === 'opening' || s.phase === 'roll' || !s.rolled) {
+        this.rollClick();
+        /* بعد اكتمال الرمي (محلياً أو عبر بث الغرفة) نكمل سلسلة الحركات */
+        this.later(() => this._autoChainStep(), 1100);
+        return;
       }
+      if (s.phase !== 'move') { this._autoChain = false; return; }
+      this._autoChainStep();
+    },
+    _autoChainStep: function () {
+      if (!this._autoChain) return;
+      const g = this.game;
+      if (!g || !g.state) { this._autoChain = false; return; }
+      const s = g.state;
+      const meSeat = (this.room && this.room.on) ? this.room.mySeat : 0;
+      if (s.phase === 'gameEnd' || s.phase === 'matchEnd') { this._autoChain = false; return; }
+      if (s.phase !== 'move' || s.turn !== meSeat) { this._autoChain = false; return; }
+      const legal = Core.legalMoves(s, s.turn);
+      if (!legal || !legal.length) {
+        this._autoChain = false;
+        this.passTurn();
+        return;
+      }
+      /* doMove يبث للحصة في وضع الغرفة ويمرر الدور تلقائياً عند نفاد النرد؛
+         وإن بقي نرد فيستأنف السلسلة عبر علم _autoChain داخل doMove */
+      this.doMove(legal[Math.floor(Math.random() * legal.length)]);
     },
     later: function (fn, ms) { const t = setTimeout(fn, ms); this._timers.push(t); return t; },
     on: function (el, ev, fn) { if (!el) return; el.addEventListener(ev, fn); this._handlers.push({ el: el, ev: ev, fn: fn }); },
@@ -489,6 +509,8 @@
     },
 
     passTurn: function () {
+      /* [R9-FIX] انتهت سلسلة انتهاء المؤقت — أي تدخل بشري لاحق لا يُعتبر جزءاً منها */
+      this._autoChain = false;
       /* [BG-Room] الغرفة: تمرير الدور عبر BG_ROOM (بثّ endturn) */
       if (this.room && this.room.on && root.BG_ROOM) { root.BG_ROOM.endTurn(); return; }
       this.sel = null;
@@ -544,6 +566,7 @@
 
     colClick: function (idx) {
       const s = this.game.state;
+      this._autoChain = false;   /* [R9-FIX] اللاعب عاد ليتفاعل — أوقف سلسلة المؤقت */
       if (this.busy || s.phase !== 'move') return;
       /* [BG-Room] الغرفة: اللعب فقط في دوري (المتفرج لا يلعب أصلاً) */
       if (this.room && this.room.on && !this._roomMyTurn()) return;
@@ -569,6 +592,7 @@
 
     barClick: function () {
       const s = this.game.state;
+      this._autoChain = false;   /* [R9-FIX] تفاعل بشري — أوقف سلسلة انتهاء المؤقت */
       if (this.busy || s.phase !== 'move') return;
       /* [BG-Room] الغرفة: اللعب فقط في دوري */
       if (this.room && this.room.on && !this._roomMyTurn()) return;
@@ -581,6 +605,7 @@
 
     trayClick: function (p) {
       const s = this.game.state;
+      this._autoChain = false;   /* [R9-FIX] تفاعل بشري — أوقف سلسلة انتهاء المؤقت */
       if (this.busy || s.phase !== 'move' || s.turn !== p) return;
       /* [BG-Room] الغرفة: الإخراج فقط في دوري (p محلي=0 دائماً في الوضعين) */
       if (this.room && this.room.on && !this._roomMyTurn()) return;
@@ -608,6 +633,9 @@
         if (r.ended) { this.later(() => root.BG_ROOM.showEnd(), 650); return; }
         if (!s.dice.length || !Core.legalMoves(s, s.turn).length) {
           this.later(() => root.BG_ROOM.endTurn(), 560);
+        } else if (this._autoChain) {
+          /* [R9-FIX] سلسلة انتهاء المؤقت: ما زال نرد غير مستعمل — أكمل الحركة التالية */
+          this.later(() => this._autoChainStep(), 430);
         } else {
           this.later(() => this.refresh(), 60);
         }
@@ -617,6 +645,9 @@
       if (r.ended) { this.later(() => this.showGameEnd(false), 650); return; }
       if (!s.dice.length || !Core.legalMoves(s, s.turn).length) {
         this.later(() => this.passTurn(), 560);
+      } else if (this._autoChain) {
+        /* [R9-FIX] سلسلة انتهاء المؤقت: ما زال نرد غير مستعمل — أكمل الحركة التالية */
+        this.later(() => this._autoChainStep(), 430);
       } else {
         this.later(() => this.refresh(), 60);
       }
@@ -624,6 +655,7 @@
 
     undo: function () {
       const s = this.game.state;
+      this._autoChain = false;   /* [R9-FIX] تراجع بشري — أوقف سلسلة انتهاء المؤقت */
       if (!this.undoStack.length || this.busy) return;
       /* [BG-Room] لا تراجع في الغرفة: حركة الخصم على الشبكة لا تُلغى */
       if (this.room && this.room.on) return;
@@ -677,6 +709,7 @@
 
     /* ═══════════ النهايات ═══════════ */
     showGameEnd: function (resigned) {
+      this._autoChain = false;   /* [R9-FIX] انتهت اللعبة — أوقف سلسلة انتهاء المؤقت */
       const s = this.game.state;
       if (s.phase !== 'gameEnd' && s.phase !== 'matchEnd' && !resigned) return;
       const isAI = this.config.mode === 'ai';

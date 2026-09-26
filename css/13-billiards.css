@@ -75,6 +75,7 @@
 
 /* ═══ الهيكل: طاولة 85% + شريطان 15% ═══ */
 .bl-frame {
+  position: relative;   /* [R9] حاوية تموضع للأبناء المطلقين (زر التدوير بالزاوية) */
   direction: ltr;   /* الشريط الأيمن يميناً دائماً */
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(64px, 15%, 180px);
@@ -587,12 +588,13 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
     linear-gradient(270deg, #a9753a, #c08a4a 45%, #d9a566);
 }
 
-/* ── لاندسكيب: عمودان رأسيان ── */
+/* ── لاندسكيب: عمود أيسر نحيف + يمين بعمودَي لاعب ── */
 .bl-frame.bl-land .bl-lrail {
   grid-area: 1 / 1;
   flex-direction: column;
   justify-content: flex-start;
-  align-items: center;      /* [UI-v6] كرات الخصم بخط عمودي مستقيم تحت أفاتاره */
+  align-items: center;
+  gap: 10px;
   padding: calc(8px + var(--safe-top)) 4px 10px;
   border-right: 2px solid #8a5a24;
   box-shadow: inset -4px 0 8px rgba(0,0,0,.28), inset 2px 0 3px rgba(255,235,190,.3);
@@ -600,29 +602,76 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
 .bl-frame.bl-land .bl-mid { grid-area: 1 / 2; }
 .bl-frame.bl-land .bl-rail {
   grid-area: 1 / 3;
-  flex-direction: column;
-  justify-content: flex-start;
-  align-items: center;      /* [UI-v6] محور عمودي واحد: أفاتاري فكراتي فالقوة فالتنفيذ */
-  /* الصف الأول (الأفاتار) تحت زر الخروج الذهبي الثابت بالزاوية */
-  padding: calc(52px + var(--safe-top)) 4px 10px;
+  flex-direction: row;            /* [R9] عمودان رأسيان جنباً إلى جنب */
+  justify-content: center;
+  align-items: stretch;
+  gap: 4px;
+  /* تحت أيقونتي تصغير الشاشة والخروج الملتصقتين بالزاوية العليا اليمنى */
+  padding: calc(56px + var(--safe-top)) 3px 10px;
   border-left: 2px solid #8a5a24;
   box-shadow: inset 4px 0 8px rgba(0,0,0,.28), inset -2px 0 3px rgba(255,235,190,.3);
 }
-.bl-frame.bl-land .bl-rail .bl-shoot { margin-top: 4px; }
-.bl-frame.bl-land .bl-lrail .bl-spin { margin-top: auto; align-self: center; }
-.bl-frame.bl-land .bl-rail .bl-shoot { margin-bottom: 4px; }
-/* شريط القوة عمودي يمتص الوسط */
-.bl-frame.bl-land .bl-rail #blPower {
-  writing-mode: vertical-rl;
-  direction: rtl;
-  flex: 1 1 auto;
-  width: 22px;
-  min-height: 70px;
-  max-height: none;
-}
 
-/* ── بورتريه: نفس العمودين مقلوبين 90° = شريطان أفقيان ── */
-/* ── بورتريه: إخفاء الشريط العلوي كصف واستخدامه كحاوية مطلقة ── */
+/* [R9] وحدة اللاعب: عمود رأسي في اللاندسكيب (أفاتار ← طبق الاسم/المجموعة ←
+   النقاط ← الكرات بخط مستقيم تحته) */
+.bl-punit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 0;
+  padding: 0 2px;
+}
+.bl-punit .bl-av { flex: 0 0 auto; }
+.bl-pl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.bl-nm {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: #ffe9a8;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  max-width: 88px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bl-grp {
+  font-size: 10px;
+  font-weight: 800;
+  color: #e9d9b8;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bl-frame.bl-land .bl-punit .bl-vtray { flex-direction: column; }
+
+/* شريط القوة [R9]: نفس حجمه وشكله السابق (عمودي 22px) — الآن في العمود
+   الأيسر بين زر التدوير والكرة البيضاء، بلا عصا: تعتيم يغطي الجزء غير
+   المستعمل وحافة مضيئة تتقدم نحو الأحمر مع القوة */
+.bl-frame.bl-land .bl-lrail .bl-cue-track {
+  flex: 1 1 auto;
+  min-height: 120px;
+  min-width: 0;
+  width: 22px;
+  height: auto;
+  margin: 0;
+  background: linear-gradient(to bottom, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
+}
+.bl-frame.bl-land .bl-lrail .bl-rotbtn { align-self: center; }
+.bl-frame.bl-land .bl-lrail .bl-spin { margin-top: auto; align-self: center; }
+
+/* ── بورتريه [R9]: ثلاثة صفوف — الطاولة، شريطا اللاعبَين، شريط التحكم ── */
+.bl-frame.bl-port { grid-template: minmax(0,1fr) auto auto / minmax(0,1fr); }
 .bl-frame.bl-port .bl-mid { grid-area: 1 / 1; }
 .bl-frame.bl-port .bl-lrail {
   grid-area: 1 / 1;
@@ -635,97 +684,119 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
   padding: 0;
   display: block;
 }
-.bl-frame.bl-port .bl-rail {
+/* [R9] زر التدوير: أقصى الزاوية العليا اليسرى — أعلى الحلقة ويسارها
+   يلتصقان بالهامشين العلوي واليساري للشاشة تماماً. في الشاشة الممتلئة
+   يثبتّ على زاوية الشاشة نفسها (الإطار تحده حدود .stage بـ3px) */
+.bl-frame.bl-port .bl-rotbtn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  pointer-events: auto;
+}
+body.app-fs-on.bl-game-open .bl-frame.bl-port #blRotBtn {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 14500;
+}
+/* [R9] شريطا اللاعبَين+الكرات: صفان أفقيان أسفل ضلع الطاولة السفلي،
+   فوق الكرة البيضاء وشريط القوة، في المنطقة الفارغة */
+.bl-port-bars {
   grid-area: 2 / 1;
-  flex-direction: row;
+  display: none;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  padding: 2px 8px;
+  gap: 2px;
+  padding: 3px 6px;
+  z-index: 9;
+}
+.bl-frame.bl-port .bl-port-bars { display: flex; }
+.bl-pbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 4px;
+}
+.bl-pbar .bl-pl { flex-direction: row; gap: 6px; }
+/* [R9] الوحدة داخل شريط البورتريه تتحول صفاً أفقياً: أفاتار ← اسم/مجموعة ← كرات */
+.bl-frame.bl-port .bl-pbar .bl-punit { flex-direction: row; align-items: center; gap: 8px; flex: 0 0 auto; }
+.bl-frame.bl-port .bl-pbar .bl-vtray { flex-direction: row; }
+/* [R9] شريط التحكم السفلي: الكرة البيضاء (السبين) + شريط القوة المكبّر */
+.bl-frame.bl-port .bl-rail {
+  grid-area: 3 / 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 10px calc(6px + var(--safe-bottom, 0px));
   border-top: 2px solid #8a5a24;
   box-shadow: inset 0 4px 8px rgba(0,0,0,.28), inset 0 -2px 3px rgba(255,235,190,.3);
   z-index: 10;
 }
 .bl-frame.bl-port .bl-rail .bl-spin { margin: 0; flex: 0 0 auto; }
 
-/* [UI-v6] أعمدة بورتريه الجانبية */
-.bl-port-col {
-  position: absolute;
-  top: calc(48px + var(--safe-top, 0px));
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  pointer-events: auto;
-  z-index: 10;
-}
-.bl-port-left { left: 8px; }
-.bl-port-right { right: 8px; }
-
-.bl-frame.bl-port .bl-port-col .bl-srow { flex-direction: column; gap: 8px; }
-.bl-frame.bl-port .bl-port-col .bl-vtray { flex-direction: column; }
-
-.bl-frame.bl-port .bl-rail .bl-shoot { margin-bottom: 0; }
-
-/* ── مسار وعصا التسديد (Cue Drag) ── */
+/* ── شريط القوة [R9] (بلا عصا): التدرج مقياس دائم — أخضر يسار/أعلى،
+   أحمر يمين/أسفل؛ السحب نحو الأحمر يزيد القوة والإفلات ينفّذ الضربة.
+   التعتيم (bl-cue-fill) يغطي الجزء غير المستعمل من طرف القوة الحالي حتى
+   نهاية الشريط، وحافته المضيئة تعلّم مستوى القوة الحالي ── */
 .bl-cue-track {
   position: relative;
   flex: 1 1 auto;
-  min-width: 70px;
-  height: 22px;
+  min-width: 120px;
+  height: clamp(32px, 6vmin, 46px);      /* [R9] مستطيل مكبّر بدل الشريط الصغير */
   background: linear-gradient(to right, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
-  border-radius: 11px;
-  border: 1px solid rgba(0,0,0,.6);
-  box-shadow: inset 0 2px 4px rgba(0,0,0,.5);
-  margin: 0 8px;
+  border-radius: 9px;                     /* [R9] شكل مستطيل لا كبسولة كاملة */
+  border: 2px solid rgba(0,0,0,.65);
+  box-shadow: inset 0 3px 6px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.45);
+  margin: 0 4px;
   cursor: grab;
   touch-action: none;
+  overflow: hidden;
 }
-.bl-cue-stick {
+.bl-cue-track:active { cursor: grabbing; }
+/* التعتيم: افتراضياً (بورتريه/أفقي) ملتصق باليمين وعرضه = الجزء المتبقي */
+.bl-cue-fill {
   position: absolute;
-  top: -4px;
-  left: 25%; /* Initial power 75%, so position is 100-75 = 25% */
-  width: 140px; /* Long stick */
-  height: 30px;
-  background: url('../assets/billiards/cue.png') no-repeat center right / contain;
-  /* If image is not available, we can use CSS drawing, but I will provide a CSS-only cue stick just in case */
-  transform: translateX(-100%);
-  pointer-events: none; /* Let track handle drag */
+  top: 0; bottom: 0; right: 0;
+  width: 25%;                             /* القوة الافتراضية 75% */
+  background: rgba(12, 7, 2, .78);
+  pointer-events: none;
 }
-/* CSS Only Cue Stick Fallback */
-.bl-cue-stick::before {
+/* لاندسكيب: التعتيم يلتصق بالأسفل وارتفاعه = الجزء المتبقي */
+.bl-frame.bl-land .bl-cue-fill {
+  top: auto; right: 0; left: 0; bottom: 0;
+  height: 25%;
+  width: auto;
+}
+/* الحافة المضيئة عند مستوى القوة الحالي */
+.bl-cue-fill::before {
   content: "";
   position: absolute;
-  top: 50%; right: 0;
-  transform: translateY(-50%);
-  width: 140px; height: 12px;
-  background: linear-gradient(to right, #6d4c41 0%, #d7ccc8 20%, #8d6e63 40%, #e0e0e0 95%, #42a5f5 100%);
-  border-radius: 6px 2px 2px 6px;
-  box-shadow: 0 4px 6px rgba(0,0,0,.4);
-  border: 1px solid rgba(0,0,0,.8);
+  background: #ffe9a8;
+  box-shadow: 0 0 7px rgba(255,233,168,.95), 0 0 14px rgba(255,233,168,.55);
 }
-.bl-cue-stick::after {
-  content: "";
+.bl-cue-fill::before { left: 0; top: 0; bottom: 0; width: 3px; }              /* أفقي: حافة يسرى */
+.bl-frame.bl-land .bl-cue-fill::before { left: 0; right: 0; top: 0; bottom: auto; height: 3px; width: auto; }  /* عمودي: حافة عليا */
+/* قيمة القوة داخل الشريط */
+.bl-powval {
   position: absolute;
-  top: 50%; right: -2px;
-  transform: translateY(-50%);
-  width: 4px; height: 12px;
-  background: #1976d2;
-  border-radius: 0 2px 2px 0;
-}
-.bl-frame.bl-land .bl-rail .bl-cue-track {
-  writing-mode: vertical-rl;
-  direction: rtl;
-  min-height: 120px;
-  width: 22px;
-  background: linear-gradient(to bottom, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
-}
-.bl-frame.bl-land .bl-rail .bl-cue-stick {
-  top: auto; bottom: 25%;
-  left: -4px;
-  transform: translateX(0) translateY(100%) rotate(-90deg);
-  transform-origin: bottom left;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: clamp(12px, 2.4vmin, 16px);
+  font-weight: 900;
+  text-shadow: 0 1px 3px #000, 0 0 7px #000;
+  pointer-events: none;
+  z-index: 2;
 }
 
-/* صف علوي (تدوير + أفاتار) داخل العمود */
+/* صف علوي عام (بقايا متوافقة) */
 .bl-srow { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
 
 /* [UI-v5] السبين مكبّر: لاندسكيب +65% وبورتريه +50% من القاعدة السابقة */
@@ -776,8 +847,28 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
 
 /* [UI-v5] كتلة الإيموجي الخاصة أزيلت — أيقونة التفاعلات العامة (roomReactBtn) فقط */
 
+/* [R9] الشريط العلوي القديم (صينية أفقية ملغاة) — يبقى في DOM لأن blTray()
+   يكتب فيه لكنه لا يعرض ولا يحجز خلية شبكة */
+.bl-topbar { display: none !important; }
+
 /* زر الخروج الذهبي فوق طبقات اللعبة وأيقونة التفاعلات العائمة */
 body.bl-game-open .game-fs-exit { z-index: 14500 !important; }
+
+/* ═══ [R9] طلب المالك — بلياردو فقط: أيقونة تصغير الشاشة (#gameFsExit)
+   أقصى الزاوية العليا اليمنى بحيث تلتصق أعلى حلقتها ويمين حلقتها بالهامشين
+   العلوي والأيمن للشاشة، وأيقونة الخروج من اللعبة (#gameLeaveBtn) بجانبها
+   مباشرة على نفس الالتصاق العلوي — في الوضعين بورتريه ولاندسكيب ═══ */
+body.bl-game-open #gameFsExit {
+  top: 0 !important;
+  right: 0 !important;
+  border-radius: 0 0 0 40%;   /* ربع دائرة سفلي-أيسر: الحلقة تلاقي الزاوية */
+}
+body.bl-game-open #gameLeaveBtn {
+  top: 0 !important;
+  /* عرض زر التصغير الفعلي محكوم بـ05-ronda (clamp(30px,7vw,36px)) — نلاصقه بجانبه */
+  right: calc(clamp(30px, 7vw, 36px) + 2px) !important;
+  border-radius: 0 0 0 40%;
+}
 
 /* [UI-v4] شارة الدور والمؤقت: عائمة أعلى وسط الطاولة */
 .bl-turnpill {
@@ -800,17 +891,8 @@ body.bl-game-open .game-fs-exit { z-index: 14500 !important; }
 }
 .bl-turnpill.bl-time-low { color: #ff7b6e; border-color: rgba(255,110,90,.6); }
 
-/* [UI-v5] بورتريه: الشريط أفقي — التدرج بمحاذاة محور الزيادة */
-.bl-frame.bl-port #blPower::-webkit-slider-runnable-track {
-  width: auto;
-  height: 14px;
-  background: linear-gradient(to right, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
-}
-.bl-frame.bl-port #blPower::-moz-range-track {
-  width: auto;
-  height: 14px;
-  background: linear-gradient(to right, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
-}
+/* [R9] قواعد منزلق #blPower القديم أزيلت — العنصر خرج من الواجهة والقوة
+   تُضبط الآن بسحب شريط blCueTrack مباشرة (اسحب نحو الأحمر ثم أفلت للتسديد) */
 
 /* دفاع: زر التدوير فوق أي تراكب داخل عموده */
 .bl-rotbtn { position: relative; z-index: 7; }

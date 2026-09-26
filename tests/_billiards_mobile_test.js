@@ -1,7 +1,7 @@
 /* توافق الهاتف للبلياردو (المرحلة 7): أبعاد محمول/حاسوب، لمس، اتجاه عمودي/أفقي، بلا فيضان */
 'use strict';
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+const BASE = process.env.CASINO_BASE || 'http://localhost:3000/';
 
 let pass = 0, fail = 0;
 const ok = (m, c) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m); } };

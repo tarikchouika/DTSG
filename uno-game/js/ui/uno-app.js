@@ -959,12 +959,21 @@
         if (!this._autoPlayedTurn || this._autoPlayedTurn !== s.turn + s.discard.length + s.drawn) {
           this._autoPlayedTurn = s.turn + s.discard.length + s.drawn; // prevent spamming
           const legal = Core.legalMoves(s.hands[meSeat], s.color, Core.top(s.discard).value);
+          /* [R9-FIX] جذر تجمّد أونو عند الصفر: الكود السابق استدعى NS.playCard و
+             NS.drawCard وهما غير موجودتين في نطاق المحرك (الموجودتان: NS.play
+             وNS.draw) — TypeError يُبتلع بصمت داخل try/catch نبض السائق، فلا
+             تُنفَّذ أي حركة ويبقى المؤقت متجمداً عند الصفر. صحّحنا أيضاً حقول
+             بث الغرفة لتطابق ما يفهمه netApplyMove: {seat, cardId, color}. */
           if (legal.length) {
-            if (isRoom) this._netEmit('play', { card: legal[0] });
-            NS.playCard(meSeat, legal[0]);
+            this._netEmit('play', { seat: meSeat, cardId: legal[0], color: null });
+            NS.play(meSeat, legal[0]);   /* المحرك يختار لوناً تلقائياً للمنقّحات K */
+          } else if (s.drawn != null) {
+            /* سحبة قابلة للعب رفضها اللاعب حتى انتهى الوقت — مرّر الدور */
+            this._netEmit('pass', { seat: meSeat });
+            NS.pass(meSeat);
           } else {
-            if (isRoom) this._netEmit('draw', {});
-            NS.drawCard(meSeat);
+            this._netEmit('draw', { seat: meSeat });
+            NS.draw(meSeat);
           }
           this._lastActAt = Date.now();
         }

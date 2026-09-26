@@ -50,6 +50,7 @@
     _roomOrder: null,        /* ids بالمقاعد 0..3 (يبثّها السائق) */
     _roomNames: [],
     _roomTimer: 60,          /* مهلة الدور (ثوانٍ) من إعدادات الغرفة */
+    _timerTurnKey: null,     /* [R9-FIX] مفتاح آخر دور/طور شاهده المؤقت — يُضبط مرجع العد عند تغيّره */
     _netSeq: 0,
     _lastActAt: 0,
     _lastTurnId: -1,
@@ -195,18 +196,22 @@
       if (left <= 0 && isHuman && p === meSeat && (!isRoom || !this._isSpectator)) {
         if (!this._autoPlayedTurn || this._autoPlayedTurn !== p + s.phase + (s.phase === 'play' ? s.trick.length : 0)) {
           this._autoPlayedTurn = p + s.phase + (s.phase === 'play' ? s.trick.length : 0);
+          /* [R9-FIX] كانت الدوال غير موجودة في المحرك (actPass/actPass2/actPlay/
+             legalPlays) — TypeError يُبتلع داخل try/catch النبض فلا تُنفَّذ أي
+             حركة عند انتهاء المؤقت. الصحيح: declareAshur(seat,null) تمرير إعلان،
+             chooseNaming(seat,null) تمرير تسمية، وCore.legalMoves + NS.play */
           if (s.phase === 'ashur') {
-            if (isRoom) this._netEmit('pass', {});
-            NS.actPass(p);
+            if (isRoom) this._netEmit('ashur', { seat: p, combo: null });
+            NS.declareAshur(p, null);
           } else if (s.phase === 'naming') {
-            if (isRoom) this._netEmit('pass2', {});
-            NS.actPass2(p);
+            if (isRoom) this._netEmit('name', { seat: p, choice: null });
+            NS.chooseNaming(p, null);
           } else if (s.phase === 'play') {
-            const l = NS.legalPlays(s, p);
-            if (l.length) {
+            const l = Core.legalMoves(s.hands[p], s.trick, s.trump, s.cfg.mustBeat);
+            if (l && l.length) {
               const act = l[Math.floor(Math.random() * l.length)];
-              if (isRoom) this._netEmit('play', { id: act.id });
-              NS.actPlay(p, act);
+              if (isRoom) this._netEmit('play', { seat: p, cardId: act.id });
+              NS.play(p, act);
             }
           }
           this._lastActAt = Date.now();
@@ -1308,6 +1313,15 @@
         }
         return;
       }
+      /* [R9-FIX] جذر تجمّد مؤقت بلوت: _lastActAt لم يكن يُضبط أبداً عند بدء المباراة
+         أو عند تقدّم أدوار البوتات في الوضع المحلي — فيبقى المرجع Date.now() اللحظي
+         والفرق صفراً فيتجمد العدّاد على قيمته الكاملة إلى الأبد. الحل: كل تغيّر
+         للدور/الطور/عدد أوراق الخدعة يعيد ضبط مرجع العد (نفس فكرة _lastTurnId في أونو). */
+      const turnKey = s.turn + ':' + s.phase + ':' + (s.phase === 'play' && s.trick ? s.trick.length : 0);
+      if (this._timerTurnKey !== turnKey) {
+        this._timerTurnKey = turnKey;
+        this._lastActAt = Date.now();
+      }
       const grace = tLimit;
       let left = grace - Math.floor((Date.now() - (this._lastActAt || Date.now())) / 1000);
       if (left < 0) left = 0;
@@ -1336,18 +1350,22 @@
       if (left <= 0 && isHuman && p === meSeat && (!isRoom || !this._isSpectator)) {
         if (!this._autoPlayedTurn || this._autoPlayedTurn !== p + s.phase + (s.phase === 'play' ? s.trick.length : 0)) {
           this._autoPlayedTurn = p + s.phase + (s.phase === 'play' ? s.trick.length : 0);
+          /* [R9-FIX] كانت الدوال غير موجودة في المحرك (actPass/actPass2/actPlay/
+             legalPlays) — TypeError يُبتلع داخل try/catch النبض فلا تُنفَّذ أي
+             حركة عند انتهاء المؤقت. الصحيح: declareAshur(seat,null) تمرير إعلان،
+             chooseNaming(seat,null) تمرير تسمية، وCore.legalMoves + NS.play */
           if (s.phase === 'ashur') {
-            if (isRoom) this._netEmit('pass', {});
-            NS.actPass(p);
+            if (isRoom) this._netEmit('ashur', { seat: p, combo: null });
+            NS.declareAshur(p, null);
           } else if (s.phase === 'naming') {
-            if (isRoom) this._netEmit('pass2', {});
-            NS.actPass2(p);
+            if (isRoom) this._netEmit('name', { seat: p, choice: null });
+            NS.chooseNaming(p, null);
           } else if (s.phase === 'play') {
-            const l = NS.legalPlays(s, p);
-            if (l.length) {
+            const l = Core.legalMoves(s.hands[p], s.trick, s.trump, s.cfg.mustBeat);
+            if (l && l.length) {
               const act = l[Math.floor(Math.random() * l.length)];
-              if (isRoom) this._netEmit('play', { id: act.id });
-              NS.actPlay(p, act);
+              if (isRoom) this._netEmit('play', { seat: p, cardId: act.id });
+              NS.play(p, act);
             }
           }
           this._lastActAt = Date.now();

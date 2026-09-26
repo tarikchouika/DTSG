@@ -4,7 +4,7 @@
    التشغيل:  node tests/_billiards_browser_test.js
    ══════════════════════════════════════════════════════════════════ */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+const BASE = process.env.CASINO_BASE || 'http://localhost:3000/';
 async function wait(p, fn, t) { t = t || 12000; const s = Date.now(); while (Date.now() - s < t) { try { const r = await p.evaluate(fn); if (r) return r; } catch (e) {} await p.waitForTimeout(150); } return null; }
 const res = []; const ok = (n, c) => { res.push([n, !!c]); console.log((c ? '  ✓ ' : '  ✗ ') + n); };
 const sec = t => console.log('\n── ' + t + ' ──');
