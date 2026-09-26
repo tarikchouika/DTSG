@@ -21,7 +21,10 @@
 
   function BgGame(opts) {
     const o = opts || {};
-    this.rng = Core.SeededRng(o.seed);
+    /* [R14] طلب المالك: كل مباراة تحصل على seed عشوائي حقيقي لتفادي تكرار
+       نفس احتمالات الافتتاح. القيمة الافتراضية كانت تُنتج دائماً (3-1). */
+    const seed = (o.seed != null) ? o.seed : ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0);
+    this.rng = Core.SeededRng(seed);
     this.onEvent = o.onEvent || function () {};
     this.state = Core.newState(o.matchTarget || 5);
   }
@@ -31,6 +34,8 @@
   };
 
   BgGame.prototype.newMatch = function (matchTarget) {
+    /* [R14] توليد seed جديد لكل مباراة لضمان عشوائية الافتتاح */
+    this.rng = Core.SeededRng(((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0));
     this.state = Core.newState(matchTarget || 5);
     this._emit('matchStarted', {});
     return this.state;
@@ -41,6 +46,8 @@
     const prevWinner = this.state.winner;
     const score = this.state.matchScore.slice();
     const target = this.state.matchTarget;
+    /* [R14] توليد seed جديد لكل لعبة داخل المباراة */
+    this.rng = Core.SeededRng(((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0));
     this.state = Core.newState(target);
     this.state.matchScore = score;
     this._emit('gameStarted', { prevWinner: prevWinner });

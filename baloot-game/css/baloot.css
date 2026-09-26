@@ -724,6 +724,12 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
     z-index: 25;
     pointer-events: none;
   }
+  /* [R14] بورتريه: مطابقة عرض hudcenter مع trickzone ليكونا فوق الورق المرمي */
+  .bl-stage .bl-hudcenter {
+    width: min(78vw, 420px) !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
   /* [R13] بورتريه: إزاحة أوراق اللاعبين لمحاذاة حدود الشاشة */
   .bl-stage .bl-seat-top { top: -15px !important; }
   .bl-stage .bl-seat-right { right: -15px !important; }
@@ -789,7 +795,13 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
     flex-direction: row !important;
     align-items: center;
     justify-content: space-between;
-    width: min(96vw, 560px);   /* أعرض من trickzone (420px) ليحيطا بها */
+    /* [R14] طلب المالك: إزاحة لليمين ~85px لتصبح round+trump فوق الورق
+       المرمي وسط الطاولة. trickzone width=min(78vw,420px) centered،
+       وحاويتنا كانت width=min(96vw,560px) wider. تقليل العرض + إزاحة
+       يمين يضع العنصرين فوق trickzone بدقة. */
+    width: min(78vw, 420px);   /* مطابق لعرض trickzone */
+    margin-left: auto;
+    margin-right: auto;
     padding-top: 0;
     gap: 0;
   }

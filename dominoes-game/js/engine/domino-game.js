@@ -23,12 +23,17 @@
   function DominoGame(opts) {
     const o = opts || {};
     this.cfg = Core.normalizeConfig(o.config);
-    this.rng = Core.SeededRng(o.seed);
+    /* [R14] طلب المالك: كل مباراة تحصل على seed عشوائي حقيقي لتفادي تكرار
+       نفس توزيع القطع ونفس اللاعب البادئ في كل جولة. */
+    const seed = (o.seed != null) ? o.seed : ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0);
+    this.rng = Core.SeededRng(seed);
     this.onEvent = o.onEvent || function () {};
     this.state = null;
   }
 
   DominoGame.prototype.newMatch = function () {
+    /* [R14] توليد seed جديد لكل مباراة لضمان عشوائية التوزيع */
+    this.rng = Core.SeededRng(((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0));
     /* [RS-GameOpts] cfg من التهيئة — يدعم عدد اللاعبين (2 أو 3 أو 4) */
     const numPlayers = Math.max(2, Math.min(4, parseInt(this.cfg.playersCount, 10) || 2));
     this.state = Core.newRound({ cfg: this.cfg, round: 0, scores: new Array(numPlayers).fill(0) }, this.rng, null);
@@ -38,6 +43,8 @@
   };
 
   DominoGame.prototype.nextRound = function () {
+    /* [R14] توليد seed جديد لكل جولة لضمان عشوائية التوزيع والبادئ */
+    this.rng = Core.SeededRng(((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0));
     this.state = Core.nextRound(this.state, this.rng);
     this._emit('roundStarted', { round: this.state.round, starter: this.state.starter });
     return this.state;
