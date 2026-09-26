@@ -123,7 +123,11 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
 }
 .bl-frame.bl-land { display: block; }
 
-/* ── منطقة الطاولة: تملأ الحاوية كاملة في اللاندسكيب ── */
+/* ── منطقة الطاولة: تملأ الحاوية كاملة في اللاندسكيب ──
+   [R11] طلب المالك: حشوات داخلية تُبقي الطاولة متمحورة بعيداً عن الأزرار
+   والأعمدة الطافية — قمة 56px لتفادي تداخل الأزرار العلوية، يسار
+   clamp(74,11vmin,104) لتفادي عمود التحكم (القوة + الكرة البيضاء)،
+   يمين 122px لتفادي عمودي اللاعبَين الطافيين، أسفل 12px هامش. */
 .bl-mid {
   grid-area: 1 / 1;
   position: relative;
@@ -133,7 +137,12 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
   min-height: 0;
   min-width: 0;
 }
-.bl-frame.bl-land .bl-mid { position: absolute; inset: 0; }
+.bl-frame.bl-land .bl-mid {
+  position: absolute;
+  inset: 0;
+  padding: 56px 122px 12px clamp(74px, 11vmin, 104px);
+}
+.bl-frame.bl-land .bl-mid > .bl-stagebox { width: 100%; height: 100%; }
 
 .bl-stagebox {
   position: relative;
@@ -156,22 +165,28 @@ body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
   touch-action: none;
 }
 
-/* ═══ [R10] الأيقونات الثلاث الموحدة: حلقة ذهبية + رمز أسود ═══ */
+/* ═══ [R11] الأيقونات الثلاث الموحدة: قرص ذهبي ممتلئ + رمز أسود ═══ */
 body.bl-game-open #gameFsExit,
 body.bl-game-open #gameLeaveBtn,
 body.bl-game-open .bl-rotbtn {
-  background: transparent !important;
-  border: 2.5px solid #e9c877 !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 45%),
+    linear-gradient(160deg, #f6e0a5, #e9c877 40%, #c79733) !important;
+  border: 2px solid rgba(247, 232, 200, .85) !important;
   border-radius: 50% !important;
-  color: #191008 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, .38), inset 0 0 0 1.5px rgba(233, 200, 119, .30) !important;
+  color: #1a1206 !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .45) inset,
+    0 4px 12px rgba(0, 0, 0, .5),
+    0 0 12px rgba(217, 180, 92, .55) !important;
   text-shadow: none !important;
   padding: 0 !important;
   cursor: pointer;
 }
 body.bl-game-open #gameFsExit i,
 body.bl-game-open #gameLeaveBtn i,
-body.bl-game-open .bl-rotbtn i { color: #191008 !important; }
+body.bl-game-open .bl-rotbtn i { color: #1a1206 !important; }
 
 /* زر التدوير: الزاوية العليا اليسرى ملتصقاً بالهامشين — في الوضعين */
 body.bl-game-open .bl-rotbtn {
@@ -205,29 +220,30 @@ body.bl-game-open #gameLeaveBtn {
   border-radius: 50% !important;
 }
 
-/* ── الأحجام: لاندسكيب موحدة 40px؛ بورتريه موحدة 24px (−30%) ── */
+/* ── الأحجام: لاندسكيب موحدة 42px؛ بورتريه موحدة 30px (+25%) ── */
 @media (orientation: landscape) {
   body.bl-game-open #gameFsExit,
   body.bl-game-open #gameLeaveBtn {
-    width: 40px !important;
-    height: 40px !important;
+    width: 42px !important;
+    height: 42px !important;
   }
-  body.bl-game-open #gameLeaveBtn { right: 42px !important; }
+  body.bl-game-open #gameLeaveBtn { right: 44px !important; }
   body.bl-game-open #gameFsExit i,
-  body.bl-game-open #gameLeaveBtn i { font-size: 16px !important; }
-  body.bl-game-open .bl-rotbtn { width: 40px; height: 40px; font-size: 16px; }
+  body.bl-game-open #gameLeaveBtn i { font-size: 17px !important; }
+  body.bl-game-open .bl-rotbtn { width: 42px; height: 42px; font-size: 17px; }
 }
 @media (orientation: portrait) {
+  /* [R11] طلب المالك: تكبير أيقونات البورتريه بنسبة 25% (24px → 30px) */
   body.bl-game-open #gameFsExit,
   body.bl-game-open #gameLeaveBtn {
-    width: 24px !important;
-    height: 24px !important;
+    width: 30px !important;
+    height: 30px !important;
     border-width: 2px !important;
   }
-  body.bl-game-open #gameLeaveBtn { right: 26px !important; }
+  body.bl-game-open #gameLeaveBtn { right: 32px !important; }
   body.bl-game-open #gameFsExit i,
-  body.bl-game-open #gameLeaveBtn i { font-size: 10px !important; }
-  body.bl-game-open .bl-rotbtn { width: 24px; height: 24px; font-size: 10px; border-width: 2px; }
+  body.bl-game-open #gameLeaveBtn i { font-size: 13px !important; }
+  body.bl-game-open .bl-rotbtn { width: 30px; height: 30px; font-size: 13px; border-width: 2px; }
 }
 
 /* ═══ [R10] عمود التحكم الأيسر (لاندسكيب): قوة عمودية + كرة بيضاء ═══ */

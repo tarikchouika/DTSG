@@ -1,12 +1,13 @@
-/* ═══ اختبار واجهة البلياردو — نسخة R10 (تخطيط المالك الجديد) ═══
+/* ═══ اختبار واجهة البلياردو — نسخة R11 (تخطيط المالك الجديد) ═══
    الطاولة تملأ وسط الحاوية وتلتصق أعلى/أسفل (لاندسكيب) — كل الأدوات
    أعمدة طافية فوق خلفية خشب موحدة:
-   • أيقونات موحدة: حلقة ذهبية + رمز أسود (تصغير+خروج يمين أعلى، تدوير يسار أعلى)
-     بورتريه 24px (−30%) ولاندسكيب 40px
+   • أيقونات موحدة: قرص ذهبي ممتلئ + رمز أسود (تصغير+خروج يمين أعلى، تدوير يسار أعلى)
+     بورتريه 30px (+25%) ولاندسكيب 42px
    • بورتريه: شريطا اللاعبَين أسفل الطاولة ثم شريط التحكم (كرة+قوة)
    • لاندسكيب: قوة+كرة بيضاء عمود أيسر؛ عمودا اللاعبَين أسفل أيقونتي الزاوية
      بخط مستقيم عمودي؛ شارة مؤقت ذهبية بأعلى أفاتار النشط من اليمين
-   • ممنوع أي عبارة مكتوبة · خلفية خشب موحدة #c08a4a بلا خطوط */
+   • ممنوع أي عبارة مكتوبة · خلفية خشب موحدة #c08a4a بلا خطوط
+   • [R11] حشوات داخلية لـ bl-mid تبقي الطاولة متمحورة بعيداً عن الأزرار والأعمدة */
 const { chromium } = require('playwright');
 const BASE = process.env.QA_BASE || 'http://127.0.0.1:3971/';
 let pass = 0, fail = 0;
@@ -60,15 +61,21 @@ const near = (rgb, hex, tol) => {
       fs = rect('#gameFsExit'), lv = rect('#gameLeaveBtn');
     const hidden = s => { const e = q(s); if (!e) return true; return getComputedStyle(e).display === 'none' || e.getBoundingClientRect().width === 0; };
     const c = s => q(s) ? getComputedStyle(q(s)) : null;
-    const ringOk = e => { const cs = c(e); return cs && cs.borderRadius === '50%' && /233, 200, 119/.test(cs.borderTopColor); };
+    /* [R11] طلب المالك: الأزرار قرص ذهبي ممتلئ (لا حلقة شفافة) + رمز أسود */
+    const goldFilledOk = e => {
+      const cs = c(e); if (!cs) return false;
+      const bg = cs.backgroundImage || cs.backgroundColor;
+      return cs.borderRadius === '50%' && /linear-gradient\(|247, 232, 200|242, 212, 137|217, 180, 92/.test(bg);
+    };
+    const isDark = col => { const m = col.match(/(\d+),\s*(\d+),\s*(\d+)/); if (!m) return false; const r = +m[1], g = +m[2], b = +m[3]; return r < 60 && g < 50 && b < 30; };
     return {
       oneFs: !q('#blScrBtn') && !!q('#gameFsExit') && getComputedStyle(q('#gameFsExit')).display !== 'none',
-      /* [R10] تصغير+خروج ملتصقان بالزاوية العليا اليمنى — 24px موحّدة */
+      /* [R11] تصغير+خروج ملتصقان بالزاوية العليا اليمنى — 30px موحّدة (+25%) */
       fsFlush: fs && fs.top <= 1.5 && fs.right >= window.innerWidth - 1.5,
       leaveBeside: lv && lv.top <= 1.5 && Math.abs(lv.right - fs.left) <= 4,
-      icons24: fs && Math.abs(fs.width - 24) < 1 && Math.abs(lv.width - 24) < 1 && Math.abs(rot.width - 24) < 1,
-      ringsUniform: ringOk('#gameFsExit') && ringOk('#gameLeaveBtn') && ringOk('#blRotBtn'),
-      blackSymbols: c('#gameFsExit').color.includes('25, 16, 8') && c('#blRotBtn').color.includes('25, 16, 8'),
+      icons30: fs && Math.abs(fs.width - 30) < 1 && Math.abs(lv.width - 30) < 1 && Math.abs(rot.width - 30) < 1,
+      goldFilled: goldFilledOk('#gameFsExit') && goldFilledOk('#gameLeaveBtn') && goldFilledOk('#blRotBtn'),
+      blackSymbols: isDark(c('#gameFsExit').color) && isDark(c('#blRotBtn').color),
       rotFlush: rot && rot.left <= 1.5 && rot.top <= 1.5,
       rotIcon: !!(q('#blRotBtn i') || '').classList || !!q('#blRotBtn i'),
       /* [R10] شريطا اللاعبَين أسفل الطاولة ثم شريط التحكم */
@@ -94,8 +101,8 @@ const near = (rgb, hex, tol) => {
   });
   ok('لا زر ملء شاشة مكرر — زر المنصة وحده', L.oneFs);
   ok('تصغير+خروج ملتصقان بالزاوية العليا اليمنى', L.fsFlush && L.leaveBeside);
-  ok('الأيقونات الثلاث 24px (−30%) موحّدة الحجم', L.icons24);
-  ok('الأيقونات الثلاث حلقة ذهبية دائرية برمز أسود', L.ringsUniform && L.blackSymbols);
+  ok('الأيقونات الثلاث 30px (+25%) موحّدة الحجم', L.icons30);
+  ok('الأيقونات الثلاث قرص ذهبي ممتلئ دائري برمز أسود', L.goldFilled && L.blackSymbols);
   ok('زر التدوير بأيقونة سوداء ملتصق بالزاوية العليا اليسرى', L.rotFlush && L.rotIcon);
   ok('شريطا اللاعبَين أسفل الطاولة وفوق شريط التحكم', L.barsZone && L.barsHorizontal && L.barsOwners);
   ok('شريط التحكم: كرة بيضاء + شريط قوة داخل blCtrls', L.ctrlRow);
@@ -175,10 +182,15 @@ const near = (rgb, hex, tol) => {
     const ctrls = R(q('#blCtrls')), track = R(q('#blCueTrack')), spin = R(q('#blSpin'));
     const cx = r => r ? (r.left + r.right) / 2 : null;
     return {
-      /* الطاولة تملأ الحاوية وتلتصق أعلى/أسفل */
-      cvsFull: Math.abs(cvs.top - fr.top) <= 2 && Math.abs(cvs.bottom - fr.bottom) <= 2 && Math.abs(cvs.left - fr.left) <= 2,
-      heightBound: Math.abs(BILLIARDS.VT.s * (BILLIARDS.G.S.table.H + 120) - fr.height) < 8,
-      icons40: Math.abs(fs.width - 40) < 1 && Math.abs(lv.width - 40) < 1 && Math.abs(rot.width - 40) < 1,
+      /* [R11] الطاولة متمحورة بالوسط بعيداً عن الأزرار والأعمدة الطافية
+         (الحشوات الداخلية لـ bl-mid تترك مساحة للأزرار العلوية وعمود التحكم
+         الأيسر وعمودي اللاعبَين الأيمن) */
+      cvsInside: cvs.top >= fr.top && cvs.bottom <= fr.bottom && cvs.left >= fr.left && cvs.right <= fr.right,
+      cvsPadded: cvs.top - fr.top >= 40 /* قمة تترك مساحة للأزرار */ &&
+                 fr.right - cvs.right >= 100 /* يمين يترك مساحة لعمودي اللاعبَين */ &&
+                 cvs.left - fr.left >= 60 /* يسار يترك مساحة لعمود التحكم */,
+      heightBound: BILLIARDS.VT.s > 0 && BILLIARDS.VT.s * (BILLIARDS.G.S.table.H + 120) <= fr.height,
+      icons42: Math.abs(fs.width - 42) < 1 && Math.abs(lv.width - 42) < 1 && Math.abs(rot.width - 42) < 1,
       /* العمودان تحت الأيقونتين بخط مستقيم */
       meUnderFs: Math.abs(cx(avMe) - cx(fs)) <= 4,
       oppUnderLv: Math.abs(cx(avOpp) - cx(lv)) <= 4,
@@ -194,8 +206,8 @@ const near = (rgb, hex, tol) => {
         const d = x.getImageData(4, Math.floor(b.height / 2), 1, 1).data; return d[0] === 192 && d[1] === 138 && d[2] === 74; })()
     };
   });
-  ok('الطاولة تملأ الحاوية (canvas = frame) وتلتصق أعلى/أسفل', land.cvsFull && land.heightBound);
-  ok('الأيقونات الثلاث 40px موحّدة باللاندسكيب', land.icons40);
+  ok('الطاولة داخل الحاوية ومحاطة بحشوات تباعدها عن الأزرار والأعمدة', land.cvsInside && land.cvsPadded && land.heightBound);
+  ok('الأيقونات الثلاث 42px موحّدة باللاندسكيب', land.icons42);
   ok('عمود اللاعب 1 تحت أيقونة التصغير بخط مستقيم', land.meUnderFs);
   ok('عمود اللاعب 2 تحت أيقونة الخروج بخط مستقيم', land.oppUnderLv && land.belowIcons);
   ok('العمود الأيسر: شريط قوة عمودي فوق الكرة البيضاء', land.leftCol);

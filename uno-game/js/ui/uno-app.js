@@ -235,6 +235,14 @@
       const subU = this.$('unSubUs'), subT = this.$('unSubThem');
       if (subU) subU.textContent = scUs + '/' + s.cfg.target;
       if (subT) subT.textContent = scThem + '/' + s.cfg.target;
+      /* [R11] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — لاندسكيب فقط
+         (تتحكم CSS في الإظهار/الإخفاء حسب الوضع) */
+      const ts0 = this.$('unTeamScore0'), ts1 = this.$('unTeamScore1');
+      const ts2 = this.$('unTeamScore2'), ts3 = this.$('unTeamScore3');
+      if (ts0) ts0.textContent = scUs;
+      if (ts2) ts2.textContent = scUs;
+      if (ts1) ts1.textContent = scThem;
+      if (ts3) ts3.textContent = scThem;
       const rl = this.$('unRoundLbl'); if (rl) rl.textContent = s.roundNo;
       const dot = this.$('unColorDot'); if (dot) dot.style.background = R.colorHex(s.color);
       const ctxt = this.$('unColorTxt'); if (ctxt) ctxt.textContent = T('un.color.' + s.color);
@@ -292,6 +300,12 @@
           const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(logical).substring(0, 2).toUpperCase();
           const ct = this.$('unCount' + k); if (ct) ct.textContent = hand.length;
           const bd = this.$('unBadge' + k); if (bd) bd.textContent = logical === this._mySeat(s) ? T('un.you') : '';
+          /* [R11] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — لاندسكيب فقط */
+          const ts = this.$('unTeamScore' + k);
+          if (ts) {
+            const score = s.cfg.teams ? NS.teamScore(this._teamOf(logical)) : s.scores[logical];
+            ts.textContent = score;
+          }
           p.classList.toggle('un-turn-seat', s.phase === 'play' && s.turn === logical);
           if (s.cfg.teams) p.classList.toggle('un-team0', this._teamOf(logical) === 0);
         }
@@ -349,6 +363,12 @@
         hp.style.display = '';
         const nm = this.$('unName0'); if (nm) nm.textContent = this._seatName(my).substring(0, 2).toUpperCase();
         const ct = this.$('unCount0'); if (ct) ct.textContent = hand.length;
+        /* [R11] شارة مجموع نقاط اللاعب السفلي — لاندسكيب فقط */
+        const ts0 = this.$('unTeamScore0');
+        if (ts0 && s) {
+          const score = s.cfg.teams ? NS.teamScore(this._teamOf(my)) : (s.scores[my] != null ? s.scores[my] : 0);
+          ts0.textContent = score;
+        }
       }
     },
 

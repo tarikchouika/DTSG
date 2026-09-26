@@ -716,3 +716,123 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
   .bl-actions { bottom: calc(var(--bl-cw) * 1.4 + 80px); }
   .bl-toast { bottom: calc(var(--bl-cw) * 1.4 + 105px); }
 }
+
+/* ════════════════════════════════════════════════════════════════════
+   [R11] طلب المالك — تحسينات اللاندسكيب فقط للبلوت
+   (البورتريه يبقى كما هو دون أي تغيير)
+   • إخفاء لوحتي us/them من الأعلى ونقل مجموع نقاط الفريق لجوار أيقونة كل لاعب
+   • نقل عبارتي round/trump لوسط الطاولة: round يسار الأوراق المرمية، trump يمينها
+   • رفع أوراق اللاعب العلوي لالتصاق الحد الأعلى للشاشة، وأيقونته ليمين أوراقه
+   • نقل أيقونة اللاعب السفلي لليمين بمحاذاة أوراقه (ليست في الزاوية)
+   • مقاعد اليمين واليسار تبقى كما هي دون أي تغيير
+   • أزرار الخروج/تصغير الشاشة: قرص ذهبي ممتلئ برمز أسود (ليست حلقة فقط)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* شارة مجموع نقاط الفريق — مخفية افتراضياً، تظهر في اللاندسكيب فقط */
+.bl-teamscore {
+  display: none !important;
+  min-width: 26px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 11px;
+  background: linear-gradient(135deg, #f2d489, #d9b45c 55%, #b8892f);
+  color: #211503;
+  font-family: var(--bl-font-display);
+  font-size: 11.5px;
+  font-weight: 900;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(247, 232, 200, 0.6);
+}
+
+/* ضمان أن أزرار الخروج وتصغير الشاشة ذهبية ممتلئة برمز أسود في البلوت */
+body.rami-game-open #gameFsExit,
+body.rami-game-open #gameLeaveBtn {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 45%),
+    linear-gradient(160deg, #f6e0a5, #e9c877 40%, #c79733) !important;
+  color: #1a1206 !important;
+  border: 1.5px solid rgba(247, 232, 200, .85) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .45) inset,
+    0 4px 12px rgba(0, 0, 0, .5),
+    0 0 12px rgba(217, 180, 92, .55) !important;
+}
+body.rami-game-open #gameFsExit i,
+body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
+
+@media (orientation: landscape) {
+  /* ── 1) إخفاء لوحتي us/them من الأعلى ── */
+  .bl-stage .bl-hudside { display: none !important; }
+
+  /* ── 2) توسيط شارة مجموع النقاط لكل لاعب (تظهر فقط في اللاندسكيب) ── */
+  .bl-stage .bl-teamscore { display: inline-flex !important; }
+
+  /* ── 3) نقل round + trump لوسط الطاولة، يحيطان بمنطقة الأوراق المرمية ── */
+  .bl-stage .bl-hud {
+    position: absolute;
+    top: 44%;            /* محاذاة مركز منطقة الأكلة */
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    pointer-events: none;
+    z-index: 25;
+    grid-template-columns: none;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+  }
+  .bl-stage .bl-hudcenter {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+    width: min(96vw, 560px);   /* أعرض من trickzone (420px) ليحيطا بها */
+    padding-top: 0;
+    gap: 0;
+  }
+  .bl-stage .bl-hudround {
+    font-size: 15px;
+    text-shadow: 0 2px 7px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.7);
+  }
+  .bl-stage .bl-hudtrump {
+    font-size: 13px;
+    text-shadow: 0 2px 7px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.7);
+  }
+
+  /* ── 4) اللاعب العلوي: أوراقه بالأعلى ملتصقة بالحد، وأيقونته ليمين أوراقه ── */
+  .bl-stage .bl-seat-top {
+    top: 4px;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+  /* الأوراق (stack) تبقى متمحورة أفقياً عبر مركزية المقعد نفسه */
+  /* الأيقونة (plate) تُنقل تماماً لليمين عبر الإخراج من تدفق flex */
+  .bl-stage .bl-seat-top .bl-plate {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 10px);
+    transform: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  /* ── 5) اللاعب السفلي: أيقونته لليمين بمحاذاة أوراقه (وليست فوقها) ── */
+  .bl-stage .bl-handplate {
+    position: absolute;
+    top: 50%;
+    left: auto;
+    right: 16px;
+    transform: translateY(-50%);
+  }
+}

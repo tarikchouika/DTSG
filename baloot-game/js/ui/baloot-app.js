@@ -604,6 +604,15 @@
           txt.textContent = '\u2014';
         }
       }
+      /* [R11] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — لاندسكيب فقط
+         (تتحكم CSS في الإظهار/الإخفاء حسب الوضع) */
+      const t0s = FMT(s.teamScores[0]), t1s = FMT(s.teamScores[1]);
+      const ts0 = this.$('blTeamScore0'), ts1 = this.$('blTeamScore1');
+      const ts2 = this.$('blTeamScore2'), ts3 = this.$('blTeamScore3');
+      if (ts0) ts0.textContent = t0s;
+      if (ts2) ts2.textContent = t0s;
+      if (ts1) ts1.textContent = t1s;
+      if (ts3) ts3.textContent = t1s;
     },
 
     _renderSeats: function (s) {
