@@ -836,9 +836,10 @@
     },
 
     _showPlayHint: function (seat) {
+      /* [R10] طلب المالك: حذف عبارة «دورك — العب ورقة» نهائياً —
+         الدور يُشار له بتوهج أيقونة اللاعب والأوراق، فلا حاجة لأي نص */
       const box = this.$('blActions');
-      box.innerHTML = '<p class="bl-actions-title bl-hint"><b>' + this.seatName(seat) + '</b> ' + T('blt.yourTurn') + '</p>';
-      box.classList.add('show');
+      if (box) { box.innerHTML = ''; box.classList.remove('show'); }
     },
 
     _tryPlay: function (seat, card) {

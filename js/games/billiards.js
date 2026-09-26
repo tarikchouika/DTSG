@@ -87,23 +87,21 @@ function eBilliards(g) {
         '<div class="dama-pay bl-hint" id="blVariantHint"></div>' +
       '</div>' +
 
-      /* ── شاشة اللعب [R9] — طلب المالك:
-         لاندسكيب: يسار = تدوير أعلى + شريط القوة وسطاً + الكرة البيضاء (السبين) أسفل؛
-         يمين = عمودان رأسيان جنباً إلى جنب (أنا ثم الخصم) تحت أيقونتي التصغير والخروج.
-         بورتريه: تدوير أقصى الزاوية العليا اليسرى ملتصقاً بالهامشين، شريطا
-         اللاعبَين+الكرات أفقياً أسفل الطاولة فوق الكرة البيضاء وشريط القوة
-         (المكبّر مستطيلاً بلا عصا)، والتصغير+الخروج بالزاوية العليا اليمنى ── */
+      /* ── شاشة اللعب [R10] — طلب المالك:
+         الطاولة تملأ وسط الحاوية ويلتصق ضلعاها الأعلى والأسفل بهامشي الشاشة؛
+         كل الأدوات طافية فوق خلفية الخشب الموحدة:
+         لاندسكيب: التدوير بالزاوية العليا اليسرى، القوة + الكرة البيضاء
+         عمود أيسر، وعمودا اللاعبَين (أفاتار + كراته بخط مستقيم تحته)
+         أسفل أيقونتي تصغير الشاشة (اللاعب 1) والخروج (اللاعب 2).
+         بورتريه: التدوير بالزاوية العليا اليسرى، شريطا اللاعبَين أفقياً
+         أسفل الطاولة، والتحكم (كرة بيضاء + قوة) بالشريط الأسفل.
+         ممنوع أي عبارة مكتوبة: الدور بتوهج الأفاتار، والمؤقت شارة ذهبية
+         ملتصقة بأعلى أفاتار اللاعب النشط من اليمين ── */
       '<div class="dama-play" id="blPlay" hidden>' +
       '<div class="bl-frame" id="blFrame">' +
-        '<div class="bl-topbar bl-sr" id="blTopbar"><div class="bl-tray" id="blTray"></div></div>' +
-        '<div class="bl-lrail" id="blLRail">' +
-          '<button class="bl-rotbtn" id="blRotBtn" onclick="billiardsFlipView()" title="&#8635;">🔄</button>' +
-          '<div class="bl-cue-track" id="blCueTrack"><div class="bl-cue-fill" id="blCueFill"></div><b class="bl-powval" id="blPowVal">75</b></div>' +
-          '<div class="bl-spin" id="blSpin" title="' + T('bl.spinHint') + '"><i id="blSpinDot"></i></div>' +
-        '</div>' +
         '<div class="bl-mid" id="blMid">' +
-          '<div class="bl-stage" id="blStageBox"><canvas id="blCv"></canvas></div>' +
-          '<div class="bl-turnpill" id="blTurn">…</div>' +
+          '<div class="bl-stagebox" id="blStageBox"><canvas id="blCv"></canvas></div>' +
+          '<div class="bl-turnpill" id="blTurn" hidden>…</div>' +
           '<div class="bl-noms bl-sr" id="blNoms" hidden></div>' +
           '<div class="bl-msg bl-sr" id="blMsg"></div>' +
           '<div class="bl-stake" id="blStake" hidden></div>' +
@@ -119,16 +117,21 @@ function eBilliards(g) {
             '<button class="big ch-online" onclick="billiardsChooseBreak(false)">↩️ ' + T('bl.giveBreak') + '</button>' +
           '</div></div>' +
         '</div>' +
+        '<button class="bl-rotbtn" id="blRotBtn" onclick="billiardsFlipView()" title="&#8635;" aria-label="&#8635;"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i></button>' +
+        '<div class="bl-ctrls" id="blCtrls">' +
+          '<div class="bl-cue-track" id="blCueTrack"><div class="bl-cue-fill" id="blCueFill"></div><b class="bl-powval" id="blPowVal">75</b></div>' +
+          '<div class="bl-spin" id="blSpin" title="' + T('bl.spinHint') + '"><i id="blSpinDot"></i></div>' +
+        '</div>' +
         '<div class="bl-rail" id="blRail">' +
           '<div class="bl-punit" id="blUnitMe">' +
-            '<span class="bl-av p1" id="blAv0">1</span>' +
-            '<div class="bl-pl" id="blPl0"><span class="bl-nm" id="blNm0">' + T('bl.player1') + '</span><span class="bl-grp" id="blGrp0"></span></div>' +
+            '<span class="bl-avwrap"><span class="bl-av p1" id="blAv0">1</span><b class="bl-tbadge" id="blTb0" hidden>60</b></span>' +
+            '<div class="bl-pl" id="blPl0"><span class="bl-nm" id="blNm0">' + T('bl.player1') + '</span><span class="bl-grp" id="blGrp0" hidden></span></div>' +
             '<b class="bl-score" id="blScore0" hidden></b>' +
             '<div class="bl-vtray" id="blTrayR"></div>' +
           '</div>' +
           '<div class="bl-punit" id="blUnitOpp">' +
-            '<span class="bl-av p2" id="blAv1">2</span>' +
-            '<div class="bl-pl" id="blPl1"><span class="bl-nm" id="blNm1">' + T('bl.player2') + '</span><span class="bl-grp" id="blGrp1"></span></div>' +
+            '<span class="bl-avwrap"><span class="bl-av p2" id="blAv1">2</span><b class="bl-tbadge" id="blTb1" hidden>60</b></span>' +
+            '<div class="bl-pl" id="blPl1"><span class="bl-nm" id="blNm1">' + T('bl.player2') + '</span><span class="bl-grp" id="blGrp1" hidden></span></div>' +
             '<b class="bl-score" id="blScore1" hidden></b>' +
             '<div class="bl-vtray" id="blTrayL"></div>' +
           '</div>' +
@@ -576,32 +579,37 @@ function blUpdateHud() {
   if (a1) a1.classList.toggle('active', S.active === 1 && !S.frameOver);
 
   var isSn = (BILLIARDS.variant === 'snooker' || BILLIARDS.variant === 'carom');
-  var labels = { SOLID: T('bl.groupSolid'), STRIPE: T('bl.groupStripe'), EIGHT: T('bl.groupEight'),
-    RED: T('bl.groupRed'), YELLOW: T('bl.groupYellow'), BLACK: T('bl.groupBlack') };
   for (var i = 0; i < 2; i++) {
     var el = document.getElementById('blGrp' + i);
     if (!el) continue;
     if (isSn) {
-      el.textContent = '🏆 ' + (S.scores ? S.scores[i] : 0);
+      /* [R10] سنوكر/كاروم: النقاط رقماً فقط — بلا أي عبارة مكتوبة */
+      el.hidden = false;
+      el.textContent = String(S.scores ? S.scores[i] : 0);
       el.className = 'bl-grp g-score' + (S.active === i && !S.frameOver ? ' on' : '');
     } else {
-      var g = S.groups[i];
-      el.textContent = g ? (labels[g] || g) : (S.open ? T('bl.tableOpen') : '');
-      el.className = 'bl-grp' + (g ? ' g-' + g.toLowerCase() : '');
+      /* [R10] ممنوع العبارات (طاولة مفتوحة/مجموعة…) — لون كرات اللاعب
+         يظهر بأفاتاره وكراته في العمود، والدور بتوهج الأفاتار */
+      el.hidden = true;
+      el.textContent = '';
     }
   }
-  /* [v23] رسالة انتقال الدور أزيلت — كانت تحجب حفر الطاولة؛ الدور يُشار إليه
-     بتوهج أفاتار اللاعب النشط، والمؤقت يُعرض بجانب شارة مجموعته */
+  /* [v23] رسالة انتقال الدور أزيلت — الدور يُشار إليه بتوهج أفاتار اللاعب النشط */
   var tn = document.getElementById('blTurn');
   if (tn) tn.hidden = true;
-  if (!S.frameOver && BILLIARDS.turnTimer && blHumanTurn() &&
+  /* [R10] المؤقت: شارة ذهبية ملتصقة بأعلى أفاتار اللاعب البشري النشط من
+     اليمين — بلا أي نص مكتوب داخل واجهة الطاولة */
+  for (var j = 0; j < 2; j++) {
+    var tb = document.getElementById('blTb' + j);
+    if (!tb) continue;
+    var showTb = !S.frameOver && BILLIARDS.turnTimer && S.active === j && blHumanTurn() &&
       (S.phase === 'AIM' || S.phase === 'PLACE' || S.phase === 'RERACK') &&
-      !BILLIARDS._aiAim && !BILLIARDS.aiPending) {
+      !BILLIARDS._aiAim && !BILLIARDS.aiPending;
     var tl = Math.ceil(BILLIARDS.timerLeft || BILLIARDS.turnTimer);
-    var gEl = document.getElementById('blGrp' + S.active);
-    if (gEl) {
-      gEl.textContent = (gEl.textContent ? gEl.textContent + ' · ' : '') + '⏱' + tl;
-      gEl.classList.toggle('bl-time-low', tl <= 10);
+    tb.hidden = !showTb;
+    if (showTb) {
+      tb.textContent = tl;
+      tb.classList.toggle('bl-time-low', tl <= 10);
     }
   }
   blSyncNoms();
@@ -685,12 +693,12 @@ function billiardsNominate(nm) {
 function blTray() {
   var B = BILLIARDS, box = document.getElementById('blTray');
   var lb = document.getElementById('blTrayL'), rb = document.getElementById('blTrayR');
-  if (!B || !B.G || !box) return;
-  box.innerHTML = '';
+  if (!B || !B.G) return;
+  if (box) box.innerHTML = '';
   if (lb) lb.innerHTML = '';
   if (rb) rb.innerHTML = '';
-  if (!B.G.S.table.pockets.length || !B.G.S.pocketOrder.length) { box.style.display = 'none'; return; }  /* كاروم/قبل السقوط */
-  box.style.display = 'none';   /* [UI-v4] الصينية الأفقية أُلغيت — الكرات في العمودين */
+  if (!B.G.S.table.pockets.length || !B.G.S.pocketOrder.length) { if (box) box.style.display = 'none'; return; }  /* كاروم/قبل السقوط */
+  if (box) box.style.display = 'none';   /* [UI-v4] الصينية الأفقية أُلغيت — الكرات في العمودين */
   var S = B.G.S;
   var BBC = { RED: '#d32f2f', YELLOW: '#f5c400', BLACK: '#111111' };
   var groups = B.G.S.groups || [];
@@ -724,7 +732,7 @@ function blTray() {
       else own[id] = (S.pocketedBy && S.pocketedBy[id] !== undefined) ? S.pocketedBy[id] : 0;
     }
     var target = (own[id] === 1) ? (lb || box) : (rb || box);
-    target.appendChild(cell);
+    if (target) target.appendChild(cell);
   });
 }
 
@@ -764,11 +772,9 @@ function blCellRender() {
       av.style.background = 'radial-gradient(circle at 34% 30%,' + blShade(col, .5) + ',' + col + ' 62%,' + blShade(col, -.45) + ')';
       av.style.color = (col === '#f5c400' || col === '#f2f2ea') ? '#241500' : '#fff';
     } else { av.style.background = ''; av.style.color = ''; }
-    /* سنوكر/كاروم: شارة نقاط تحت الأفاتار */
-    if (sc) {
-      if (isSnCa) { sc.hidden = false; sc.textContent = (S.scores && S.scores[i]) || 0; }
-      else sc.hidden = true;
-    }
+    /* [R10] نقاط سنوكر/كاروم تعرضها شارة blGrp من blUpdateHud (رقم واحد فقط
+       بلا تكرار) — شارة blScore القديمة تبقى مخفية دائماً */
+    if (sc) sc.hidden = true;
   }
 }
 
@@ -1189,13 +1195,14 @@ function blCueFillUi(val, land) {
   else { fill.style.height = ''; fill.style.width = (100 - val) + '%'; }
 }
 
-/* ═══ [R9] الاتجاه حسب طلب المالك ═══
-   لاندسكيب: عمود أيسر = زر التدوير أعلى ثم شريط القوة (بنفس حجمه وشموله)
-   ثم الكرة البيضاء (السبين) أسفل؛ الجانب الأيمن = عمودان رأسيان جنباً إلى
-   جنب تحت أيقونتي تصغير الشاشة والخروج (أنا الأقرب للطاولة ثم الخصم).
-   بورتريه: زر التدوير أقصى الزاوية العليا اليسرى (حلقة تلامس الهامشين)،
-   وحدتا اللاعبَين تنزلان شريطين أفقيين أسفل الطاولة فوق الكرة البيضاء
-   وشريط القوة، وشريط القوة يكبر مستطيلاً في الشريط السفلي. */
+/* ═══ [R10] الاتجاه حسب طلب المالك ═══
+   الطاولة تملأ الحاوية كلها (الوسط)، وكل الأدوات أعمدة طافية فوقها بلا
+   شبكات جانبية تقصّ الطاولة:
+   لاندسكيب: التدوير بالزاوية العليا اليسرى؛ القوة + الكرة البيضاء عمود
+   أيسر طافٍ؛ عمودا اللاعبَين طافيان أسفل أيقونتي التصغير والخروج (CSS
+   يتموضعهما تحت الأيقونتين بخط مستقيم عمودي).
+   بورتريه: شريطا اللاعبَين أفقياً أسفل الطاولة (صفوف البورتريه)، والتحكم
+   (كرة بيضاء + قوة) بالشريط الأسفل — نقل العناصر بين الحاويات هنا فقط. */
 function blOrientLayout() {
   var B = BILLIARDS;
   if (!B) return;
@@ -1206,32 +1213,25 @@ function blOrientLayout() {
   B._blLand = land; frame._blOriented = true;
   frame.classList.toggle('bl-land', land);
   frame.classList.toggle('bl-port', !land);
-  frame.style.gridTemplateColumns = '';
-  frame.style.gridTemplateRows = '';
-  frame._blColsT = frame._blRowsT = null;
 
   var g = function (id) { return document.getElementById(id); };
-  var lr = g('blLRail'), rail = g('blRail');
-  var rot = g('blRotBtn'), track = g('blCueTrack'), spin = g('blSpin');
+  var ctrls = g('blCtrls'), rail = g('blRail');
   var uMe = g('blUnitMe'), uOpp = g('blUnitOpp');
-  var bars = g('blPortBars'), barOpp = g('blBarOpp'), barMe = g('blBarMe');
+  var barOpp = g('blBarOpp'), barMe = g('blBarMe');
 
-  if (lr && rail && rot && track && spin && uMe && uOpp && bars && barOpp && barMe) {
+  if (ctrls && rail && uMe && uOpp && barOpp && barMe) {
     if (land) {
-      /* لاندسكيب: يسار = تدوير ← قوة ← كرة بيضاء؛ يمين = أنا ثم الخصم عمودين */
-      lr.appendChild(rot);
-      lr.appendChild(track);
-      lr.appendChild(spin);
+      /* لاندسكيب: عمودا اللاعبَين يعودان للحاوية الطافية اليمنى، والتحكم
+         (قوة + كرة بيضاء) عمود أيسر طافٍ — التموضع كله في CSS */
       rail.appendChild(uMe);
       rail.appendChild(uOpp);
+      frame.appendChild(ctrls);
     } else {
-      /* بورتريه: التدوير يبقى في الطبقة العلوية (CSS يلصقه بالزاوية 0,0)،
-       وشريطا اللاعبَين أفقياً أسفل الطاولة، والتحكم (كرة بيضاء + قوة) أسفل */
-      lr.appendChild(rot);
-      rail.appendChild(spin);
-      rail.appendChild(track);
+      /* بورتريه: وحدتا اللاعبَين تنزلان شريطين أفقيين أسفل الطاولة،
+         والتحكم ينزل الشريط الأسفل */
       barOpp.appendChild(uOpp);
       barMe.appendChild(uMe);
+      rail.appendChild(ctrls);
     }
     /* إعادة ضبط تعتيم القوة بعد انتقال الشريط بين الأوضاع (اتجاه التعبئة يتغير) */
     blCueFillUi(B.power !== undefined ? B.power : 75, land);
@@ -1253,64 +1253,23 @@ function blFitCanvas() {
   B.dpr = Math.min(2, window.devicePixelRatio || 1);
   cv.width = Math.round(r.width * B.dpr);
   cv.height = Math.round(r.height * B.dpr);
-  var cw = r.width, ch = r.height, L = W + 120, S2 = H + 120;
-  var portrait = cw < ch, s, ox, oy = ch / 2;
-  if (!portrait) { s = Math.min(cw / L, ch / S2); ox = cw / 2; }
-  else { s = Math.min(cw / S2, ch / L); ox = cw / 2; }
-  /* الإلصاق: الضلع الأيسر والأسفل للطاولة (الإطار الخشبي ±60) يمسّان حافتي العلبة تماماً */
-  var EDGE = 60;
-  /* v12c: التصاق علوي دائم — وضع الصفحة يحاكي الشاشة الممتلئة تماماً:
-     الطاولة تلتصق بأعلى العلبة (تحت الصينية مباشرة) وفائض الأسفل يُطلى خشباً */
-  var topAnchor = true;
-  /* [Orient] توسيط أفقي: فائض العرض يتوزع نصفين (خشب متناظر) بدل التصاق يسار
-     يترك شريطاً خشبياً عريضاً في جهة واحدة — المحور الرأسي يبقى بالتصاق علوي (v12c) */
-  var padX = Math.max(0, (cw - (portrait ? S2 : L) * s) / 2);
-  /* [UI-v5 fix] زر التدوير في اللاندسكيب كان بلا أثر — flip يقلب المنظور 180° */
-  if (!portrait && !B.flip) B.VT = { a: s, b: 0, c: 0, d: s, e: padX + EDGE * s, f: topAnchor ? EDGE * s : ch - s * (H + EDGE), portrait: false, s: s };
-  else if (!portrait) B.VT = { a: -s, b: 0, c: 0, d: -s, e: padX + s * (W + EDGE), f: s * (H + EDGE), portrait: false, flip180: true, s: s };
-  else if (!B.flip) B.VT = { a: 0, b: -s, c: s, d: 0, e: padX + EDGE * s, f: topAnchor ? s * (W + EDGE) : ch - s * EDGE, portrait: true, s: s };
-  else B.VT = { a: 0, b: s, c: -s, d: 0, e: padX + s * (H + EDGE), f: topAnchor ? EDGE * s : ch - s * (H + EDGE), portrait: true, s: s };   /* مقلوب 180° */
-
-  /* [UI-v4] أبعاد الأعمدة/الشرائط يحكمها CSS (bl-land/bl-port) — هنا فقط:
-     امتصاص فائض العرض في اللاندسكيب كي تملأ الطاولة الوسط بلا letterbox،
-     وامتصاص فائض عرض البورتريه في الحاويتين الأفقيتين تلقائياً (CSS). */
-  var frame = cv.closest('.bl-frame');
-  if (frame) {
-    var F = frame.getBoundingClientRect();
-    var AR = (W + 120) / (H + 120);
-    var wantCols = '', wantRows = '';
-    if (B._blLand) {
-      /* [R9] عمود أيسر نحيف (تدوير+قوة+كرة بيضاء) وعمود أيمن أعرض
-         (عمودا اللاعبَين جنباً إلى جنب) — الوسط يأخذ الأمثل للطاولة */
-      var sideL = Math.max(58, Math.round(Math.min(F.width * 0.08, 96)));
-      var sideR = Math.max(126, Math.round(Math.min(F.width * 0.18, 196)));
-      var midW = Math.min(F.width - sideL - sideR, Math.round(F.height * AR));
-      /* شاشة ضيقة: لا تدع العمودين يخنقان الطاولة — قلّصهما قبل منتصف الشاشة */
-      if (midW < Math.round(F.width * 0.42)) {
-        midW = Math.round(F.width * 0.42);
-        sideL = Math.max(52, Math.round((F.width - midW) * 0.3));
-        sideR = Math.max(104, F.width - midW - sideL);
-      }
-      wantCols = sideL + 'px minmax(0,1fr) ' + sideR + 'px';
-      wantRows = 'minmax(0,1fr)';
-      if (frame._blColsT !== wantCols || frame._blRowsT !== wantRows) {
-        frame._blColsT = wantCols; frame._blRowsT = wantRows;
-        frame.style.gridTemplateColumns = wantCols;
-        frame.style.gridTemplateRows = wantRows;
-        if (!frame._blRaf) { frame._blRaf = true; requestAnimationFrame(function () { frame._blRaf = false; blFitCanvas(); }); }
-      }
-    } else {
-      /* [R9] بورتريه ثلاثة صفوف: الطاولة (1fr) ثم شريطا اللاعبَين (auto)
-         ثم شريط التحكم (auto = كرة بيضاء + شريط القوة المكبّر) */
-      wantRows = 'minmax(0,1fr) auto auto';
-      wantCols = 'minmax(0,1fr)';
-      if (frame._blColsT !== wantCols || frame._blRowsT !== wantRows) {
-        frame._blColsT = wantCols; frame._blRowsT = wantRows;
-        frame.style.gridTemplateColumns = wantCols;
-        frame.style.gridTemplateRows = wantRows;
-        if (!frame._blRaf) { frame._blRaf = true; requestAnimationFrame(function () { frame._blRaf = false; blFitCanvas(); }); }
-      }
-    }
+  var cw = r.width, ch = r.height, EDGE = 60;
+  var L = W + 120, S2 = H + 120;
+  var portrait = cw < ch, s, ox, oy;
+  /* [R10] الطاولة تملأ الوسط بأكبر مقياس ممكن — توسيط كامل المحورين:
+     لاندسكيب: مقياس الارتفاع هو الغالب على هواتف العرض الواسع فيلتصق
+     الضلعان الأعلى والأسفل بهامشي الشاشة تماماً كما كان سابقاً.
+     بورتريه: مقياس العرض هو الغالب فتملأ الطاولة عرض الحاوية. */
+  if (!portrait) { s = Math.min(cw / L, ch / S2); ox = (cw - L * s) / 2; oy = (ch - S2 * s) / 2; }
+  else { s = Math.min(cw / S2, ch / L); ox = (cw - S2 * s) / 2; oy = (ch - L * s) / 2; }
+  if (!portrait && !B.flip) {
+    B.VT = { a: s, b: 0, c: 0, d: s, e: ox, f: oy, portrait: false, s: s };
+  } else if (!portrait) {
+    B.VT = { a: -s, b: 0, c: 0, d: -s, e: ox + L * s, f: oy + S2 * s, portrait: false, flip180: true, s: s };
+  } else if (!B.flip) {
+    B.VT = { a: 0, b: -s, c: s, d: 0, e: ox + EDGE * s, f: oy + s * (W + EDGE), portrait: true, s: s };
+  } else {
+    B.VT = { a: 0, b: s, c: -s, d: 0, e: ox + s * (H + EDGE), f: oy + EDGE * s, portrait: true, s: s };   /* مقلوب 180° */
   }
 }
 
@@ -1343,10 +1302,9 @@ function blDraw() {
   if (!VT) return;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.clearRect(0, 0, B.cv.width / dpr, B.cv.height / dpr);
-  /* أي فراغ letterbox حول الطاولة يُطلَى خشباً (امتداد الخزانة) — لا سواد */
-  var bg = ctx.createLinearGradient(0, 0, 0, B.cv.height / dpr);
-  bg.addColorStop(0, '#d9a566'); bg.addColorStop(.55, '#c08a4a'); bg.addColorStop(1, '#a9753a');
-  ctx.fillStyle = bg;
+  /* [R10] طلب المالك: خلفية الحاوية موحدة اللون بلون خشب الطاولة — بلا
+     تدرجات طولية/عرضية ولا خطوط: لون واحد ثابت يمتد خارج الطاولة */
+  ctx.fillStyle = '#c08a4a';
   ctx.fillRect(0, 0, B.cv.width / dpr, B.cv.height / dpr);
   ctx.setTransform(dpr * VT.a, dpr * VT.b, dpr * VT.c, dpr * VT.d, dpr * VT.e, dpr * VT.f);
 

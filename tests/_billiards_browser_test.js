@@ -83,11 +83,10 @@ const sec = t => console.log('\n── ' + t + ' ──');
      await p.evaluate(() => { const c = document.getElementById('blCv'); return c.width > 100 && c.height > 60; }));
   ok('عصا التسديد جاهزة في دورك', await p.evaluate(() => !!document.getElementById('blCueTrack') && typeof billiardsShoot === 'function' && blHumanTurn()));
   ok('القوة الافتراضية 75', await p.evaluate(() => document.getElementById('blPowVal').textContent === '75'));
-  const hudOpenPre = await wait(p, () => {
-    const t = document.getElementById('blGrp0').textContent + document.getElementById('blTurn').textContent;
-    return /مفتوحة|ouverte|Open|محلولة/i.test(t) ? true : null;
-  }, 5000);
-  ok('HUD يعرض «طاولة مفتوحة» قبل التعيين', hudOpenPre === true);
+  /* [R10] ممنوع العبارات: لا «طاولة مفتوحة» — شارة المجموعة مخفية قبل التعيين */
+  await p.evaluate(() => blUpdateHud());
+  const hudOpenPre = await p.evaluate(() => document.getElementById('blGrp0').hidden && document.getElementById('blGrp0').textContent === '');
+  ok('HUD بلا «طاولة مفتوحة» — الشارة مخفية قبل التعيين', hudOpenPre === true);
 
   /* ضربة الكسر */
   await p.evaluate(() => { BILLIARDS.aim = 0; BILLIARDS.power = 95; billiardsShoot(); });
@@ -267,8 +266,9 @@ const sec = t => console.log('\n── ' + t + ' ──');
               t.filter(b => b.type === 'BLACK').length === 1 && t.every(b => b.type === 'CUE' || b.type === 'RED' || b.type === 'YELLOW' || b.type === 'BLACK');
      }));
   await p.evaluate(() => { BILLIARDS.G.place(150, 250); });
-  const hudOpen = await p.evaluate(() => { blUpdateHud(); return document.getElementById('blGrp0').textContent; });
-  ok('HUD يعرض «طاولة مفتوحة» قبل التعيين (' + hudOpen + ')', /^Open table/.test(hudOpen));
+  /* [R10] ممنوع العبارات: الشارة مخفية بلا نص */
+  const hudOpen = await p.evaluate(() => { blUpdateHud(); return document.getElementById('blGrp0').hidden && document.getElementById('blGrp0').textContent === ''; });
+  ok('HUD بلا «طاولة مفتوحة» — الشارة مخفية', hudOpen === true);
 
   /* ضد الحاسوب */
   await p.evaluate(() => billiardsToSetup());
@@ -318,7 +318,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   ok('موضع داخل D مقبول', await p.evaluate(() => BILLIARDS.G.place(180, 300) === true && BILLIARDS.G.S.phase === 'AIM'));
 
   const snHud = await p.evaluate(() => { blUpdateHud(); return { g0: document.getElementById('blGrp0').textContent, ts: BILLIARDS.G.S.turnState }; });
-  ok('HUD يعرض النتيجة 0 (' + snHud.g0 + ')', /0/.test(snHud.g0) && snHud.g0.includes('🏆'));
+  ok('HUD يعرض النتيجة رقماً فقط بلا رموز (' + snHud.g0 + ')', snHud.g0 === '0');
   ok('الطور الحالي = الحمراء (الكرة القانونية)', snHud.ts === 'REDS');
 
   /* الترشيح: أزرار الألوان */

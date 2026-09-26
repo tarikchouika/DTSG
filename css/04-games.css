@@ -4025,7 +4025,7 @@ body.rami-game-open { overflow: hidden; }
      (قياس لاندسكيب 800×360) فيبقى 120px أسفل الطاولة ميتاً.
      كانفس البلياردو يُدار حصراً من blFitCanvas — لا يحتاج هذا القيد. */
   #gamePageBody #billiardsStage canvas,
-  #gamePageBody .bl-stage canvas {
+  #gamePageBody .bl-stagebox canvas {
     max-height: none !important;
   }
 }

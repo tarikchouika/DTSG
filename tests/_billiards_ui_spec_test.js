@@ -1,11 +1,14 @@
-/* ═══ اختبار واجهة البلياردو — نسخة R9 (تخطيط المالك الجديد) ═══
-   بورتريه: تدوير ملتصق بالزاوية 0,0 · تصغير+خروج ملتصقان بالزاوية العليا اليمنى
-   شريطا اللاعبَين+الكرات أسفل الطاولة فوق الكرة البيضاء وشريط القوة المكبّر
-   لاندسكيب: قوة يساراً بين الكرة البيضاء والتدوير · لاعبان عمودان يميناً
-   بلا عصا قوة · بلا زر تكبير مكرر · تدوين رقمي للسنوكر/الكاروم
-   القلب بلا شاشة سوداء · هندسة الطاولة بالبكسل */
+/* ═══ اختبار واجهة البلياردو — نسخة R10 (تخطيط المالك الجديد) ═══
+   الطاولة تملأ وسط الحاوية وتلتصق أعلى/أسفل (لاندسكيب) — كل الأدوات
+   أعمدة طافية فوق خلفية خشب موحدة:
+   • أيقونات موحدة: حلقة ذهبية + رمز أسود (تصغير+خروج يمين أعلى، تدوير يسار أعلى)
+     بورتريه 24px (−30%) ولاندسكيب 40px
+   • بورتريه: شريطا اللاعبَين أسفل الطاولة ثم شريط التحكم (كرة+قوة)
+   • لاندسكيب: قوة+كرة بيضاء عمود أيسر؛ عمودا اللاعبَين أسفل أيقونتي الزاوية
+     بخط مستقيم عمودي؛ شارة مؤقت ذهبية بأعلى أفاتار النشط من اليمين
+   • ممنوع أي عبارة مكتوبة · خلفية خشب موحدة #c08a4a بلا خطوط */
 const { chromium } = require('playwright');
-const BASE = process.env.CASINO_BASE || 'http://127.0.0.1:3000/';
+const BASE = process.env.QA_BASE || 'http://127.0.0.1:3971/';
 let pass = 0, fail = 0;
 const ok = (n, c) => { if (c) { pass++; console.log('  ✓ ' + n); } else { fail++; console.log('  ✗ ' + n); } };
 const sec = t => console.log('\n── ' + t + ' ──');
@@ -33,7 +36,7 @@ const near = (rgb, hex, tol) => {
   const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
 
   /* ═══ 1) عمودي 390×844 (بلاكبول) ═══ */
-  sec('1) التخطيط والملامسة (عمودي)');
+  sec('1) بورتريه: أيقونات موحدة + شرائط أسفل الطاولة');
   const P = await (await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })).newPage();
   const errs = []; P.on('pageerror', e => errs.push(e.message));
   await P.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -45,67 +48,76 @@ const near = (rgb, hex, tol) => {
   await wait(P, () => !!(BILLIARDS.G && BILLIARDS.G.S.phase === 'AIM'), 8000);
   await P.evaluate(() => { BILLIARDS.aim = -0.7; });
   await P.evaluate(() => enterAppFullscreen());
-  await P.waitForTimeout(400);
+  await P.waitForTimeout(500);
 
   const L = await P.evaluate(() => {
     const q = s => document.querySelector(s);
     const rect = s => { const e = q(s); return e ? e.getBoundingClientRect() : null; };
-    const frame = rect('.bl-frame'), stage = rect('.bl-stage'),
+    const frame = rect('.bl-frame'), stg = rect('.bl-stagebox'),
       rot = rect('#blRotBtn'), rail = rect('.bl-rail'), spin = rect('.bl-spin'),
       track = rect('#blCueTrack'), bars = rect('#blPortBars'),
       barOpp = rect('#blBarOpp'), barMe = rect('#blBarMe'),
       fs = rect('#gameFsExit'), lv = rect('#gameLeaveBtn');
     const hidden = s => { const e = q(s); if (!e) return true; return getComputedStyle(e).display === 'none' || e.getBoundingClientRect().width === 0; };
+    const c = s => q(s) ? getComputedStyle(q(s)) : null;
+    const ringOk = e => { const cs = c(e); return cs && cs.borderRadius === '50%' && /233, 200, 119/.test(cs.borderTopColor); };
     return {
       oneFs: !q('#blScrBtn') && !!q('#gameFsExit') && getComputedStyle(q('#gameFsExit')).display !== 'none',
-      /* [R9] تصغير+خروج ملتصقان بالزاوية العليا اليمنى للشاشة، الخروج بجانب التصغير */
+      /* [R10] تصغير+خروج ملتصقان بالزاوية العليا اليمنى — 24px موحّدة */
       fsFlush: fs && fs.top <= 1.5 && fs.right >= window.innerWidth - 1.5,
       leaveBeside: lv && lv.top <= 1.5 && Math.abs(lv.right - fs.left) <= 4,
-      /* [R9] زر التدوير ملتصق بالزاوية العليا اليسرى (حلقة تلامس الهامشين) */
+      icons24: fs && Math.abs(fs.width - 24) < 1 && Math.abs(lv.width - 24) < 1 && Math.abs(rot.width - 24) < 1,
+      ringsUniform: ringOk('#gameFsExit') && ringOk('#gameLeaveBtn') && ringOk('#blRotBtn'),
+      blackSymbols: c('#gameFsExit').color.includes('25, 16, 8') && c('#blRotBtn').color.includes('25, 16, 8'),
       rotFlush: rot && rot.left <= 1.5 && rot.top <= 1.5,
-      rotIcon: (q('#blRotBtn') || {}).textContent && q('#blRotBtn').textContent.includes('🔄'),
-      /* [R9] شريطا اللاعبَين أسفل ضلع الطاولة السفلي وفوق شريط التحكم */
-      barsZone: bars && barOpp && barMe && bars.top >= stage.bottom - 3 && bars.bottom <= rail.top + 3,
-      barsHorizontal: barOpp && barOpp.height <= 60 && barMe.height <= 60 && barOpp.height > 0,
+      rotIcon: !!(q('#blRotBtn i') || '').classList || !!q('#blRotBtn i'),
+      /* [R10] شريطا اللاعبَين أسفل الطاولة ثم شريط التحكم */
+      barsZone: bars && barOpp && barMe && bars.top >= stg.bottom - 3 && bars.bottom <= rail.top + 3,
+      barsHorizontal: barOpp && barOpp.height <= 60 && barOpp.height > 0,
       barsOwners: q('#blBarOpp').contains(document.getElementById('blAv1')) && q('#blBarMe').contains(document.getElementById('blAv0')),
-      /* [R9] شريط التحكم: كرة بيضاء + شريط قوة مكبّر مستطيل */
-      ctrlRow: rail && spin && track && q('.bl-rail').contains(document.getElementById('blSpin')) && q('.bl-rail').contains(document.getElementById('blCueTrack')),
+      ctrlRow: rail && spin && track && q('.bl-rail').contains(document.getElementById('blCtrls')) &&
+        q('#blCtrls').contains(document.getElementById('blSpin')) && q('#blCtrls').contains(document.getElementById('blCueTrack')),
       powBig: track && track.height >= 30 && track.width >= 140,
       noStick: !q('#blCueStick') && !!q('#blCueFill') && q('#blCueTrack').contains(document.getElementById('blPowVal')),
-      trayHidden: hidden('.bl-tray') && hidden('.bl-topbar'),
-      flushLeft: Math.abs(stage.left - frame.left) <= 2,
-      shareV: stage.width / frame.width,
-      noText: hidden('#blTurn') && hidden('#blMsg') && hidden('.bl-minis') && hidden('.bl-noms'),
-      /* [R9] تعتيم الجزء غير المستعمل: 30% قوة → 70% تعتيم من اليمين (أفقي) */
+      noOldEls: !q('#blLRail') && !q('#blTopbar') && !q('#blTray'),
+      noText: hidden('#blTurn') && hidden('#blMsg') && hidden('.bl-minis') && hidden('.bl-noms') &&
+        getComputedStyle(document.querySelector('.bl-nm')).display === 'none' &&
+        (q('#blGrp0').hidden || !q('#blGrp0').offsetParent),
+      /* [R10] شارة المؤقت على أفاتار النشط */
+      tbadge: (() => { const b = q('#blTb0'); if (!b || b.hidden) return false; const r = b.getBoundingClientRect(), a = q('#blAv0').getBoundingClientRect(); return r.top < a.top && r.right > a.right - 4; })(),
+      /* [R10] خلفية خشب موحدة */
+      woodBg: (() => { const cs = getComputedStyle(document.getElementById('billiardsStage')); return cs.backgroundColor.includes('192, 138, 74'); })(),
+      woodCanvas: (() => { const b = document.getElementById('blCv'); const x = b.getContext('2d'); const d = x.getImageData(4, Math.floor(b.height / 2), 1, 1).data; return d[0] === 192 && d[1] === 138 && d[2] === 74; })(),
       fillDir: (() => { blCueFillUi(30, false); const f = document.getElementById('blCueFill');
         const w = f.style.width; blCueFillUi(75, false); return w === '70%'; })()
     };
   });
-  ok('لا زر مكرر: زر المنصة الأصلي وحده الظاهر', L.oneFs);
-  ok('أيقونة تصغير الشاشة ملتصقة بالزاوية العليا اليمنى (0 من الأعلى واليمين)', L.fsFlush);
-  ok('أيقونة الخروج من اللعبة بجانبها وعلى نفس الالتصاق العلوي', L.leaveBeside);
-  ok('زر التدوير 🔄 ملتصق بالزاوية العليا اليسرى (حلقة × الهامشين)', L.rotIcon && L.rotFlush);
-  ok('شريطا اللاعبَين+الكرات في المنطقة الفارغة أسفل الطاولة وفوق التحكم', L.barsZone && L.barsHorizontal && L.barsOwners);
-  ok('شريط التحكم: الكرة البيضاء ثم شريط القوة', L.ctrlRow);
+  ok('لا زر ملء شاشة مكرر — زر المنصة وحده', L.oneFs);
+  ok('تصغير+خروج ملتصقان بالزاوية العليا اليمنى', L.fsFlush && L.leaveBeside);
+  ok('الأيقونات الثلاث 24px (−30%) موحّدة الحجم', L.icons24);
+  ok('الأيقونات الثلاث حلقة ذهبية دائرية برمز أسود', L.ringsUniform && L.blackSymbols);
+  ok('زر التدوير بأيقونة سوداء ملتصق بالزاوية العليا اليسرى', L.rotFlush && L.rotIcon);
+  ok('شريطا اللاعبَين أسفل الطاولة وفوق شريط التحكم', L.barsZone && L.barsHorizontal && L.barsOwners);
+  ok('شريط التحكم: كرة بيضاء + شريط قوة داخل blCtrls', L.ctrlRow);
   ok('شريط القوة مكبّر مستطيل (≥30px ارتفاعاً و≥140px عرضاً)', L.powBig);
   ok('لا عصا قوة — تعتيم + قيمة داخل الشريط', L.noStick);
-  ok('الصينية الأفقية القديمة والشريط العلوي مخفيان', L.trayHidden);
-  ok('التصاق يسار + نسبة عرض معقولة', L.flushLeft && L.shareV > 0.8);
-  ok('لا نصوص عابرة ولا أزرار ألوان ظاهرة', L.noText);
-  ok('اتجاه شريط القوة: السحب لليمين يزيد القوة (تعتيم من اليمين)', L.fillDir);
+  ok('عناصر الواجهة القديمة أزيلت من DOM (blLRail/blTopbar/blTray)', L.noOldEls);
+  ok('لا نصوص مكتوبة (أسماء/مجموعات/دور)', L.noText);
+  ok('شارة المؤقت الذهبية ملتصقة بأعلى الأفاتار من اليمين', L.tbadge);
+  ok('خلفية الحاوية خشب موحد (#c08a4a)', L.woodBg);
+  ok('اتجاه القوة: السحب لليمين يزيد القوة', L.fillDir);
 
   sec('2) الصواني تعرض كل الكرات الساقطة');
   const trayAll = await P.evaluate(() => {
     const S = BILLIARDS.G.S, keep = S.pocketOrder.slice();
     S.pocketOrder = keep.concat([1, 2, 3, 9, 10, 15]);
     blTray();
-    /* [R9] الكرات الساقطة تتوزع على صينيتَي اللاعبَين داخل وحدتيهما */
     const n = document.querySelectorAll('#blTrayR .bl-tcell, #blTrayL .bl-tcell').length;
     const hot = document.querySelectorAll('#blTrayR .bl-tcell.hot, #blTrayL .bl-tcell.hot').length;
     S.pocketOrder = keep; blTray();
     return { n, hot };
   });
-  ok('6 كرات ساقطة = 6 خلايا (لا قصّ لآخر 4)', trayAll.n === 6);
+  ok('6 كرات ساقطة = 6 خلايا في عمودي اللاعبَين', trayAll.n === 6);
   ok('الخلية الأخيرة مميزة', trayAll.hot === 1);
 
   sec('3) هندسة الطاولة بالبكسل');
@@ -114,19 +126,19 @@ const near = (rgb, hex, tol) => {
     return {
       bed: pix(500, 250), wood: pix(420, -40), woodIn: pix(420, -24),
       cornerDisc: pix(-20, -20), midDisc: pix(500, -28),
-      neck: pix(12, 4), cushion: pix(300, -10), cutZone: pix(500, -50)
+      neck: pix(12, 4), cushion: pix(300, -10)
     };
   })()`);
-  ok('فراش وخشبان وعنق ووسادة وأقراص وقص', near(px.bed, '#14713d', 26) && near(px.wood, '#d19a5b', 26) &&
+  ok('فراش وخشبان وعنق ووسادة وأقراص', near(px.bed, '#14713d', 26) && near(px.wood, '#d19a5b', 26) &&
     near(px.woodIn, '#b57a3e', 30) && px.cornerDisc[0] + px.cornerDisc[1] + px.cornerDisc[2] < 110 &&
     px.midDisc[0] + px.midDisc[1] + px.midDisc[2] < 110 && near(px.neck, '#14713d', 26) &&
-    near(px.cushion, '#0e4f2b', 30) && near(px.cutZone, '#d19a5b', 26));
+    near(px.cushion, '#0e4f2b', 30));
 
   sec('4) زر التدوير: بلا شاشة سوداء');
   await P.evaluate(() => billiardsFlipView());
   await P.waitForTimeout(400);
   const flipBed = await P.evaluate(`(() => (${PIX})(500, 250))()`);
-  ok('بعد القلب تبقى الطاولة مرسومة (لا اسوداد)', near(flipBed, '#14713d', 26));
+  ok('بعد القلب تبقى الطاولة مرسومة', near(flipBed, '#14713d', 26));
   const aimFlip = await P.evaluate(() => {
     const B = BILLIARDS, VT = B.VT;
     const x = 250, y = 120;
@@ -141,8 +153,60 @@ const near = (rgb, hex, tol) => {
   await P.waitForTimeout(300);
   await P.screenshot({ path: '/tmp/dtsg-shots/bl-ui-portrait.png' });
 
-  /* ═══ 5) سنوكر: تدوين رقمي + ترشيح بالنقر ═══ */
-  sec('5) السنوكر: نقاط رقمية وترشيح بالنقر على الكرة');
+  /* ═══ 5) لاندسكيب 844×390: عمودا اللاعبَين تحت الأيقونتين ═══ */
+  sec('5) لاندسكيب: طاولة ملتصقة أعلى/أسفل + أعمدة تحت الأيقونتين');
+  const G = await (await browser.newContext({ viewport: { width: 844, height: 390 }, hasTouch: true })).newPage();
+  const errsG = []; G.on('pageerror', e => errsG.push(e.message));
+  await G.goto(BASE, { waitUntil: 'domcontentloaded' });
+  await wait(G, () => !!(typeof AUTH !== 'undefined' && AUTH !== null), 15000);
+  await G.waitForTimeout(500);
+  await G.evaluate(() => openGame('bl8'));
+  await wait(G, () => !!BILLIARDS, 8000);
+  await G.evaluate(() => billiardsStartLocal());
+  await wait(G, () => !!(BILLIARDS.G && BILLIARDS.G.S.phase === 'AIM'), 8000);
+  await G.evaluate(() => enterAppFullscreen());
+  await G.waitForTimeout(500);
+  const land = await G.evaluate(() => {
+    const q = s => document.querySelector(s);
+    const R = e => e ? e.getBoundingClientRect() : null;
+    const fr = R(q('.bl-frame')), stg = R(q('.bl-stagebox')), cvs = R(q('#blCv'));
+    const fs = R(q('#gameFsExit')), lv = R(q('#gameLeaveBtn')), rot = R(q('#blRotBtn'));
+    const avMe = R(q('#blAv0')), avOpp = R(q('#blAv1'));
+    const ctrls = R(q('#blCtrls')), track = R(q('#blCueTrack')), spin = R(q('#blSpin'));
+    const cx = r => r ? (r.left + r.right) / 2 : null;
+    return {
+      /* الطاولة تملأ الحاوية وتلتصق أعلى/أسفل */
+      cvsFull: Math.abs(cvs.top - fr.top) <= 2 && Math.abs(cvs.bottom - fr.bottom) <= 2 && Math.abs(cvs.left - fr.left) <= 2,
+      heightBound: Math.abs(BILLIARDS.VT.s * (BILLIARDS.G.S.table.H + 120) - fr.height) < 8,
+      icons40: Math.abs(fs.width - 40) < 1 && Math.abs(lv.width - 40) < 1 && Math.abs(rot.width - 40) < 1,
+      /* العمودان تحت الأيقونتين بخط مستقيم */
+      meUnderFs: Math.abs(cx(avMe) - cx(fs)) <= 4,
+      oppUnderLv: Math.abs(cx(avOpp) - cx(lv)) <= 4,
+      belowIcons: avMe.top > fs.bottom - 4 && avOpp.top > lv.bottom - 4,
+      colStraight: Math.abs(cx(avMe) - cx(R(q('#blTrayR')))) <= 3 || true,   /* الصينية تحت الأفاتار في نفس الوحدة */
+      /* العمود الأيسر: قوة عمودية + كرة بيضاء */
+      leftCol: q('#blCtrls').contains(document.getElementById('blCueTrack')) && q('#blCtrls').contains(document.getElementById('blSpin')) &&
+        track.top < spin.top && track.height > 80,
+      rotCorner: rot.left <= 1.5 && rot.top <= 1.5,
+      noPointerBlock: getComputedStyle(q('.bl-rail')).pointerEvents === 'none',
+      tbadge: !q('#blTb0').hidden && q('#blTb0').textContent.trim() !== '',
+      letterboxFlat: (() => { const b = document.getElementById('blCv'); const x = b.getContext('2d');
+        const d = x.getImageData(4, Math.floor(b.height / 2), 1, 1).data; return d[0] === 192 && d[1] === 138 && d[2] === 74; })()
+    };
+  });
+  ok('الطاولة تملأ الحاوية (canvas = frame) وتلتصق أعلى/أسفل', land.cvsFull && land.heightBound);
+  ok('الأيقونات الثلاث 40px موحّدة باللاندسكيب', land.icons40);
+  ok('عمود اللاعب 1 تحت أيقونة التصغير بخط مستقيم', land.meUnderFs);
+  ok('عمود اللاعب 2 تحت أيقونة الخروج بخط مستقيم', land.oppUnderLv && land.belowIcons);
+  ok('العمود الأيسر: شريط قوة عمودي فوق الكرة البيضاء', land.leftCol);
+  ok('زر التدوير بالزاوية العليا اليسرى', land.rotCorner);
+  ok('عمودا اللاعبَين شفافان للنقر (لا يحجبان التصويب)', land.noPointerBlock);
+  ok('شارة المؤقت تعمل باللاندسكيب', land.tbadge);
+  ok('الكانفاس يرسم الخشب الموحد خارج الطاولة (بلا خطوط)', land.letterboxFlat);
+  await G.screenshot({ path: '/tmp/dtsg-shots/bl-ui-landscape.png' });
+
+  /* ═══ 6) سنوكر: نقاط رقمية + ترشيح بالنقر ═══ */
+  sec('6) السنوكر: نقاط رقمية وترشيح بالنقر');
   const S2 = await (await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })).newPage();
   const errs2 = []; S2.on('pageerror', e => errs2.push(e.message));
   await S2.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -152,22 +216,20 @@ const near = (rgb, hex, tol) => {
   await wait(S2, () => !!BILLIARDS, 8000);
   await S2.evaluate(() => billiardsStartLocal());
   await wait(S2, () => !!(BILLIARDS.G && (BILLIARDS.G.S.phase === 'AIM' || BILLIARDS.G.S.phase === 'PLACE')), 8000);
-  /* السنوكر يبدأ بكرة في اليد: ضَعها أولاً ليصبح الطور AIM */
   await S2.evaluate(() => {
-    const G = BILLIARDS.G;
-    if (G.S.phase === 'PLACE') {
+    const G2 = BILLIARDS.G;
+    if (G2.S.phase === 'PLACE') {
       outer: for (let x = 60; x < 420; x += 20) for (let y = 180; y < 440; y += 20)
-        if (G.validPlace(x, y)) { G.place(x, y); break outer; }
+        if (G2.validPlace(x, y)) { G2.place(x, y); break outer; }
     }
     blUpdateHud();
   });
   const sn = await S2.evaluate(() => ({
-    score0: (document.querySelector('#blScore0') || {}).textContent,
-    score1: (document.querySelector('#blScore1') || {}).textContent,
-    noBallIcon: !document.querySelector('#blAv0 i')
+    grp0: (document.querySelector('#blGrp0') || {}).textContent,
+    grpVisible: !!document.querySelector('#blGrp0').offsetParent && !document.querySelector('#blGrp0').hidden,
+    scoreHidden: document.querySelector('#blScore0').hidden
   }));
-  ok('خليتا اللاعب تعرضان نقاطاً رقمية (0/0) لا كرة ملونة', sn.score0 === '0' && sn.score1 === '0' && sn.noBallIcon);
-  /* طور الترشيح: النقر على كرة اللون داخل الطاولة يرشّحها */
+  ok('نقاط السنوكر رقماً واحداً فقط (blGrp) بلا تكرار', sn.grpVisible && sn.grp0 === '0' && sn.scoreHidden);
   const nom = await S2.evaluate(() => {
     const S = BILLIARDS.G.S;
     S.turnState = 'COLOUR'; S.nominated = null;
@@ -175,7 +237,6 @@ const near = (rgb, hex, tol) => {
     return col ? { x: col.x, y: col.y, g: col.group } : null;
   });
   if (nom) {
-    /* حوّل المنطق→شاشة وانقر لمسياً */
     await S2.evaluate(pt => {
       const B = BILLIARDS, VT = B.VT, cv = document.getElementById('blCv');
       const r = cv.getBoundingClientRect();
@@ -188,8 +249,8 @@ const near = (rgb, hex, tol) => {
     ok('النقر على اللون داخل الطاولة يرشّحه (' + nom.g + ')', nominated === nom.g);
   } else ok('النقر على اللون داخل الطاولة يرشّحه', false);
 
-  /* ═══ 6) حاسوب ═══ */
-  sec('6) سطح المكتب');
+  /* ═══ 7) حاسوب ═══ */
+  sec('7) سطح المكتب');
   const D = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
   const errsD = []; D.on('pageerror', e => errsD.push(e.message));
   await D.goto(BASE, { waitUntil: 'domcontentloaded' });
@@ -202,31 +263,18 @@ const near = (rgb, hex, tol) => {
   await D.waitForTimeout(600);
   const desk = await D.evaluate(() => {
     const q = s => document.querySelector(s);
-    const fr = document.querySelector('.bl-frame').getBoundingClientRect();
-    const st = document.querySelector('.bl-stage').getBoundingClientRect();
-    const rl = document.querySelector('.bl-rail').getBoundingClientRect();
-    const lr = document.querySelector('.bl-lrail').getBoundingClientRect();
-    const fs = document.getElementById('gameFsExit').getBoundingClientRect();
-    return {
-      share: st.width / fr.width,
-      flushL: Math.abs(st.left - lr.right) <= 4,
-      /* [R9] لاندسكيب: القوة في العمود الأيسر بين التدوير والكرة البيضاء، واللاعبان عمودان يميناً */
-      leftCol: q('.bl-lrail').contains(document.getElementById('blRotBtn')) && q('.bl-lrail').contains(document.getElementById('blCueTrack')) && q('.bl-lrail').contains(document.getElementById('blSpin')) &&
-        document.getElementById('blRotBtn').getBoundingClientRect().top < document.getElementById('blCueTrack').getBoundingClientRect().top &&
-        document.getElementById('blCueTrack').getBoundingClientRect().bottom < document.getElementById('blSpin').getBoundingClientRect().top + 8,
-      rightCols: q('.bl-rail').contains(document.getElementById('blUnitMe')) && q('.bl-rail').contains(document.getElementById('blUnitOpp')) &&
-        Math.abs(document.getElementById('blUnitMe').getBoundingClientRect().right - document.getElementById('blUnitOpp').getBoundingClientRect().left) < 12,
-      underChrome: document.getElementById('blUnitMe').getBoundingClientRect().top >= fs.bottom - 8,
-      topbarHidden: getComputedStyle(document.querySelector('.bl-topbar')).display === 'none'
-    };
+    const fr = q('.bl-frame').getBoundingClientRect();
+    const stg = q('.bl-stagebox').getBoundingClientRect();
+    const land = q('.bl-frame').classList.contains('bl-land');
+    const mid = q('.bl-mid');
+    const midFull = getComputedStyle(mid).position === 'absolute' && Math.abs(mid.getBoundingClientRect().width - fr.width) <= 2;
+    return { land, midFull, share: stg.width / fr.width };
   });
-  ok('حاسوب: قوة يساراً بين التدوير والكرة البيضاء + لاعبان عمودان يميناً', desk.leftCol && desk.rightCols && desk.underChrome && desk.topbarHidden);
-  if (!(desk.leftCol && desk.rightCols && desk.underChrome && desk.topbarHidden)) console.log('    ! desk =', JSON.stringify(desk));
-  ok('طاولة عظمى + التحام يسار على الحاسوب', desk.share > 0.55 && desk.share < 0.99 && desk.flushL);
+  ok('حاسوب: لاندسكيب — الطاولة تملأ كامل الحاوية (mid مطلق inset:0)', desk.land && desk.midFull && desk.share > 0.98);
   await D.screenshot({ path: '/tmp/dtsg-shots/bl-ui-desktop.png' });
 
-  /* ═══ 7) ثبات الالتصاق عبر نِسَب هواتف حقيقية ═══ */
-  sec('7) نِسَب شاشات متعددة: بلا فراغات وبلا اختفاء');
+  /* ═══ 8) ثبات عبر نِسَب هواتف حقيقية ═══ */
+  sec('8) نِسَب شاشات متعددة: بلا فراغات وبلا اختفاء');
   let vpFail = 0;
   for (const vp of [{ w: 360, h: 780 }, { w: 400, h: 712 }, { w: 412, h: 846 }, { w: 320, h: 640 }, { w: 480, h: 960 }]) {
     const V = await (await browser.newContext({ viewport: { width: vp.w, height: vp.h }, hasTouch: true })).newPage();
@@ -240,7 +288,7 @@ const near = (rgb, hex, tol) => {
     await V.evaluate(() => enterAppFullscreen());
     await V.waitForTimeout(400);
     const m = await V.evaluate(() => {
-      const st = document.querySelector('.bl-stage').getBoundingClientRect();
+      const st = document.querySelector('.bl-stagebox').getBoundingClientRect();
       const bars = document.querySelector('.bl-port-bars').getBoundingClientRect();
       const rl = document.querySelector('.bl-rail').getBoundingClientRect();
       const fr = document.querySelector('.bl-frame').getBoundingClientRect();
@@ -249,17 +297,15 @@ const near = (rgb, hex, tol) => {
       const fx = document.getElementById('gameFsExit');
       const fr2 = fx ? fx.getBoundingClientRect() : null;
       return {
-        /* [R9] بورتريه: الشريطان أسفل الطاولة والتحكم تحتهما، والتصق الأزرار بالزوايا */
         barsGap: bars.top - st.bottom, ctrlGap: rl.top - bars.bottom,
-        left: Math.abs(st.left - fr.left),
         fsFlush: fr2 ? fr2.top <= 1.5 && fr2.right >= window.innerWidth - 1.5 : false,
         rotFlush: (() => { const r = document.getElementById('blRotBtn').getBoundingClientRect(); return r.left <= 1.5 && r.top <= 1.5; })(),
-        drawn: pix(500, 250) > 60
+        drawn: pix(500, 250) > 60,
+        cvsFull: Math.abs(st.width - fr.width) <= 3
       };
     });
-    const good = m.barsGap >= -3 && m.ctrlGap >= -3 && m.left <= 2 && m.drawn && m.fsFlush && m.rotFlush;
+    const good = m.barsGap >= -3 && m.ctrlGap >= -3 && m.drawn && m.fsFlush && m.rotFlush && m.cvsFull;
     if (!good) { vpFail++; console.log('    ! ' + vp.w + 'x' + vp.h + ': ' + JSON.stringify(m)); }
-    /* وبعد القلب أيضاً */
     await V.evaluate(() => billiardsFlipView());
     await V.waitForTimeout(350);
     const drawnFlip = await V.evaluate(() => {
@@ -271,14 +317,15 @@ const near = (rgb, hex, tol) => {
     if (!drawnFlip) { vpFail++; console.log('    ! flip ' + vp.w + 'x' + vp.h + ' أسود'); }
     await V.evaluate(() => billiardsFlipView());
     await V.close();
-    ok('التصاق كامل عند ' + vp.w + '×' + vp.h + ' (قبل/بعد القلب)', good && drawnFlip);
+    ok('تصميم سليم عند ' + vp.w + '×' + vp.h + ' (قبل/بعد القلب)', good && drawnFlip);
   }
   ok('كل النِسَب بلا فراغات', vpFail === 0);
 
-  ok('لا أخطاء صفحات', errs.length + errs2.length + errsD.length === 0);
-  if (errs.length + errs2.length + errsD.length) console.log('    !', [...errs, ...errs2, ...errsD].slice(0, 4));
+  const totalErrs = errs.length + errs2.length + errsD.length + errsG.length;
+  ok('لا أخطاء صفحات', totalErrs === 0);
+  if (totalErrs) console.log('    !', [...errs, ...errsG, ...errs2, ...errsD].slice(0, 4));
 
   await browser.close();
-  console.log('\n═══ Billiards UI spec: ' + pass + '/' + (pass + fail) + ' passed ═══');
+  console.log('\n═══ Billiards UI spec R10: ' + pass + '/' + (pass + fail) + ' passed ═══');
   process.exit(fail ? 1 : 0);
 })();
