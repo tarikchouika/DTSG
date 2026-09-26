@@ -182,14 +182,10 @@ const near = (rgb, hex, tol) => {
     const ctrls = R(q('#blCtrls')), track = R(q('#blCueTrack')), spin = R(q('#blSpin'));
     const cx = r => r ? (r.left + r.right) / 2 : null;
     return {
-      /* [R11] الطاولة متمحورة بالوسط بعيداً عن الأزرار والأعمدة الطافية
-         (الحشوات الداخلية لـ bl-mid تترك مساحة للأزرار العلوية وعمود التحكم
-         الأيسر وعمودي اللاعبَين الأيمن) */
-      cvsInside: cvs.top >= fr.top && cvs.bottom <= fr.bottom && cvs.left >= fr.left && cvs.right <= fr.right,
-      cvsPadded: cvs.top - fr.top >= 40 /* قمة تترك مساحة للأزرار */ &&
-                 fr.right - cvs.right >= 100 /* يمين يترك مساحة لعمودي اللاعبَين */ &&
-                 cvs.left - fr.left >= 60 /* يسار يترك مساحة لعمود التحكم */,
-      heightBound: BILLIARDS.VT.s > 0 && BILLIARDS.VT.s * (BILLIARDS.G.S.table.H + 120) <= fr.height,
+      /* [R12] الطاولة تملأ الشاشة كاملةً في اللاندسكيب — ضلعاها الأعلى والأسفل
+         تلتصق بحدي الشاشة، واليسار يلامس عمود الكرة البيضاء، واليمين يلامس زر الخروج. */
+      cvsFull: cvs.top >= fr.top && cvs.bottom <= fr.bottom && cvs.left >= fr.left && cvs.right <= fr.right,
+      tableFillsHeight: BILLIARDS.VT.s > 0 && Math.abs(BILLIARDS.VT.s * (BILLIARDS.G.S.table.H + 120) - fr.height) <= 4,
       icons42: Math.abs(fs.width - 42) < 1 && Math.abs(lv.width - 42) < 1 && Math.abs(rot.width - 42) < 1,
       /* العمودان تحت الأيقونتين بخط مستقيم */
       meUnderFs: Math.abs(cx(avMe) - cx(fs)) <= 4,
@@ -199,19 +195,19 @@ const near = (rgb, hex, tol) => {
       /* العمود الأيسر: قوة عمودية + كرة بيضاء */
       leftCol: q('#blCtrls').contains(document.getElementById('blCueTrack')) && q('#blCtrls').contains(document.getElementById('blSpin')) &&
         track.top < spin.top && track.height > 80,
-      rotCorner: rot.left <= 1.5 && rot.top <= 1.5,
+      rotCorner: rot.left >= 0 && rot.top <= 1.5,
       noPointerBlock: getComputedStyle(q('.bl-rail')).pointerEvents === 'none',
       tbadge: !q('#blTb0').hidden && q('#blTb0').textContent.trim() !== '',
       letterboxFlat: (() => { const b = document.getElementById('blCv'); const x = b.getContext('2d');
         const d = x.getImageData(4, Math.floor(b.height / 2), 1, 1).data; return d[0] === 192 && d[1] === 138 && d[2] === 74; })()
     };
   });
-  ok('الطاولة داخل الحاوية ومحاطة بحشوات تباعدها عن الأزرار والأعمدة', land.cvsInside && land.cvsPadded && land.heightBound);
+  ok('الطاولة تملأ الشاشة كاملة في اللاندسكيب (يلتصق أعلى/أسفل بالشاشة)', land.cvsFull && land.tableFillsHeight);
   ok('الأيقونات الثلاث 42px موحّدة باللاندسكيب', land.icons42);
   ok('عمود اللاعب 1 تحت أيقونة التصغير بخط مستقيم', land.meUnderFs);
   ok('عمود اللاعب 2 تحت أيقونة الخروج بخط مستقيم', land.oppUnderLv && land.belowIcons);
   ok('العمود الأيسر: شريط قوة عمودي فوق الكرة البيضاء', land.leftCol);
-  ok('زر التدوير بالزاوية العليا اليسرى', land.rotCorner);
+  ok('زر التدوير يلامس الضلع الأيسر للطاولة', land.rotCorner);
   ok('عمودا اللاعبَين شفافان للنقر (لا يحجبان التصويب)', land.noPointerBlock);
   ok('شارة المؤقت تعمل باللاندسكيب', land.tbadge);
   ok('الكانفاس يرسم الخشب الموحد خارج الطاولة (بلا خطوط)', land.letterboxFlat);

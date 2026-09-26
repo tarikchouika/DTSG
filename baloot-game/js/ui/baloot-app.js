@@ -604,8 +604,7 @@
           txt.textContent = '\u2014';
         }
       }
-      /* [R11] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — لاندسكيب فقط
-         (تتحكم CSS في الإظهار/الإخفاء حسب الوضع) */
+      /* [R12] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — في الوضعين */
       const t0s = FMT(s.teamScores[0]), t1s = FMT(s.teamScores[1]);
       const ts0 = this.$('blTeamScore0'), ts1 = this.$('blTeamScore1');
       const ts2 = this.$('blTeamScore2'), ts3 = this.$('blTeamScore3');

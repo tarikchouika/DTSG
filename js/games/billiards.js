@@ -1256,10 +1256,10 @@ function blFitCanvas() {
   var cw = r.width, ch = r.height, EDGE = 60;
   var L = W + 120, S2 = H + 120;
   var portrait = cw < ch, s, ox, oy;
-  /* [R10] الطاولة تملأ الوسط بأكبر مقياس ممكن — توسيط كامل المحورين:
-     لاندسكيب: مقياس الارتفاع هو الغالب على هواتف العرض الواسع فيلتصق
-     الضلعان الأعلى والأسفل بهامشي الشاشة تماماً كما كان سابقاً.
-     بورتريه: مقياس العرض هو الغالب فتملأ الطاولة عرض الحاوية. */
+  /* [R12] طلب المالك: الطاولة تملأ ارتفاع الشاشة كاملة في اللاندسكيب
+     (يلتقي ضلعاها الأعلى والأسفل بحدي الشاشة). عرضها يُحسب من
+     نسبتها الطبيعية، والعرض المتبقي يُقسَّم بين عمود التحكم (يساراً)
+     وعمودي اللاعبين + زر الخروج (يميناً). */
   if (!portrait) { s = Math.min(cw / L, ch / S2); ox = (cw - L * s) / 2; oy = (ch - S2 * s) / 2; }
   else { s = Math.min(cw / S2, ch / L); ox = (cw - S2 * s) / 2; oy = (ch - L * s) / 2; }
   if (!portrait && !B.flip) {
@@ -1270,6 +1270,29 @@ function blFitCanvas() {
     B.VT = { a: 0, b: -s, c: s, d: 0, e: ox + EDGE * s, f: oy + s * (W + EDGE), portrait: true, s: s };
   } else {
     B.VT = { a: 0, b: s, c: -s, d: 0, e: ox + s * (H + EDGE), f: oy + EDGE * s, portrait: true, s: s };   /* مقلوب 180° */
+  }
+  /* [R12] نشر متغيرات CSS لمواضع حواف الطاولة — تُستعمل لتموضع
+     الأزرار والأعمدة الطافية بحيث تلامس الطاولة دون تداخل. */
+  if (!portrait) {
+    var tableLeft = ox;
+    var tableRight = cw - (ox + L * s);
+    var frame = document.getElementById('blFrame');
+    if (frame) {
+      frame.style.setProperty('--bl-table-left', tableLeft + 'px');
+      frame.style.setProperty('--bl-table-right', tableRight + 'px');
+    }
+    /* أيضًا على body للأزرار العائمة fixed (زر الخروج/تصغير الشاشة) */
+    document.body.style.setProperty('--bl-table-left', tableLeft + 'px');
+    document.body.style.setProperty('--bl-table-right', tableRight + 'px');
+  } else {
+    /* بورتريه: إعادة ضبط المتغيرات لتفادي تموضع خاطئ للأزرار */
+    var frameP = document.getElementById('blFrame');
+    if (frameP) {
+      frameP.style.removeProperty('--bl-table-left');
+      frameP.style.removeProperty('--bl-table-right');
+    }
+    document.body.style.removeProperty('--bl-table-left');
+    document.body.style.removeProperty('--bl-table-right');
   }
 }
 

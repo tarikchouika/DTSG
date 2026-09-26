@@ -235,8 +235,7 @@
       const subU = this.$('unSubUs'), subT = this.$('unSubThem');
       if (subU) subU.textContent = scUs + '/' + s.cfg.target;
       if (subT) subT.textContent = scThem + '/' + s.cfg.target;
-      /* [R11] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — لاندسكيب فقط
-         (تتحكم CSS في الإظهار/الإخفاء حسب الوضع) */
+      /* [R12] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — في الوضعين */
       const ts0 = this.$('unTeamScore0'), ts1 = this.$('unTeamScore1');
       const ts2 = this.$('unTeamScore2'), ts3 = this.$('unTeamScore3');
       if (ts0) ts0.textContent = scUs;
@@ -300,7 +299,7 @@
           const nm = this.$('unName' + k); if (nm) nm.textContent = this._seatName(logical).substring(0, 2).toUpperCase();
           const ct = this.$('unCount' + k); if (ct) ct.textContent = hand.length;
           const bd = this.$('unBadge' + k); if (bd) bd.textContent = logical === this._mySeat(s) ? T('un.you') : '';
-          /* [R11] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — لاندسكيب فقط */
+          /* [R12] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — في الوضعين */
           const ts = this.$('unTeamScore' + k);
           if (ts) {
             const score = s.cfg.teams ? NS.teamScore(this._teamOf(logical)) : s.scores[logical];
@@ -363,7 +362,7 @@
         hp.style.display = '';
         const nm = this.$('unName0'); if (nm) nm.textContent = this._seatName(my).substring(0, 2).toUpperCase();
         const ct = this.$('unCount0'); if (ct) ct.textContent = hand.length;
-        /* [R11] شارة مجموع نقاط اللاعب السفلي — لاندسكيب فقط */
+        /* [R12] شارة مجموع نقاط اللاعب السفلي — في الوضعين */
         const ts0 = this.$('unTeamScore0');
         if (ts0 && s) {
           const score = s.cfg.teams ? NS.teamScore(this._teamOf(my)) : (s.scores[my] != null ? s.scores[my] : 0);

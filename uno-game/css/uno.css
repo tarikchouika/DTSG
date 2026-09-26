@@ -476,6 +476,16 @@
 .un-csvg .un-num2 { font-family: 'Arial Black', 'Segoe UI', sans-serif; font-size: 42px; font-weight: 900; }
 .un-csvg .un-corner { font-family: 'Arial Black', 'Segoe UI', sans-serif; font-size: 15px; font-weight: 900; }
 
+/* [R12] بورتريه: إبقاء round + color بالأعلى وسط الشاشة */
+@media (orientation: portrait) {
+  .un-stage .un-hud {
+    top: 14px;
+    left: 0;
+    right: 0;
+    justify-content: center;
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    [R11] طلب المالك — تحسينات اللاندسكيب فقط لأونو
    (البورتريه يبقى كما هو دون أي تغيير)
@@ -523,12 +533,11 @@ body.rami-game-open #gameLeaveBtn {
 body.rami-game-open #gameFsExit i,
 body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
 
-@media (orientation: landscape) {
-  /* ── 1) إخفاء لوحتي us/them من الأعلى ── */
-  .un-stage .un-hudside { display: none !important; }
+/* [R12] إخفاء لوحتي us/them من الأعلى في الوضعين (بورتريه + لاندسكيب) */
+.un-stage .un-hudside { display: none !important; }
+.un-stage .un-teamscore { display: inline-flex !important; }
 
-  /* ── 2) إظهار شارة مجموع النقاط لكل لاعب (لاندسكيب فقط) ── */
-  .un-stage .un-teamscore { display: inline-flex !important; }
+@media (orientation: landscape) {
 
   /* ── 3) نقل round + color لوسط الطاولة، يحيطان بمنطقة الطاقم+الرمية ── */
   .un-stage .un-hud {
@@ -574,7 +583,8 @@ body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
   .un-stage .un-seat-top .un-plate {
     position: absolute;
     top: 0;
-    left: calc(100% + 10px);
+    /* [R12] إزاحة لليسار 25px كما طلب المالك */
+    left: calc(100% - 15px);
     transform: none;
     flex-direction: row;
     align-items: center;
@@ -582,12 +592,15 @@ body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
     white-space: nowrap;
   }
 
-  /* ── 5) اللاعب السفلي: أيقونته لليمين بمحاذاة أوراقه (وليست فوقها) ── */
+  /* ── 5) اللاعب السفلي: أيقونته بجانب أوراقه ومتعامدة رأسياً مع أيقونة اللاعب العلوي ── */
   .un-stage .un-handplate {
     position: absolute;
     top: 50%;
-    left: auto;
-    right: 16px;
+    /* [R12] الإزاحة لتصبح الأيقونة بجانب أوراق اللاعب ومتعامدة مع أيقونة اللاعب العلوي.
+       متوسط نصف عرض الأوراق (7 ورقات * خطوة 34px + نصف عرض الورقة 31px ≈ 150px)
+       مع تعويض 15px لمحاذاة أيقونة اللاعب العلوي */
+    left: calc(50% + 135px);
+    right: auto;
     transform: translateY(-50%);
   }
 }

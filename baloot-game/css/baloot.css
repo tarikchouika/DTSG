@@ -717,6 +717,16 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
   .bl-toast { bottom: calc(var(--bl-cw) * 1.4 + 105px); }
 }
 
+/* [R12] بورتريه: إبقاء round + trump بالأعلى وسط الشاشة */
+@media (orientation: portrait) {
+  .bl-stage .bl-hud {
+    top: calc(8px + env(safe-area-inset-top));
+    left: 0;
+    right: 0;
+    justify-content: center;
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    [R11] طلب المالك — تحسينات اللاندسكيب فقط للبلوت
    (البورتريه يبقى كما هو دون أي تغيير)
@@ -764,12 +774,11 @@ body.rami-game-open #gameLeaveBtn {
 body.rami-game-open #gameFsExit i,
 body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
 
-@media (orientation: landscape) {
-  /* ── 1) إخفاء لوحتي us/them من الأعلى ── */
-  .bl-stage .bl-hudside { display: none !important; }
+/* [R12] إخفاء لوحتي us/them من الأعلى في الوضعين (بورتريه + لاندسكيب) */
+.bl-stage .bl-hudside { display: none !important; }
+.bl-stage .bl-teamscore { display: inline-flex !important; }
 
-  /* ── 2) توسيط شارة مجموع النقاط لكل لاعب (تظهر فقط في اللاندسكيب) ── */
-  .bl-stage .bl-teamscore { display: inline-flex !important; }
+@media (orientation: landscape) {
 
   /* ── 3) نقل round + trump لوسط الطاولة، يحيطان بمنطقة الأوراق المرمية ── */
   .bl-stage .bl-hud {
@@ -819,7 +828,8 @@ body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
   .bl-stage .bl-seat-top .bl-plate {
     position: absolute;
     top: 0;
-    left: calc(100% + 10px);
+    /* [R12] إزاحة لليسار 25px كما طلب المالك */
+    left: calc(100% - 15px);
     transform: none;
     flex-direction: row;
     align-items: center;
@@ -827,12 +837,15 @@ body.rami-game-open #gameLeaveBtn i { color: #1a1206 !important; }
     white-space: nowrap;
   }
 
-  /* ── 5) اللاعب السفلي: أيقونته لليمين بمحاذاة أوراقه (وليست فوقها) ── */
+  /* ── 5) اللاعب السفلي: أيقونته بجانب أوراقه ومتعامدة رأسياً مع أيقونة اللاعب العلوي ── */
   .bl-stage .bl-handplate {
     position: absolute;
     top: 50%;
-    left: auto;
-    right: 16px;
+    /* [R12] الإزاحة لتصبح الأيقونة بجانب أوراق اللاعب ومتعامدة مع أيقونة اللاعب العلوي.
+       متوسط نصف عرض الأوراق (8 ورقات * خطوة 52px + نصف عرض الورقة 44px ≈ 226px)
+       مع تعويض 15px لمحاذاة أيقونة اللاعب العلوي */
+    left: calc(50% + 211px);
+    right: auto;
     transform: translateY(-50%);
   }
 }
