@@ -369,3 +369,21 @@
   .bw-menu-card > #bwResumeBtn { grid-column: 1 / -1; margin-top: 4px; padding: 7px 12px; font-size: 12px; }
   .bw-menu-card > .bw-ruleslink { grid-column: 1 / -1; margin-top: 2px; font-size: 10px; }
 }
+
+/* ═══ [R8] شارة مؤقت الدور — كانت الشارات تُحدَّث من JS دون عناصر/تنسيق ═══ */
+.bw-ptimer {
+  display: inline-block;
+  margin-inline-start: 5px;
+  font-size: 11px;
+  font-weight: 900;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 9px;
+  padding: 1px 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.bw-ptimer.bw-time-low { color: #ff5252; border-color: rgba(255, 82, 82, 0.7); animation: bwPulseTimer 1s infinite alternate; }
+@keyframes bwPulseTimer { from { transform: scale(1); } to { transform: scale(1.12); } }

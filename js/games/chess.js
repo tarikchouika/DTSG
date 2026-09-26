@@ -1677,6 +1677,8 @@ function chessPaintSeatTimers(txt, whose) {
   var bot = document.getElementById('chessBotTimer');
   if (top) {
     if (whose === 'top' && !!txt) {
+      /* [R8-FIX] رفع سمة hidden — القاعدة العامة [hidden]{display:none!important} */
+      top.hidden = false;
       top.style.display = 'inline-block';
       top.textContent = txt;
       top.className = 'ch-ptimer' + (low ? ' low' : '');
@@ -1686,6 +1688,8 @@ function chessPaintSeatTimers(txt, whose) {
   }
   if (bot) {
     if (whose === 'bot' && !!txt) {
+      /* [R8-FIX] رفع سمة hidden — القاعدة العامة [hidden]{display:none!important} */
+      bot.hidden = false;
       bot.style.display = 'inline-block';
       bot.textContent = txt;
       bot.className = 'ch-ptimer' + (low ? ' low' : '');
@@ -1697,7 +1701,9 @@ function chessPaintSeatTimers(txt, whose) {
 function chessStartTimer() {
   chessStopTimer();
   if (!CHESS || !CHESS.state || CHESS.state.over) return;
-  var tLimit = (CHESS.mode === 'room') ? (window.CH_ROOM_TIMER || 60) : CHESS.timer;
+  /* [R8-FIX] الفردي (oppBot) يحترم مؤقت شاشة الإعداد CHESS.timer؛
+     الغرف الحقيقية تستعمل مؤقت الغرفة CH_ROOM_TIMER */
+  var tLimit = (CHESS.mode === 'room' && !CHESS.oppBot) ? (window.CH_ROOM_TIMER || 60) : CHESS.timer;
   if (!tLimit) return;
   
   CHESS._turnLeft = tLimit;
@@ -2081,6 +2087,8 @@ function chessStartRoom(myColor, oppBot, spec, bet) {
   var db = document.getElementById('chessDrawBar'); if (db) db.hidden = true;
   chessRender();
   chessSetStatus(spec ? '👁️ ' + T('dama.spec') : (CHESS.state.turn === myColor ? T('dama.yourMove') : T('dama.waitOpp')));
+  /* [R8-FIX] المؤقت كان يبدأ فقط بعد أول حركة — الآن يبدأ فور انطلاق الجولة */
+  chessStartTimer();
 }
 
 function chessApplyReplay(d) {

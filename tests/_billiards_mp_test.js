@@ -100,7 +100,7 @@ const SHOTS = [[0.4, 70], [-0.6, 60], [1.2, 55], [2.4, 65], [0.9, 50], [-1.2, 60
       for (let x = 60; x < 940; x += 25) for (let y = 40; y < 470; y += 25)
         if (BILLIARDS.G.validPlace(x, y)) { billiardsPlace(x, y); return; }
     });
-    await P.evaluate(s => { BILLIARDS.aim = s[0]; document.getElementById('blPower').value = s[1]; billiardsPowerUi(); billiardsShoot(); }, SHOTS[i]);
+    await P.evaluate(s => { BILLIARDS.aim = s[0]; BILLIARDS.power = s[1]; billiardsShoot(); }, SHOTS[i]);
     const got = await wait(A, n => (BILLIARDS.G.S.history.length >= n) ? true : null, 10000, i + 1) &&
                 await wait(B, n => (BILLIARDS.G.S.history.length >= n) ? true : null, 10000, i + 1);
     if (!got) { synced = false; lastErr = 'timeout shot ' + (i + 1); break; }
@@ -164,7 +164,7 @@ const SHOTS = [[0.4, 70], [-0.6, 60], [1.2, 55], [2.4, 65], [0.9, 50], [-1.2, 60
   const cfgOk = await wait(Gg, () => (BILLIARDS.G && BILLIARDS.G.S.discipline === 'ONE' && BILLIARDS.G.S.target === 5) ? true : null, 10000);
   ok('الضيف تبنّى ONE/5 من بث cfg', cfgOk === true);
   /* ضربة واحدة متزامنة في الكاروم */
-  await F.evaluate(() => { BILLIARDS.aim = -0.10 * Math.PI; document.getElementById('blPower').value = 80; billiardsPowerUi(); billiardsShoot(); });
+  await F.evaluate(() => { BILLIARDS.aim = -0.10 * Math.PI; BILLIARDS.power = 80; billiardsShoot(); });
   const caSync = await wait(Gg, () => (BILLIARDS.G.S.history.length >= 1) ? true : null, 10000);
   ok('ضربة الكاروم وصلت للضيف', caSync === true);
   const [hf, hg] = [await F.evaluate(HASH), await Gg.evaluate(HASH)];
@@ -180,7 +180,7 @@ const SHOTS = [[0.4, 70], [-0.6, 60], [1.2, 55], [2.4, 65], [0.9, 50], [-1.2, 60
   if (who2 === 'A') {
     await A.evaluate(() => {
       if (BILLIARDS.G.S.phase === 'PLACE') { for (let x = 60; x < 940; x += 25) for (let y = 40; y < 470; y += 25) if (BILLIARDS.G.validPlace(x, y)) { billiardsPlace(x, y); break; } }
-      BILLIARDS.aim = 0.6; document.getElementById('blPower').value = 50; billiardsPowerUi(); billiardsShoot();
+      BILLIARDS.aim = 0.6; BILLIARDS.power = 50; billiardsShoot();
     });
   }
   await wait(A, n => BILLIARDS.G.S.history.length >= n, 10000, nShots + 1);

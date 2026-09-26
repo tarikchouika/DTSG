@@ -97,7 +97,8 @@ window.BWG_HTML = (function () {
           '<span class="bw-avatar" id="bwTopAvatar"><i class="fa-solid fa-robot" aria-hidden="true"></i></span>' +
           '<span class="bw-seatmeta"><span class="bw-seatname" id="bwTopName">الخصم</span>' +
           '<span class="bw-seatrow"><span class="bw-seatscore" id="bwTopScore">0</span>' +
-          '<span class="bw-seatpip" id="bwTopPip"></span></span></span>' +
+          '<span class="bw-seatpip" id="bwTopPip"></span>' +
+          '<span class="bw-ptimer" id="bwTimer1" hidden>⏱</span></span></span>' +
         '</div>' +
         '<div class="bw-hudmid">' +
           '<span class="bw-hudmatch" id="bwMatchLbl"></span>' +
@@ -106,7 +107,8 @@ window.BWG_HTML = (function () {
         '<div class="bw-seat me" id="bwSeatBot">' +
           '<span class="bw-seatmeta end"><span class="bw-seatname" id="bwBotName">أنت</span>' +
           '<span class="bw-seatrow end"><span class="bw-seatscore" id="bwBotScore">0</span>' +
-          '<span class="bw-seatpip" id="bwBotPip"></span></span></span>' +
+          '<span class="bw-seatpip" id="bwBotPip"></span>' +
+          '<span class="bw-ptimer" id="bwTimer0" hidden>⏱</span></span></span>' +
           '<span class="bw-avatar"><i class="fa-solid fa-user" aria-hidden="true"></i></span>' +
         '</div>' +
       '</div>' +

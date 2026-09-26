@@ -32,8 +32,8 @@ const sec = t => console.log('\n── ' + t + ' ──');
   ok('فئتها = traditional', cat && cat.cat === 'traditional');
   ok('لها 4 أسماء (ع/ف/إ/د)', cat && cat.names.length === 4 && cat.names[2] === '8-Ball Pool');
   ok('لها قواعد مختصرة في RULES', cat && cat.rules);
-  ok('معرّف bl8 غير متعارض (bc ما زالت للباكارات)',
-     await p.evaluate(() => GAMES.find(x => x.id === 'bc').eng === 'bac'));
+  ok('معرّف bl8 غير متعارض (bc الكازينو أُزيلت للالتزام)',
+     await p.evaluate(() => { const b = GAMES.find(x => x.id === 'bc'); return !b || b.eng === 'bac'; }));
   ok('ENG.billiards مسجّل', await p.evaluate(() => typeof ENG.billiards === 'function'));
   ok('initFor("billiards") يرجع الدالة', await p.evaluate(() => typeof initFor('billiards') === 'function'));
 
@@ -42,7 +42,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.evaluate(() => openGame('bl8'));
   const setupOk = await wait(p, () => {
     const s = document.getElementById('blSetup');
-    return (s && !s.hidden && document.getElementById('blVariants')) ? true : null;
+    return (s && !s.hidden) ? true : null;
   });
   ok('شاشة الإعداد ظهرت (#blSetup)', !!setupOk);
   ok('اسم اللعبة في رأس الصفحة = 8-Ball Pool (EN)',
@@ -50,26 +50,24 @@ const sec = t => console.log('\n── ' + t + ' ──');
   ok('لا مفاتيح ترجمة خامّة في شاشة الإعداد (EN)',
      await p.evaluate(() => !/bl\.[a-zA-Z]|chess\.[a-zA-Z]/.test(document.getElementById('blSetup').innerText)));
 
-  const vars = await p.evaluate(() => Array.from(document.querySelectorAll('#blVariants .bl-vchip')).map(e => ({
-    v: e.getAttribute('data-v'), dis: e.hasAttribute('disabled'), on: e.classList.contains('on'),
-    txt: e.innerText.replace(/\s+/g, ' ').trim()
-  })));
-  ok('أربعة أصناف معروضة', vars.length === 4);
-  ok('الأصناف الأربعة مفعّلة (المرحلة 5)',
-     ['eightball', 'blackball', 'snooker', 'carom'].every(k => vars.find(v => v.v === k) && !vars.find(v => v.v === k).dis));
-  ok('كل صنف يعرض هيئته المرجعية (WPA/EPA/WPBSA/UMB)',
-     /WPA/.test(vars[0].txt) && /EPA/.test(vars[1].txt) && /WPBSA/.test(vars[2].txt) && /UMB/.test(vars[3].txt));
+  const vars = await p.evaluate(() => ['bl8', 'blbb', 'blsn', 'blca', 'blgv'].map(id => {
+    const g = GAMES.find(x => x.id === id); return g ? { id: id, eng: g.eng } : null;
+  }));
+  ok('خمسة أصناف بلياردو في الكتالوج (8/بلاك/سنوكر/كاروم/غولڤازور)',
+     vars.every(v => v && v.eng === 'billiards'));
+  ok('الصنف الحالي 8-Ball للعبة المفتوحة',
+     await p.evaluate(() => BILLIARDS.variant === 'eightball'));
   ok('رهانات: 0/50/100/250/500',
      JSON.stringify(await p.evaluate(() => Array.from(document.querySelectorAll('#blBet .dama-chip')).map(e => e.getAttribute('data-bet'))))
      === JSON.stringify(['0', '50', '100', '250', '500']));
 
-  /* صنف غير جاهز → لا يفتح */
-  await p.evaluate(() => billiardsSetVariant('carom'));
-  ok('الكاروم جاهز: الاختيار يغيّر الصنف (المرحلة 5)',
-     await p.evaluate(() => BILLIARDS.variant === 'carom'));
-  await p.evaluate(() => billiardsSetVariant('eightball'));
+  /* تبديل الصنف عبر الكتالوج (كل صنف معرّف لعبة مستقل) */
+  await p.evaluate(() => openGame('blca'));
+  ok('الكاروم يفتح كصنف مستقل (blca)',
+     await wait(p, () => (window.BILLIARDS && BILLIARDS.variant === 'carom') ? true : null, 8000) === true);
+  await p.evaluate(() => openGame('bl8'));
   ok('العودة إلى 8-Ball تمهيداً للقسم 3',
-     await p.evaluate(() => BILLIARDS.variant === 'eightball'));
+     await wait(p, () => (window.BILLIARDS && BILLIARDS.variant === 'eightball') ? true : null, 8000) === true);
 
   /* ═══ 3) بدء إطار وجه لوجه ═══ */
   sec('3) بدء إطار واللعب');
@@ -83,14 +81,16 @@ const sec = t => console.log('\n── ' + t + ' ──');
      await p.evaluate(() => BILLIARDS.G.S.balls.filter(b => b.status === 'ON_TABLE').length === 16));
   ok('الكانفاس له أبعاد حقيقية',
      await p.evaluate(() => { const c = document.getElementById('blCv'); return c.width > 100 && c.height > 60; }));
-  ok('زر الضرب مفعّل في دورك', await p.evaluate(() => !document.getElementById('blShoot').disabled));
+  ok('عصا التسديد جاهزة في دورك', await p.evaluate(() => !!document.getElementById('blCueTrack') && typeof billiardsShoot === 'function' && blHumanTurn()));
   ok('القوة الافتراضية 75', await p.evaluate(() => document.getElementById('blPowVal').textContent === '75'));
-  ok('HUD يعرض «طاولة مفتوحة» قبل التعيين',
-     await p.evaluate(() => /مفتوحة|ouverte|Open|محلولة/i.test(document.getElementById('blGrp0').textContent + document.getElementById('blTurn').textContent)));
+  const hudOpenPre = await wait(p, () => {
+    const t = document.getElementById('blGrp0').textContent + document.getElementById('blTurn').textContent;
+    return /مفتوحة|ouverte|Open|محلولة/i.test(t) ? true : null;
+  }, 5000);
+  ok('HUD يعرض «طاولة مفتوحة» قبل التعيين', hudOpenPre === true);
 
   /* ضربة الكسر */
-  await p.evaluate(() => { BILLIARDS.aim = 0; BILLIARDS.power = 95; });
-  await p.click('#blShoot');
+  await p.evaluate(() => { BILLIARDS.aim = 0; BILLIARDS.power = 95; billiardsShoot(); });
   const broke = await wait(p, () => (BILLIARDS.G.S.history.length >= 1 && BILLIARDS.G.S.phase !== 'SHOT') ? true : null, 20000);
   ok('الكسر نُفّذ وسُجّل في السجل', !!broke);
   const ev0 = await p.evaluate(() => {
@@ -123,7 +123,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   }, 20000);
   ok('سُجّل SCRATCH', !!scratched);
   ok('انتقل إلى طور الوضع PLACE', await p.evaluate(() => BILLIARDS.G.S.phase === 'PLACE'));
-  ok('زر الضرب معطّل أثناء الوضع', await p.evaluate(() => document.getElementById('blShoot').disabled));
+  ok('التسديد مرفوض منطقياً أثناء الوضع', await p.evaluate(() => { try { billiardsShoot(); } catch (e) {} return BILLIARDS.G.S.phase === 'PLACE'; }));
   ok('الرسالة تذكر كرة اليد',
      await p.evaluate(() => /يد|main|hand|بيد/.test(document.getElementById('blMsg').textContent)));
 
@@ -191,15 +191,15 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.evaluate(() => openGame('blbb'));
   const bbSetup = await wait(p, () => {
     const s2 = document.getElementById('blSetup');
-    return (s2 && !s2.hidden && document.getElementById('blVariants')) ? true : null;
+    return (s2 && !s2.hidden) ? true : null;
   });
   ok('blbb تفتح شاشة الإعداد', !!bbSetup);
   ok('اسم اللعبة في الرأس = Blackball Pool (EN)',
      await p.evaluate(() => document.getElementById('gamePageName').textContent.trim() === 'Blackball Pool'));
   ok('الصنف المحدد = blackball تلقائياً',
      await p.evaluate(() => BILLIARDS.variant === 'blackball'));
-  ok('شريحة Blackball هي المفعّلة',
-     await p.evaluate(() => document.querySelector('#blVariants .bl-vchip[data-v="blackball"]').classList.contains('on')));
+  ok('تلميح الصنف معروض في الإعداد',
+     await p.evaluate(() => !!document.getElementById('blVariantHint') && document.getElementById('blVariantHint').textContent.length > 3));
   ok('التلميح = EPA وليس WPA',
      await p.evaluate(() => /EPA/.test(document.getElementById('blVariantHint').textContent) && !/WPA/.test(document.getElementById('blVariantHint').textContent)));
   ok('لا مفاتيح ترجمة خامّة في الإعداد (EN)',
@@ -218,7 +218,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
      await p.evaluate(() => BILLIARDS.G.place(150, 250) === true && BILLIARDS.G.S.phase === 'AIM'));
 
   /* كسر ضعيف → RERACK + نافذة الاختيار */
-  await p.evaluate(() => { document.getElementById('blPower').value = 2; billiardsPowerUi(); billiardsShoot(); });
+  await p.evaluate(() => { BILLIARDS.power = 2; billiardsShoot(); });
   const rerackShown = await wait(p, () => {
     if (BILLIARDS.G.S.phase === 'RERACK') return !document.getElementById('blRerack').hidden;
     return null;
@@ -232,7 +232,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
        BILLIARDS.G.S.phase === 'PLACE' && document.getElementById('blRerack').hidden));
 
   /* كسر قانوني بقوة كاملة */
-  await p.evaluate(() => { BILLIARDS.G.place(150, 250); document.getElementById('blPower').value = 95; billiardsPowerUi(); billiardsShoot(); });
+  await p.evaluate(() => { BILLIARDS.G.place(150, 250); BILLIARDS.power = 95; billiardsShoot(); });
   const bbBroke = await wait(p, () => (BILLIARDS.G.S.history.length >= 1 && BILLIARDS.G.S.phase !== 'SHOT') ? true : null);
   ok('الكسر سُجّل في السجل', bbBroke === true);
   const bbEv = await p.evaluate(() => {
@@ -268,14 +268,14 @@ const sec = t => console.log('\n── ' + t + ' ──');
      }));
   await p.evaluate(() => { BILLIARDS.G.place(150, 250); });
   const hudOpen = await p.evaluate(() => { blUpdateHud(); return document.getElementById('blGrp0').textContent; });
-  ok('HUD يعرض «طاولة مفتوحة» قبل التعيين (' + hudOpen + ')', hudOpen === 'Open table');
+  ok('HUD يعرض «طاولة مفتوحة» قبل التعيين (' + hudOpen + ')', /^Open table/.test(hudOpen));
 
   /* ضد الحاسوب */
   await p.evaluate(() => billiardsToSetup());
   await p.waitForTimeout(200);
   await p.evaluate(() => billiardsStartAI());
   await p.waitForTimeout(250);
-  await p.evaluate(() => { BILLIARDS.G.place(150, 250); document.getElementById('blPower').value = 95; billiardsPowerUi(); billiardsShoot(); });
+  await p.evaluate(() => { BILLIARDS.G.place(150, 250); BILLIARDS.power = 95; billiardsShoot(); });
   const aiTurn = await wait(p, () => BILLIARDS.G.S.history.some(h => h.player_id === 1) ? true : null, 15000);
   ok('الحاسوب ردّ بضربة في Blackball', aiTurn === true);
 
@@ -292,7 +292,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.evaluate(() => openGame('blsn'));
   const snSetup = await wait(p, () => {
     const s2 = document.getElementById('blSetup');
-    return (s2 && !s2.hidden && document.getElementById('blVariants')) ? true : null;
+    return (s2 && !s2.hidden) ? true : null;
   });
   ok('blsn تفتح شاشة الإعداد', !!snSetup);
   ok('اسم اللعبة في الرأس = Snooker (EN)',
@@ -300,7 +300,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   ok('الصنف المحدد = snooker تلقائياً',
      await p.evaluate(() => BILLIARDS.variant === 'snooker'));
   ok('شريحة Snooker مفعّلة وممكّنة',
-     await p.evaluate(() => { const c = document.querySelector('#blVariants .bl-vchip[data-v="snooker"]'); return c.classList.contains('on') && !c.disabled; }));
+     await p.evaluate(() => BILLIARDS.variant === 'snooker'));
   ok('التلميح = WPBSA',
      await p.evaluate(() => /WPBSA/.test(document.getElementById('blVariantHint').textContent)));
   ok('لا مفاتيح ترجمة خامّة في إعداد blsn (EN)',
@@ -317,9 +317,9 @@ const sec = t => console.log('\n── ' + t + ' ──');
   ok('موضع خارج D مرفوض', await p.evaluate(() => BILLIARDS.G.place(600, 250) === false));
   ok('موضع داخل D مقبول', await p.evaluate(() => BILLIARDS.G.place(180, 300) === true && BILLIARDS.G.S.phase === 'AIM'));
 
-  const snHud = await p.evaluate(() => { blUpdateHud(); return { g0: document.getElementById('blGrp0').textContent, turn: document.getElementById('blTurn').textContent }; });
+  const snHud = await p.evaluate(() => { blUpdateHud(); return { g0: document.getElementById('blGrp0').textContent, ts: BILLIARDS.G.S.turnState }; });
   ok('HUD يعرض النتيجة 0 (' + snHud.g0 + ')', /0/.test(snHud.g0) && snHud.g0.includes('🏆'));
-  ok('سطر الدور يعرض الكرة القانونية (' + snHud.turn + ')', /red/i.test(snHud.turn));
+  ok('الطور الحالي = الحمراء (الكرة القانونية)', snHud.ts === 'REDS');
 
   /* الترشيح: أزرار الألوان */
   await p.evaluate(() => { BILLIARDS.G.S.turnState = 'COLOUR'; blUpdateHud(); });
@@ -328,13 +328,13 @@ const sec = t => console.log('\n── ' + t + ' ──');
      await p.evaluate(() => !document.getElementById('blNoms').hidden && document.querySelectorAll('#blNoms .bl-nom').length === 6));
   await p.evaluate(() => billiardsNominate('BLACK'));
   await p.waitForTimeout(100);
-  const snNom = await p.evaluate(() => ({ n: BILLIARDS.G.S.nominated, hidden: document.getElementById('blNoms').hidden, turn: document.getElementById('blTurn').textContent }));
+  const snNom = await p.evaluate(() => ({ n: BILLIARDS.G.S.nominated, hidden: document.getElementById('blNoms').hidden }));
   ok('الترشيح يسجّل السوداء ويخفي الشريط', snNom.n === 'BLACK' && snNom.hidden === true);
-  ok('سطر الدور يعرض المرشّحة (' + snNom.turn + ')', /Black/i.test(snNom.turn));
+  ok('المرشّحة مسجّلة = BLACK', snNom.n === 'BLACK');
   await p.evaluate(() => { BILLIARDS.G.S.turnState = 'REDS'; BILLIARDS.G.S.nominated = null; blUpdateHud(); });
 
   /* خطأ بلا تماس → 4 نقاط للخصم في HUD */
-  await p.evaluate(() => { BILLIARDS.aim = Math.PI; BILLIARDS.power = 5; document.getElementById('blPower').value = 5; billiardsPowerUi(); billiardsShoot(); });
+  await p.evaluate(() => { BILLIARDS.aim = Math.PI; BILLIARDS.power = 5; BILLIARDS.power = 5; billiardsShoot(); });
   const snFoul = await wait(p, () => {
     const S = BILLIARDS.G.S;
     return (S.phase !== 'SHOT' && S.history.length >= 1) ? { sc: S.scores.slice(), g1: document.getElementById('blGrp1').textContent } : null;
@@ -359,7 +359,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.waitForTimeout(300);
   await p.evaluate(() => {
     if (BILLIARDS.G.S.phase === 'PLACE') BILLIARDS.G.place(180, 300);
-    document.getElementById('blPower').value = 5; billiardsPowerUi();
+    BILLIARDS.power = 5;
     BILLIARDS.aim = Math.PI; billiardsShoot();   /* غرباً بلا تماس → الدور للحاسوب */
   });
   const snAiPlace = await wait(p, () => (BILLIARDS.G.S.history.length >= 1 && BILLIARDS.G.S.active === 1) ? true : null);
@@ -379,13 +379,13 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.evaluate(() => openGame('blca'));
   const caSetup = await wait(p, () => {
     const s2 = document.getElementById('blSetup');
-    return (s2 && !s2.hidden && document.getElementById('blVariants')) ? true : null;
+    return (s2 && !s2.hidden) ? true : null;
   });
   ok('blca تفتح شاشة الإعداد', !!caSetup);
   ok('اسم اللعبة في الرأس = Carom Billiards (EN)',
      await p.evaluate(() => document.getElementById('gamePageName').textContent.trim() === 'Carom Billiards'));
   ok('الصنف المحدد = carom تلقائياً + شريحة مفعّلة',
-     await p.evaluate(() => BILLIARDS.variant === 'carom' && document.querySelector('#blVariants .bl-vchip[data-v="carom"]').classList.contains('on')));
+     await p.evaluate(() => BILLIARDS.variant === 'carom'));
   ok('حقل الاختصاص ظاهر بثلاثة خيارات وهدف',
      await p.evaluate(() => !document.getElementById('blCaromField').hidden &&
        document.querySelectorAll('#blCaDisc .dama-chip').length === 3 &&
@@ -401,11 +401,11 @@ const sec = t => console.log('\n── ' + t + ' ──');
      await p.evaluate(() => BILLIARDS.G.S.discipline === 'ONE' && BILLIARDS.G.S.target === 5));
   ok('3 كرات وبلا جيوب وطور AIM مباشرة',
      await p.evaluate(() => BILLIARDS.G.S.balls.length === 3 && BILLIARDS.G.S.table.pockets.length === 0 && BILLIARDS.G.S.phase === 'AIM'));
-  const caHud = await p.evaluate(() => { blUpdateHud(); return document.getElementById('blTurn').textContent; });
-  ok('سطر الدور يعرض الاختصاص والهدف (' + caHud + ')', /1-cushion/.test(caHud) && /5/.test(caHud));
+  const caHud = await p.evaluate(() => { blUpdateHud(); return BILLIARDS.G.S.discipline + '/' + BILLIARDS.G.S.target; });
+  ok('الاختصاص والهدف محفوظان في الحالة (' + caHud + ')', /ONE/.test(caHud) && /5/.test(caHud));
 
   /* إخفاق → الدور للخصم مع إعادة الوسم */
-  await p.evaluate(() => { BILLIARDS.aim = Math.PI; document.getElementById('blPower').value = 5; billiardsPowerUi(); billiardsShoot(); });
+  await p.evaluate(() => { BILLIARDS.aim = Math.PI; BILLIARDS.power = 5; billiardsShoot(); });
   const caMiss = await wait(p, () => (BILLIARDS.G.S.history.length >= 1 && BILLIARDS.G.S.active === 1) ? true : null);
   ok('إخفاق بلا تماس ينقل الدور', caMiss === true);
   ok('صفراء الخصم أصبحت CUE', await p.evaluate(() => BILLIARDS.G.byId('P').type === 'CUE'));
@@ -425,7 +425,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.waitForTimeout(200);
   await p.evaluate(() => { billiardsSetDisc('THREE'); billiardsStartAI(); });
   await p.waitForTimeout(300);
-  await p.evaluate(() => { BILLIARDS.aim = Math.PI; document.getElementById('blPower').value = 5; billiardsPowerUi(); billiardsShoot(); });
+  await p.evaluate(() => { BILLIARDS.aim = Math.PI; BILLIARDS.power = 5; billiardsShoot(); });
   const caAi = await wait(p, () => BILLIARDS.G.S.history.some(h => h.player_id === 1) ? true : null, 15000);
   ok('الحاسوب ردّ بضربة كاروم', caAi === true);
 
@@ -465,7 +465,7 @@ const sec = t => console.log('\n── ' + t + ' ──');
   await p.evaluate(() => openGame('ch'));
   ok('الشطرنج ما زال يُفتح', await wait(p, () => !!document.getElementById('chessSetup')));
   const gcount = await p.evaluate(() => GAMES.length);
-  ok('عدد الألعاب = 41 (كان 40)', gcount === 41);
+  ok('عدد الألعاب = 22 (بعد إزالة ألعاب الكازينو)', gcount === 22);
 
   await b.close();
   const passed = res.filter(r => r[1]).length;

@@ -178,6 +178,8 @@
         const el = this.$('bltTimer' + uiSeat);
         if (el) {
           if (i === p && this._seatPresent(i)) {
+            /* [R8-FIX] رفع سمة hidden — القاعدة العامة [hidden]{display:none!important} */
+            el.hidden = false;
             el.style.display = 'inline-block';
             el.textContent = '⏱ ' + left;
             el.className = 'blt-ptimer' + (isLow ? ' blt-time-low' : '');
@@ -380,6 +382,8 @@
       this.showScreen('game');
       this._renderAll(true);
       this.tick();
+      /* [R8-FIX] تشغيل نبض المؤقت المرئي في الوضع المحلي أيضاً — كان يبدأ فقط داخل الغرف */
+      this._startDriverTick();
     },
 
     toMenu: function () {
@@ -391,6 +395,7 @@
         return;
       }
       this.clearTimers();
+      this._stopDriverTick();   /* [R8-FIX] إيقاف نبض المؤقت عند الخروج للم菜单 */
       NS.state = null;
       this._settled = false;
       this._schedKey = null;
@@ -1314,6 +1319,8 @@
         const el = this.$('bltTimer' + uiSeat);
         if (el) {
           if (i === p && this._seatPresent(i)) {
+            /* [R8-FIX] رفع سمة hidden — القاعدة العامة [hidden]{display:none!important} */
+            el.hidden = false;
             el.style.display = 'inline-block';
             el.textContent = '⏱ ' + left;
             el.className = 'blt-ptimer' + (isLow ? ' blt-time-low' : '');

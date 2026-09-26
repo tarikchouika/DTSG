@@ -431,7 +431,6 @@ function billiardsShoot() {
     else { stick.style.left = '25%'; stick.style.bottom = ''; }
   }
   blResetSpinUi();
-}  blResetSpinUi();
   if (typeof SND !== 'undefined' && SND.peg) { try { SND.peg(); } catch (e) {} }
   blUpdateHud();
 }
@@ -1202,7 +1201,7 @@ function blOrientLayout() {
   var g = function (id) { return document.getElementById(id); };
   var lr = g('blLRail'), rail = g('blRail'), ltop = g('blLTop');
   var av0 = g('blAv0'), trayR = g('blTrayR'), spin = g('blSpin'),
-      pow = g('blPower'), sc0 = g('blScore0'), rtop = g('blRTop'),
+      pow = g('blCueTrack'), sc0 = g('blScore0'), rtop = g('blRTop'),
       trayL = g('blTrayL'), av1 = g('blAv1'), sc1 = g('blScore1');
 
   if (!g('blPortLeft')) {
@@ -1295,12 +1294,11 @@ function blFitCanvas() {
         if (!frame._blRaf) { frame._blRaf = true; requestAnimationFrame(function () { frame._blRaf = false; blFitCanvas(); }); }
       }
     } else {
-      /* بورتريه: ارتفاع الشريطين = نصف فائض الارتفاع بعد منح الوسط ارتفاعه الأمثل
-         (الطاولة عمودية: نسبتها مقلوبة) */
-      var minBar = Math.max(56, Math.round(Math.min(F.height * 0.09, 92)));
-      var midH = Math.min(F.height - minBar * 2, Math.round(F.width * AR));
-      var barH = Math.max(minBar, Math.floor((F.height - midH) / 2));
-      wantRows = barH + 'px minmax(0,1fr) ' + barH + 'px';
+      /* [R8-FIX] تخطيط البورتريه الجديد صفّان فقط: الوسط (1fr) ثم الشريط السفلي (auto).
+         القالب القديم كان 3 صفوف (barH/1fr/barH) يطابق الهيكل القديم — مع الهيكل
+         الجديد (mid=row1, rail=row2, lrail=overlay) كان ينضغط الوسط إلى barH
+         (~75px) ويلتهم الشريط السفلي كل المتبقي فتصغر الطاولة جذرياً */
+      wantRows = 'minmax(0,1fr) auto';
       wantCols = 'minmax(0,1fr)';
       if (frame._blColsT !== wantCols || frame._blRowsT !== wantRows) {
         frame._blColsT = wantCols; frame._blRowsT = wantRows;

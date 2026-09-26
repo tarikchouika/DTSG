@@ -821,6 +821,11 @@ function closeGamePage() {
   if (typeof cleanupUno === 'function') {
     try { cleanupUno(); } catch (e) { console.error('cleanupUno error:', e); }
   }
+  /* [R8-FIX] تنظيف البلياردو: كانت حلقة الرسم RAF تستمر بعد مغادرة اللعبة
+     (تسريب CPU/بطارية على الهاتف) — cleanupBilliards موجودة لكن لم يستدعها أحد */
+  if (typeof cleanupBilliards === 'function') {
+    try { cleanupBilliards(); } catch (e) { console.error('cleanupBilliards error:', e); }
+  }
   if (!keepLive) {
     window._liveGameId = null;
     var gbEl = document.getElementById('gamePageBody');

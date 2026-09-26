@@ -196,7 +196,10 @@
       const left = this._turnTimerLeft;
       const meSeat = this.mySeatNum();
       const numPlayers = s.scores ? s.scores.length : 2;
-      for (let i = 0; i < 4; i++) {
+      /* [R8-FIX] الحلقة كانت تمر على 4 مقاعد دائماً — في مباراة لاعبَين كان المقعد
+         الشبح 2 يُسقط على شارة اللاعب (uiIdx=0) فيخفيها كل ثانية! نمر على المقاعد
+         الموجودة فقط */
+      for (let i = 0; i < numPlayers; i++) {
         let uiIdx = 0;
         if (i === meSeat) {
            uiIdx = 0;
@@ -208,6 +211,9 @@
         const el = document.getElementById('dmTimer' + uiIdx);
         if (el) {
           if (i === s.turn) {
+            /* [R8-FIX] القاعدة العامة [hidden]{display:none!important} تكبت الشارة —
+               يجب رفع السمة نفسها لا الاكتفاء بـ style.display */
+            el.hidden = false;
             el.style.display = 'inline-block';
             el.textContent = '⏱ ' + Math.max(0, left);
             el.className = 'dm-ptimer' + (left <= 10 ? ' dm-time-low' : '');

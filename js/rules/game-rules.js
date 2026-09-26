@@ -1115,6 +1115,82 @@ rn: {
       en: '<tr><td>Match won — Easy</td><td>Bet ×1.5</td></tr><tr><td>Match won — Medium</td><td>Bet ×2</td></tr><tr><td>Match won — Expert</td><td>Bet ×3</td></tr><tr><td>Loss or resign</td><td>Bet lost</td></tr>'
     },
   },
+  /* ═══ البلياردو — الأصناف الخمسة (R8: زر القواعد داخل اللعبة كان ميتاً) ═══ */
+  bl8: {
+    name: { ar: '8-بول 🎱', da: 'L8-Ball 🎱', fr: '8-Ball 🎱', en: '8-Ball Pool 🎱' },
+    goal: {
+      ar: 'قوانين WPA: لاعبان (أحمر ضد الأصفر) — من يُسقط مجموعته السبعة أولاً ثم الكرة السوداء 8 بنظافة يفوز بالإطار؛ إسقاط السوداء مبكراً أو مع الكرة البيضاء = خسارة فورية.',
+      da: 'Joueurs 2 (7mer dd 9ssaf) — li ynqes l 7 dyalo lwlin w mn b3d l kahla 8 b nqa9a yrbah; kahla bkrik wla m3a l bidha = khssara.',
+      fr: 'Deux joueurs (rouges contre jaunes) — descendre ses 7 boules puis la noire 8 proprement pour gagner ; noire trop tôt ou avec la blanche = défaite.',
+      en: 'WPA rules: two players (reds vs yellows) — pot your seven balls then the black 8 cleanly to win; early black or a scratch on it loses the frame.'
+    },
+    steps: {
+      ar: ['الكسر: تُرتب 15 كرة في المثلث والبيضاء من خلف خط الرأس — هدف الكسر إخراج 4 كرات أو إرجاع كرتين للوسادة.', 'المجموعات: أول كرة مسقطة قانونياً بعد الكسر تحدد مجموعتك (مزيج في الكسر يُعاد الكسر).', 'الضربة: البيضاء يجب أن تلمس أولاً كرة من مجموعتك — لا لمس = خطأ (كرة يد للخصم خلف أي وسادة).', 'بعد خطأ الخصم: كرة يد — تضع البيضاء حيث تشاء وتلعب أي اتجاه.', 'السوداء 8: قانونية فقط بعد إسقاط مجموعتك كاملة — التسمية غير مطلوبة.', 'إسقاط السوداء مبكراً أو مع البيضاء أو قذفها خارج الطاولة = خسارة الإطار.'],
+      da: ['Lksr: 15 kora f l motalat w l bidha mor l khat — lhadaf nkhrj 4 wla nrdd 2 l l وسادة.', 'Lmajmo3at: awla kora msqota b7okan ba3d l ksr kat7dd l majmo3a dyalk.', 'Dharba: l bidha khsaha tlmss kora mn l majmo3a dyalk — ila la ghalta (kora yd l l khssim).', 'Ba3d ghalta: kora yd — tdir l bidda fin bghiti.', 'Lkahla 8: m3qola ghir mn b3d ma tkml l majmo3a — ma kayn tasmia.', 'Kahla bkrik wla m3a l bidha = khssara.'],
+      fr: ['Casse : 15 boules en triangle, blanche derrière la ligne — but : 4 boules sorties ou 2 reviennent à la bande.', 'Groupes : la première boule légalement empochée après la casse fixe votre groupe.', 'Frappe : la blanche doit toucher d\'abord votre groupe — sinon faute (boule en main).', 'Après faute : boule en main derrière la ligne de casse (WPA).', 'La noire 8 : jouable seulement après votre groupe complet — sans annonce.', 'Noire trop tôt, avec la blanche ou hors table = frame perdue.'],
+      en: ['Break: 15 balls racked, cue-ball behind the head string — 4 balls driven out or 2 back to a rail.', 'Groups: first ball legally potted after the break assigns your group (mixed break = re-break).', 'Shots: the cue ball must first contact your own group — a miss is a foul (ball in hand anywhere).', 'After a foul: ball in hand — place the cue ball anywhere and play any direction.', 'The black 8: legal only after clearing your whole group — no nomination needed.', 'Potting the 8 early, scratching on it, or jumping it off the table loses the frame.']
+    }
+  },
+  blbb: {
+    name: { ar: 'بلاك بول 🎱', da: 'LBlackball 🎱', fr: 'Blackball 🎱', en: 'Blackball Pool 🎱' },
+    goal: {
+      ar: 'القوانين البريطانية EPA: أحمر ضد أصفر — السقوط المزدوج في الضربة الواحدة مسموح، وبعد كل خطأ كرة يد كاملة الحرة في أي مكان.',
+      da: 'L9wanin l bretaniya EPA: 7mer dd 9ssaf — jouj m3a jouj msbo7in, w mn b3d kol ghalta kora yd 7orra fin ma bghiti.',
+      fr: 'Règles britanniques EPA : rouges contre jaunes — double empochage autorisé, et après chaque faute boule en main libre n\'importe où.',
+      en: 'British EPA rules: reds vs yellows — a potted pair in one shot is fine, and every foul gives a fully free ball in hand.'
+    },
+    steps: {
+      ar: ['الكرة البيضاء من خلف خط الباولك عند البداية وبعد كل خطأ في الجيب.', 'لا تُعاد الضربة إن سقطت كرتان من مجموعتك معاً — كلتاهما محسوبة.', 'بعد الخطأ: خصمك يضع البيضاء أين شاء ويُسمح له بلمس أي كرة (تسديد مباشر على أي مجموعة).', 'الخطأ الشامل (سقوط البيضاء) يمنح كرة يد حرة كاملة.', 'السوداء 8: بعد تنظيف مجموعتك — التسمية غير مطلوبة في النسخة المبسطة.', 'إسقاط السوداء مع أي خطأ = خسارة الإطار.'],
+      da: ['L bidha mor khat l boulk f l bdya w mn b3d kol ghalta f l jib.', 'Ma kayn 3awt dharba ila tq3o 2 khorat mn l majmo3a — bjouj m7sobin.', 'Ba3d ghalta: l khssim ydir l bidda fin bgha w yqdr ylmss ay kora.', 'Ghalta kobra (tq3 l bidha) = kora yd 7orra kamla.', 'L kahla 8: mn b3d l majmo3a — bla tasmia.', 'Kahla m3a ay ghalta = khssara.'],
+      fr: ['La blanche se place derrière la ligne de baulk au départ et après chaque faute en poche.', 'Deux boules de son groupe empochées ensemble restent valides.', 'Après faute : l\'adversaire place la blanche où il veut et peut toucher n\'importe quelle boule.', 'Faute sur la blanche empochée : boule en main totalement libre.', 'La noire 8 après son groupe — sans annonce dans cette version.', 'Noire empochée avec une faute = frame perdue.'],
+      en: ['Cue ball goes behind the baulk line at the start and after any in-off.', 'Two of your group potted together both count — the shot is never replayed.', 'After a foul your opponent places the white anywhere and may hit any ball first.', 'A scratch awards a fully free ball in hand.', 'The black 8 after clearing your group — no nomination in this version.', 'Potting the black together with any foul loses the frame.']
+    }
+  },
+  blsn: {
+    name: { ar: 'سنوكر 🎱', da: 'LSnooker 🎱', fr: 'Snooker 🎱', en: 'Snooker 🎱' },
+    goal: {
+      ar: 'قوانين WPBSA: 15 حمراء (نقطة لكل) و6 ألوان (2-7) — التناوب أحمر فلون؛ من يجمع نقاطاً أكثر عند نهاية الكرات يفوز الإطار.',
+      da: 'L9wanin WPBSA: 15 7mor (no9ta l kol wa7da) w 6 lwan (2-7) — tnaweb 7mar mn b3d lo — li jme3 ktar dyal lno9at yrbah.',
+      fr: 'Règles WPBSA : 15 rouges (1 point) et 6 couleurs (2-7) — alternance rouge puis couleur ; le meilleur score remporte la frame.',
+      en: 'WPBSA rules: 15 reds (1 point each) and 6 colours (2-7) — alternate red then colour; the higher score takes the frame.'
+    },
+    steps: {
+      ar: ['التسلسل: أحمر ثم لون يعود لمكانه حتى تنفد الحمر — ثم الألوان بترتيبها (أصفر 2 → أخضر 3 → بني 4 → أزرق 5 → وردي 6 → أسود 7).', 'الخطأ يمنح الخصم 4 نقاط (أو قيمة الكرة المتضررة إن كانت أعلى).', 'بعد سقوط لون في طور الألوان لا يعود — يبقى في الجيب.', 'بيضاء في الجيب: الخصم يلعب من داخل منطقة D (بولك) فقط.', 'الترشيح: عند الالتزام بلون معين أعلنه من شريط الترشيح.', 'طابور 22 كرة وطاولة 12 قدماً — دقة الوسادة هي روح اللعبة.'],
+      da: ['Ttansi: 7mar mn b3d lo — 7ta ykmlou l 7mor, mn b3d l lwan b tartibhom.', 'Ghalta kat3ti l khssim 4 no9at (wla 9ima dyal kora ila kter).', 'Lo f tor l lwan ma kayerja3ch.', 'Bidha f jib: khssim yel3ab men dakhil D.', 'Trchih: 3and l iltizam b lo mou3ayan barra men charit trchih.', '22 kora w tabla 12 9dam.'],
+      fr: ['Séquence : rouge puis couleur respotée jusqu\'à épuisement des rouges — puis les couleurs dans l\'ordre (jaune 2 → vert 3 → marron 4 → bleu 5 → rose 6 → noir 7).', 'Une faute offre 4 points (ou la valeur de la boule concernée si supérieure).', 'En phase de couleurs, rien n\'est respoté.', 'Blanche en poche : l\'adversaire joue depuis la zone D uniquement.', 'Nomination : annoncez la couleur visée via la barre de nomination.', '22 boules, table de 12 pieds.'],
+      en: ['Sequence: red then a re-spotted colour until reds run out — then colours in order (yellow 2 → green 3 → brown 4 → blue 5 → pink 6 → black 7).', 'A foul gives the opponent 4 points (or the ball\'s value if higher).', 'In the colours phase nothing is re-spotted.', 'In-off: the opponent plays from the D only.', 'Nomination: declare your colour on the nomination bar when required.', '22 balls on a 12ft table.']
+    }
+  },
+  blca: {
+    name: { ar: 'كاروم 🎱', da: 'LCarom 🎱', fr: 'Billard Carambole 🎱', en: 'Carom Billiards 🎱' },
+    goal: {
+      ar: 'قوانين UMB: طاولة بلا جيوب و3 كرات فقط (بيضاء، صفراء، حمراء) — الأهداف تتحقق بلمس الكرتين الأخريين بضربة واحدة وفق اختصاصك.',
+      da: 'Tabla bla jyob w 3 khorat (bidha, ssafra, 7amra) — lhadaf lmass l khorat bjouj f dharba wa7da 7sab ikhtissask.',
+      fr: 'Table sans poches et 3 boules (blanche, jaune, rouge) — toucher les deux autres en un seul coup selon votre discipline.',
+      en: 'UMB rules: a pocketless table with 3 balls (white, yellow, red) — hit both other balls in one shot per your discipline.'
+    },
+    steps: {
+      ar: ['الاختصاصات: مباشر (لمسة الكرتين) · 3 وسادات (لمسة الكرتين + 3 وسادات) · اختصاص واحد (كرة واحدة مرتين + وسادة).', 'الهدف (3/5/8) = عدد الضربات الناجحة لإنهاء المباراة.', 'الخطأ (كرة خارج الطاولة) ينهي الضربة دون نقاط ويجير الخصم.', 'موضع البداية: البيضاء والصفراء خلف الخط، الحمراء على نقطة القدم.', 'كل ضربة ناجحة = نقطة واحدة وتستمر في اللعب — الفشل ينقل الدور.', 'الفائز أول من يبلغ الهدف المحدد.'],
+      da: ['Ikhtissasat: direct · 3 midad · ikhtissas wa7ed.', 'Lhadaf (3/5/8) = 3dad d dharabat naja7a.', 'Ghalta (kora barra) katkml dharba bla no9at.', 'Mawdi3 l bdya: bidha w ssafra mor khat, 7amra 3la no9ta l rijl.', 'Kol dharba naja7a = no9ta w tkml — fchel kayn9l dour.', 'Li ywssel l hadaf lwla yrbah.'],
+      fr: ['Disciplines : direct (toucher les deux) · 3 bandes (les deux + 3 bandes) · une bande.', 'Objectif (3/5/8) = nombre de réussites pour gagner.', 'Faute (boule hors table) : coup terminé sans point.', 'Départ : blanche et jaune derrière la ligne, rouge au point de pied.', 'Chaque réussite = 1 point et on rejoue — l\'échec passe la main.', 'Le premier à l\'objectif gagne.'],
+      en: ['Disciplines: direct (hit both) · 3-cushion (both balls + 3 cushions) · 1-cushion.', 'Target (3/5/8) = successful strokes needed to win.', 'A foul (ball off table) ends the stroke without a point.', 'Start: white and yellow behind the line, red on the foot spot.', 'Each success = 1 point and you continue — a miss passes the turn.', 'First to the target wins.']
+    }
+  },
+  blgv: {
+    name: { ar: 'غولڤازور 🎱', da: 'LGolvazor 🎱', fr: 'Golvazor 🎱', en: 'Golvazor 🎱' },
+    goal: {
+      ar: 'البلياردو المغربي الأصيل بقواعده الخاصة: خطأ الخصم يمنحك ضربتين متتاليتين، والسوداء وحدها في الكسر فوز ساحق — لكن مع كرة أخرى انتحار!',
+      da: 'Lbilyardo lmghribi b 9wa3ido: ghalta dyal khssim kat3tik 2 dharabat, w l kahla bo7dha f ksr = rbah — walakin m3a kora okhra = intihar!',
+      fr: 'Le billard marocain authentique : la faute adverse offre deux coups consécutifs, et la noire seule à la casse gagne — mais avec une autre boule c\'est le suicide !',
+      en: 'Authentic Moroccan billiards: an opponent foul grants two consecutive shots, and potting only the black on the break is a crushing win — with another ball it\'s suicide!'
+    },
+    steps: {
+      ar: ['سقوط البيضاء = كرة يد خلف خط الباولك حصراً.', 'الخطأ يمنح الخصم ضربتين — لا جزاء قبل تحديد المجموعات إطلاقاً.', 'كسر بسوداء وحدها = فوز ساحق فوري؛ سوداء + كرة أخرى = انتحار.', 'لونان ساقطان في الكسر = اختيار مجموعتك يدوياً بالنقر.', 'الأنونص: السوداء تتطلب لمس وسادة (بيضاء أو سوداء) قبل سقوطها وإلا انتحار.', '5 طرق لإنهاء الإطار — راجع شاشة القواعد داخل اللعبة.'],
+      da: ['Tq3 l bidha = kora yd mor khat l boulk.', 'Ghalta kat3ti khssim 2 dharabat — bla jza2 qbl l majmo3at.', 'Ksr b kahla bo7dha = rbah kahra7; kahla m3a lokhra = intihar.', '2 lwan f ksr = khtiyar majmo3a b l yed.', 'L annonss: kahla khasaha tlmss midada 9bl ma tq3.', '5 toro9 dyal kamal l frame.'],
+      fr: ['Blanche en poche = boule en main derrière la ligne de baulk uniquement.', 'Une faute offre deux coups — aucune pénalité avant l\'attribution des groupes.', 'Noire seule à la casse = victoire écrasante ; noire + autre boule = suicide.', 'Deux couleurs à la casse = choix manuel du groupe.', 'L\'annonce : la noire exige un contact de bande avant sa chute, sinon suicide.', '5 façons de terminer une frame.'],
+      en: ['In-off = ball in hand behind the baulk line only.', 'A foul grants two shots — never any penalty before groups are set.', 'Black alone on the break = crushing win; black plus any other ball = suicide.', 'Two colours dropped on the break = pick your group by tapping.', 'The announce: the black requires a rail contact (white or black) before dropping, else suicide.', 'Five ways to finish a frame.']
+    }
+  },
 };
 /* ═══════════════════════════════════════════
    Tutorial System
@@ -1173,7 +1249,7 @@ var Tutorial = {
     }
     
     /* جدول الدفع */
-    var payoutContent = rules.payouts[lang] || rules.payouts[fallbackLang] || rules.payouts['ar'] || rules.payouts['en'];
+    var payoutContent = rules.payouts ? (rules.payouts[lang] || rules.payouts[fallbackLang] || rules.payouts['ar'] || rules.payouts['en']) : null;
     if (payoutContent) {
       html += '<div class="rules-section">';
       html += '<h4><i class="fa-solid fa-table-list" aria-hidden="true"></i> ' + (T('ui.payouts') || 'جدول الأرباح والمضاعفات') + '</h4>';

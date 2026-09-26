@@ -151,6 +151,8 @@
         const el = document.getElementById('bwTimer' + elIdx);
         if (el) {
           if (i === s.turn) {
+            /* [R8-FIX] رفع سمة hidden — القاعدة العامة [hidden]{display:none!important} */
+            el.hidden = false;
             el.style.display = 'inline-block';
             el.textContent = '⏱ ' + Math.max(0, left);
             el.className = 'bw-ptimer' + (left <= 10 ? ' bw-time-low' : '');
@@ -162,19 +164,19 @@
     },
     autoMove: function () {
       const g = this.game;
-      if (!g || !g.state || g.state.phase !== 'PLAY') return;
-      /* Pass if no dice, or roll if needed, or play a random legal move */
-      if (!g.state.dice || !g.state.dice.length) {
-        /* Need to roll */
-        this.actRoll();
+      if (!g || !g.state) return;
+      const s = g.state;
+      if (s.phase === 'gameEnd' || s.phase === 'matchEnd') return;
+      /* [R8-FIX] انتهاء مؤقت الدور: رمي/لعب تلقائي عبر واجهات التطبيق الحقيقية
+         (rollClick/doMove/passTurn تعالج الغرفة والبث والذكاء داخلياً) —
+         الاستدعاءات القديمة actRoll/actMove لم تكن موجودة أصلاً فتنفجر خطأً */
+      if (s.phase === 'opening' || s.phase === 'roll' || !s.rolled) { this.rollClick(); return; }
+      if (s.phase !== 'move') return;
+      const legal = Core.legalMoves(s, s.turn);
+      if (legal && legal.length) {
+        this.doMove(legal[Math.floor(Math.random() * legal.length)]);
       } else {
-        const moves = g.legalMoves();
-        if (moves && moves.length) {
-          const m = moves[Math.floor(Math.random() * moves.length)];
-          this.actMove(m.from, m.to);
-        } else {
-          this.actRoll(); /* Try to roll or pass */
-        }
+        this.passTurn();
       }
     },
     later: function (fn, ms) { const t = setTimeout(fn, ms); this._timers.push(t); return t; },
@@ -408,7 +410,10 @@
         : R.statusText(view, isAI ? 'ai' : 'local');
 
       const turn = this.game.state.turn;
-      if (this.game.state.phase === 'PLAY') {
+      /* [R8-FIX] أطوار طاولة الزجر الحقيقية: opening/roll/move — الشرط القديم
+         كان يقارن بـ'PLAY' (طور غير موجود) فلم يبدأ المؤقت أبداً */
+      const inPlay = (ph) => ph === 'opening' || ph === 'roll' || ph === 'move';
+      if (inPlay(this.game.state.phase)) {
         if (turn !== this._lastTurnId) {
           this._lastTurnId = turn;
           this.startTurnTimer();

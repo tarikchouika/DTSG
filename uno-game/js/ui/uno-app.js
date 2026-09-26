@@ -942,6 +942,8 @@
           const el = this.$('unTimer' + uiSeat);
           if (el) {
             if (i === s.turn) {
+              /* [R8-FIX] رفع سمة hidden — القاعدة العامة [hidden]{display:none!important} */
+              el.hidden = false;
               el.style.display = 'inline-block';
               el.textContent = '⏱ ' + left;
               el.className = 'un-ptimer' + (isLow ? ' un-time-low' : '');

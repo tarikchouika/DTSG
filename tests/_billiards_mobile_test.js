@@ -57,7 +57,7 @@ async function setup(ctx) {
     const aimed = await p.evaluate(() => BILLIARDS.drawing || true);  /* اللمسة مرّت عبر معالج down */
     ok('لمسة التصويب مقبولة بلا خطأ', !!aimed);
 
-    await p.evaluate(() => { document.getElementById('blPower').value = 85; billiardsPowerUi(); billiardsShoot(); });
+    await p.evaluate(() => { BILLIARDS.power = 85; billiardsShoot(); });
     ok('ضربة كاملة سُجّلت', await wait(p, () => BILLIARDS.G.S.history.length >= 1, 8000) === true);
 
     /* سنوكر على الهاتف: وضع من D باللمس المنطقي + شريط الترشيح */
@@ -65,7 +65,8 @@ async function setup(ctx) {
     await wait(p, () => !!document.getElementById('blSetup') && !document.getElementById('blSetup').hidden, 8000);
     const noOv2 = await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 2);
     ok('بلا فيضان أفقي (إعداد)', noOv2);
-    await p.evaluate(() => billiardsSetVariant('snooker'));
+    await p.evaluate(() => openGame('blsn'));
+    await wait(p, () => !!(window.BILLIARDS && BILLIARDS.variant === 'snooker'), 8000);
     await p.evaluate(() => billiardsStartLocal());
     await wait(p, () => !!(BILLIARDS.G && BILLIARDS.G.S.phase === 'PLACE'), 8000);
     const placed = await p.evaluate(() => BILLIARDS.G.place(180, 300));

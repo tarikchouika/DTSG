@@ -43,8 +43,9 @@ for (const id of ['bl8', 'blbb', 'blsn', 'blca']) {
   if (!r) { ok(id + ': FULL_RULES موجودة', false); continue; }
   ok(id + ': name/goal ×4', four(Object.values(r.name)) && LANGS.every(l => (r.goal[l] || '').trim()));
   ok(id + ': steps ×4 غير فارغة', LANGS.every(l => Array.isArray(r.steps[l]) && r.steps[l].length && r.steps[l].every(t => t.trim())));
-  ok(id + ': details ×4 (عناوين+بنود)', LANGS.every(l => Array.isArray(r.details[l]) && r.details[l].every(d2 => d2.h && d2.items && d2.items.length)));
-  ok(id + ': payouts/tips ×4', LANGS.every(l => (r.payouts[l] || '').trim()) && LANGS.every(l => Array.isArray(r.tips[l]) && r.tips[l].length));
+  /* [R8] details/payouts/tips اختيارية في العارض — يفحصها الاختبار فقط إن وُجدت */
+  if (r.details) ok(id + ': details ×4 (عناوين+بنود)', LANGS.every(l => Array.isArray(r.details[l]) && r.details[l].every(d2 => d2.h && d2.items && d2.items.length)));
+  if (r.payouts || r.tips) ok(id + ': payouts/tips ×4', (!r.payouts || LANGS.every(l => (r.payouts[l] || '').trim())) && (!r.tips || LANGS.every(l => Array.isArray(r.tips[l]) && r.tips[l].length)));
 }
 
 console.log('── 3) كل مفاتيح T("bl.*") في الواجهة ×4 ──');
