@@ -17,11 +17,11 @@
   align-items: stretch;
   padding: 0;
   border-radius: 0;
-  border: 3px solid #d9b45c;
+  border: none !important;   /* [R14] إزالة الشريط الذهبي المحيط بحاوية اللعبة */
   /* [R10] طلب المالك: خلفية الحاوية موحدة اللون بلون خشب الطاولة —
      بلا خطوط طولية/عرضية ولا تدرج دموي مخطط */
   background: #c08a4a;
-  box-shadow: inset 0 0 0 1px rgba(255, 227, 150, 0.22);
+  box-shadow: none;   /* [R14] إزالة الهالة الذهبية الداخلية */
   overflow: hidden;
 }
 
@@ -194,6 +194,7 @@ body.bl-game-open #gameLeaveBtn i,
 body.bl-game-open .bl-rotbtn i { color: #1a1206 !important; }
 
 /* زر التدوير: الزاوية العليا اليسرى — في الوضعين */
+/* [R14] لاندسكيب: إزاحة لليمين 14px كما طلب المالك */
 body.bl-game-open .bl-rotbtn {
   position: absolute;
   top: 0;
@@ -210,7 +211,7 @@ body.bl-game-open .bl-rotbtn:active { transform: scale(.9); }
 body.app-fs-on.bl-game-open #blRotBtn {
   position: fixed;
   top: 0;
-  left: 0;
+  left: 14px;   /* [R14] مطابقة مع الوضع غير الممتلئ */
   z-index: 14500;
 }
 
@@ -233,10 +234,12 @@ body.bl-game-open #gameLeaveBtn {
     width: 42px !important;
     height: 42px !important;
   }
-  body.bl-game-open #gameLeaveBtn { right: calc(10px + 42px + 6px) !important; }
+  /* [R14] 3px gap بين زر الخروج وزر تصغير الشاشة */
+  body.bl-game-open #gameLeaveBtn { right: calc(42px + 3px) !important; }
   body.bl-game-open #gameFsExit i,
   body.bl-game-open #gameLeaveBtn i { font-size: 17px !important; }
-  body.bl-game-open .bl-rotbtn { width: 42px; height: 42px; font-size: 17px; }
+  /* [R14] إزاحة زر التدوير لليمين 14px */
+  body.bl-game-open .bl-rotbtn { width: 42px; height: 42px; font-size: 17px; left: 14px; }
 }
 @media (orientation: portrait) {
   /* [R11] طلب المالك: تكبير أيقونات البورتريه بنسبة 25% (24px → 30px) */
@@ -265,7 +268,7 @@ body.bl-game-open #gameLeaveBtn {
 }
 .bl-frame.bl-land .bl-ctrls {
   position: absolute;
-  left: 0;
+  left: 8px;   /* [R14] إزاحة لليمين 8px كما طلب المالك */
   top: 48px;
   bottom: 8px;
   width: clamp(64px, 10vmin, 96px);

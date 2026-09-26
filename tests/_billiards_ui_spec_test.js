@@ -196,12 +196,12 @@ const near = (rgb, hex, tol) => {
       /* العمود الأيسر: قوة عمودية + كرة بيضاء */
       leftCol: q('#blCtrls').contains(document.getElementById('blCueTrack')) && q('#blCtrls').contains(document.getElementById('blSpin')) &&
         track.top < spin.top && track.height > 80,
-      /* [R13] زر التدوير في الزاوية العليا اليسرى (left=0, top=0) */
-      rotCorner: rot.left <= 1.5 && rot.top <= 1.5,
-      /* [R13] زر الخروج في الزاوية العليا اليمنى */
+      /* [R14] زر التدوير: إزاحة 14px من الحافة اليسرى (لاندسكيب) */
+      rotCorner: rot.left >= 12 && rot.left <= 16 && rot.top <= 1.5,
+      /* [R14] زر الخروج في الزاوية العليا اليمنى */
       exitCorner: fs.right >= window.innerWidth - 1.5 && fs.top <= 1.5,
-      /* [R13] زر المغادرة بجانب زر الخروج بلا تداخل */
-      leaveBeside: lv && Math.abs(lv.right - fs.left) <= 6,
+      /* [R14] زر المغادرة بجانب زر الخروج بفجوة 3px */
+      leaveBeside: lv && Math.abs(lv.right - fs.left) <= 5,
       noPointerBlock: getComputedStyle(q('.bl-rail')).pointerEvents === 'none',
       tbadge: !q('#blTb0').hidden && q('#blTb0').textContent.trim() !== '',
       letterboxFlat: (() => { const b = document.getElementById('blCv'); const x = b.getContext('2d');

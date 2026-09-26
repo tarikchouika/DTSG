@@ -823,12 +823,13 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
     white-space: nowrap;
   }
 
-  /* ── 5) اللاعب السفلي: أيقونته بجانب أوراقه وبمحاذاة الحد الأسفل للشاشة ── */
+  /* ── 5) اللاعب السفلي: أيقونته بجانب أوراقه ومتعامدة رأسياً مع أيقونة اللاعب العلوي ── */
+  /* [R14] محاذاة دقيقة: نفس الصيغة المستخدمة لأيقونة اللاعب العلوي
+     (50% + نصف عرض السلسلة - 15px) لضمان التعامد التام */
   .bl-stage .bl-handplate {
     position: absolute;
     bottom: 4px;
-    /* الأيقونة بجانب أوراق اللاعب ومتعامدة مع أيقونة اللاعب العلوي */
-    left: calc(50% + 211px);
+    left: calc(50% + (var(--bl-cw) + 7 * var(--bl-fan-step)) / 2 - 15px);
     right: auto;
     top: auto;
     transform: none;
