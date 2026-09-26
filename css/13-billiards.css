@@ -193,11 +193,11 @@ body.bl-game-open #gameFsExit i,
 body.bl-game-open #gameLeaveBtn i,
 body.bl-game-open .bl-rotbtn i { color: #1a1206 !important; }
 
-/* زر التدوير: يلامس الضلع الأيسر للطاولة بأعلى الشاشة — في الوضعين */
+/* زر التدوير: الزاوية العليا اليسرى — في الوضعين */
 body.bl-game-open .bl-rotbtn {
   position: absolute;
   top: 0;
-  left: var(--bl-table-left, 0);
+  left: 0;
   z-index: 12;
   display: flex;
   align-items: center;
@@ -210,36 +210,30 @@ body.bl-game-open .bl-rotbtn:active { transform: scale(.9); }
 body.app-fs-on.bl-game-open #blRotBtn {
   position: fixed;
   top: 0;
-  left: var(--bl-table-left, 0);
+  left: 0;
   z-index: 14500;
 }
 
-/* أيقونتا التصغير والخروج: تلامسان الضلع الأيمن للطاولة (لاندسكيب) */
+/* أيقونتا التصغير والخروج: الزاوية العليا اليمنى */
 body.bl-game-open #gameFsExit {
   top: 0 !important;
+  right: 0 !important;
   border-radius: 50% !important;
 }
 body.bl-game-open #gameLeaveBtn {
   top: 0 !important;
   border-radius: 50% !important;
 }
-@media (orientation: landscape) {
-  body.bl-game-open #gameFsExit {
-    right: var(--bl-table-right, 10px) !important;
-  }
-  body.bl-game-open #gameLeaveBtn {
-    right: calc(var(--bl-table-right, 10px) + 44px) !important;
-  }
-}
 
 /* ── الأحجام: لاندسكيب موحدة 42px؛ بورتريه موحدة 30px (+25%) ── */
+/* [R13] إصلاح تداخل الأزرار: leave right = exit right + exit width + 6px gap */
 @media (orientation: landscape) {
   body.bl-game-open #gameFsExit,
   body.bl-game-open #gameLeaveBtn {
     width: 42px !important;
     height: 42px !important;
   }
-  body.bl-game-open #gameLeaveBtn { right: 44px !important; }
+  body.bl-game-open #gameLeaveBtn { right: calc(10px + 42px + 6px) !important; }
   body.bl-game-open #gameFsExit i,
   body.bl-game-open #gameLeaveBtn i { font-size: 17px !important; }
   body.bl-game-open .bl-rotbtn { width: 42px; height: 42px; font-size: 17px; }
@@ -252,7 +246,8 @@ body.bl-game-open #gameLeaveBtn {
     height: 30px !important;
     border-width: 2px !important;
   }
-  body.bl-game-open #gameLeaveBtn { right: 32px !important; }
+  /* [R13] إصلاح تداخل: leave right = exit right + exit width + 6px gap */
+  body.bl-game-open #gameLeaveBtn { right: calc(10px + 30px + 6px) !important; }
   body.bl-game-open #gameFsExit i,
   body.bl-game-open #gameLeaveBtn i { font-size: 13px !important; }
   body.bl-game-open .bl-rotbtn { width: 30px; height: 30px; font-size: 13px; border-width: 2px; }
@@ -273,7 +268,7 @@ body.bl-game-open #gameLeaveBtn {
   left: 0;
   top: 48px;
   bottom: 8px;
-  width: var(--bl-table-left, clamp(64px, 10vmin, 96px));
+  width: clamp(64px, 10vmin, 96px);
   flex-direction: column;
   justify-content: flex-start;
   z-index: 11;
@@ -294,9 +289,7 @@ body.bl-game-open #gameLeaveBtn {
 }
 .bl-frame.bl-land .bl-ctrls .bl-spin { margin-top: auto; }
 
-/* ═══ [R12] عمودا اللاعبَين (لاندسكيب): يلامسان الضلع الأيمن للطاولة ═══
-   عرض العمود = المسافة من الضلع الأيمن للطاولة إلى حافة الشاشة اليمنى
-   (يحسبها JS عبر --bl-table-right). */
+/* ═══ عمودا اللاعبَين (لاندسكيب) ═══ */
 .bl-rail {
   display: flex;
   min-width: 0;
@@ -307,8 +300,8 @@ body.bl-game-open #gameLeaveBtn {
   right: 0;
   top: 44px;
   bottom: 0;
-  width: var(--bl-table-right, 112px);
-  pointer-events: none;   /* النقرات تعبر إلى الطاولة */
+  width: 112px;
+  pointer-events: none;
   z-index: 11;
 }
 .bl-frame.bl-land #blUnitMe  { position: absolute; right: 0;   top: 4px; }

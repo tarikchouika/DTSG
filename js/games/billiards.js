@@ -1256,43 +1256,31 @@ function blFitCanvas() {
   var cw = r.width, ch = r.height, EDGE = 60;
   var L = W + 120, S2 = H + 120;
   var portrait = cw < ch, s, ox, oy;
-  /* [R12] طلب المالك: الطاولة تملأ ارتفاع الشاشة كاملة في اللاندسكيب
-     (يلتقي ضلعاها الأعلى والأسفل بحدي الشاشة). عرضها يُحسب من
-     نسبتها الطبيعية، والعرض المتبقي يُقسَّم بين عمود التحكم (يساراً)
-     وعمودي اللاعبين + زر الخروج (يميناً). */
-  if (!portrait) { s = Math.min(cw / L, ch / S2); ox = (cw - L * s) / 2; oy = (ch - S2 * s) / 2; }
-  else { s = Math.min(cw / S2, ch / L); ox = (cw - S2 * s) / 2; oy = (ch - L * s) / 2; }
+  /* [R13] طلب المالك: الطاولة تملأ ارتفاع الشاشة في اللاندسكيب —
+     ضلعاها الأعلى والأسفل تلتصقان بحدي الشاشة. عند تدوير الطاولة 180°
+     يدور المحتوى فقط داخل الحدود الثابتة (الطاولة لا تتحرك). */
+  if (!portrait) {
+    /* لاندسكيب: مقياس الارتفاع هو الغالب — الطاولة تملأ الارتفاع */
+    s = ch / S2;
+    /* أرضية الطاولة (الخشب) متمحورة أفقياً والضلع الأعلى عند 0 */
+    ox = (cw - L * s) / 2 + 60 * s;
+    oy = (ch - S2 * s) / 2 + 60 * s;
+  } else {
+    /* بورتريه: مقياس العرض هو الغالب — الطاولة تملأ العرض */
+    s = cw / S2;
+    ox = (cw - S2 * s) / 2 + 60 * s;
+    oy = (ch - L * s) / 2 + 60 * s;
+  }
   if (!portrait && !B.flip) {
     B.VT = { a: s, b: 0, c: 0, d: s, e: ox, f: oy, portrait: false, s: s };
   } else if (!portrait) {
-    B.VT = { a: -s, b: 0, c: 0, d: -s, e: ox + L * s, f: oy + S2 * s, portrait: false, flip180: true, s: s };
+    /* [R13] تدوير 180° حول مركز القماش — الطاولة تبقى في نفس الموضع */
+    B.VT = { a: -s, b: 0, c: 0, d: -s, e: ox + W * s, f: oy + H * s, portrait: false, flip180: true, s: s };
   } else if (!B.flip) {
     B.VT = { a: 0, b: -s, c: s, d: 0, e: ox + EDGE * s, f: oy + s * (W + EDGE), portrait: true, s: s };
   } else {
-    B.VT = { a: 0, b: s, c: -s, d: 0, e: ox + s * (H + EDGE), f: oy + EDGE * s, portrait: true, s: s };   /* مقلوب 180° */
-  }
-  /* [R12] نشر متغيرات CSS لمواضع حواف الطاولة — تُستعمل لتموضع
-     الأزرار والأعمدة الطافية بحيث تلامس الطاولة دون تداخل. */
-  if (!portrait) {
-    var tableLeft = ox;
-    var tableRight = cw - (ox + L * s);
-    var frame = document.getElementById('blFrame');
-    if (frame) {
-      frame.style.setProperty('--bl-table-left', tableLeft + 'px');
-      frame.style.setProperty('--bl-table-right', tableRight + 'px');
-    }
-    /* أيضًا على body للأزرار العائمة fixed (زر الخروج/تصغير الشاشة) */
-    document.body.style.setProperty('--bl-table-left', tableLeft + 'px');
-    document.body.style.setProperty('--bl-table-right', tableRight + 'px');
-  } else {
-    /* بورتريه: إعادة ضبط المتغيرات لتفادي تموضع خاطئ للأزرار */
-    var frameP = document.getElementById('blFrame');
-    if (frameP) {
-      frameP.style.removeProperty('--bl-table-left');
-      frameP.style.removeProperty('--bl-table-right');
-    }
-    document.body.style.removeProperty('--bl-table-left');
-    document.body.style.removeProperty('--bl-table-right');
+    /* [R13] تدوير 180° في البورتريه — الطاولة تبقى في نفس الموضع */
+    B.VT = { a: 0, b: s, c: -s, d: 0, e: ox + s * (W + EDGE), f: oy + s * (H + EDGE), portrait: true, s: s };
   }
 }
 
