@@ -1052,142 +1052,6 @@ canvas.game {
   50% { transform: scale(1.3); }
 }
 
-/* ── Blackjack ── */
-.bjt {
-  background: radial-gradient(ellipse at 50% 0%, #147a4c, #0a4a2c 60%, #062f1b);
-  border: 4px solid #8B6914;
-  border-radius: 160px / 80px;
-  padding: 28px 14px 24px;
-  max-width: 580px;
-  margin: 12px auto;
-  position: relative;
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.6), 0 0 26px rgba(242, 212, 137, 0.16), 0 12px 32px rgba(0, 0, 0, 0.55);
-}
-.bjt::before {
-  content: '♠ ♥ ♦ ♣';
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
-  color: rgba(242, 212, 137, 0.5);
-  font-size: 0.68rem;
-  letter-spacing: 7px;
-  white-space: nowrap;
-}
-.bja {
-  text-align: center;
-  margin-bottom: 16px;
-}
-.bja + .bja {
-  border-top: 1px dashed rgba(242, 212, 137, 0.28);
-  padding-top: 16px;
-}
-.bja.bj-live .bjcs {
-  animation: bjLivePulse 1.6s ease-in-out infinite;
-}
-@keyframes bjLivePulse {
-  50% { filter: drop-shadow(0 0 14px rgba(242, 212, 137, 0.5)); }
-}
-.bjal {
-  color: rgba(242, 212, 137, 0.85);
-  font-size: 0.66rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-  margin-bottom: 6px;
-}
-.bjcs {
-  display: flex;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  min-height: 80px;
-}
-.bjc {
-  width: 54px;
-  height: 78px;
-  background: transparent;
-  border: none;
-  border-radius: 7px;
-  padding: 0;
-  display: block;
-  color: #1a1a1a;
-  font-weight: 900;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.45);
-  animation: cardDeal 0.3s var(--ease);
-  position: relative;
-  overflow: hidden;
-}
-.bjc img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 6px;
-  display: block;
-}
-.bjc.red {
-  color: #c41e3a;
-}
-.bjc.back {
-  background: transparent;
-  border: none;
-}
-.bjc.back::after {
-  display: none;
-}
-.bjc .rt {
-  font-size: 0.78rem;
-  align-self: flex-start;
-}
-.bjc .sm {
-  font-size: 1.4rem;
-  margin: auto;
-}
-.bjc .rb {
-  font-size: 0.78rem;
-  align-self: flex-end;
-  transform: rotate(180deg);
-}
-.bjc .hold {
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--gold);
-  color: #0b1526;
-  font-size: 0.55rem;
-  font-weight: 900;
-  padding: 1px 6px;
-  border-radius: 5px;
-}
-@keyframes cardDeal {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) rotate(-6deg);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) rotate(0);
-  }
-}
-.bjs {
-  display: inline-block;
-  background: linear-gradient(135deg, rgba(242, 212, 137, 0.18), rgba(0, 0, 0, 0.65));
-  color: var(--gold);
-  font-weight: 800;
-  padding: 3px 14px;
-  border-radius: 14px;
-  font-size: 0.76rem;
-  margin-top: 5px;
-  border: 1px solid rgba(242, 212, 137, 0.4);
-  box-shadow: 0 0 12px rgba(242, 212, 137, 0.22);
-}
-/* مؤشر انتظار أثناء سحب الموزع */
-.bjs.thinking {
-  animation: bjThink 0.7s ease-in-out infinite;
-}
-@keyframes bjThink {
-  50% { opacity: 0.4; }
-}
 /* ── Roulette ── */
 .rwrap {
   position: relative;
@@ -1621,7 +1485,6 @@ body.rami-game-open { overflow: hidden; }
 }
 
 #gamePageBody .stage,
-#gamePageBody .bjt,
 #gamePageBody canvas {
   max-width: 100%;
 }
@@ -3501,22 +3364,6 @@ body.rami-game-open { overflow: hidden; }
     margin: 0;
   }
 
-  /* ── 13) بلاكجاك (bjt): أزرار متكدسة + res كانت تتراكب مع betRow في
-     (col1,row2) — صف ثالث مستقل للنتيجة ── */
-  #pg-game.app-fs #gamePageBody .stage:has(.bjt) {
-    grid-template-rows: minmax(0, 1fr) auto auto;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.bjt) > .bjt { grid-row: 1 / -1; }
-  #pg-game.app-fs #gamePageBody .stage:has(.bjt) > .bets {
-    flex-wrap: wrap;
-    gap: 6px;
-    row-gap: 6px;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.bjt) > .res {
-    grid-column: 1;
-    grid-row: 3;
-    align-self: end;
-  }
 }
 
 /* ── [Fit-4] بورتريه: باكارا/دراغون تايغر — بطاقات كانت تفيض فوق أزرار
@@ -3660,9 +3507,6 @@ body.rami-game-open { overflow: hidden; }
   /* باكارا: بطاقات أكبر في المساحة المتاحة */
   #pg-game.app-fs #gamePageBody .stage:has(.bc-table) .bc-cards { min-height: clamp(110px, 22vh, 220px); }
   #pg-game.app-fs #gamePageBody .stage:has(.bc-table) .bc-card { font-size: clamp(2.4rem, 9vh, 4.6rem); }
-  /* بلاكجاك: صفوف الأوراق تتباعد على ارتفاع الطاولة */
-  #pg-game.app-fs #gamePageBody .stage:has(.bjt) .bjt { justify-content: space-evenly; }
-  #pg-game.app-fs #gamePageBody .stage:has(.bjt) .bjcs { gap: clamp(4px, 1.6vh, 14px); }
   /* أندار باهار: الجانبان يتمددان */
   #pg-game.app-fs #gamePageBody .stage:has(.ab-sides) > .ab-sides {
     flex: 1 1 auto;

@@ -20,7 +20,7 @@ ok(!fs.existsSync(path.join(root, 'assets/games/coin-flip')), 'assets/games/coin
 ok(!fs.existsSync(path.join(root, 'assets/games/hi-lo')), 'assets/games/hi-lo folder removed');
 ok(fs.existsSync(path.join(root, 'assets/dtsg/coin-reverse.svg')), 'platform coin identity (assets/dtsg) preserved');
 ok(fs.existsSync(path.join(root, 'assets/dtsg/coin-obverse.webp')), 'platform coin obverse (lion) preserved');
-ok(html.includes('css/04-games.css?v=dtsg8'), '04-games.css cache-busted to dtsg8');
+ok(html.includes('css/04-games.css?v=dtsg10'), '04-games.css cache-busted to dtsg10');
 
 /* ── المسألة 7: قائمة البطولات ── */
 const mainSrc = fs.readFileSync(path.join(root, 'js/main.js'), 'utf8');

@@ -1872,7 +1872,7 @@ const server = http.createServer((req, res) => {
         const bet = Number(data.bet);
         if (isNaN(bet) || bet <= 0) { json({ ok: false, error: 'bet_required' }, 400); return; }
         const visibility = (data.visibility === 'private') ? 'private' : 'public';   /* [B-rooms] عامة/خاصة */
-        /* [BJMP] قائمة الألعاب المسموح بها في الغرف (مطابقة لـ Rooms.roomGameIds في الواجهة) */
+        /* [R14-Settle] قائمة الألعاب المسموح بها في الغرف (مطابقة لـ Rooms.roomGameIds في الواجهة) */
         const ROOM_GAMES_ALLOWED = { rp: 1, pn: 1, pr: 1, rn: 1, rm: 1, rd: 1, dm: 1, ch: 1, bg: 1, do: 1, bl8: 1, blbb: 1, blgv: 1, blsn: 1, blca: 1 };   /* [BGDO] الطاولة bg + الضومنة do غرفتان ثنائيتان + [BJ-ghost] بلاك جاك أُزيلت — حُذف معرفها */
         const gid = data.game_id || 'rm';
         if (!ROOM_GAMES_ALLOWED[gid]) { json({ ok: false, message: 'لعبة غير مدعومة في الغرف' }, 400); return; }
@@ -2066,7 +2066,7 @@ const server = http.createServer((req, res) => {
         if (room.status !== 'playing') { json({ ok: false, message: 'لا جولة جارية للتسوية' }, 400); return; }
         if (room.settled) { if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] dup-rejected', data.room_id); json({ ok: false, message: 'تمت تسوية هذه الجولة مسبقاً' }, 400); return; }
         const result = data.result;
-        /* [BJMP] w0-w3: مقاعد 0-3 (غرف 2-4 لاعبين) + draw */
+        /* [R14-Settle] w0-w3: مقاعد 0-3 (غرف 2-4 لاعبين) + draw */
         const seatMatch = /^w([0-3])$/.exec(result);
         if (!seatMatch && result !== 'draw') { json({ ok: false, message: 'نتيجة غير صالحة' }, 400); return; }
         const order = serializeRoom(room).order;   /* غير المتفرجين حسب المقعد (بشر + بوتّات) */

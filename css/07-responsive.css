@@ -35,10 +35,6 @@
   .content {
     padding: 14px;
   }
-  .bjt {
-    border-radius: 60px / 40px;
-    padding: 16px 8px;
-  }
   .rwrap {
     width: 180px;
     height: 180px;
@@ -84,9 +80,6 @@
   .rwrap {
     width: 200px;
     height: 200px;
-  }
-  .bjt {
-    padding: 18px 10px;
   }
   .g4 {
     grid-template-columns: repeat(2, 1fr);
@@ -208,9 +201,6 @@
   }
   .mbody {
     padding: 12px;
-  }
-  .bjt {
-    padding: 12px 8px;
   }
   .ronda-stage {
     min-height: 400px;

@@ -186,7 +186,7 @@ async function wait(p, fn, t = 12000) {
     const b = await chromium.launch();
     const ctx = await b.newContext({ viewport: { width: 390, height: 780, isMobile: true, hasTouch: true }, isMobile: true, hasTouch: true });
     const p = await mkPage(ctx, 'unE');
-    await p.evaluate(() => openGame('bj'));
+    await p.evaluate(() => openGame('rp'));
     await wait(p, () => { const b = document.getElementById('gamePageBody'); return b && b.querySelector('.stage'); });
     await sleep(500);
     const th = await p.evaluate(() => {

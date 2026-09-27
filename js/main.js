@@ -2331,7 +2331,7 @@ function renderTicker() {
     ['RondaMaster', 'Moroccan Ronda', 15240],
     ['KingPlayer', 'Snooker', 5240],
     ['LuckyGirl', 'Mines', 8900],
-    ['ProGamer', 'Blackjack', 3200],
+    ['ProGamer', 'Penalty Shootout', 3200],
     ['GoldHunter', 'Plinko', 12500],
     ['AtlasPlayer', 'Dominoes', 6780]
   ];

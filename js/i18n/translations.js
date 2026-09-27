@@ -1107,7 +1107,6 @@ const TR = {
   'tr.tooBig': [ 'المبلغ أكبر من رصيدك', 'Montant supérieur à votre solde', 'Amount exceeds your balance', 'المبلغ أكبر من رصيدك' ],
   'tr.type': [ 'النوع', 'Type', 'Type', 'النوع' ],
   'tr.you': [ 'أنت', 'Vous', 'You', 'أنت' ],
-  'ts.blackjack': [ 'بلاك جاك! 🃏 أرباح مضاعفة', 'Blackjack ! 🃏 Gain exceptionnel', 'Blackjack! 🃏 Top Payout', 'بلاك جاك! 🃏 ربحة مدوبلة' ],
   'ts.join': [ 'انضممت', 'Rejoint', 'Joined', 'انضممت' ],
   'ts.lose': [ 'حظاً أوفر في الجولة القادمة!', 'Bonne chance pour le prochain tour !', 'Better luck next round!', 'معليش — الحظ فالجولة الجاية!' ],
   'ts.noc': [ 'رصيدك من الكوينز غير كافٍ للرهان', 'Solde de pièces insuffisant pour cette mise', 'Insufficient coin balance for this bet', 'ما كافيكش الكوينز لهاد الرهان' ],
