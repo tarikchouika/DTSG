@@ -32,7 +32,7 @@ global.document = {
   documentElement: { style: { setProperty: () => {} }, setAttribute: () => {}, getAttribute: () => null }
 };
 /* العناصر التي تلمسها الدوال المختبرة */
-['pg-transactions', 'txTransfers', 'txRounds', 'gameHistory', 'ticketsSearch', 'ticketsSheet', 'ticketsOverlay', 'ticketsBtn', 'ticketsGrip', 'adminBox', 'adminContent', 'txUser', 'txType', 'txTableBox', 'trList', 'adminStatUsers', 'adminStatOnline', 'adminStatPlays', 'adminStatCoins', 'gamePageBody', 'gamePageIcon', 'gamePageName', 'goldD', 'tcGame', 'tcMsg', 'tcModal', 'trModal', 'trTo', 'trAmt', 'trMsg', 'coordMsgs', 'coordInput', 'coordSend', 'accountInfo', 'roomsList', 'tourneyList', 'lbList', 'hSeed', 'nonceD', 'pf-server', 'pf-client', 'pf-nonce', 'pf-game', 'pf-hash', 'pf-outcome', 'pf-verify-btn', 'pf-calc', 'pf-result'].forEach(id => predef[id] = true);
+['pg-transactions', 'txTransfers', 'txRounds', 'gameHistory', 'ticketsSearch', 'ticketsSheet', 'ticketsOverlay', 'ticketsBtn', 'ticketsGrip', 'adminBox', 'adminContent', 'txUser', 'txType', 'txTableBox', 'trList', 'adminStatUsers', 'adminStatOnline', 'adminStatPlays', 'adminStatCoins', 'gamePageBody', 'gamePageIcon', 'gamePageName', 'goldD', 'tcGame', 'tcMsg', 'tcModal', 'trModal', 'trTo', 'trAmt', 'trMsg', 'coordMsgs', 'coordInput', 'coordSend', 'accountInfo', 'roomsList', 'tourneyList', 'lbList'].forEach(id => predef[id] = true);
 global.window = global;
 global.location = { hash: '', hostname: 'localhost' };
 global.navigator = { maxTouchPoints: 0 };
@@ -42,7 +42,7 @@ global.addEventListener = () => {};
 
 /* ── حالة ومساعدات ── */
 const ST = { lang: 'ar', gold: 5000 };
-const GAMES = [{ id: 'ke', n: ['كينو', 'Keno', 'Keno', 'كينو'], em: '🎯' }];
+const GAMES = [{ id: 'hl', n: ['هاي-لو كاردز', 'Hi-Lo Cards', 'Hi-Lo Cards', 'هاي-لو'], em: '🃏' }];
 let AUTH = { user: { id: 7, username: 'tester', role: 'super', gold: 5000 } };
 let ADMIN_TAB = 'users';
 global.ST = ST; global.GAMES = GAMES; global.AUTH = AUTH; global.ADMIN_TAB = ADMIN_TAB;
@@ -63,10 +63,10 @@ const responses = {
     { type: 'claim', from_id: 1, from_name: 'superadmin', to_name: 'tester', amount: 25, created_at: 1757600600 }
   ] } },
   '/api/rounds': { ok: true, data: { rounds: [
-    { game_id: 'ke', bet: 100, won: 1, payout: 250, created_at: 1757600000 }
+    { game_id: 'hl', bet: 100, won: 1, payout: 250, created_at: 1757600000 }
   ] } },
-  '/api/games/ke/history': { ok: true, data: { rounds: [
-    { username: 'tester', game_id: 'ke', bet: 100, won: 1, payout: 250, result_txt: 'win', created_at: 1757600000 }
+  '/api/games/hl/history': { ok: true, data: { rounds: [
+    { username: 'tester', game_id: 'hl', bet: 100, won: 1, payout: 250, result_txt: 'win', created_at: 1757600000 }
   ] } },
   '/api/admin/users': { ok: true, data: { users: [
     { id: 7, username: 'tester', role: 'super', gold: 5000, ref_code: 'ABC1' },
@@ -84,8 +84,8 @@ global.API = {
       r.data = {
         ok: true, total: 2,
         transactions: [
-          { id: 1, user_id: 7, username: 'tester', type: 'bet', amount: 100, balance_after: 4900, counterparty_name: null, actor_name: 'tester', game_id: 'ke', note: null, created_at: 1757600000 },
-          { id: 2, user_id: 7, username: 'tester', type: 'win', amount: 250, balance_after: 5150, counterparty_name: null, actor_name: 'server', game_id: 'ke', note: null, created_at: 1757600100 }
+          { id: 1, user_id: 7, username: 'tester', type: 'bet', amount: 100, balance_after: 4900, counterparty_name: null, actor_name: 'tester', game_id: 'hl', note: null, created_at: 1757600000 },
+          { id: 2, user_id: 7, username: 'tester', type: 'win', amount: 250, balance_after: 5150, counterparty_name: null, actor_name: 'server', game_id: 'hl', note: null, created_at: 1757600100 }
         ]
       };
     }

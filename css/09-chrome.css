@@ -882,68 +882,6 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 .cname, .ctext2 { overflow-wrap: anywhere; word-break: break-word; }
 .cname { min-width: 0; }
 
-/* ═══ Provably Fair — أداة التحقق التفاعلية داخل التطبيق ═══ */
-.pf-tool .pf-field { margin-bottom: 12px; }
-.pf-tool .pf-field label {
-  display: block;
-  color: var(--t3);
-  font-size: 0.78rem;
-  font-weight: 700;
-  margin-bottom: 5px;
-}
-.pf-tool .pf-field input,
-.pf-tool .pf-field select,
-.pf-tool .pf-field textarea {
-  width: 100%;
-  background: var(--bg, rgba(10,14,26,0.7));
-  border: 1px solid var(--bd);
-  border-radius: 10px;
-  color: var(--t1);
-  padding: 10px 12px;
-  font-family: 'Cairo', system-ui, sans-serif;
-  font-size: 0.9rem;
-  box-sizing: border-box;
-  min-height: 44px;
-  resize: vertical;
-}
-.pf-tool .pf-field input:focus,
-.pf-tool .pf-field select:focus,
-.pf-tool .pf-field textarea:focus {
-  outline: none;
-  border-color: var(--gold);
-  box-shadow: 0 0 0 3px rgba(217,180,92,0.15);
-}
-.pf-tool .pf-field-inline { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
-.pf-tool .pf-field-inline > div { flex: 1; min-width: 140px; }
-.pf-tool .pf-actions { margin: 4px 0 12px; display: flex; gap: 8px; flex-wrap: wrap; }
-.pf-result {
-  margin-top: 12px;
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-size: 0.88rem;
-  line-height: 1.7;
-  display: none;
-  word-break: break-word;
-}
-.pf-result.show { display: block; }
-.pf-result.ok {
-  background: rgba(46,204,113,0.12);
-  border: 1px solid rgba(46,204,113,0.4);
-  color: #7CF0A8;
-}
-.pf-result.bad {
-  background: rgba(231,76,60,0.12);
-  border: 1px solid rgba(231,76,60,0.4);
-  color: #FF9B8E;
-}
-.pf-result code {
-  background: rgba(255,255,255,0.06);
-  padding: 1px 6px;
-  border-radius: 6px;
-  font-family: 'Courier New', monospace;
-  word-break: break-all;
-}
-
 /* ═══════════ مركز المساعدة العائم (ودجت الشات) — [v2.42] ═══════════
    بديل أيقونة واتساب: زر ذهبي دائري أسفل الشاشة يفتح نافذة شات تربط
    المستخدم ببوت خدمة العملاء (تذاكر وردود) وبالمحفظة/المدفوعات مباشرة.

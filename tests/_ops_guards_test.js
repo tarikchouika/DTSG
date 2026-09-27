@@ -355,38 +355,21 @@ async function runLive() {
   const locked = await post(QA_PORT, '/api/2fa/login', { userId: idB, two_fa_token: (lgLock.json || {}).two_fa_token, code: wrongCode(b.secret) });
   check('L16', lockedSeen && locked.status === 429, 'قفل 2FA: 5 رموز خاطئة ⇒ 429 + قفل 15 دقيقة');
 
-  /* L17-L22: أنواع رهانات خام — على كينو (دورة حتمية: رهان 90ث + سحب 5ث)
-     [ثبات] كل استدعاء رهان يتحقق من فتح النافذة أولاً، والرفض يتأكد سببه
-     (رسالة المبلغ لا رسالة «انتهى الوقت») حتى لا يظلم اختبارُ النافذة قاعدةَ المبلغ. */
+  /* L17-L22: [Compliance 2026-09-27] أزيلت ألعاب كينو/كراش من المنتج —
+     نقاط نهايتها صارت غير موجودة (404) ولا تُنشأ جولات جديدة. */
   const pl = await post(QA_PORT, '/api/login', { username: 'player', password: 'RoyalCoin@User1' });
   const plCookie = cookieOf(pl);
-  check('L17', pl.status === 200 && !!plCookie, 'دخول اللاعب (نافذة الرهان)');
-  async function kenoWindowOpen() {
-    for (let i = 0; i < 100; i++) {
-      const r = await req(QA_PORT, '/api/games/ke/round', { headers: { cookie: plCookie } });
-      if (r.json && r.json.round && r.json.round.status === 'betting') return true;
-      await new Promise((r2) => setTimeout(r2, 1000));
-    }
-    return false;
-  }
-  const AMT_ERR = 'مبلغ غير صالح — عدد صحيح 1 على الأقل';
-  check('L18', await kenoWindowOpen(), 'نافذة رهان كينو مفتوحة');
-  const r05 = await post(QA_PORT, '/api/games/ke/bet', { amount: 0.5, picks: [5] }, { cookie: plCookie });
-  check('L19', r05.status === 400 && r05.json && r05.json.message === AMT_ERR, 'رهان 0.5 (كسر) ⇒ 400 مرفوض (سبب المبلغ)');
-  const rStr = await post(QA_PORT, '/api/games/ke/bet', { amount: '10', picks: [5] }, { cookie: plCookie });
-  check('L20', rStr.status === 400 && rStr.json && rStr.json.message === AMT_ERR, 'رهان "10" (نص) ⇒ 400 مرفوض (التحقق على النوع الخام)');
-  const r105 = await post(QA_PORT, '/api/games/ke/bet', { amount: 10.5, picks: [5] }, { cookie: plCookie });
-  check('L21', r105.status === 400 && r105.json && r105.json.message === AMT_ERR, 'رهان 10.5 (كسر) ⇒ 400 مرفوض (سبب المبلغ)');
-  /* [ثبات] كل محاولة برقم مختلف (الحارس: رقم مرهون مرة واحدة للجولة) — أرقام مخصصة
-     لهذا الحارس (5/7/9/11) لا تتقاطع مع بطارية sec-audit (4/13/15/17). */
-  let rOk = null;
-  for (const pick of [5, 7, 9, 11]) {
-    if (!(await kenoWindowOpen())) break;
-    rOk = await post(QA_PORT, '/api/games/ke/bet', { amount: 1, picks: [pick] }, { cookie: plCookie });
-    if (rOk.status === 200) break;
-    if (rOk.status === 400 && rOk.json && /انتهى وقت الرهان/.test(rOk.json.message || '')) continue; /* الحد — نافذة تالية */
-  }
-  check('L22', !!(rOk && rOk.status === 200 && rOk.json && rOk.json.ok === true), 'رهان 1 (عدد صحيح) ⇒ 200 مقبول');
+  check('L17', pl.status === 200 && !!plCookie, 'دخول اللاعب');
+  const keRound = await req(QA_PORT, '/api/games/ke/round', { headers: { cookie: plCookie } });
+  check('L18', keRound.status === 404, 'كينو: /api/games/ke/round ⇒ 404 (اللعبة أزيلت)');
+  const rKeb = await post(QA_PORT, '/api/games/ke/bet', { amount: 1, picks: [5] }, { cookie: plCookie });
+  check('L19', rKeb.status === 404, 'كينو: /api/games/ke/bet ⇒ 404 (اللعبة أزيلت)');
+  const rAvb = await post(QA_PORT, '/api/games/av/bet', { amount: 1 }, { cookie: plCookie });
+  check('L20', rAvb.status === 404, 'كراش: /api/games/av/bet ⇒ 404 (اللعبة أزيلت)');
+  const rAvr = await req(QA_PORT, '/api/games/av/round', { headers: { cookie: plCookie } });
+  check('L21', rAvr.status === 404, 'كراش: /api/games/av/round ⇒ 404 (اللعبة أزيلت)');
+  const rAvc = await post(QA_PORT, '/api/games/av/cashout', {}, { cookie: plCookie });
+  check('L22', rAvc.status === 404, 'كراش: /api/games/av/cashout ⇒ 404 (اللعبة أزيلت)');
 
   /* L23-L24: binance-verify بجلسة + أخطاء JSON (بلا 502) */
   const bvNo = await post(QA_PORT, '/api/payments/binance-verify', { amount_usd: 10 });

@@ -123,7 +123,6 @@ function nav(id, el) {
   if (id === 'rooms' && typeof renderRooms === 'function') renderRooms();
   if (id === 'transactions' && typeof renderTransactions === 'function') renderTransactions();
   if (id === 'account' && typeof renderAccountLog === 'function') renderAccountLog();
-  if (id === 'fair' && typeof renderFair === 'function') renderFair();
   /* صفحة الأصدقاء: إظهارها وتهيئتها (إن وُجدت) */
   if (id === 'friends' && typeof Friends !== 'undefined' && Friends.init) Friends.init();
   closeSide();
@@ -150,7 +149,7 @@ function navFromHash() {
     try { window.history.replaceState(null, '', window.location.pathname + window.location.search); } catch (e) {}
   }
   /* الصفحات القانونية صارت ملفات html مستقلة — الروابط القديمة #about وأخواتها تُحوَّل إليها */
-  var LEGAL_PAGES = { about: 1, terms: 1, privacy: 1, fairness: 1, 'provably-fair': 1, '2fa': 1, contact: 1, admins: 1 };
+  var LEGAL_PAGES = { about: 1, terms: 1, privacy: 1, fairness: 1, '2fa': 1, contact: 1, admins: 1 };
   if (LEGAL_PAGES[hash]) { window.location.href = hash + '.html'; return; }
   var el = document.querySelector('[data-nav="' + hash + '"]');
   if (typeof nav === 'function') nav(hash, el);
@@ -363,20 +362,6 @@ function winFX(winAmount, bigThreshold) {
   } else {
     SND.lose();
   }
-}
-/* ── Hash بسيط لـ Provably Fair ── */
-function simpleHash(str) {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < str.length; i++) {
-    hash ^= str.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  let output = '';
-  for (let j = 0; j < 64; j++) {
-    output += ((hash + str.charCodeAt(j % str.length) * 31 + j * 17) & 15).toString(16);
-    hash = (hash * 31 + j) | 0;
-  }
-  return output;
 }
 
 /* ── تبديل الوضع المشع / القاتم ── */

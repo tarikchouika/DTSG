@@ -1,5 +1,5 @@
 process.chdir(require('path').resolve(__dirname, '..'));
-/* تحقّق من ملاءمة الألعاب غير المغطّاة بعد (ronda/crash/parchisi + ألعاب إضافية). */
+/* تحقّق من ملاءمة الألعاب غير المغطّاة (ronda/parchisi + ألعاب إضافية). */
 const { chromium } = require('playwright');
 const BASE = 'http://localhost:3000/';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -20,14 +20,13 @@ async function setup(ctx, u) {
   await p.evaluate(() => { if (typeof ST !== 'undefined') ST.gold = 50000; });
   return p;
 }
-// العنصر الأساسي للعبة (مرحلة/حاوية) — يغطّي .stage و crash و parchisi و ronda
+// العنصر الأساسي للعبة (مرحلة/حاوية) — يغطّي .stage و parchisi و ronda
 async function measure(page) {
   return await page.evaluate(() => {
     const body = document.getElementById('gamePageBody');
     if (!body) return { err: 'no body' };
     let el = body.querySelector('.stage');
     if (el && el.querySelector('#ramiContainer')) el = null;
-    if (!el) el = body.querySelector('.crash-3d-container');
     if (!el) el = body.querySelector('.setup-screen') || document.getElementById('parchisiCanvas');
     if (!el) el = body.firstElementChild;
     if (!el) return { err: 'no container' };
@@ -44,7 +43,7 @@ async function measure(page) {
     };
   });
 }
-const GAMES = ['rn', 'av', 'pr', 'sc', 'wg', 'bc', 'vp', 'sl', 'ab', 'crabbin', 'l7', 'fishing', 'dt', 'pn', 'rp'];
+const GAMES = ['rn', 'pr', 'sc', 'wg', 'bc', 'sl', 'ab', 'crabbin', 'l7', 'fishing', 'dt', 'pn', 'rp'];
 (async () => {
   const results = [];
   for (const [label, vp] of [['mobile', { width: 390, height: 780, isMobile: true, hasTouch: true }], ['desktop', { width: 1280, height: 800 }]]) {
@@ -54,7 +53,6 @@ const GAMES = ['rn', 'av', 'pr', 'sc', 'wg', 'bc', 'vp', 'sl', 'ab', 'crabbin', 
       const u = 'fit2' + label + gid + Date.now().toString().slice(-4);
       const page = await setup(ctx, u);
       try {
-        if (gid === 'av') await wait(page, () => typeof window.eCrash === 'function', 12000); // وحدة Crash تُحمّل متأخراً
         await page.evaluate(id => openGame(id), gid);
         await wait(page, () => { const body = document.getElementById('gamePageBody'); return body && body.children.length > 0; }, 10000);
         await sleep(900);

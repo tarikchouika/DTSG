@@ -26,9 +26,6 @@
     padding: 9px 18px;
     font-size: 0.84rem;
   }
-  .kgrid {
-    grid-template-columns: repeat(8, 1fr);
-  }
   .hero {
     padding: 20px 16px;
   }
@@ -196,8 +193,8 @@
     justify-content: center;
   }
   /* [Legal] الجوال: محتوى القائمة أطول من الشاشة — اسمح بالتمرير داخلها
-     مع تثبيت side-foot أسفلها (sticky) كي تبقى أيقونات الأمان الثلاث
-     (2FA / Provably Fair / العدالة والشفافية) مرئية دائماً حتى أثناء التمرير */
+     مع تثبيت side-foot أسفلها (sticky) كي تبقى أيقونات الأمان
+     (2FA / العدالة والشفافية) مرئية دائماً حتى أثناء التمرير */
   .sidebar {
     overflow-y: auto;
     padding-bottom: 24px;
@@ -250,17 +247,9 @@
   /* أزرار أكبر للأصابع */
   .bbtn,
   .ronda-num-btn,
-  .kc,
   .fchip {
     min-width: 44px;
     min-height: 44px;
-  }
-  /* [ص3] كينو: 44px صلبة × 10 أعمدة تفيض عن الشبكة فتقص الخلايا بعضها —
-     اسمح بالانكماش مع الحفاظ على الدائرة (تنطبق داخل وخارج ملء الشاشة) */
-  .kgrid .kc {
-    min-width: 0;
-    min-height: 0;
-    aspect-ratio: 1;
   }
   .ronda-num-btn {
     padding: 10px 0;

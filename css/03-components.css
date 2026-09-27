@@ -62,11 +62,8 @@
 }
 /* ── Art Variants ── */
 .art.slots { background: linear-gradient(135deg, #4A1D96, #7C3AED); }
-.art.keno { background: linear-gradient(135deg, #065F46, #10B981); }
 .art.bj { background: linear-gradient(135deg, #7C2D12, #DC2626); }
 .art.rl { background: linear-gradient(135deg, #991B1B, #111); }
-.art.pk { background: linear-gradient(135deg, #1E3A8A, #3B82F6); }
-.art.cr { background: linear-gradient(135deg, #B45309, #F59E0B); }
 .art.in { background: linear-gradient(135deg, #0E7490, #06B6D4); }
 .art.rn { background: linear-gradient(135deg, #7C2D12, #f2d489); }
 .art.dm { background: linear-gradient(135deg, #3B2A1A, #7A4A22); background-image:repeating-linear-gradient(45deg, rgba(242,212,137,.10) 0 10px, transparent 10px 20px), linear-gradient(135deg, #3B2A1A, #7A4A22); }

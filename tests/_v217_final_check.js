@@ -67,7 +67,7 @@ function bad(l) { fail++; console.log('  ❌ ' + l); }
   }
 
   /* ── 2) القائمة القانونية في الصفحات الست ── */
-  const pages = ['about', 'contact', 'privacy', 'terms', 'fairness', 'provably-fair'];
+  const pages = ['about', 'contact', 'privacy', 'terms', 'fairness'];
   for (const pg of pages) {
     const { page, ctx } = await PW.newPage(browser, { width: 412, height: 915 });
     await page.goto('http://localhost:4173/' + pg + '.html', { waitUntil: 'domcontentloaded' });

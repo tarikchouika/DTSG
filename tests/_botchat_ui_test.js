@@ -170,7 +170,7 @@ async function newPage(browser, w, h) {
 
   console.log('\n═══ 3) جولة الصفحات القانونية ═══');
   {
-    const pages = ['about.html', 'contact.html', 'privacy.html', 'terms.html', 'refund-policy.html', 'fairness.html', 'provably-fair.html', '2fa.html', 'admins.html', 'support.html'];
+    const pages = ['about.html', 'contact.html', 'privacy.html', 'terms.html', 'refund-policy.html', 'fairness.html', '2fa.html', 'admins.html', 'support.html'];
     const { page, ctx } = await newPage(browser, 1280, 900);
     for (const p of pages) {
       await page.goto(BASE + '/' + p, { waitUntil: 'domcontentloaded' });

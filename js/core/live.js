@@ -76,15 +76,6 @@
     _source.addEventListener('round', function (e) {
       try { onRound(JSON.parse(e.data)); } catch (err) { console.error('[live] round', err); }
     });
-    /* أحداث الجولات الجماعية (كينو/كراش) → لوحة Group في group.js */
-    _source.addEventListener('gr:ke', function (e) {
-      try { if (typeof window.RC_groupEvent === 'function') window.RC_groupEvent('ke', JSON.parse(e.data)); }
-      catch (err) { console.error('[live] gr:ke', err); }
-    });
-    _source.addEventListener('gr:av', function (e) {
-      try { if (typeof window.RC_groupEvent === 'function') window.RC_groupEvent('av', JSON.parse(e.data)); }
-      catch (err) { console.error('[live] gr:av', err); }
-    });
     /* [v2.44] حركة مالية جديدة ⇒ للأدمنز/السوبر (تبويب المال لحظياً) */
     _source.addEventListener('adminpay', function (e) {
       try {

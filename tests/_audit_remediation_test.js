@@ -281,42 +281,19 @@ async function run() {
   assert(lockHit, '2FA lockout after 5 wrong codes');
   ok('19', 'قفل 2FA: 5 رموز خاطئة ⇒ 429 + قفل 15 دقيقة (v2.58)');
 
-  // 20-22) أنواع رهانات خام (كينو — نافذة خلال ~95ث؛ [ثبات] كل استدعاء يتحقق من النافذة
-  //      والرفض يتأكد سببه: رسالة المبلغ لا «انتهى الوقت»)
-  const AMT_ERR = 'مبلغ غير صالح — عدد صحيح 1 على الأقل';
-  let inWindow = false;
-  for (let i = 0; i < 100; i++) {
-    const r = await req('/api/games/ke/round', { headers: { 'Cookie': sidCookie } });
-    if (r.json && r.json.round && r.json.round.status === 'betting') { inWindow = true; break; }
-    await new Promise((r2) => setTimeout(r2, 1000));
-  }
-  assert(inWindow, 'keno betting window');
-  const b05 = await req('/api/games/ke/bet', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: { amount: 0.5, picks: [3] } });
-  assert.strictEqual(b05.status, 400, '0.5 rejected');
-  assert.strictEqual(b05.json.message, AMT_ERR, '0.5 rejected for amount reason');
-  ok('20', 'رهان 0.5 (كسر) ⇒ 400 (NEW-2: لا ذهب كسري)');
-  const bStr = await req('/api/games/ke/bet', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: { amount: '10', picks: [3] } });
-  assert.strictEqual(bStr.status, 400, 'string rejected');
-  assert.strictEqual(bStr.json.message, AMT_ERR, 'string rejected for amount reason');
-  ok('21', 'رهان "10" (نص) ⇒ 400 (التحقق على النوع الخام)');
-  const b105 = await req('/api/games/ke/bet', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: { amount: 10.5, picks: [3] } });
-  assert.strictEqual(b105.status, 400, '10.5 rejected');
-  assert.strictEqual(b105.json.message, AMT_ERR, '10.5 rejected for amount reason');
-  /* [ثبات] كل محاولة برقم مختلف (رقم مرهون مرة واحدة للجولة) — أرقام مخصصة
-     لبطارية sec-audit (4/13/15/17) لا تتقاطع مع حارس cat (5/7/9/11). */
-  let bOk = null;
-  for (const pick of [4, 13, 15, 17]) {
-    for (let i = 0; i < 100; i++) {
-      const r = await req('/api/games/ke/round', { headers: { 'Cookie': sidCookie } });
-      if (r.json && r.json.round && r.json.round.status === 'betting') break;
-      await new Promise((r2) => setTimeout(r2, 1000));
-    }
-    bOk = await req('/api/games/ke/bet', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: { amount: 1, picks: [pick] } });
-    if (bOk.status === 200) break;
-    if (bOk.status === 400 && /انتهى وقت الرهان/.test(bOk.json && bOk.json.message || '')) continue;
-  }
-  assert(b105.status === 400 && bOk && bOk.status === 200, '10.5 rejected / 1 accepted');
-  ok('22', 'رهان 10.5 ⇒ 400 · رهان 1 (عدد صحيح) ⇒ 200');
+  // 20-22) [Compliance 2026-09-27] أزيلت ألعاب كينو/كراش من المنتج:
+  //      نقاط نهايتها صارت غير موجودة (404) ولا تُنشأ جولات جديدة
+  const keRound = await req('/api/games/ke/round', { headers: { 'Cookie': sidCookie } });
+  assert.strictEqual(keRound.status, 404, 'keno round endpoint removed');
+  ok('20', 'كينو: /api/games/ke/round ⇒ 404 (اللعبة أزيلت من المنتج)');
+  const keBet = await req('/api/games/ke/bet', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: { amount: 1, picks: [3] } });
+  assert.strictEqual(keBet.status, 404, 'keno bet endpoint removed');
+  ok('21', 'كينو: /api/games/ke/bet ⇒ 404 (اللعبة أزيلت من المنتج)');
+  const avBet = await req('/api/games/av/bet', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: { amount: 1 } });
+  assert.strictEqual(avBet.status, 404, 'crash bet endpoint removed');
+  const avCash = await req('/api/games/av/cashout', { method: 'POST', headers: { 'Cookie': sidCookie, 'Content-Type': 'application/json' }, body: {} });
+  assert.strictEqual(avCash.status, 404, 'crash cashout endpoint removed');
+  ok('22', 'كراش: /api/games/av/bet و cashout ⇒ 404 (اللعبة أزيلت من المنتج)');
 
   // 23) المتصدرون: بلا أرصدة
   const lb = await req('/api/lb');

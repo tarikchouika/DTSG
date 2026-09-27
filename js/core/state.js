@@ -80,9 +80,6 @@ const ST = {
   gold: r2num(sGet('rc_gold', '1000')),
   streak: 3,
   lastClaim: 0,
-  clientSeed: 'Player',
-  serverSeed: '',
-  nonce: 1,
   mute: sGet('rc_mute', '0') === '1',
   currentGame: null,
   tutorialSeen: sGet('rc_tutorial_seen', '0') === '1'
@@ -145,26 +142,9 @@ function giveWin(amount) {
     try { window.SessionResume.onResolve(); } catch (e) {}
   }
 }
-/* ── Provably Fair ── */
-function fairTick() {
-  ST.nonce++;
-  renderFair();
-}
-function generateServerSeed() {
-  ST.serverSeed = Math.random().toString(36).slice(2, 18);
-  ST.nonce = 1;
-}
-function newSeeds() {
-  generateServerSeed();
-  renderFair();
-  toast('تم تحديث البذور', 'info');
-}
 /* ── تهيئة الحالة عند التحميل ── */
 function initState() {
   loadState();
-  if (!ST.serverSeed) {
-    generateServerSeed();
-  }
   wallet();
 }
 
@@ -217,9 +197,6 @@ window.loadState = loadState;
 window.wallet = wallet;
 window.takeBet = takeBet;
 window.giveWin = giveWin;
-window.fairTick = fairTick;
-window.generateServerSeed = generateServerSeed;
-window.newSeeds = newSeeds;
 window.initState = initState;
 window.sGet = sGet;
 window.sSet = sSet;

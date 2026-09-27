@@ -134,7 +134,8 @@ CREATE TABLE IF NOT EXISTS bet_tickets (
 CREATE INDEX IF NOT EXISTS idx_tk_user_time ON bet_tickets(user_id, created_at);
 `);
 
-/* [Group] جداول الجولات الجماعية (كينو/كراش — السيرفر يحكم الجولة، Provably Fair) */
+/* [Group-Legacy] جداول بيانات قديمة من نظام الجولات الجماعية المُزال —
+   تُبقى للتوافق مع قواعد بيانات قائمة (تسوية الرهانات المعلقة عند الإقلاع) */
 db.exec(`
 CREATE TABLE IF NOT EXISTS group_rounds (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -374,179 +375,15 @@ setInterval(() => {
   });
 }, 60 * 1000);
 
-/* ═══════ [Group] الجولات الجماعية: كينو (ke) وكراش (av) — خادمية بالكامل ═══════
-   السيرفر يولّد النتائج (Provably Fair) ويحكم الأرصدة في الذاكرة + DB.
-   العميل يرى نفس الجولة/النتيجة ويضبط رصيده من ردود السيرفر فقط. */
-const GROUP_KE = 'ke', GROUP_AV = 'av';
-const GROUP_ROUND_CFG = {
-  ke: { bet_ms: 90000, draw_ms: 5000 },
-  av: { bet_ms: 90000 }
-};
-/* نسخة خادمية من جدول مضاعفات كينو — تطابق js/games/engines.js KENO_PAYS حرفياً */
-const KENO_PAYS = [
-  null,
-  [0, 3.8],
-  [0, 1, 10],
-  [0, 0, 3, 38],
-  [0, 0, 1, 9, 100],
-  [0, 0, 0, 4, 26, 448],
-  [0, 0, 0, 2, 9, 85, 1324],
-  [0, 0, 0, 0, 6, 39, 270, 4199],
-  [0, 0, 0, 0, 3, 18, 98, 684, 8924],
-  [0, 0, 0, 0, 0, 10, 63, 313, 2170, 28930],
-  [0, 0, 0, 0, 0, 5, 28, 154, 794, 4205, 56061]
-];
-const groupRounds = {}; /* gameId -> {round} الحالة الحية في الذاكرة */
-
-function sha256Hex(str) {
-  return crypto.createHash('sha256').update(String(str)).digest('hex');
-}
-/* نتيجة حتمية من البذرة — نفس التوليد يُعاد على العميل في fair.js للتحقق */
-function groupOutcome(seed, gameId) {
-  const h = (i) => parseInt(sha256Hex(seed + ':' + i).slice(0, 8), 16);
-  if (gameId === GROUP_KE) {
-    const pool = [];
-    for (let n = 1; n <= 80; n++) pool.push(n);
-    for (let i = pool.length - 1; i > 0; i--) {
-      const j = h(i) % (i + 1);
-      const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
-    }
-    return { numbers: pool.slice(0, 20) };
-  }
-  if (gameId === GROUP_AV) {
-    const u = Math.min(h(1) / 0xFFFFFFFF, 0.999999999);
-    return { crash_at: Math.max(1.02, 0.97 / (1 - u)) };
-  }
-  return null;
-}
-function kenoPayout(k, hits) {
-  const row = KENO_PAYS[k];
-  return (row && row[hits]) || 0;
-}
-
-/* بثّ عام لكل متصلّي SSE (لا يتطلب غرفة) */
-function broadcastAll(event, data) {
-  sseClients.forEach(function (c) { sendSSE(c.res, event, data); });
-}
-
-/* بدء جولة جديدة للعبة (نافذة رهان ثم سحب/طيران) */
-function groupStartNext(gameId) {
-  const prev = groupRounds[gameId];
-  const base = prev
-    ? prev.round_no
-    : db.prepare('SELECT COALESCE(MAX(round_no),0) m FROM group_rounds WHERE game_id = ?').get(gameId).m;
-  const roundNo = base + 1;
-  const seed = crypto.randomBytes(16).toString('hex');
-  const seedHash = sha256Hex(seed);
-  const outcome = groupOutcome(seed, gameId);
-  const cfg = GROUP_ROUND_CFG[gameId];
-  const now = Date.now();
-  const info = db.prepare(
-    'INSERT INTO group_rounds (game_id, round_no, status, seed, seed_hash, outcome, started_at, bet_ends_at, created_at) VALUES (?,?,?,?,?,?,?,?,?)'
-  ).run(gameId, roundNo, 'betting', seed, seedHash, JSON.stringify(outcome), now, now + cfg.bet_ms, Math.floor(now / 1000));
-  const round = {
-    id: Number(info.lastInsertRowid),
-    game_id: gameId,
-    round_no: roundNo,
-    status: 'betting',
-    seed, seed_hash: seedHash, outcome,
-    started_at: now,
-    bet_ends_at: now + cfg.bet_ms,
-    draw_ends_at: 0,
-    crashed_at: 0,
-    timer: null
-  };
-  groupRounds[gameId] = round;
-  broadcastAll('gr:' + gameId, {
-    type: 'new',
-    round_no: roundNo,
-    bet_ends_at: round.bet_ends_at,
-    phase_ends_at: round.bet_ends_at,
-    seed_hash: seedHash
-  });
-  round.timer = setTimeout(() => {
-    if (gameId === GROUP_KE) groupKeDraw(round);
-    else groupAvFly(round);
-  }, cfg.bet_ms);
-  return round;
-}
-
-/* كينو: نهاية الرهان → كشف الأرقام (5 ثوانٍ) → تسوية */
-function groupKeDraw(round) {
-  round.status = 'drawing';   /* الإقفال قبل أي بثّ: لا رهان يُقبل بعد هذه اللحظة */
-  round.draw_ends_at = Date.now() + GROUP_ROUND_CFG.ke.draw_ms;
-  db.prepare("UPDATE group_rounds SET status = 'drawing' WHERE id = ?").run(round.id);
-  broadcastAll('gr:ke', { type: 'draw', round_no: round.round_no, numbers: round.outcome.numbers, phase_ends_at: round.draw_ends_at });
-  round.timer = setTimeout(() => { groupKeResolve(round); }, GROUP_ROUND_CFG.ke.draw_ms);
-}
-function groupKeResolve(round) {
-  const numbers = round.outcome.numbers;
-  const bets = db.prepare('SELECT * FROM group_bets WHERE round_id = ?').all(round.id);
-  const updBet = db.prepare('UPDATE group_bets SET won = ?, payout = ? WHERE id = ?');
-  let totalPaid = 0;
-  const winners = [];
-  for (const b of bets) {
-    let payout = 0;
-    try {
-      const picks = JSON.parse(b.picks || '[]');
-      const hits = picks.filter((n) => numbers.indexOf(n) !== -1).length;
-      payout = r2(b.bet * kenoPayout(picks.length, hits));
-    } catch (e) { payout = 0; }
-    updBet.run(payout > 0 ? 1 : 0, payout, b.id);
-    if (payout > 0) {
-      /* [Group] الأرصدة في الذاكرة + DB معاً (نمط المشاريع هذا) */
-      const u = users[b.user_id];
-      if (u) {
-        u.gold = (u.gold || 0) + payout;
-        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-      } else {
-        try { db.prepare('UPDATE users SET gold = gold + ? WHERE id = ?').run(payout, b.user_id); } catch (e) {}
-      }
-      totalPaid += payout;
-      winners.push({ username: b.username, payout: payout });
-    }
-  }
-  round.status = 'finished';
-  db.prepare("UPDATE group_rounds SET status = 'finished' WHERE id = ?").run(round.id);
-  broadcastAll('gr:ke', { type: 'resolve', round_no: round.round_no, result: { winners: winners.length, winners_list: winners, total_paid: totalPaid } });
-  groupStartNext(GROUP_KE);
-}
-
-/* كراش: نهاية الرهان → طيران (مدة = ln(crash_at)/0.00006 ms) → انفجار → تسوية */
-function groupAvFly(round) {
-  round.status = 'flying';   /* الإقفال قبل أي بثّ: لا رهان يُقبل بعد هذه اللحظة */
-  round.started_at = Date.now();
-  db.prepare("UPDATE group_rounds SET status = 'flying', started_at = ? WHERE id = ?").run(round.started_at, round.id);
-  broadcastAll('gr:av', { type: 'fly', round_no: round.round_no, started_at: round.started_at });
-  const crashAt = round.outcome.crash_at;
-  const flightMs = Math.log(crashAt) / 0.00006;
-  round.timer = setTimeout(() => { groupAvResolve(round, crashAt); }, flightMs);
-}
-function groupAvResolve(round, crashAt) {
-  const bets = db.prepare('SELECT * FROM group_bets WHERE round_id = ?').all(round.id);
-  let totalPaid = 0;
-  const winners = [];
-  for (const b of bets) {
-    if (b.won) {
-      totalPaid += b.payout;
-      winners.push({ username: b.username, mult: b.cashout_mult, payout: b.payout });
-    }
-  }
-  round.status = 'finished';
-  round.crashed_at = Date.now();
-  db.prepare("UPDATE group_rounds SET status = 'finished', crashed_at = ? WHERE id = ?").run(round.crashed_at, round.id);
-  broadcastAll('gr:av', { type: 'crash', round_no: round.round_no, crash_at: crashAt, result: { winners: winners.length, winners_list: winners, total_paid: totalPaid } });
-  groupStartNext(GROUP_AV);
-}
-
-/* عند إقلاع السيرفر: استرداد رهانات أي جولة معلقة (لا تعلق أبداً) ثم تشغيل الحلقات */
+/* ═══════ [Group-Removal] أزيلت الجولات الجماعية (كينو/كراش) من المنتج — 2026-09-27.
+   هذه التسوية تُبقى فقط لاسترداد أي رهانات معلقة من جولات قديمة قائمة في القاعدة
+   عند إقلاع السيرفر (حماية أموال اللاعبين)، ثم لا تُنشأ جولات جديدة. */
 function groupSettleLeftover() {
   const rows = db.prepare("SELECT id FROM group_rounds WHERE status IN ('betting','drawing','flying')").all();
   const updBet = db.prepare('UPDATE group_bets SET won = 1, payout = bet WHERE round_id = ? AND won = 0');
   for (const r of rows) {
     const bets = db.prepare('SELECT * FROM group_bets WHERE round_id = ? AND won = 0').all(r.id);
     for (const b of bets) {
-      /* [Group] استرداد في الذاكرة + DB معاً */
       const u = users[b.user_id];
       if (u) {
         u.gold = (u.gold || 0) + b.bet;
@@ -563,11 +400,9 @@ function groupSettleLeftover() {
 function groupStartAll() {
   try {
     groupSettleLeftover();
-    groupStartNext(GROUP_KE);
-    groupStartNext(GROUP_AV);
-    console.log('[group] rounds started: ke + av');
+    console.log('[group] group rounds removed — leftover bets refunded');
   } catch (e) {
-    console.error('[group] start failed', e);
+    console.error('[group] settle failed', e);
   }
 }
 
@@ -602,7 +437,7 @@ try {
 const sseClients = [];          // [{res, userId}]
 const winners = [
   { username: 'tarik', game_id: 'Moroccan Ronda', payout: 350 },
-  { username: 'mehdi_rabat', game_id: 'Crash 🚀', payout: 1250 },
+  { username: 'mehdi_rabat', game_id: 'Billiards 🎱', payout: 1250 },
   { username: 'ilyas', game_id: 'Parchisi 🎲', payout: 400 }
 ];
 
@@ -1615,171 +1450,12 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      /* ── [Group] الجولات الجماعية: كينو (ke) وكراش (av) — الجولة والرصيد من السيرفر حصراً ── */
-      /* نتيجة جولة منتهية (فائزو السحب فقط) */
-      function grpRoundResult(gameId, round) {
-        const bets = db.prepare('SELECT * FROM group_bets WHERE round_id = ?').all(round.id);
-        let totalPaid = 0;
-        const winners = [];
-        for (const b of bets) {
-          if (!b.won) continue;
-          totalPaid += b.payout;
-          winners.push({ username: b.username, mult: b.cashout_mult, payout: b.payout });
-        }
-        return { winners, total_paid: totalPaid };
-      }
-
-      if (pathname === '/api/games/ke/round' && req.method === 'GET') {
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        const r = groupRounds.ke;
-        if (!r) { json({ ok: false, message: 'لا جولة نشطة حالياً' }, 404); return; }
-        const pub = {
-          game_id: 'ke', round_no: r.round_no, status: r.status,
-          bet_ends_at: r.bet_ends_at,
-          phase_ends_at: r.status === 'betting' ? r.bet_ends_at : r.draw_ends_at,
-          seed_hash: r.seed_hash
-        };
-        if (r.status === 'drawing' || r.status === 'finished') pub.numbers = r.outcome.numbers;
-        if (r.status === 'finished') pub.result = grpRoundResult('ke', r);
-        const myBets = db.prepare('SELECT bet, picks, won, payout FROM group_bets WHERE round_id = ? AND user_id = ?').all(r.id, me.id);
-        const live = db.prepare('SELECT username, bet, picks, created_at FROM group_bets WHERE round_id = ? ORDER BY id DESC LIMIT 20').all(r.id);
-        json({ ok: true, round: pub, my_bets: myBets, live: live, gold: me.gold });
-        return;
-      }
-
       /* [NEW-2 v2.58] مبلغ الرهان: رقم خام (typeof number) + عدد صحيح (الذهب بلا كسور)
          + حد أدنى 1. النسخة السابقة كانت تقبل النصوص ("10") والكسور (0.5/10.5)
          ⇒ ذهب كسري يتسرّب في رصيد المستخدم ويضطرب مع التسويات (Math.round). */
       function validBetAmount(v) {
         return typeof v === 'number' && Number.isFinite(v) && Number.isInteger(v) && v >= 1 && v <= 100000000;
       }
-      if (pathname === '/api/games/ke/bet' && req.method === 'POST') {
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        const r = groupRounds.ke;
-        if (!r) { json({ ok: false, message: 'لا جولة نشطة حالياً' }, 404); return; }
-        if (r.status !== 'betting' || Date.now() >= r.bet_ends_at) {
-          json({ ok: false, message: 'انتهى وقت الرهان — انتظر الجولة التالية' }, 400); return;
-        }
-        const amount = data.amount;
-        if (!validBetAmount(amount)) { json({ ok: false, message: 'مبلغ غير صالح — عدد صحيح 1 على الأقل' }, 400); return; }
-        const picksRaw = data.picks;
-        if (!Array.isArray(picksRaw) || picksRaw.length < 1 || picksRaw.length > 10) {
-          json({ ok: false, message: 'اختر من 1 إلى 10 أرقام' }, 400); return;
-        }
-        const picks = [];
-        for (const v of picksRaw) {
-          const n = parseInt(v, 10);
-          if (!Number.isInteger(n) || n < 1 || n > 80 || picks.indexOf(n) !== -1) {
-            json({ ok: false, message: 'أرقام غير صالحة (1-80، بدون تكرار)' }, 400); return;
-          }
-          picks.push(n);
-        }
-        if ((me.gold || 0) < amount) { json({ ok: false, message: 'رصيد غير كافٍ' }, 400); return; }
-        /* [MultiBet] رهانات متعددة في نفس الجولة مسموحة — لكن بأرقام مختلفة:
-           أي رقم سبق للمستخدم الرهان عليه في هذه الجولة يُرفض */
-        {
-          const prevBets = db.prepare('SELECT picks FROM group_bets WHERE round_id = ? AND user_id = ?').all(r.id, me.id);
-          const used = {};
-          for (const pb of prevBets) {
-            try { JSON.parse(pb.picks || '[]').forEach(function (n) { used[n] = 1; }); } catch (e) {}
-          }
-          for (const n of picks) {
-            if (used[n]) { json({ ok: false, message: 'رقم ' + n + ' مرهون عليه في هذه الجولة — اختر أرقاماً مختلفة' }, 400); return; }
-          }
-        }
-        /* [Group] الخصم من الذاكرة + DB معاً (نمط هذا المشروع) */
-        me.gold = me.gold - amount;
-        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(me.gold, me.id); } catch (e) {}
-        db.prepare('INSERT INTO group_bets (round_id, user_id, username, bet, picks, created_at) VALUES (?,?,?,?,?,?)')
-          .run(r.id, me.id, me.username, amount, JSON.stringify(picks), Math.floor(Date.now() / 1000));
-        broadcastAll('gr:ke', { type: 'bet', round_no: r.round_no, username: me.username, amount: amount, picks: picks });
-        json({ ok: true, gold: me.gold, round_no: r.round_no, amount: amount });
-        return;
-      }
-
-      if (pathname === '/api/games/av/round' && req.method === 'GET') {
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        const r = groupRounds.av;
-        if (!r) { json({ ok: false, message: 'لا جولة نشطة حالياً' }, 404); return; }
-        const pub = {
-          game_id: 'av', round_no: r.round_no, status: r.status,
-          bet_ends_at: r.bet_ends_at,
-          phase_ends_at: r.status === 'betting' ? r.bet_ends_at : null,
-          started_at: r.status === 'flying' ? r.started_at : null,
-          seed_hash: r.seed_hash
-        };
-        if (r.status === 'finished') {
-          pub.crash_at = r.outcome.crash_at;
-          pub.result = grpRoundResult('av', r);
-        }
-        const myBets = db.prepare('SELECT bet, cashout_mult, won, payout FROM group_bets WHERE round_id = ? AND user_id = ?').all(r.id, me.id);
-        const live = db.prepare('SELECT username, bet, created_at FROM group_bets WHERE round_id = ? ORDER BY id DESC LIMIT 20').all(r.id);
-        json({ ok: true, round: pub, my_bets: myBets, live: live, gold: me.gold });
-        return;
-      }
-
-      if (pathname === '/api/games/av/bet' && req.method === 'POST') {
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        const r = groupRounds.av;
-        if (!r) { json({ ok: false, message: 'لا جولة نشطة حالياً' }, 404); return; }
-        if (r.status !== 'betting' || Date.now() >= r.bet_ends_at) {
-          json({ ok: false, message: 'انتهى وقت الرهان — انتظر الجولة التالية' }, 400); return;
-        }
-        const amount = data.amount;
-        if (!validBetAmount(amount)) { json({ ok: false, message: 'مبلغ غير صالح — عدد صحيح 1 على الأقل' }, 400); return; }
-        if ((me.gold || 0) < amount) { json({ ok: false, message: 'رصيد غير كافٍ' }, 400); return; }
-        /* [Group] الخصم من الذاكرة + DB معاً (نمط هذا المشروع) */
-        me.gold = me.gold - amount;
-        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(me.gold, me.id); } catch (e) {}
-        db.prepare('INSERT INTO group_bets (round_id, user_id, username, bet, created_at) VALUES (?,?,?,?,?)')
-          .run(r.id, me.id, me.username, amount, Math.floor(Date.now() / 1000));
-        broadcastAll('gr:av', { type: 'bet', round_no: r.round_no, username: me.username, amount: amount });
-        json({ ok: true, gold: me.gold, round_no: r.round_no, amount: amount });
-        return;
-      }
-
-      if (pathname === '/api/games/av/cashout' && req.method === 'POST') {
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        const r = groupRounds.av;
-        if (!r) { json({ ok: false, message: 'لا جولة نشطة حالياً' }, 404); return; }
-        if (r.status !== 'flying') { json({ ok: false, message: 'الجولة ليست في مرحلة الطيران الآن' }, 400); return; }
-        const bet = db.prepare('SELECT * FROM group_bets WHERE round_id = ? AND user_id = ? AND cashout_mult IS NULL').get(r.id, me.id);
-        if (!bet) { json({ ok: false, message: 'لا يوجد رهان نشط للسحب' }, 400); return; }
-        const crashAt = r.outcome && r.outcome.crash_at ? r.outcome.crash_at : Infinity;
-        const mult = Math.exp(0.00006 * (Date.now() - r.started_at));
-        /* لا يُسمح بالسحب بعد نقطة الانفجار الخادمية أبداً — المعامل لا يتجاوز crashAt */
-        if (!isFinite(mult) || mult < 1 || (crashAt !== Infinity && mult >= crashAt)) {
-          json({ ok: false, message: 'انفجرت الطائرة قبل السحب — حظاً أوفر' }, 400); return;
-        }
-        const payout = r2(bet.bet * mult);
-        /* [Group] الإضافة في الذاكرة + DB معاً */
-        me.gold = (me.gold || 0) + payout;
-        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(me.gold, me.id); } catch (e) {}
-        db.prepare('UPDATE group_bets SET cashout_mult = ?, won = 1, payout = ? WHERE id = ?').run(mult, payout, bet.id);
-        broadcastAll('gr:av', { type: 'cashout', round_no: r.round_no, username: me.username, mult: mult, payout: payout });
-        json({ ok: true, gold: me.gold, payout: payout, mult: mult, amount: bet.bet });
-        return;
-      }
-
-      /* [Group] سجل الجولات الجماعية المنتهية (ببذرة مكشوفة للتحقق Provably Fair) */
-      let gmh;
-      if ((gmh = /^\/api\/games\/([\w-]+)\/group-history$/.exec(pathname)) && req.method === 'GET') {
-        const gameId = gmh[1];
-        if (gameId !== GROUP_KE && gameId !== GROUP_AV) { json({ ok: false, message: 'غير موجود' }, 404); return; }
-        const rows = db.prepare("SELECT * FROM group_rounds WHERE game_id = ? AND status = 'finished' ORDER BY id DESC LIMIT 10").all(gameId);
-        const out = rows.map(function (r) {
-          let outcome = null;
-          try { outcome = JSON.parse(r.outcome); } catch (e) { /* ignore */ }
-          const agg = db.prepare('SELECT COUNT(*) c, COALESCE(SUM(payout),0) p FROM group_bets WHERE round_id = ? AND won = 1').get(r.id);
-          return {
-            round_no: r.round_no, seed: r.seed, seed_hash: r.seed_hash,
-            outcome: outcome, winners_count: agg.c, total_paid: agg.p, created_at: r.created_at
-          };
-        });
-        json({ ok: true, rounds: out });
-        return;
-      }
-
       /* [server-tx] سجل تذاكر المستخدم لهذه اللعبة تحديداً (لوحة التيكيتس داخل اللعبة) */
       let ghh;
       if ((ghh = /^\/api\/games\/([\w-]+)\/history$/.exec(pathname)) && req.method === 'GET') {

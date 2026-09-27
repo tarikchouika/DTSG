@@ -3,7 +3,7 @@
    Slots, Mines, Plinko, Dice, Coin Flip, Hi-Lo,
    Wheel, Scratch, Wingo, RPS, Penalty, Lucky7,
    Sic Bo, Roulette, Baccarat, Dragon Tiger,
-   Video Poker, Keno, Andar Bahar, Crash
+   Andar Bahar
    ══════════════════════════════════════════════════════════════════ */
 "use strict";
 
@@ -111,14 +111,13 @@ function gFrame(inner, g) {
   ).join('') : '';
   /* [GFrame-BG] خلفية فقط للألعاب التي لديها background.webp فعلياً
      (chess/dama/billiards/rami بلا خلفية — منع طلبات 404) */
-  const GAME_BG = { andar_bahar: 1, baccarat: 1, backgammon: 1, blackjack: 1, 'coin-flip': 1, crabbin: 1, crash: 1, dice: 1, dominoes: 1, dragon: 1, fishing: 1, football: 1, gates: 1, 'hi-lo': 1, keno: 1, lightning: 1, lottery: 1, 'lucky-7': 1, mahjong: 1, mines: 1, money: 1, olympus: 1, parchisi: 1, plinko: 1, poker: 1, 'rock-paper': 1, ronda: 1, rose: 1, roulette: 1, scratch: 1, 'sic-bo': 1, 'slot-spin': 1, 'sweet-bonanza': 1, wheel: 1, wingo: 1 };
+  const GAME_BG = { andar_bahar: 1, baccarat: 1, backgammon: 1, blackjack: 1, 'coin-flip': 1, crabbin: 1, dice: 1, dominoes: 1, dragon: 1, fishing: 1, football: 1, gates: 1, 'hi-lo': 1, lightning: 1, lottery: 1, 'lucky-7': 1, mahjong: 1, mines: 1, money: 1, olympus: 1, parchisi: 1, plinko: 1, 'rock-paper': 1, ronda: 1, rose: 1, roulette: 1, scratch: 1, 'sic-bo': 1, 'slot-spin': 1, 'sweet-bonanza': 1, wheel: 1, wingo: 1 };
   const gbg = (typeof GAME_IMG !== 'undefined' && GAME_IMG[g.id] && GAME_BG[GAME_IMG[g.id]])
     ? '<div class="gstage-bg" style="background-image:url(assets/games/' + GAME_IMG[g.id] + '/background.webp)"></div>'
     : '';
   return '<div class="stage">' + gbg +
     '<div class="glogo-wm" aria-hidden="true"></div>' +
     '<div class="gtop">' +
-      '<span class="pf"> Provably Fair</span>' +
       '<span class="ctext">RTP <b style="color:var(--green2)">' + g.rtp + '%</b></span>' +
       '<button class="btn ghost small" onclick="toggleRules()" aria-label="القواعد"> ' + T('g.rules') + '</button>' +
     '</div>' +
@@ -235,7 +234,6 @@ function cFlip() {
       gres(T('ts.lose'), 0);
       winFX(0);
     }
-    fairTick();
     cSetBusy(false);
   }, 2200);
 }
@@ -328,7 +326,6 @@ function hGuess(guess) {
     SND.click();
     gres(T('hl.push'), 0);
   }
-  fairTick();
   /* البطاقة المسحوبة تصبح الحالية للجولة التالية */
   hCard = newCard;
   const cur = document.getElementById('hCard');
@@ -454,7 +451,6 @@ function rpsPlay(p) {
       gres(T('ts.lose'), 0);
       winFX(0);
     }
-    fairTick();
     setTimeout(function () {
       if (oppFace) oppFace.textContent = '❓';
       if (myFace) myFace.textContent = '❓';
@@ -692,7 +688,6 @@ function penShoot(d) {
       gres(T('ts.lose'), 0);
       winFX(0);
     }
-    fairTick();
     setTimeout(function () {
       penResetField();
       pnSetBusy(false);
@@ -790,379 +785,6 @@ function pnRoomUi() {
   }
 }
 
-/* ═══════════ 17. Video Poker ═══════════ */
-function eVp(g) {
-  return gFrame(
-    '<div class="vp-wrap">' +
-      '<div class="vp-pt">' +
-        '<div class="vp-pt-title"><i class="fa-solid fa-gem" aria-hidden="true"></i> ' + T('vp.paytitle') + '</div>' +
-        '<div class="vp-pt-grid">' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.royal') + '</span><b>×250</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.sflush') + '</span><b>×50</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.four') + '</span><b>×25</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.full') + '</span><b>×9</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.flush') + '</span><b>×6</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.straight') + '</span><b>×4</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.trips') + '</span><b>×3</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.twopair') + '</span><b>×2</b></div>' +
-          '<div class="vp-pt-row"><span>' + T('vp.hand.jacks') + '</span><b>×1</b></div>' +
-        '</div>' +
-      '</div>' +
-      '<div class="vp-hand" id="vpHand"></div>' +
-      '<div class="vp-hint" id="vpHint"><img src="assets/cards/back.webp" class="card-ic" alt=""> ' + T('vp.dealhint') + '</div>' +
-    '</div>' +
-    '<div class="bets">' +
-      '<button class="big vp-deal" id="vpDeal" onclick="vpDeal()"><img src="assets/cards/back.webp" class="card-ic" alt=""> ' + T('g.deal') + '</button>' +
-      '<button class="big vp-draw" id="vpDraw" onclick="vpDraw()" disabled> ' + T('g.draw') + '</button>' +
-    '</div>' +
-    betRow(),
-    g
-  );
-}
-let vpCards = [], vpHeld = [], vpStage = 0;
-function vpDeck() {
-  /* مجموعة جديدة كاملة ناقص بطاقات اليد الحالية — يمنع تكرار البطاقات في السحب */
-  const deck = bcBuildDeck();
-  const inHand = vpCards.map(function (c) { return c.r + c.s; });
-  return deck.filter(function (c) { return inHand.indexOf(c.r + c.s) === -1; });
-}
-function vpRenderHand() {
-  const el = document.getElementById('vpHand');
-  if (!el) return;
-  el.innerHTML = vpCards.map(function (c, i) {
-    return '<div class="vp-card' + (vpHeld[i] ? ' held' : '') + '" data-idx="' + i + '" onclick="vpToggle(' + i + ')" style="animation-delay:' + (i * 0.08) + 's">' +
-      '<img src="assets/cards/' + c.r + '-' + suitKey(c.s) + '.webp" alt="" draggable="false">' +
-      '<span class="vp-hold">' + T('vp.hold') + '</span>' +
-    '</div>';
-  }).join('');
-}
-function vpDeal() {
-  if (vpStage !== 0) return;
-  if (!take()) return;
-  vpStage = 1;
-  vpHeld = [false, false, false, false, false];
-  vpCards = vpDeck().slice(0, 5);
-  vpRenderHand();
-  const dl = document.getElementById('vpDeal');
-  const dr = document.getElementById('vpDraw');
-  if (dl) dl.disabled = true;
-  if (dr) dr.disabled = false;
-  const h = document.getElementById('vpHint');
-  if (h) h.textContent = T('vp.holdhint');
-  SND.card();
-  gres('', 0);
-}
-function vpToggle(i) {
-  if (vpStage !== 1) return;
-  vpHeld[i] = !vpHeld[i];
-  const card = document.querySelector('.vp-card[data-idx="' + i + '"]');
-  if (card) card.classList.toggle('held', vpHeld[i]);
-  SND.click();
-}
-function vpDraw() {
-  if (vpStage !== 1) return;
-  vpStage = 2;
-  const deck = vpDeck();
-  let di = 0;
-  vpCards = vpCards.map(function (c, i) { return vpHeld[i] ? c : deck[di++]; });
-  vpHeld = [false, false, false, false, false];
-  vpRenderHand();
-  const dl = document.getElementById('vpDeal');
-  const dr = document.getElementById('vpDraw');
-  if (dl) dl.disabled = true;
-  if (dr) dr.disabled = true;
-  SND.card();
-  setTimeout(evaluateVP, 900);
-}
-function evaluateVP() {
-  const ranks = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
-  const vals = vpCards.map(function (c) { return ranks.indexOf(c.r); }).sort(function (a, b) { return a - b; });
-  const suits = vpCards.map(function (c) { return c.s; });
-  const isFlush = suits.every(function (s) { return s === suits[0]; });
-  const straightSeq = vals.every(function (v, i) { return i === 0 || v === vals[i - 1] + 1; });
-  const vj = vals.join();
-  const isStraight = straightSeq || vj === '0,1,2,3,12' || vj === '0,8,9,10,11';
-  const isRoyal = vj === '0,8,9,10,11';
-  const counts = {};
-  vals.forEach(function (v) { counts[v] = (counts[v] || 0) + 1; });
-  const countVals = Object.values(counts).sort(function (a, b) { return b - a; });
-  const pairRank = vals.filter(function (v) { return counts[v] === 2; })[0];
-  let hand = '', mult = 0;
-  if (isFlush && isStraight && isRoyal) { hand = T('vp.hand.royal'); mult = 250; }
-  else if (isFlush && isStraight) { hand = T('vp.hand.sflush'); mult = 50; }
-  else if (countVals[0] === 4) { hand = T('vp.hand.four'); mult = 25; }
-  else if (countVals[0] === 3 && countVals[1] === 2) { hand = T('vp.hand.full'); mult = 9; }
-  else if (isFlush) { hand = T('vp.hand.flush'); mult = 6; }
-  else if (isStraight) { hand = T('vp.hand.straight'); mult = 4; }
-  else if (countVals[0] === 3) { hand = T('vp.hand.trips'); mult = 3; }
-  else if (countVals[0] === 2 && countVals[1] === 2) { hand = T('vp.hand.twopair'); mult = 2; }
-  else if (countVals[0] === 2 && pairRank >= 9) { hand = T('vp.hand.jacks'); mult = 1; }
-  else { hand = T('vp.hand.none'); mult = 0; }
-  const w = Math.floor(GB * mult);
-  if (mult) give(w);
-  gres(hand + (mult ? ' ×' + mult + ' +' + fmt(w) + ' 🪙' : ''), mult ? w : 0);
-  winFX(w);
-  fairTick();
-  vpStage = 0;
-  const dl = document.getElementById('vpDeal');
-  if (dl) dl.disabled = false;
-  const h = document.getElementById('vpHint');
-  if (h) h.innerHTML = '<img src=\"assets/cards/back.webp\" class=\"card-ic\" alt=\"\"> ' + T('vp.dealhint');
-}
-
-/* ═══════════ 18. Keno ═══════════ */
-/* جداول دفع حسب عدد الأرقام المختارة k — مضاعفات GB (RTP ≈ 95%) */
-const KENO_PAYS = [
-  null,
-  [0, 3.8],
-  [0, 1, 10],
-  [0, 0, 3, 38],
-  [0, 0, 1, 9, 100],
-  [0, 0, 0, 4, 26, 448],
-  [0, 0, 0, 2, 9, 85, 1324],
-  [0, 0, 0, 0, 6, 39, 270, 4199],
-  [0, 0, 0, 0, 3, 18, 98, 684, 8924],
-  [0, 0, 0, 0, 0, 10, 63, 313, 2170, 28930],
-  [0, 0, 0, 0, 0, 5, 28, 154, 794, 4205, 56061]
-];
-let kPicks = [], kNumbers = [], kDrawing = false, kPlacedBets = [];
-function eKeno(g) {
-  let cells = '';
-  for (let n = 1; n <= 80; n++) {
-    cells += '<button type="button" class="kc" data-num="' + n + '" onclick="kToggle(' + n + ')">' + n + '</button>';
-  }
-  return gFrame(
-    '<div id="gpanel"></div>' +
-    '<div class="ke-wrap">' +
-      '<div class="ke-top">' +
-        '<div class="ke-counter" id="kCounter"><i class="fa-solid fa-hashtag" aria-hidden="true"></i> <b>0</b>/10 ' + T('ke.sel') + '</div>' +
-        '<button type="button" class="ke-clear" id="kClear" onclick="kClear()"><i class="fa-solid fa-trash-can" aria-hidden="true"></i> ' + T('ke.clear') + '</button>' +
-      '</div>' +
-      '<div class="kgrid" id="kGrid">' + cells + '</div>' +
-      '<div class="ke-hint"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + T('ke.hint') + '</div>' +
-    '</div>' +
-    '<div class="bets">' +
-      '<button class="big ke-draw" id="kDraw" onclick="kStart()"><i class="fa-solid fa-play" aria-hidden="true"></i> ' + T('ke.draw') + '</button>' +
-    '</div>' +
-    betRow(),
-    g
-  );
-}
-function kToggle(n) {
-  if (kDrawing) return;
-  /* [MultiBet] رقم مرهون عليه في تذكرة سابقة لا يُختار ثانية — أرقام مختلفة لكل رهان */
-  for (let bi = 0; bi < kPlacedBets.length; bi++) {
-    if (kPlacedBets[bi].picks.indexOf(n) !== -1) { toast(T('ke.dupWarn'), 'warn'); return; }
-  }
-  const idx = kPicks.indexOf(n);
-  if (idx !== -1) {
-    kPicks.splice(idx, 1);
-  } else {
-    if (kPicks.length >= 10) { toast(T('ke.maxWarn'), 'warn'); return; }
-    kPicks.push(n);
-  }
-  const cell = document.querySelector('.kc[data-num="' + n + '"]');
-  if (cell) cell.classList.toggle('sel', idx === -1);
-  const c = document.getElementById('kCounter');
-  if (c) c.innerHTML = '🔢 <b>' + kPicks.length + '</b>/10 ' + T('ke.sel');
-  SND.click();
-}
-function kClear() {
-  if (kDrawing) return;
-  kPicks = [];
-  document.querySelectorAll('.kc.sel').forEach(function (c) { c.classList.remove('sel'); });
-  const c = document.getElementById('kCounter');
-  if (c) c.innerHTML = '🔢 <b>0</b>/10 ' + T('ke.sel');
-  SND.click();
-}
-/* ── كينو جماعي: الرهان يُرسل للخادم، والسحب من الجولة الجماعية ── */
-function kStart() {
-  if (kDrawing) return;
-  if (kPicks.length < 1 || kPicks.length > 10) { toast(T('ke.hitWarn'), 'warn'); return; }
-  const btn = document.getElementById('kDraw');
-  if (btn) btn.disabled = true;
-  SND.click();
-  API.post('/api/games/ke/bet', { amount: GB, picks: kPicks.slice() }).then(function (r) {
-    if (!r.ok || !r.data || !r.data.ok) {
-      const msg = (r.data && r.data.message) || T('auth.error');
-      toast(msg, 'err');
-      SND.lose();
-      if (btn) btn.disabled = false;
-      if (typeof Group !== 'undefined' && Group.setGold && typeof r.data.gold === 'number') Group.setGold(r.data.gold);
-      return;
-    }
-    /* الرصيد يتحدث حصرياً من السيرفر */
-    if (typeof Group !== 'undefined' && Group.setGold && typeof r.data.gold === 'number') Group.setGold(r.data.gold);
-    /* [MultiBet] الرهان قُبل: يُحفظ محلياً وتُفرَّغ الاختيارات — يمكن رهان آخر
-       بأرقام مختلفة في نفس الجولة حتى إقفال نافذة الرهان */
-    kPlacedBets.push({ picks: kPicks.slice(), bet: GB });
-    kPicks.forEach(function (n) {
-      const cell = document.querySelector('.kc[data-num="' + n + '"]');
-      if (cell) { cell.classList.remove('sel'); cell.classList.add('placed'); }
-    });
-    kPicks = [];
-    const cc = document.getElementById('kCounter');
-    if (cc) cc.innerHTML = '🔢 <b>0</b>/10 ' + T('ke.sel') + ' · 🎫 ' + kPlacedBets.length;
-    if (btn) btn.disabled = false;
-    SND.spin();
-    /* عرض تأكيد الرهان فقط — التذكرة تُسجَّل مرة واحدة عند النتيجة (لا تكرار) */
-    gres(T('grp.placeBet') + ' 🎫 ' + kPlacedBets.length, 0, true);
-  });
-}
-/* كشف أرقام الجولة المسحوبة (يستدعيها Group.keOnDraw عبر SSE/round API) */
-function keReveal(numbers) {
-  if (!numbers || !numbers.length) return;
-  kNumbers = numbers.slice();
-  kDrawing = true;
-  const btn = document.getElementById('kDraw');
-  if (btn) btn.disabled = true;
-  gres('', 0);
-  /* إزالة ألوان الجولة السابقة وإبقاء الاختيارات الحالية */
-  document.querySelectorAll('.kc').forEach(function (c) {
-    c.classList.remove('drawn', 'match', 'miss');
-  });
-  /* كشف الأرقام المسحوبة تباعاً */
-  /* [MultiBet] كل الأرقام المرهون عليها (من كل التذاكر) تُلوَّن كإصابة/إخفاق */
-  const allPicked = {};
-  kPlacedBets.forEach(function (b) { b.picks.forEach(function (n) { allPicked[n] = 1; }); });
-  kPicks.forEach(function (n) { allPicked[n] = 1; });
-  numbers.forEach(function (n, di) {
-    setTimeout(function () {
-      const cell = document.querySelector('.kc[data-num="' + n + '"]');
-      if (!cell) return;
-      cell.classList.add('drawn');
-      if (allPicked[n]) cell.classList.add('match');
-      else cell.classList.add('miss');
-      if (di === numbers.length - 1) keFinish();
-    }, di * 120);
-  });
-}
-function keFinish() {
-  /* [MultiBet] تجميع نتائج كل التذاكر المرهونة في الجولة */
-  const bets = kPlacedBets.length ? kPlacedBets : (kPicks.length ? [{ picks: kPicks, bet: GB }] : []);
-  let totalWin = 0;
-  const parts = [];
-  bets.forEach(function (b, i) {
-    const hits = b.picks.filter(function (n) { return kNumbers.indexOf(n) !== -1; }).length;
-    const mult = (KENO_PAYS[b.picks.length] && KENO_PAYS[b.picks.length][hits]) || 0;
-    const w = Math.floor(b.bet * mult);
-    totalWin += w;
-    parts.push(hits + '/' + b.picks.length + (mult ? '×' + mult : ''));
-    /* [Tickets] تذكرة مستقلة لكل رهان بأرقامه الخاصة ورهانه الخاص */
-    if (typeof recordRound === 'function') {
-      const nums = b.picks.slice().sort(function (x, y) { return x - y; }).join('·');
-      recordRound(w > 0, w, '🎫 ' + (i + 1) + '/' + bets.length + ' [' + nums + '] ← ' + hits + '/' + b.picks.length + (mult ? ' ×' + mult : ''), b.bet);
-    }
-  });
-  /* العرض محلي فقط (التذاكر سُجلت أعلاه واحدة واحدة) — الرصيد يتحدث من السيرفر */
-  gres(T('ke.result') + ' ' + parts.join(' · '), totalWin, true);
-  if (totalWin > 0) winFX(totalWin);
-  fairTick();
-}
-/* نتيجة الجولة الجماعية من السيرفر (winners/total_paid) */
-function keResolveResult(result) {
-  if (result && result.winners !== undefined) {
-    /* عرض ملخص الجولة الجماعية فقط — تذكرتي سُجلت في keFinish (لا تكرار) */
-    gres('🏆 ' + T('grp.winners') + ': ' + result.winners + ' · ' + T('grp.totalPaid') + ': ' + fmt(result.total_paid) + ' 🪙', 0, true);
-  }
-}
-/* جولة جديدة: إعادة تعيين الاختيارات والتمكين */
-function keNewRound() {
-  kPicks = [];
-  kNumbers = [];
-  kDrawing = false;
-  kPlacedBets = [];
-  document.querySelectorAll('.kc').forEach(function (c) {
-    c.classList.remove('drawn', 'match', 'miss', 'sel', 'placed');
-  });
-  const c = document.getElementById('kCounter');
-  if (c) c.innerHTML = '🔢 <b>0</b>/10 ' + T('ke.sel');
-  const d = document.getElementById('kDraw');
-  if (d) d.disabled = false;
-}
-/* مزامنة حالة زر السحب مع نافذة الرهان الخادمية */
-function kePanelSync(status) {
-  const d = document.getElementById('kDraw');
-  if (!d) return;
-  if (kDrawing) { d.disabled = true; return; }
-  if (status === 'betting') { d.disabled = false; d.textContent = '🎯 ' + T('ke.draw'); }
-  else { d.disabled = true; d.textContent = '⏳ ' + T('grp.notBetting'); }
-}
-window.keReveal = keReveal;
-window.keResolveResult = keResolveResult;
-window.keNewRound = keNewRound;
-window.kePanelSync = kePanelSync;
-
-/* ═══════════ 28. Poker (اختر بطاقة) ═══════════ */
-let pkRunning = false;
-const PK_FACE = { 1.4: 'A♠', 1.6: 'K♥', 1.75: 'Q♦' };
-function ePoker(g) {
-  let cards = '';
-  for (let i = 0; i < 5; i++) cards += '<div class="pk-card idle"><img src="assets/cards/back.webp" alt="" draggable="false"><span class="pk-val">?</span></div>';
-  return gFrame(
-    '<div class="pk-hint">' + T('pk.hint') + '</div>' +
-    '<div class="pk-row" id="pkRow">' + cards + '</div>' +
-    '<div class="cr-status" id="pkResult"></div>' +
-    '<div class="bets"><button class="crBtn" id="pkBtn" onclick="pkGo()"><i class="fa-solid fa-clone" aria-hidden="true"></i> ' + T('pk.go') + '</button></div>' +
-    betRow(),
-    g
-  );
-}
-function pkGo() {
-  if (pkRunning) return;
-  if (!take()) return;
-  pkRunning = true;
-  const btn = document.getElementById('pkBtn');
-  if (btn) btn.disabled = true;
-  const vals = [1.4, 1.6, 1.75, 0, 0];
-  for (let i = vals.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [vals[i], vals[j]] = [vals[j], vals[i]]; }
-  const row = document.getElementById('pkRow');
-  row.innerHTML = '';
-  const res = document.getElementById('pkResult');
-  res.textContent = '';
-  res.className = 'cr-status';
-  const cards = [];
-  vals.forEach((v, idx) => {
-    const c = document.createElement('div');
-    c.className = 'pk-card';
-    c.innerHTML = '<img src="assets/cards/back.webp" alt="" draggable="false"><span class="pk-val">?</span>';
-    c.onclick = function () { pkPick(idx); };
-    row.appendChild(c);
-    cards.push(c);
-  });
-  function pkPick(idx) {
-    if (pkRunning !== true) return;
-    pkRunning = 'done';
-    cards.forEach((c, i) => c.onclick = null);
-    let delay = 0;
-    cards.forEach((c, i) => {
-      setTimeout(() => {
-        const v = vals[i];
-        c.classList.add(v > 0 ? 'gold' : 'red', 'revealed');
-        const face = v > 0 ? (PK_FACE[v] || 'A♠') : '2♣';
-        const faceR = face.slice(0, -1);
-        const faceS = face.slice(-1);
-        c.innerHTML = '<img src="assets/cards/' + faceR + '-' + suitKey(faceS) + '.webp" alt="" draggable="false"><span class="pk-val">' + (v > 0 ? '×' + v : '×0') + '</span>';
-      }, delay);
-      delay += 120;
-    });
-    setTimeout(() => {
-      const v = vals[idx];
-      cards[idx].classList.add('match');
-      const w = v > 0 ? Math.floor(GB * v) : 0;
-      give(w);
-      gres(v > 0 ? '×' + v + ' +' + fmt(w) + ' 🪙' : T('ts.lose'), w);
-      res.className = 'cr-status ' + (v > 0 ? 'win' : 'lose');
-      res.textContent = v > 0 ? T('pk.win') + ' ×' + v + ' +' + fmt(w) + ' 🪙' : T('pk.lose');
-      winFX(w);
-      fairTick();
-      pkRunning = false;
-      if (btn) btn.disabled = false;
-    }, delay + 350);
-  }
-}
-
-
 /* ═══════════ سجل المحركات ═══════════ */
 const ENG = {
   ronda: (typeof window.eRonda === 'function') ? window.eRonda : ((typeof eRonda === 'function') ? eRonda : null),
@@ -1174,14 +796,11 @@ const ENG = {
   get dominoes() { return (typeof window.eDominoes === 'function') ? window.eDominoes : null; },
   get baloot() { return (typeof window.eBaloot === 'function') ? window.eBaloot : null; },
   get uno() { return (typeof window.eUno === 'function') ? window.eUno : null; },
-  get crash() { return (typeof window.eCrash !== 'undefined') ? window.eCrash : null; },
   rami: (typeof window.eRami === 'function') ? window.eRami : ((typeof eRami === 'function') ? eRami : null),
   coin: (typeof window.eCoin === 'function') ? window.eCoin : ((typeof eCoin === 'function') ? eCoin : null),
   hilo: (typeof window.eHilo === 'function') ? window.eHilo : ((typeof eHilo === 'function') ? eHilo : null),
   rps: (typeof window.eRps === 'function') ? window.eRps : ((typeof eRps === 'function') ? eRps : null),
   pen: (typeof window.ePenalty === 'function') ? window.ePenalty : ((typeof ePenalty === 'function') ? ePenalty : null),
-  keno: (typeof window.eKeno === 'function') ? window.eKeno : ((typeof eKeno === 'function') ? eKeno : null),
-  poker: (typeof window.ePoker === 'function') ? window.ePoker : ((typeof ePoker === 'function') ? ePoker : null),
 };
 
 if (typeof window !== 'undefined') {

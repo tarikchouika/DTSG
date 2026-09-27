@@ -60,11 +60,11 @@ const OVERLAP_PROBE = `(() => {
   await page.waitForTimeout(2200);
 
   sec('1) زر 🚪 العائم في كل الألعاب — بلا تراكب');
-  const family = ['rm', 'rn', 'pr', 'ch', 'bg', 'do', 'dm', 'blbb', 'blsn', 'ke', 'av', 'rl', 'bj', 'poker'];
+  const family = ['rm', 'rn', 'pr', 'ch', 'bg', 'do', 'dm', 'blbb', 'blsn'];
   const accents = {};
   for (const gid of family) {
-    await page.evaluate((id) => { if (typeof cleanupCrash === 'function') cleanupCrash(); openGame(id); }, gid);
-    await page.waitForTimeout(gid === 'av' || gid === 'ke' ? 1500 : 700);
+    await page.evaluate((id) => { openGame(id); }, gid);
+    await page.waitForTimeout(700);
     const st = await page.evaluate((id) => {
       const lb = document.getElementById('gameLeaveBtn');
       const cs = lb ? getComputedStyle(lb) : null;
@@ -83,7 +83,7 @@ const OVERLAP_PROBE = `(() => {
     pairOk ? ok('  صف كروم يسار #gameFsExit (gap=' + Math.round(ov.pair.gap) + 'px)') : bad('  مكان خاطئ في ' + gid + ': ' + JSON.stringify(ov.pair));
     accents[gid] = st.ga;
   }
-  ok('لكل لعبة هويتها اللونية (rm≠blbb≠ke)', accents.rm !== accents.blbb && accents.blbb !== accents.ke && accents.rm !== accents.ke);
+  ok('لكل لعبة هويتها اللونية (rm≠blbb≠do)', accents.rm !== accents.blbb && accents.blbb !== accents.do && accents.rm !== accents.do);
 
   sec('2) البلياردو: لا يغطي كرات التدوير/الضلع/الشريط');
   await page.evaluate(() => { openGame('blbb'); });

@@ -61,15 +61,6 @@
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
   <!-- Icons: Font Awesome (أيقونات فنية موحّدة بدل الإيموجي) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-  <!-- Import Map for ES Modules (only for Three.js and Crash) -->
-  <script type="importmap">
-  {
-    "imports": {
-      "three": "/assets/vendor/three.module.min.js",
-      "/js/games/crash.js": "/js/games/crash.js"
-    }
-  }
-  </script>
   <!-- CSS Files -->
   <!-- [v2.26-merge] dtsg3: نسخة موحّدة فوق dtsg2 سام + تعديلاتنا (شارات المؤقت tl1 مدموجة في الملفات) -->
   <link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
@@ -160,10 +151,6 @@
         <span data-i18n="ui.rooms">غرف اللعب</span>
       </button>
       <div class="side-title" data-i18n="ui.tools">الأدوات</div>
-      <a class="nav-item" href="provably-fair.html" data-i18n="ui.fair">
-        <span class="ic" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
-        <span data-i18n="ui.fair">Provably Fair</span>
-      </a>
       <button class="nav-item" data-nav="admin" id="navAdmin" onclick="nav('admin', this)">
         <span class="ic" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></span>
         <span data-i18n="ui.admin">الإدارة</span>
@@ -171,7 +158,6 @@
       <div class="side-foot">
 <div class="sf-icons">
           <a class="sf-icon" href="2fa.html" data-i18n-title="ui.fb2fa" title="حماية الحساب 2FA" aria-label="حماية الحساب 2FA"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></a>
-          <a class="sf-icon" href="provably-fair.html" data-i18n-title="ui.fbFair" title="Provably Fair" aria-label="العدالة المشفرة"><i class="fa-solid fa-dice" aria-hidden="true"></i></a>
           <a class="sf-icon" href="fairness.html" data-i18n-title="ui.fbSecure" title="العدالة والشفافية" aria-label="العدالة والشفافية"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i></a>
           <a class="sf-icon" href="support.html" title="الدعم الفني وخدمة العملاء" aria-label="الدعم الفني وخدمة العملاء"><i class="fa-solid fa-headset" aria-hidden="true"></i></a>
         </div>
@@ -249,8 +235,6 @@
 
           <div class="shead" id="sheFeatured"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-star" aria-hidden="true"></i> <span data-i18n="ui.featured">ألعاب مميزة</span></div></div>
           <div class="grid g4" id="rowFeatured"></div>
-          <div class="shead" id="sheCrash"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-rocket" aria-hidden="true"></i> Crash</div></div>
-          <div class="grid g4" id="rowCrash"></div>
           <div class="shead" id="sheInstant"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-bolt" aria-hidden="true"></i> <span data-i18n="ui.instant">فورية</span></div></div>
           <div class="grid g4" id="rowInstant"></div>
 
@@ -286,7 +270,6 @@
           <div class="fbar" id="gameFilters" role="tablist" aria-label="تصفية الألعاب">
             <button class="fchip active" role="tab" aria-selected="true" onclick="filterG('all', this)" data-i18n="ui.all">الكل</button>
             <button class="fchip" role="tab" onclick="filterG('slots', this)"><i class="fa-solid fa-dice-d6" aria-hidden="true"></i> Slots</button>
-            <button class="fchip" role="tab" onclick="filterG('crash', this)"><i class="fa-solid fa-rocket" aria-hidden="true"></i> <span data-i18n="ui.crashCat">كراش</span></button>
             <button class="fchip" role="tab" onclick="filterG('instant', this)"><i class="fa-solid fa-bolt" aria-hidden="true"></i> <span data-i18n="ui.instant">فورية</span></button>
             <button class="fchip" role="tab" onclick="filterG('card', this)"><i class="fa-solid fa-clubs" aria-hidden="true"></i> <span data-i18n="ui.card">ورق</span></button>
             <button class="fchip" role="tab" onclick="filterG('casino', this)"><i class="fa-solid fa-dice" aria-hidden="true"></i> <span data-i18n="ui.casino">الطاولة والورق</span></button>
@@ -331,61 +314,6 @@
         <section class="page" id="pg-tourney" aria-labelledby="tourneyTitle">
           <div class="phead"><div class="ptitle" id="tourneyTitle"><div class="ibox"><i class="fa-solid fa-trophy" aria-hidden="true"></i></div> <span data-i18n="ui.weekly">البطولات الأسبوعية</span></div></div>
           <div class="grid g2" id="tourneyList"></div>
-        </section>
-        <!-- Provably Fair (أداة التحقق التفاعلية داخل التطبيق) -->
-        <section class="page" id="pg-fair" aria-labelledby="fairTitle">
-          <div class="phead">
-            <div class="ptitle" id="fairTitle"><div class="ibox"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></div> <span data-i18n="ui.fair">Provably Fair</span></div>
-            <div class="psub" data-i18n="ui.fairSub">تحقق محليًا من عدالة كل جولة — دون اتصال بالخادم</div>
-          </div>
-          <div class="card pf-tool" aria-labelledby="pf-tool-title">
-            <div class="ctitle" id="pf-tool-title"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <span data-i18n="fair.calcTitle">أداة التحقق التفاعلية (Provably Fair)</span></div>
-            <p class="ctext" data-i18n-html="fair.toolDesc">أدخل بذرة الخادم (Server Seed) وSeed اللاعب (Client Seed) ورقم الجولة (Nonce)، ثم اضغط «احسب» لاشتقاق تجزئة <code>HMAC-SHA256</code> والنتيجة محليًا عبر <code>SHA-256</code> — دون أي اتصال بالخادم.</p>
-
-            <div class="pf-field">
-              <label for="pf-server" data-i18n="fair.serverSeed">Seed الخادم (المفتاح السري)</label>
-              <input id="pf-server" type="text" spellcheck="false" placeholder="a1b2c3… (Server Seed)" autocomplete="off">
-            </div>
-            <div class="pf-field">
-              <label for="pf-client" data-i18n="fair.clientSeed">Seed اللاعب (مفتاحك الخاص)</label>
-              <input id="pf-client" type="text" spellcheck="false" placeholder="my-secret-seed (Client Seed)" autocomplete="off">
-            </div>
-            <div class="pf-field pf-field-inline">
-              <div>
-                <label for="pf-nonce" data-i18n="fair.nonce">رقم الجولة التسلسلي (Nonce)</label>
-                <input id="pf-nonce" type="number" min="0" step="1" value="0" spellcheck="false" autocomplete="off">
-              </div>
-              <div>
-                <label for="pf-game" data-i18n="fair.game">اللعبة</label>
-                <select id="pf-game">
-                  <option value="ke" data-i18n="fair.gameKeno">كينو (Keno)</option>
-                  <option value="av" data-i18n="fair.gameCrash">أفياتور / كراش (Crash)</option>
-                </select>
-              </div>
-            </div>
-            <div class="pf-actions">
-              <button id="pf-calc" class="btn ghost" type="button"><i class="fa-solid fa-calculator" aria-hidden="true"></i> <span data-i18n="fair.calcBtn">احسب النتيجة</span></button>
-            </div>
-            <div class="pf-field">
-              <label for="pf-hash" data-i18n="fair.hashResult">تجزئة HMAC-SHA256 الناتجة</label>
-              <textarea id="pf-hash" spellcheck="false" rows="2" readonly placeholder="HMAC-SHA256(serverSeed, clientSeed:nonce)"></textarea>
-            </div>
-            <div class="pf-field">
-              <label for="pf-outcome" data-i18n="fair.outcome">النتيجة المُشتقّة (JSON)</label>
-              <textarea id="pf-outcome" spellcheck="false" rows="3" placeholder='{"numbers":[3,17,42,...]}  أو  {"crash_at":1.97}'></textarea>
-            </div>
-            <div class="pf-actions">
-              <button id="pf-verify-btn" class="btn" type="button"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> <span data-i18n="fair.verifyBtn">تحقّق من العدالة</span></button>
-            </div>
-            <div id="pf-result" class="pf-result" role="status" aria-live="polite"></div>
-          </div>
-          <div class="card" style="margin-top:14px">
-            <div class="ctitle"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> <span data-i18n="fair.currentSession">بذور جلستك الحالية</span></div>
-            <div class="ctext" style="display:grid;gap:6px;grid-template-columns:max-content 1fr;align-items:center">
-              <span data-i18n="fair.hashedServer">تجزئة Seed الخادم</span><code id="hSeed" dir="ltr" style="word-break:break-all;color:var(--gold)">—</code>
-              <span data-i18n="fair.nonce">رقم الجولة التسلسلي (Nonce)</span><code id="nonceD" dir="ltr" style="word-break:break-all;color:var(--t1)">—</code>
-            </div>
-          </div>
         </section>
         <!-- غرف اللعب المفتوحة (مشاركة أو فرجة) -->
         <section class="page" id="pg-rooms" aria-labelledby="roomsTitle">
@@ -443,7 +371,7 @@
           </div>
         </section>
 
-        <!-- الصفحات القانونية: ملفات html مستقلة (about/terms/privacy/fairness/provably-fair/2fa/contact/admins) -->
+        <!-- الصفحات القانونية: ملفات html مستقلة (about/terms/privacy/fairness/2fa/contact/admins) -->
         <section class="page" id="pg-game" aria-labelledby="gamePageName">
           <div class="gp-head">
             <div class="gp-head-left">
@@ -495,7 +423,6 @@
             <a href="terms.html" data-i18n="legal.terms.link">شروط الاستخدام</a>
             <a href="privacy.html" data-i18n="legal.privacy.link">سياسة الخصوصية</a>
             <a href="fairness.html" data-i18n="legal.fairness.link">العدالة والشفافية</a>
-            <a href="provably-fair.html" data-i18n="legal.pf.link">Provably Fair</a>
             <a href="2fa.html" data-i18n="legal.2fa.link">حماية الحساب (2FA)</a>
             <a href="contact.html" data-i18n="legal.contact.link">تواصل معنا</a>
             <a href="refund-policy.html" data-i18n="legal.refund.link">سياسة الاسترداد وطرق الدفع</a>
@@ -865,12 +792,9 @@
   <script src="js/games/billiards-rules.js?v=dtsg6"></script>
   <script src="js/games/billiards.js?v=dtsg22"></script>
   <script src="js/games/engines.js?v=dtsg11"></script>
-  <script type="module" src="js/games/crash.js?v=dtsg6"></script>
   <script src="js/core/rooms.js?v=dtsg6"></script>
   <script src="js/main.js?v=dtsg18"></script>
   <script src="js/core/live.js?v=dtsg11"></script>
-  <script src="js/core/fair.js?v=dtsg6"></script>
-  <script src="js/games/group.js?v=dtsg6"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>
   <script src="js/wallet.js?v=pay11"></script>

@@ -37,12 +37,6 @@
     <priority>0.5</priority>
   </url>
   <url>
-    <loc>https://dtsg.pages.dev/provably-fair.html</loc>
-    <lastmod>2026-09-13</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.6</priority>
-  </url>
-  <url>
     <loc>https://dtsg.pages.dev/2fa.html</loc>
     <lastmod>2026-09-13</lastmod>
     <changefreq>monthly</changefreq>

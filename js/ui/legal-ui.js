@@ -12,7 +12,6 @@ privacy: 'ui.privacy',
 terms: 'ui.terms',
 admins: 'ui.admins',
 security: 'ui.security',
-pf: 'ui.pf',
 fairness: 'ui.fairness',
 '2fa': 'ui.security',
 transactions: 'ui.transactions',
@@ -55,10 +54,6 @@ return '<aside class="sidebar" id="sidebar" role="navigation" aria-label="الق
 '<span data-i18n="ui.rooms">غرف اللعب</span>' +
 '</a>' +
 '<div class="side-title" data-i18n="ui.tools">الأدوات</div>' +
-'<a class="nav-item" data-nav="fair" href="index.html#fair" onclick="nav(\'fair\', this); return false;">' +
-'<span class="ic" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>' +
-'<span data-i18n="ui.fair">Provably Fair</span>' +
-'</a>' +
 '<a class="nav-item" data-nav="admin" id="navAdmin" href="index.html#admin" style="display:none">' +
 '<span class="ic" aria-hidden="true"><i class="fa-solid fa-user-shield"></i></span>' +
 '<span data-i18n="ui.admin">الإدارة</span>' +
@@ -66,7 +61,6 @@ return '<aside class="sidebar" id="sidebar" role="navigation" aria-label="الق
 '<div class="side-foot">' +
 '<div class="sf-icons">' +
 '<a class="sf-icon" href="2fa.html" data-i18n-title="ui.fb2fa" title="2FA محمي"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></a>' +
-'<a class="sf-icon" href="provably-fair.html" data-i18n-title="ui.fbFair" title="Provably Fair"><i class="fa-solid fa-dice" aria-hidden="true"></i></a>' +
 '<a class="sf-icon" href="fairness.html" data-i18n-title="ui.fbSecure" title="العدالة والشفافية"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i></a>' +
 '</div>' +
 '</div>' +

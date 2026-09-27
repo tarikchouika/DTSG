@@ -136,161 +136,7 @@ var RoomDO = class {
     }
     return false;
   }
-  /* ═════════════ [GroupEngine] محرك الجولات الجماعية (كينو ke + كراش av) ═════════════
-     يعمل حصراً على نسخة global (المتصل بها كل الزوار عبر live-ws-bridge).
-     المصدر: نقل حرفي لمنطق server.js — نفس التوليد الحتمي (fair.js) ونفس الجدولة 90ث.
-     D1 هو مصدر الحقيقة؛ Alarms تدير الانتقالات؛ crashed_at يُستعمل مؤقتاً
-     كموعد نهاية السحب لجولات الكينو في طور drawing (عمود غير مستعمل لها). */
-  async grSha256(s) {
-    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(s)));
-    return bytesToHex(new Uint8Array(buf));
-  }
-  async grOutcome(seed, gameId) {
-    const h = async (i) => parseInt((await this.grSha256(seed + ":" + i)).slice(0, 8), 16);
-    if (gameId === "ke") {
-      const pool = [];
-      for (let n = 1; n <= 80; n++) pool.push(n);
-      for (let i = pool.length - 1; i > 0; i--) {
-        const j = (await h(i)) % (i + 1);
-        const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
-      }
-      return { numbers: pool.slice(0, 20) };
-    }
-    const u = Math.min((await h(1)) / 4294967295, 0.999999999);
-    return { crash_at: Math.max(1.02, 0.97 / (1 - u)) };
-  }
-  grFlightMs(crashAt) { return Math.log(crashAt) / 6e-5; }
-  grKenoPay(k, hits) {
-    const P = [null, [0, 3.8], [0, 1, 10], [0, 0, 3, 38], [0, 0, 1, 9, 100], [0, 0, 0, 4, 26, 448], [0, 0, 0, 2, 9, 85, 1324], [0, 0, 0, 0, 6, 39, 270, 4199], [0, 0, 0, 0, 3, 18, 98, 684, 8924], [0, 0, 0, 0, 0, 10, 63, 313, 2170, 28930], [0, 0, 0, 0, 0, 5, 28, 154, 794, 4205, 56061]];
-    const row = P[k];
-    return (row && row[hits]) || 0;
-  }
-  async grEnsure() {
-    if (this.roomId && this.roomId !== "global") return;
-    const cur = await this.state.storage.getAlarm();
-    if (cur !== null) return;
-    await this.grTick();
-  }
-  async alarm() {
-    try { await this.grTick(); } catch (e) {
-      /* لا يموت المحرك أبداً: إعادة محاولة بعد 10 ثوانٍ */
-      try { await this.state.storage.setAlarm(Date.now() + 10000); } catch (e2) {}
-    }
-  }
-  async grTick() {
-    const env = this.env;
-    const nexts = [];
-    for (const g of ["ke", "av"]) {
-      /* جولات نشطة مكررة/يتيمة (غير الأحدث): استرداد وإقفال صامت */
-      const dups = await dbAll(env, "SELECT id FROM group_rounds WHERE game_id = ? AND status IN ('betting','drawing','flying') AND id < (SELECT COALESCE(MAX(id),0) FROM group_rounds WHERE game_id = ? AND status IN ('betting','drawing','flying'))", [g, g]);
-      for (const d of dups) await this.grRefund(d.id);
-      let guard = 0;
-      let next = 0;
-      while (guard++ < 8) {
-        let r = await dbOne(env, "SELECT * FROM group_rounds WHERE game_id = ? AND status IN ('betting','drawing','flying') ORDER BY id DESC LIMIT 1", [g]);
-        if (!r) r = await this.grStartNext(g);
-        next = await this.grAdvance(g, r);
-        if (next > Date.now()) break;
-      }
-      nexts.push(next);
-    }
-    const t = Math.max(Math.min.apply(null, nexts), Date.now() + 250);
-    await this.state.storage.setAlarm(t);
-  }
-  async grAdvance(g, r) {
-    const env = this.env;
-    const now = Date.now();
-    let outcome = null;
-    try { outcome = JSON.parse(r.outcome); } catch (e) {}
-    if (!outcome) { await this.grRefund(r.id); return 0; }
-    if (r.status === "betting") {
-      if (now < r.bet_ends_at) return r.bet_ends_at;
-      /* جولة بائتة (خادم كان متوقفاً): استرداد صامت وبدء جولة جديدة */
-      if (now - r.bet_ends_at > 600000) { await this.grRefund(r.id); return 0; }
-      if (g === "ke") {
-        const ends = now + 5000;
-        await dbRun(env, "UPDATE group_rounds SET status = 'drawing', crashed_at = ? WHERE id = ?", [ends, r.id]);
-        this.broadcast("gr:ke", { type: "draw", round_no: r.round_no, numbers: outcome.numbers, phase_ends_at: ends });
-        return ends;
-      }
-      const started = now;
-      await dbRun(env, "UPDATE group_rounds SET status = 'flying', started_at = ? WHERE id = ?", [started, r.id]);
-      this.broadcast("gr:av", { type: "fly", round_no: r.round_no, started_at: started });
-      return started + this.grFlightMs(outcome.crash_at);
-    }
-    if (r.status === "drawing") {
-      const ends = r.crashed_at || 0;
-      if (now < ends) return ends;
-      await this.grResolveKe(r, outcome);
-      return 0;
-    }
-    if (r.status === "flying") {
-      const crashTs = (r.started_at || 0) + this.grFlightMs(outcome.crash_at || 1.02);
-      if (now < crashTs) return crashTs;
-      await this.grResolveAv(r, outcome);
-      return 0;
-    }
-    return 0;
-  }
-  async grStartNext(g) {
-    const env = this.env;
-    const row = await dbOne(env, "SELECT COALESCE(MAX(round_no),0) m FROM group_rounds WHERE game_id = ?", [g]);
-    const roundNo = ((row && row.m) || 0) + 1;
-    const sb = new Uint8Array(16);
-    crypto.getRandomValues(sb);
-    const seed = bytesToHex(sb);
-    const seedHash = await this.grSha256(seed);
-    const outcome = await this.grOutcome(seed, g);
-    const now = Date.now();
-    const betEnds = now + 90000;
-    await dbRun(env, "INSERT INTO group_rounds (game_id, round_no, status, seed, seed_hash, outcome, started_at, bet_ends_at, created_at) VALUES (?,?,?,?,?,?,?,?,?)", [g, roundNo, "betting", seed, seedHash, JSON.stringify(outcome), now, betEnds, Math.floor(now / 1000)]);
-    this.broadcast("gr:" + g, { type: "new", round_no: roundNo, bet_ends_at: betEnds, phase_ends_at: betEnds, seed_hash: seedHash });
-    return await dbOne(env, "SELECT * FROM group_rounds WHERE game_id = ? AND round_no = ? ORDER BY id DESC LIMIT 1", [g, roundNo]);
-  }
-  async grRefund(roundId) {
-    const env = this.env;
-    const bets = await dbAll(env, "SELECT * FROM group_bets WHERE round_id = ? AND won = 0 AND payout = 0 AND cashout_mult IS NULL", [roundId]);
-    for (const b of bets) {
-      await dbRun(env, "UPDATE users SET gold = gold + ? WHERE id = ?", [b.bet, b.user_id]);
-      await dbRun(env, "UPDATE group_bets SET won = 1, payout = bet WHERE id = ?", [b.id]);
-    }
-    await dbRun(env, "UPDATE group_rounds SET status = 'finished' WHERE id = ?", [roundId]);
-  }
-  async grResolveKe(r, outcome) {
-    const env = this.env;
-    const numbers = outcome.numbers || [];
-    const bets = await dbAll(env, "SELECT * FROM group_bets WHERE round_id = ?", [r.id]);
-    let totalPaid = 0;
-    const winners = [];
-    for (const b of bets) {
-      let payout = 0;
-      try {
-        const picks = JSON.parse(b.picks || "[]");
-        const hits = picks.filter((n) => numbers.indexOf(n) !== -1).length;
-        payout = Math.floor(b.bet * this.grKenoPay(picks.length, hits));
-      } catch (e) { payout = 0; }
-      await dbRun(env, "UPDATE group_bets SET won = ?, payout = ? WHERE id = ?", [payout > 0 ? 1 : 0, payout, b.id]);
-      if (payout > 0) {
-        await dbRun(env, "UPDATE users SET gold = gold + ? WHERE id = ?", [payout, b.user_id]);
-        totalPaid += payout;
-        winners.push({ username: b.username, payout });
-      }
-    }
-    await dbRun(env, "UPDATE group_rounds SET status = 'finished' WHERE id = ?", [r.id]);
-    this.broadcast("gr:ke", { type: "resolve", round_no: r.round_no, result: { winners: winners.length, winners_list: winners, total_paid: totalPaid } });
-  }
-  async grResolveAv(r, outcome) {
-    const env = this.env;
-    const bets = await dbAll(env, "SELECT * FROM group_bets WHERE round_id = ? AND won = 1", [r.id]);
-    let totalPaid = 0;
-    const winners = [];
-    for (const b of bets) {
-      totalPaid += b.payout;
-      winners.push({ username: b.username, mult: b.cashout_mult, payout: b.payout });
-    }
-    await dbRun(env, "UPDATE group_rounds SET status = 'finished', crashed_at = ? WHERE id = ?", [Date.now(), r.id]);
-    this.broadcast("gr:av", { type: "crash", round_no: r.round_no, crash_at: outcome.crash_at, result: { winners: winners.length, winners_list: winners, total_paid: totalPaid } });
-  }
+  /* [Group-Removal 2026-09-27] أزيل محرك الجولات الجماعية (كينو/كراش) من المنتج. */
   /* ═════════════ WebSocket الدخول ═════════════ */
   async fetch(req) {
     const url = new URL(req.url);
@@ -309,7 +155,6 @@ var RoomDO = class {
       const client = pair[0], server = pair[1];
       this.state.acceptWebSocket(server, [String(userId)]);
       if (this.roomId === "global") {
-        try { await this.grEnsure(); } catch (e) {}
         const online = this.state.getWebSockets().length;
         /* لا تُرسل أي سجل دردشة عامة — القناة العامة أزيلت من المنتج. */
         server.send(JSON.stringify({
@@ -337,14 +182,6 @@ var RoomDO = class {
     const data = await req.json().catch(() => ({}));
     if (p === "/broadcast-chat") {
       return Response.json({ ok: false, error: "removed" }, { status: 410 });
-    }
-    if (p === "/gr-ensure") {
-      try { await this.grEnsure(); } catch (e) {}
-      return Response.json({ ok: true });
-    }
-    if (p === "/gr-broadcast") {
-      this.broadcast(data.event, data.data);
-      return Response.json({ ok: true });
     }
     if (p === "/create") {
       this.roomId = data.id;
@@ -1105,132 +942,7 @@ var C = {
       const msg = { id: ins.meta ? ins.meta.last_row_id : null, sender_id: me.id, receiver_id: target.id, text, room_code: data.room_code || null, created_at: now };
       return _json({ ok: true, message: msg });
     }
-    /* ═══ [Group] الجولات الجماعية: كينو (ke) وكراش (av) — نقل حرفي لعقد server.js ═══ */
-    const grStub = /* @__PURE__ */ __name(() => env.ROOMS.get(env.ROOMS.idFromName("global")), "grStub");
-    const grEnsure = /* @__PURE__ */ __name(() => {
-      try { ctx.waitUntil(grStub().fetch("https://do/gr-ensure?rid=global", { method: "POST", body: "{}" })); } catch (e) {}
-    }, "grEnsure");
-    const grBroadcast = /* @__PURE__ */ __name(async (event, payload) => {
-      try { await grStub().fetch("https://do/gr-broadcast?rid=global", { method: "POST", body: JSON.stringify({ event, data: payload }) }); } catch (e) {}
-    }, "grBroadcast");
-    const grLatest = /* @__PURE__ */ __name((g) => dbOne(env, "SELECT * FROM group_rounds WHERE game_id = ? ORDER BY id DESC LIMIT 1", [g]), "grLatest");
-    let grm;
-    if ((grm = /^\/api\/games\/(ke|av)\/round$/.exec(p)) && method === "GET") {
-      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
-      grEnsure();
-      const g = grm[1];
-      const r = await grLatest(g);
-      if (!r) return _json({ ok: false, message: "\u0644\u0627 \u062C\u0648\u0644\u0629 \u0646\u0634\u0637\u0629 \u062D\u0627\u0644\u064A\u0627\u064B" }, 404);
-      let outcome = {};
-      try { outcome = JSON.parse(r.outcome || "{}"); } catch (e) {}
-      const pub = { game_id: g, round_no: r.round_no, status: r.status, bet_ends_at: r.bet_ends_at, seed_hash: r.seed_hash };
-      if (g === "ke") {
-        pub.phase_ends_at = r.status === "betting" ? r.bet_ends_at : r.crashed_at;
-        if (r.status === "drawing" || r.status === "finished") pub.numbers = outcome.numbers;
-      } else {
-        pub.phase_ends_at = r.status === "betting" ? r.bet_ends_at : null;
-        pub.started_at = r.status === "flying" ? r.started_at : null;
-        if (r.status === "finished") pub.crash_at = outcome.crash_at;
-      }
-      if (r.status === "finished") {
-        const wb = await dbAll(env, "SELECT username, cashout_mult, payout FROM group_bets WHERE round_id = ? AND won = 1", [r.id]);
-        let tp = 0;
-        for (const b of wb) tp += b.payout || 0;
-        pub.result = { winners: wb.length, winners_list: wb.map((b) => ({ username: b.username, mult: b.cashout_mult, payout: b.payout })), total_paid: tp };
-      }
-      const myBets = await dbAll(env, "SELECT bet, picks, cashout_mult, won, payout FROM group_bets WHERE round_id = ? AND user_id = ?", [r.id, me.id]);
-      const liveRows = await dbAll(env, "SELECT username, bet, picks, payout, created_at FROM group_bets WHERE round_id = ? ORDER BY id ASC LIMIT 20", [r.id]);
-      const live = liveRows.map((b) => {
-        let picks = null;
-        try { picks = b.picks ? JSON.parse(b.picks) : null; } catch (e) {}
-        return { username: b.username, amount: b.bet, picks, payout: b.payout || 0 };
-      });
-      return _json({ ok: true, round: pub, my_bets: myBets, live, gold: me.gold });
-    }
-    if (p === "/api/games/ke/bet" && method === "POST") {
-      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
-      grEnsure();
-      const data = await req.json().catch(() => ({}));
-      const r = await grLatest("ke");
-      if (!r || r.status === "finished") return _json({ ok: false, message: "\u0644\u0627 \u062C\u0648\u0644\u0629 \u0646\u0634\u0637\u0629 \u062D\u0627\u0644\u064A\u0627\u064B" }, 404);
-      if (r.status !== "betting" || Date.now() >= r.bet_ends_at) return _json({ ok: false, message: "\u0627\u0646\u062A\u0647\u0649 \u0648\u0642\u062A \u0627\u0644\u0631\u0647\u0627\u0646 \u2014 \u0627\u0646\u062A\u0638\u0631 \u0627\u0644\u062C\u0648\u0644\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629" }, 400);
-      const picksRaw = data.picks;
-      if (!Array.isArray(picksRaw) || picksRaw.length < 1 || picksRaw.length > 10) return _json({ ok: false, message: "\u0627\u062E\u062A\u0631 \u0645\u0646 1 \u0625\u0644\u0649 10 \u0623\u0631\u0642\u0627\u0645" }, 400);
-      const picks = [];
-      for (const v of picksRaw) {
-        const n = parseInt(v, 10);
-        if (!Number.isInteger(n) || n < 1 || n > 80 || picks.indexOf(n) !== -1) return _json({ ok: false, message: "\u0623\u0631\u0642\u0627\u0645 \u063A\u064A\u0631 \u0635\u0627\u0644\u062D\u0629 (1-80\u060C \u0628\u062F\u0648\u0646 \u062A\u0643\u0631\u0627\u0631)" }, 400);
-        picks.push(n);
-      }
-      const amount = parseInt(data.amount, 10);
-      if (!Number.isInteger(amount) || amount < 1 || amount > 1e8) return _json({ ok: false, message: "\u0645\u0628\u0644\u063A \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" }, 400);
-      /* [MultiBet] رهانات متعددة بنفس الجولة — لكن بأرقام مختلفة */
-      const prevBets = await dbAll(env, "SELECT picks FROM group_bets WHERE round_id = ? AND user_id = ?", [r.id, me.id]);
-      const used = {};
-      for (const pb of prevBets) {
-        try { JSON.parse(pb.picks || "[]").forEach((n) => { used[n] = 1; }); } catch (e) {}
-      }
-      for (const n of picks) {
-        if (used[n]) return _json({ ok: false, message: "\u0631\u0642\u0645 " + n + " \u0645\u0631\u0647\u0648\u0646 \u0639\u0644\u064A\u0647 \u0641\u064A \u0647\u0630\u0647 \u0627\u0644\u062C\u0648\u0644\u0629 \u2014 \u0627\u062E\u062A\u0631 \u0623\u0631\u0642\u0627\u0645\u0627\u064B \u0645\u062E\u062A\u0644\u0641\u0629" }, 400);
-      }
-      const res = await dbRun(env, "UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?", [amount, me.id, amount]);
-      if (!res.meta || !res.meta.changes) return _json({ ok: false, message: "\u0631\u0635\u064A\u062F \u063A\u064A\u0631 \u0643\u0627\u0641\u064D" }, 400);
-      const fresh = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [me.id]);
-      await dbRun(env, "INSERT INTO group_bets (round_id, user_id, username, bet, picks, created_at) VALUES (?,?,?,?,?,?)", [r.id, me.id, me.username, amount, JSON.stringify(picks), Math.floor(Date.now() / 1000)]);
-      ctx.waitUntil(grBroadcast("gr:ke", { type: "bet", round_no: r.round_no, username: me.username, amount, picks }));
-      return _json({ ok: true, gold: fresh.gold, round_no: r.round_no, amount });
-    }
-    if (p === "/api/games/av/bet" && method === "POST") {
-      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
-      grEnsure();
-      const data = await req.json().catch(() => ({}));
-      const r = await grLatest("av");
-      if (!r || r.status === "finished") return _json({ ok: false, message: "\u0644\u0627 \u062C\u0648\u0644\u0629 \u0646\u0634\u0637\u0629 \u062D\u0627\u0644\u064A\u0627\u064B" }, 404);
-      if (r.status !== "betting" || Date.now() >= r.bet_ends_at) return _json({ ok: false, message: "\u0627\u0646\u062A\u0647\u0649 \u0648\u0642\u062A \u0627\u0644\u0631\u0647\u0627\u0646 \u2014 \u0627\u0646\u062A\u0638\u0631 \u0627\u0644\u062C\u0648\u0644\u0629 \u0627\u0644\u062A\u0627\u0644\u064A\u0629" }, 400);
-      const amount = parseInt(data.amount, 10);
-      if (!Number.isInteger(amount) || amount < 1 || amount > 1e8) return _json({ ok: false, message: "\u0645\u0628\u0644\u063A \u063A\u064A\u0631 \u0635\u0627\u0644\u062D" }, 400);
-      const res = await dbRun(env, "UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?", [amount, me.id, amount]);
-      if (!res.meta || !res.meta.changes) return _json({ ok: false, message: "\u0631\u0635\u064A\u062F \u063A\u064A\u0631 \u0643\u0627\u0641\u064D" }, 400);
-      const fresh = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [me.id]);
-      await dbRun(env, "INSERT INTO group_bets (round_id, user_id, username, bet, created_at) VALUES (?,?,?,?,?)", [r.id, me.id, me.username, amount, Math.floor(Date.now() / 1000)]);
-      ctx.waitUntil(grBroadcast("gr:av", { type: "bet", round_no: r.round_no, username: me.username, amount }));
-      return _json({ ok: true, gold: fresh.gold, round_no: r.round_no, amount });
-    }
-    if (p === "/api/games/av/cashout" && method === "POST") {
-      if (!me) return _json({ ok: false, message: "\u064A\u0644\u0632\u0645 \u062A\u0633\u062C\u064A\u0644 \u0627\u0644\u062F\u062E\u0648\u0644" }, 401);
-      const r = await grLatest("av");
-      if (!r) return _json({ ok: false, message: "\u0644\u0627 \u062C\u0648\u0644\u0629 \u0646\u0634\u0637\u0629 \u062D\u0627\u0644\u064A\u0627\u064B" }, 404);
-      if (r.status !== "flying") return _json({ ok: false, message: "\u0627\u0644\u062C\u0648\u0644\u0629 \u0644\u064A\u0633\u062A \u0641\u064A \u0645\u0631\u062D\u0644\u0629 \u0627\u0644\u0637\u064A\u0631\u0627\u0646 \u0627\u0644\u0622\u0646" }, 400);
-      const bet = await dbOne(env, "SELECT * FROM group_bets WHERE round_id = ? AND user_id = ? AND cashout_mult IS NULL LIMIT 1", [r.id, me.id]);
-      if (!bet) return _json({ ok: false, message: "\u0644\u0627 \u064A\u0648\u062C\u062F \u0631\u0647\u0627\u0646 \u0646\u0634\u0637 \u0644\u0644\u0633\u062D\u0628" }, 400);
-      let outcome = {};
-      try { outcome = JSON.parse(r.outcome || "{}"); } catch (e) {}
-      const crashAt = outcome.crash_at || Infinity;
-      const mult = Math.exp(6e-5 * (Date.now() - r.started_at));
-      /* لا سحب بعد نقطة الانفجار الخادمية أبداً */
-      if (!isFinite(mult) || mult < 1 || crashAt !== Infinity && mult >= crashAt) return _json({ ok: false, message: "\u0627\u0646\u0641\u062C\u0631\u062A \u0627\u0644\u0637\u0627\u0626\u0631\u0629 \u0642\u0628\u0644 \u0627\u0644\u0633\u062D\u0628 \u2014 \u062D\u0638\u0627\u064B \u0623\u0648\u0641\u0631" }, 400);
-      const payout = Math.floor(bet.bet * mult);
-      const res = await dbRun(env, "UPDATE group_bets SET cashout_mult = ?, won = 1, payout = ? WHERE id = ? AND cashout_mult IS NULL", [mult, payout, bet.id]);
-      if (!res.meta || !res.meta.changes) return _json({ ok: false, message: "\u0644\u0627 \u064A\u0648\u062C\u062F \u0631\u0647\u0627\u0646 \u0646\u0634\u0637 \u0644\u0644\u0633\u062D\u0628" }, 400);
-      await dbRun(env, "UPDATE users SET gold = gold + ? WHERE id = ?", [payout, me.id]);
-      const fresh = await dbOne(env, "SELECT gold FROM users WHERE id = ?", [me.id]);
-      ctx.waitUntil(grBroadcast("gr:av", { type: "cashout", round_no: r.round_no, username: me.username, mult, payout }));
-      return _json({ ok: true, gold: fresh.gold, payout, mult, amount: bet.bet });
-    }
-    /* [Group] سجل الجولات المنتهية فقط — البذرة تُكشف بعد الانتهاء حصراً (Provably Fair) */
-    if (p.startsWith("/api/games/") && p.endsWith("/group-history")) {
-      const game = p.split("/")[3];
-      if (game !== "ke" && game !== "av") return _json({ ok: false, message: "\u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F" }, 404);
-      const rows = await dbAll(env, "SELECT * FROM group_rounds WHERE game_id = ? AND status = 'finished' ORDER BY id DESC LIMIT 10", [game]);
-      const out = [];
-      for (const r of rows) {
-        let outcome = null;
-        try { outcome = JSON.parse(r.outcome); } catch (e) {}
-        const agg = await dbOne(env, "SELECT COUNT(*) c, COALESCE(SUM(payout),0) p FROM group_bets WHERE round_id = ? AND won = 1", [r.id]);
-        out.push({ round_no: r.round_no, seed: r.seed, seed_hash: r.seed_hash, outcome, winners_count: agg ? agg.c : 0, total_paid: agg ? agg.p : 0, created_at: r.created_at });
-      }
-      return _json({ ok: true, rounds: out });
-    }
+    /* [Group-Removal 2026-09-27] أزيلت نقاط نهاية الجولات الجماعية (كينو/كراش) من المنتج. */
     if (p === "/api/tournaments") {
       return _json({ ok: true, tournaments: [] });
     }
@@ -1387,16 +1099,22 @@ var C = {
     /* ═══ [Admin] إحصاءات مالية لكل لعبة (من رهانات الجولات الجماعية) ═══ */
     if (p === "/api/admin/stats/games") {
       if (!me || me.role !== "admin" && me.role !== "super") return _json({ ok: false, message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" }, 403);
-      const rows = await dbAll(env, "SELECT r.game_id AS game_id, COUNT(b.id) AS plays, SUM(CASE WHEN b.won = 1 THEN 1 ELSE 0 END) AS wins, COALESCE(SUM(CASE WHEN b.won = 1 THEN b.payout ELSE 0 END),0) AS coins_won FROM group_bets b JOIN group_rounds r ON r.id = b.round_id GROUP BY r.game_id");
+      let rows = [];
+      try {
+        rows = await dbAll(env, "SELECT r.game_id AS game_id, COUNT(b.id) AS plays, SUM(CASE WHEN b.won = 1 THEN 1 ELSE 0 END) AS wins, COALESCE(SUM(CASE WHEN b.won = 1 THEN b.payout ELSE 0 END),0) AS coins_won FROM group_bets b JOIN group_rounds r ON r.id = b.round_id GROUP BY r.game_id");
+      } catch (e) {}
       return _json({ ok: true, games: rows.map((g) => ({ game_id: g.game_id, plays: g.plays || 0, wins: g.wins || 0, coins_won: g.coins_won || 0 })) });
     }
     if (p === "/api/admin/stats") {
       if (!me || me.role !== "admin" && me.role !== "super") return _json({ ok: false, message: "\u063A\u064A\u0631 \u0645\u0635\u0631\u062D" }, 403);
       const total = await dbOne(env, "SELECT COUNT(*) AS c FROM users");
       const active = await dbOne(env, "SELECT COUNT(*) AS c FROM users WHERE last_seen > ?", [Date.now() - 864e5]);
-      const plays = await dbOne(env, "SELECT COUNT(*) AS c FROM group_bets");
+      let plays = { c: 0 }, won = { s: 0 };
+      try {
+        plays = await dbOne(env, "SELECT COUNT(*) AS c FROM group_bets");
+        won = await dbOne(env, "SELECT COALESCE(SUM(payout),0) AS s FROM group_bets WHERE won = 1");
+      } catch (e) {}
       const goldT = me.role === "super" ? await dbOne(env, "SELECT COALESCE(SUM(gold),0) AS s FROM users") : { s: 0 };
-      const won = await dbOne(env, "SELECT COALESCE(SUM(payout),0) AS s FROM group_bets WHERE won = 1");
       return _json({ ok: true, users_total: total.c, active_today: active.c, plays_total: plays.c, gold_total: goldT.s, coins_won_total: won.s });
     }
     if (p === "/api/admin/register" && method === "POST") {

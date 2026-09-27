@@ -6,7 +6,7 @@ rm -rf $DST && mkdir -p $DST
 cd $SRC
 # الملفات والمجلدات العامة فقط
 cp -r js css assets $DST/ 2>/dev/null
-for f in index.html admins.html about.html contact.html 2fa.html provably-fair.html fairness.html \
+for f in index.html admins.html about.html contact.html 2fa.html fairness.html \
          manifest.json robots.txt sitemap.xml favicon.ico _headers _redirects; do
   [ -e "$f" ] && cp "$f" $DST/
 done

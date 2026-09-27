@@ -125,25 +125,25 @@ margin-bottom: 16px;
 <p data-k="fairness.transparencyBody">جميع قواعد كل لعبة مذكورة بوضوح في صفحة <a href="index.html#games">الألعاب</a>. لا توجد شروط خفية أو قواعد تتغير أثناء اللعب. ما تراه هو ما تحصل عليه.</p>
 
 <h2><i class="fa-solid fa-ban" aria-hidden="true"></i> <span data-k="fairness.noRiggingTitle">لا مجال للتلاعب</span></h2>
-<p data-k="fairness.noRiggingBody">باستخدام نظام <strong>Provably Fair</strong>، لا يمكن لأي شخص داخل المنصة ولا حتى لنا تعديل نتيجة جورة بعد بدئها. الخوارزمية تُقفل بمجرد انطلاق الجولة.</p>
+<p data-k="fairness.noRiggingBody">لا يمكن لأي شخص داخل المنصة ولا حتى لنا تعديل نتيجة جولة بعد بدئها. الخوارزمية تُقفل بمجرد انطلاق الجولة.</p>
 
 <h2><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i> <span data-k="fairness.auditTitle">تدقيق مستقل</span></h2>
 <p data-k="fairness.auditBody">نقوم بإجراء تدقيقات دورية على كل الألعاب من طرف خبراء مستقلين في التشفير. تقارير التدقيق تُنشر بانتظام وتظل متاحة للجميع.</p>
 
 <h2><i class="fa-solid fa-file-shield" aria-hidden="true"></i> <span data-k="fairness.commitmentTitle">التزامنا</span></h2>
 <ul>
-<li data-k="fairness.commit1">كل جولة يمكن التحقق منها محلياً</li>
+<li data-k="fairness.commit1">كل جولة تُدار بخوارزمية معلنة وقابلة للتدقيق</li>
 <li data-k="fairness.commit2">لا يوجد سيرفر يملك مفاتيح تغيير النتائج</li>
-<li data-k="fairness.commit3">ال seeds تُبدل تلقائياً بعد كل جولة</li>
+<li data-k="fairness.commit3">النتائج تُولّد بشكل مستقل عن إدارة المنصة</li>
 <li data-k="fairness.commit4">نشر تقارير التدقيق بشكل دوري</li>
 </ul>
 
 <div class="legal-note">
 <b data-k="fairness.noteTitle">ضمان العدالة</b><br>
-<span data-k="fairness.noteBody">إذا لم تكن مقتنعاً بالنتيجة، يمكنك دائماً التحقق منها باستخدام القيم المعروضة (Server Seed Hash، Client Seed، Nonce). العملية تتم كاملاً على جهازك ولا نحتاج لثقتنا.</span>
+<span data-k="fairness.noteBody">إذا لم تكن مقتنعاً بنتيجة، يمكنك دائماً مراجعة سجل جولاتك ومراسلتنا للتحقق والتدقيق. العملية تتم بالكامل بشفافية ولا تحتاج لثقة عمياء فينا.</span>
 </div>
 
-<p data-k="fairness.outro">لمزيد من التفاصيل التقنية، زر صفحة <a href="provably-fair.html">Provably Fair</a> أو <a href="contact.html">تواصل معنا</a>.</p>
+<p data-k="fairness.outro">لمزيد من التفاصيل التقنية، <a href="contact.html">تواصل معنا</a>.</p>
 
 <p><a class="btn ghost small" href="index.html"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> <span data-k="fairness.back">العودة للموقع</span></a></p>
 </main>
@@ -197,10 +197,10 @@ var D = {
         "en": "No Rigging"
     },
     "fairness.noRiggingBody": {
-        "ar": "باستخدام نظام <strong>Provably Fair</strong>، لا يمكن لأي شخص داخل المنصة ولا حتى لنا تعديل نتيجة جولة بعد بدئها. الخوارزمية تُقفل بمجرد انطلاق الجولة.",
-        "da": "بنظام <strong>Provably Fair</strong>، حتى واحد فالموقع ولا حتى حنا نقدرو نبدلو نتيجة الجولة من بعد ما تبدا.",
-        "fr": "Grâce au système <strong>Provably Fair</strong>, personne sur la plateforme, pas même nous, ne peut modifier le résultat d'une manche après son lancement. L'algorithme est verrouillé dès le début de la manche.",
-        "en": "Using the <strong>Provably Fair</strong> system, no one on the platform—not even us—can change a round result after it starts. The algorithm locks as soon as the round launches."
+        "ar": "لا يمكن لأي شخص داخل المنصة ولا حتى لنا تعديل نتيجة جولة بعد بدئها. الخوارزمية تُقفل بمجرد انطلاق الجولة.",
+        "da": "حتى واحد فالموقع ولا حتى حنا نقدرو نبدلو نتيجة الجولة من بعد ما تبدا.",
+        "fr": "Personne sur la plateforme, pas même nous, ne peut modifier le résultat d'une manche après son lancement. L'algorithme est verrouillé dès le début de la manche.",
+        "en": "No one on the platform—not even us—can change a round result after it starts. The algorithm locks as soon as the round launches."
     },
     "fairness.auditTitle": {
         "ar": "تدقيق مستقل",
@@ -221,10 +221,10 @@ var D = {
         "en": "Our Commitment"
     },
     "fairness.commit1": {
-        "ar": "كل جولة يمكن التحقق منها محلياً",
-        "da": "كل جولة يمكن التحقق منها محلياً",
-        "fr": "Chaque manche peut être vérifiée localement",
-        "en": "Every round can be verified locally"
+        "ar": "كل جولة تُدار بخوارزمية معلنة وقابلة للتدقيق",
+        "da": "كل جولة كتدار بخوارزمية معلنة وقابلة للتدقيق",
+        "fr": "Chaque manche est gérée par un algorithme déclaré et auditable",
+        "en": "Every round is governed by a declared and auditable algorithm"
     },
     "fairness.commit2": {
         "ar": "لا يوجد سيرفر يملك مفاتيح تغيير النتائج",
@@ -233,10 +233,10 @@ var D = {
         "en": "No server holds keys to change results"
     },
     "fairness.commit3": {
-        "ar": "البذور تُبدل تلقائياً بعد كل جولة",
-        "da": "البذور تُبدل تلقائياً بعد كل جولة",
-        "fr": "Les seeds sont automatiquement changées après chaque manche",
-        "en": "Seeds are automatically swapped after every round"
+        "ar": "النتائج تُولّد بشكل مستقل عن إدارة المنصة",
+        "da": "النتائج كتولد بشكل مستقل عن إدارة المنصة",
+        "fr": "Les résultats sont générés indépendamment de l'administration de la plateforme",
+        "en": "Results are generated independently of the platform administration"
     },
     "fairness.commit4": {
         "ar": "نشر تقارير التدقيق بشكل دوري",
@@ -251,16 +251,16 @@ var D = {
         "en": "Fairness Guarantee"
     },
     "fairness.noteBody": {
-        "ar": "إذا لم تكن مقتنعاً بالنتيجة، يمكنك دائماً التحقق منها باستخدام القيم المعروضة (Server Seed Hash، Client Seed، Nonce). العملية تتم كاملاً على جهازك ولا نحتاج لثقتنا.",
-        "da": "إذا لم تكن مقتنعاً بالنتيجة، يمكنك دائماً التحقق منها باستخدام القيم المعروضة (Server Seed Hash، Client Seed، Nonce). العملية تتم كاملاً على جهازك ولا نحتاج لثقتنا.",
-        "fr": "Si vous n'êtes pas convaincu du résultat, vous pouvez toujours le vérifier avec les valeurs affichées (Server Seed Hash, Client Seed, Nonce). L'opération s'effectue entièrement sur votre appareil et ne requiert aucune confiance envers nous.",
-        "en": "If you are not convinced by a result, you can always verify it using the displayed values (Server Seed Hash, Client Seed, Nonce). The process is completed entirely on your device and does not require any trust in us."
+        "ar": "إذا لم تكن مقتنعاً بنتيجة، يمكنك دائماً مراجعة سجل جولاتك ومراسلتنا للتحقق والتدقيق. العملية تتم بالكامل بشفافية ولا تحتاج لثقة عمياء فينا.",
+        "da": "إذا ما كنتش مقتنع بنتيجة، تقدر ديما تراجع سجل الجولات ديالك وتراسلنا للتحقق والتدقيق.",
+        "fr": "Si vous n'êtes pas convaincu d'un résultat, vous pouvez toujours consulter l'historique de vos manches et nous contacter pour vérification. Le processus est entièrement transparent et ne requiert aucune confiance aveugle.",
+        "en": "If you are not convinced by a result, you can always review your round history and contact us for verification. The process is fully transparent and does not require blind trust."
     },
     "fairness.outro": {
-        "ar": "لمزيد من التفاصيل التقنية، زر صفحة <a href=\"provably-fair.html\">Provably Fair</a> أو <a href=\"contact.html\">تواصل معنا</a>.",
-        "da": "لمزيد من التفاصيل التقنية، زر صفحة <a href=\"provably-fair.html\">Provably Fair</a> أو <a href=\"contact.html\">تواصل معنا</a>.",
-        "fr": "Pour plus de détails techniques, visitez la page <a href=\"provably-fair.html\">Provably Fair</a> ou <a href=\"contact.html\">contactez-nous</a>.",
-        "en": "For more technical details, visit the <a href=\"provably-fair.html\">Provably Fair</a> page or <a href=\"contact.html\">contact us</a>."
+        "ar": "لمزيد من التفاصيل التقنية، <a href=\"contact.html\">تواصل معنا</a>.",
+        "da": "لمزيد من التفاصيل التقنية، <a href=\"contact.html\">تواصل معنا</a>.",
+        "fr": "Pour plus de détails techniques, <a href=\"contact.html\">contactez-nous</a>.",
+        "en": "For more technical details, <a href=\"contact.html\">contact us</a>."
     },
     "fairness.back": {
         "ar": "العودة للموقع",

@@ -5,16 +5,15 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.57.0';
+window.DTSG_BUILD = 'v2.61.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
 const GAME_IMG = {
-  rn: 'ronda', rd: 'ronda', pr: 'parchisi', av: 'crash', mn: 'mines', pl: 'plinko',
+  rn: 'ronda', rd: 'ronda', pr: 'parchisi', mn: 'mines', pl: 'plinko',
   dc: 'dice', cf: 'coin-flip', hl: 'hi-lo', wf: 'wheel', sc: 'scratch',
   wg: 'wingo', rp: 'rock-paper', pn: 'football', l7: 'lucky-7', sb: 'sic-bo',
-  rl: 'roulette', bc: 'baccarat', dt: 'dragon', vp: 'poker',
-  ke: 'keno', sl: 'slot-spin', ab: 'andar-bahar',
+  rl: 'roulette', bc: 'baccarat', dt: 'dragon', sl: 'slot-spin', ab: 'andar-bahar',
   rm: 'rami',
   ch: 'chess', dm: 'dama',
   bg: 'backgammon', do: 'dominoes', bl: 'baloot', un: 'uno',
@@ -27,7 +26,6 @@ const GAME_IMG = {
   mahjong: 'mahjong',
   money: 'money',
   olympus: 'olympus',
-  poker: 'poker',
   rose: 'rose',
   'sweet-bonanza': 'sweet-bonanza'
 };
@@ -75,7 +73,6 @@ function tileHTML(g) {
 }
 function renderGames() {
   const featured = document.getElementById('rowFeatured');
-  const crash = document.getElementById('rowCrash');
   const instant = document.getElementById('rowInstant');
   const all = document.getElementById('allGames');
   const vis = g => !DISABLED[g.id];
@@ -92,14 +89,12 @@ function renderGames() {
   if (featured) {
     /* [BGDO] فهرس wf ثابت بالمعرف — إدراج الطاولة/الضومنة بعد blca أزاح كل ما بعده */
     const wfIdx = GAMES.findIndex(function (x) { return x.id === 'wf'; });
-    featured.innerHTML = [GAMES[0], GAMES[1], GAMES[2], GAMES[wfIdx >= 0 ? wfIdx : 17]]
+    const pnIdx = GAMES.findIndex(function (x) { return x.id === 'pn'; });
+    featured.innerHTML = [GAMES[0], GAMES[1], GAMES[2], GAMES[wfIdx >= 0 ? wfIdx : (pnIdx >= 0 ? pnIdx : 0)]]
       .filter(Boolean)
       .filter(vis)
       .map(tileHTML)
       .join('');
-  }
-  if (crash) {
-    crash.innerHTML = GAMES.filter(g => g.cat === 'crash').filter(vis).map(tileHTML).join('');
   }
   if (instant) {
     instant.innerHTML = GAMES.filter(g => g.cat === 'instant').filter(vis).slice(0, 8).map(tileHTML).join('');
@@ -108,7 +103,6 @@ function renderGames() {
     all.innerHTML = GAMES.filter(vis).map(tileHTML).join('');
   }
   hideIfEmpty('rowFeatured', 'sheFeatured');
-  hideIfEmpty('rowCrash', 'sheCrash');
   hideIfEmpty('rowInstant', 'sheInstant');
   if (typeof updateFilterChips === 'function') updateFilterChips();
 }
@@ -265,7 +259,7 @@ function openTcModal() {
   if (sel) {
     /* [Policy 2026-09-16] تُعاد التعبئة عند كل فتح — المعطلة تختفي
        [tourney-fix 2026-09-23] البطولات = ألعاب المواجهة 2+ فقط: المصدر roomGameIds (ألعاب الأونلاين)
-       ناقصة ما عطّله السوبر أدمن (DISABLED) — لا كينو/aviator/روليت (ليست مواجهة لاعبين). */
+       ناقصة ما عطّله السوبر أدمن (DISABLED) — ألعاب المواجهة فقط (لا روليت: ليست مواجهة لاعبين). */
     const roomIds = (typeof Rooms !== 'undefined' && Rooms.roomGameIds) ? Object.keys(Rooms.roomGameIds) : ['rn', 'rp', 'pn', 'pr', 'rm', 'rd', 'bj', 'dm', 'ch', 'bg', 'do', 'bl8', 'blbb', 'blgv', 'blsn', 'blca'];
     const allowed = roomIds.filter(function (id) { return !DISABLED[id]; });
     sel.innerHTML = GAMES.filter(function (g) { return allowed.indexOf(g.id) >= 0 && !DISABLED[g.id]; })
@@ -595,8 +589,7 @@ function initFor(eng) {
     plinko: (typeof initPlinko === 'function') ? initPlinko : null,
     wheel: (typeof initWheel === 'function') ? initWheel : null,
     hilo: (typeof initHilo === 'function') ? initHilo : null,
-    rl: (typeof initRoulette === 'function') ? initRoulette : null,
-    crash: (typeof window.initCrash === 'function') ? window.initCrash : null
+    rl: (typeof initRoulette === 'function') ? initRoulette : null
   };
   return map[eng] || null;
 }
@@ -612,8 +605,7 @@ function openGame(id) {
     return;
   }
   SND.click();
-  /* إغلاق أي مودال قديم أولاً — cleanupCrash() يجب أن يسبق initCrash()
-     وإلا صُفّر scene ثلاثي الأبعاد أثناء await التهيئة فيكسر لعبة Crash */
+  /* إغلاق أي مودال قديم أولاً قبل رسم اللعبة الجديدة */
   closeModal();
   window._currentGameId = id;
   setGameLeaveAccent(g);   /* [Leave] هوية كل لعبة في زر المغادرة + وسوم إتاحة */
@@ -636,7 +628,7 @@ function openGame(id) {
 
   /* استئناف الجولة المفتوحة: لألعاب الورق/اللوحة المحلية (متعددة الأدوار)
      نُجمّد حالة اللعبة عند الخروج ونعيدها كما هي عند العودة — دون بدء جولة جديدة.
-     (الألعاب الفورية كالكراش/الكينو لا تُستأنف: تُسجَّل نتائجها في السجل فقط) */
+     (الألعاب الفورية لا تُستأنف: تُسجَّل نتائجها في السجل فقط) */
   var RESUMABLE = ['rm', 'rn', 'bj', 'pr'];
   /* [PR-Sync] جولة غرفة جارية لنفس اللعبة: الاستئناف المجمّد يعرض لوحة قديمة متجمدة —
      يجب إعادة البناء الكاملة ليُعاد بناء الجولة من سجل الخادم (room:replay) */
@@ -682,10 +674,6 @@ function openGame(id) {
   if (id === 'rm' && typeof window.SessionResume !== 'undefined') {
     try { window.SessionResume.markRoundStart({ gameId: id }); } catch (e) {}
   }
-  /* اللعب الجماعي (كينو/كراش): تفعيل لوحة الجولة + السجل الحي */
-  if ((id === 'ke' || id === 'av') && typeof Group !== 'undefined') {
-    Group.activate(id);
-  }
   /* الشاشة الممتلئة افتراضياً عند فتح أي لعبة (على مستوى التطبيق):
      تُخفي هيدر اللعبة وسجل الجولات وتبقي محيط اللعبة وأزرارها + زر الخروج الذهبي العائم.
      نطلب أيضاً ملء شاشة المتصفح إن سُمح (للانغماس الكامل) ونتجاهل الرفض بصمت. */
@@ -719,14 +707,12 @@ function openGame(id) {
 const GAME_LEAVE_ACCENTS = {
   rami: '#c0392b', rn: '#d94f2b', ch: '#3f7d3f', bg: '#a16207', do: '#8b5e3c', dm: '#0d9488',
   bl8: '#1f8b4c', blbb: '#1f8b4c', blgv: '#1f8b4c', blca: '#1f8b4c', blsn: '#b91c1c',
-  bj: '#16a34a', poker: '#3b82f6', pk: '#3b82f6', rl: '#dc2626', keno: '#0ea5e9',
-  cr: '#f59e0b', slots: '#a855f7', money: '#a855f7', gates: '#a855f7', olympus: '#a855f7',
+  bj: '#16a34a', rl: '#dc2626', slots: '#a855f7', money: '#a855f7', gates: '#a855f7', olympus: '#a855f7',
   rose: '#a855f7', lightning: '#a855f7', crabbin: '#06b6d4', fishing: '#06b6d4',
   lottery: '#0ea5e9', mahjong: '#16a34a'
 };
 function gameLeaveAccent(g) {
   if (!g) return '#d9b45c';
-  if (g.eng === 'crash') return GAME_LEAVE_ACCENTS.cr;
   return GAME_LEAVE_ACCENTS[g.art] || GAME_LEAVE_ACCENTS[g.id] || '#d9b45c';
 }
 function setGameLeaveAccent(g) {
@@ -778,8 +764,6 @@ function closeGamePage() {
   if (fab) fab.style.display = 'none';
 
   stopGameHistory();
-  /* إيقاف لوحة الجولات الجماعية إن كانت نشطة */
-  if (typeof Group !== 'undefined') Group.deactivate();
   /* مغادرة صامتة لأي غرفة (الانضمام عبر زر الرجوع من صفحة اللعبة)
      [Persist] استثناء: جولة جماعية جارية — تبقى العضوية والجولة حية ليعود إليها
      اللاعب من صفحة اللعبة/الغرف/الرابط؛ الحركات تُعاد من سجل الخادم عند العودة. */
@@ -798,10 +782,6 @@ function closeGamePage() {
       Rooms.state.game_id === curId) keepLive = false;
 
   window._currentGameId = null;
-  /* تنظيف Crash إن كان نشطاً */
-  if (typeof cleanupCrash === 'function') {
-    cleanupCrash();
-  }
   /* تنظيف روندا الكلاسيكية (المحرك المستورد) عند مغادرة الصفحة */
   if (typeof cleanupRondaCard === 'function') {
     try { cleanupRondaCard(); } catch (e) { console.error('cleanupRondaCard error:', e); }
@@ -1066,12 +1046,6 @@ function closeModal() {
   if (gModal) {
     gModal.classList.remove('show');
   }
-  /* إيقاف لوحة الجولات الجماعية إن كانت نشطة */
-  if (typeof Group !== 'undefined') Group.deactivate();
-  /* تنظيف Crash إن كان نشطاً */
-  if (typeof cleanupCrash === 'function') {
-    cleanupCrash();
-  }
   window._currentGameId = null;
 }
 /* ═══════════ سجل الجولات الحي ═══════════ */
@@ -1318,82 +1292,6 @@ function renderLB() {
       '<div class="lcoins">🪙 ' + fmt(p[1]) + '</div>' +
       '</div>';
   }).join('');
-}
-/* ═══════════ Provably Fair ═══════════ */
-function renderFair() {
-  if (!ST.serverSeed) {
-    ST.serverSeed = Math.random().toString(36).slice(2, 18);
-  }
-  const hSeedEl = document.getElementById('hSeed');
-  const nonceEl = document.getElementById('nonceD');
-  if (hSeedEl) hSeedEl.textContent = simpleHash(ST.serverSeed);
-  if (nonceEl) nonceEl.textContent = ST.nonce;
-  /* سجّل معالجات الأداة التفاعلية مرة واحدة فقط */
-  if (!window.__pfInAppBound) {
-    window.__pfInAppBound = true;
-    bindInAppFairTool();
-  }
-}
-
-/* ── أداة التحقق التفاعلية (داخل التطبيق) — تعتمد على window.Fair (fair.js) ── */
-function bindInAppFairTool() {
-  var serverEl  = document.getElementById('pf-server');
-  var clientEl  = document.getElementById('pf-client');
-  var nonceEl   = document.getElementById('pf-nonce');
-  var gameEl    = document.getElementById('pf-game');
-  var hashEl    = document.getElementById('pf-hash');
-  var outEl     = document.getElementById('pf-outcome');
-  var verifyBtn = document.getElementById('pf-verify-btn');
-  var calcBtn   = document.getElementById('pf-calc');
-  var resEl     = document.getElementById('pf-result');
-  if (!serverEl || !verifyBtn || !calcBtn) return;
-  if (!window.Fair) return;
-
-  function showResult(cls, html) {
-    resEl.className = 'pf-result show ' + cls;
-    resEl.innerHTML = html;
-  }
-  function parseOutcome(text) {
-    try { return JSON.parse(text); } catch (e) { return null; }
-  }
-  function readInputs() {
-    return {
-      server: (serverEl.value || '').trim(),
-      client: (clientEl.value || '').trim(),
-      nonce:  (nonceEl.value || '0').trim(),
-      game:   gameEl ? gameEl.value : 'ke'
-    };
-  }
-
-  calcBtn.addEventListener('click', function () {
-    var i = readInputs();
-    if (!i.server || !i.client) { showResult('bad', (window.T ? T('fair.errMissing') : 'أدخل بذرة الخادم وSeed اللاعب.')); return; }
-    var seed = window.Fair.roundSeed(i.server, i.client, i.nonce);
-    if (hashEl) hashEl.value = seed;
-    var derived = window.Fair.outcome(i.server, i.client, i.nonce, i.game);
-    if (!derived) { showResult('bad', (window.T ? T('fair.errGame') : 'تعذّر حساب النتيجة لهذه اللعبة.')); return; }
-    if (outEl) outEl.value = JSON.stringify(derived);
-    showResult('ok', (window.T ? T('fair.computedOk') : '🧮 تم الحساب: ') + '<br>Hash: <code>' + seed + '</code><br>Outcome: <code>' + JSON.stringify(derived) + '</code>');
-  });
-
-  verifyBtn.addEventListener('click', function () {
-    var i = readInputs();
-    if (!i.server || !i.client) { showResult('bad', (window.T ? T('fair.errMissing') : 'أدخل بذرة الخادم وSeed اللاعب.')); return; }
-    var outcome = parseOutcome(outEl ? (outEl.value || '') : '');
-    if (outcome === null) {
-      showResult('bad', (window.T ? T('fair.errJson') : 'صيغة النتيجة غير صالحة — يجب أن تكون JSON.'));
-      return;
-    }
-    var expected = null;
-    try { expected = window.Fair.outcome(i.server, i.client, i.nonce, i.game); } catch (e) { expected = null; }
-    if (expected && JSON.stringify(expected) === JSON.stringify(outcome)) {
-      var validMsg = (window.T ? T('fair.valid') : '✅ النتيجة عادلة ومطابقة للتشفير بنسبة 100%');
-      showResult('ok', validMsg);
-    } else {
-      var expStr = expected ? '<code>' + JSON.stringify(expected) + '</code>' : '—';
-      showResult('bad', (window.T ? T('fair.mismatch') : '❌ النتيجة غير متطابقة.') + '<br>' + expStr);
-    }
-  });
 }
 /* ═══════════ لوحة الإدارة (حقيقية — من الـ API) ═══════════ */
 let ADMIN_TAB = 'users';
@@ -2428,7 +2326,7 @@ function renderTicker() {
   /* الأحداث الحية تضاف من SSE؛ عند الهدوء ندوّر مجموعة عروض رقمية كل 30 ثانية. */
   const fallback = [
     ['RondaMaster', 'Moroccan Ronda', 15240],
-    ['KingPlayer', 'Aviator', 5240],
+    ['KingPlayer', 'Snooker', 5240],
     ['LuckyGirl', 'Mines', 8900],
     ['ProGamer', 'Blackjack', 3200],
     ['GoldHunter', 'Plinko', 12500],
@@ -2519,7 +2417,6 @@ function renderAll() {
   renderHomeLive();
   renderLB();
   renderTourney();
-  renderFair();
   renderAdmin();
   renderPromotions(PROMO_DATA);
   renderTicker();
