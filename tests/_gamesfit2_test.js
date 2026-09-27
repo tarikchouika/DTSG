@@ -43,7 +43,8 @@ async function measure(page) {
     };
   });
 }
-const GAMES = ['rn', 'pr', 'sc', 'wg', 'bc', 'sl', 'ab', 'crabbin', 'l7', 'fishing', 'dt', 'pn', 'rp'];
+/* [v2.62] قائمة تتبع كتالوج الـ17 لعبة — الألعاب غير الكتالوجية (sc/wg/bc/sl/ab/crabbin/l7/fishing/dt) كانت تفشل بـtimeout */
+const GAMES = ['rn', 'pr', 'rd', 'dm', 'ch', 'bl', 'un', 'pn', 'rp'];
 (async () => {
   const results = [];
   for (const [label, vp] of [['mobile', { width: 390, height: 780, isMobile: true, hasTouch: true }], ['desktop', { width: 1280, height: 800 }]]) {

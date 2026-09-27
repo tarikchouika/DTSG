@@ -180,7 +180,52 @@ const SND = {
   /* قتل: ارتطام عميق + سقوط الضحية بنغمة هابطة */
   prCapture() { playTone(100, 0.13, 'sine', 0.22); playNoise(0.1, 0.11); playTone(600, 0.1, 'sawtooth', 0.07, 0.08); playTone(380, 0.12, 'sawtooth', 0.06, 0.18); playTone(220, 0.16, 'sawtooth', 0.05, 0.3); },
   /* إنهاء بيدق للدورة (الوصول للمركز): رنّة احتفالية صاعدة */
-  prFinish() { playChord([523, 659, 784, 1046], 0.32, 0.18); playTone(1318, 0.28, 'triangle', 0.09, 0.16); playTone(1568, 0.24, 'sine', 0.06, 0.3); }
+  prFinish() { playChord([523, 659, 784, 1046], 0.32, 0.18); playTone(1318, 0.28, 'triangle', 0.09, 0.16); playTone(1568, 0.24, 'sine', 0.06, 0.3); },
+
+  /* ══ [RPS-SND v2.62] حجر ورقة مقص — أصوات احترافية ══ */
+  /* نبضة العد التنازلي: نقرة ساعة حادة متصاعدة */
+  rpsCount(k) { var f = 620 + (k || 0) * 140; playTone(f, 0.07, 'square', 0.09); playTone(f * 1.5, 0.05, 'sine', 0.05, 0.02); },
+  /* لحظة «الآن!»: صافرة قصيرة + سووش كشف */
+  rpsShoot() { playTone(1480, 0.09, 'sine', 0.11); playTone(1480, 0.09, 'sine', 0.11, 0.12); for (var i = 0; i < 6; i++) playTone(400 + i * 180, 0.035, 'sine', 0.05, i * 0.03); },
+  /* كشف ورقة: سووش هوائي */
+  rpsReveal() { for (var i2 = 0; i2 < 5; i2++) playTone(900 - i2 * 120, 0.05, 'sine', 0.06, i2 * 0.035); playNoise(0.09, 0.05, 'pink'); },
+  /* حجر: طرقة صلبة عميقة */
+  rockThud() { playTone(110, 0.12, 'sine', 0.22); playTone(70, 0.16, 'sine', 0.14, 0.03); playNoise(0.06, 0.1); },
+  /* ورقة: حفيف هوائي خفيف */
+  paperSwish() { playNoise(0.12, 0.08, 'pink'); for (var i3 = 0; i3 < 4; i3++) playTone(1400 + i3 * 300, 0.03, 'sine', 0.03, i3 * 0.025); },
+  /* مقص: قصّتان معدنيتان حادتان */
+  scissorsSnip() { playTone(2400, 0.03, 'square', 0.08); playTone(1700, 0.04, 'square', 0.07, 0.04); playNoise(0.04, 0.05); playTone(2200, 0.03, 'square', 0.06, 0.1); },
+  /* فوز الجولة: فانفار صاعد لامع */
+  rpsWin() { playChord([523, 659, 784], 0.16, 0.16); playChord([659, 830, 1046], 0.22, 0.16, 0.12); playTone(1568, 0.3, 'triangle', 0.09, 0.24); },
+  /* خسارة الجولة: هبوط متدرج بارد */
+  rpsLose() { playTone(320, 0.16, 'sawtooth', 0.07); playTone(240, 0.2, 'sawtooth', 0.06, 0.12); playTone(160, 0.26, 'sawtooth', 0.05, 0.26); },
+  /* تعادل: نغمة محايدة مزدوجة */
+  rpsTie() { playTone(440, 0.12, 'triangle', 0.09); playTone(440, 0.14, 'triangle', 0.07, 0.16); },
+
+  /* ══ [PN-SND v2.62] ضربة الجزاء — أصوات استاد احترافية ══ */
+  /* صافرة الحكم: نغمة عالية مرتعشة (فايبراتو) */
+  pnWhistle() {
+    for (var i = 0; i < 14; i++) {
+      playTone(2100 + Math.sin(i * 1.9) * 260, 0.05, 'sine', 0.08, i * 0.045);
+    }
+    playTone(1980, 0.1, 'sine', 0.06, 0.1);
+  },
+  /* ركلة الكرة: طرقة عميقة + دفعة هواء */
+  pnKick() { playTone(140, 0.09, 'sine', 0.24); playTone(80, 0.14, 'sine', 0.16, 0.02); playNoise(0.07, 0.13); },
+  /* هدير الجمهور عند الهدف: موجة ضوضاء متصاعدة + كورد انتصار */
+  pnGoal() {
+    playNoise(0.85, 0.2, 'pink');
+    playChord([392, 494, 587, 784], 0.4, 0.14, 0.1);
+    playTone(880, 0.35, 'triangle', 0.1, 0.2);
+    playTone(1174, 0.3, 'sine', 0.08, 0.32);
+    setTimeout(function () { playNoise(0.5, 0.12, 'pink'); }, 500);
+  },
+  /* تصدي الحارس: لطمة قفاز متوسطة + ارتطام */
+  pnSave() { playTone(220, 0.1, 'triangle', 0.18); playNoise(0.1, 0.12); playTone(130, 0.14, 'sine', 0.13, 0.05); },
+  /* ارتطام بالقائم: رنّة معدنية */
+  pnPost() { playTone(620, 0.22, 'triangle', 0.14); playTone(940, 0.16, 'sine', 0.08, 0.02); playNoise(0.04, 0.06); },
+  /* شبكة المرمى عند الهدف: حفيف قماش */
+  pnNet() { playNoise(0.14, 0.09, 'pink'); for (var i4 = 0; i4 < 3; i4++) playTone(700 + i4 * 150, 0.04, 'sine', 0.04, i4 * 0.03); },
 };
 /* ── كتم / تشغيل الصوت ── */
 function syncMuteBtns() {

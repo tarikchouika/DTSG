@@ -1316,369 +1316,8 @@ canvas.game {
 @keyframes missFade {
   50% { transform: scale(0.88); }
 }
-/* ── Coin Flip 3D ── */
-.coin3d {
-  width: 132px;
-  height: 132px;
-  margin: 12px auto 8px;
-  position: relative;
-  perspective: 1200px;
-  transform-style: preserve-3d;
-}
-.coinFace {
-  box-shadow: inset 0 0 22px rgba(255, 255, 255, 0.5), 0 8px 26px rgba(0, 0, 0, 0.45), 0 0 22px rgba(242, 212, 137, 0.4);
-  border: 3px solid rgba(217, 180, 92, 0.65);
-}
-/* [DTSG] عملة المنصة الرسمية — وجه الأسد وضهر الشعار (800×800 متطابقان) */
-.coinFace.heads {
-  background: url('../assets/dtsg/coin-obverse.webp?v=229') center / cover no-repeat;
-}
-.coinFace.tails {
-  background: url('../assets/dtsg/coin-reverse.svg?v=229') center / cover no-repeat;
-}
-.cf-hint {
-  margin: 6px 0 4px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
-  border: 1px solid rgba(242, 212, 137, 0.35);
-  color: var(--txt2);
-  font-size: 0.82rem;
-  text-align: center;
-}
-#cFlipBtn:disabled,
-#cBtnHeads:disabled,
-#cBtnTails:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-}
-/* ── Rock Paper Scissors ── */
-.rps-hint {
-  margin: 6px 0 4px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
-  border: 1px solid rgba(242, 212, 137, 0.35);
-  color: var(--txt2);
-  font-size: 0.82rem;
-  text-align: center;
-}
-.rps-arena {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  margin: 14px auto 6px;
-}
-.rps-side {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.rps-side-tag {
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 3px 12px;
-  border-radius: 999px;
-  letter-spacing: 0.3px;
-}
-.rps-side-tag.you {
-  color: #7dd3fc;
-  background: rgba(56, 130, 246, 0.16);
-  border: 1px solid rgba(56, 130, 246, 0.45);
-}
-.rps-side-tag.opp {
-  color: #fda4af;
-  background: rgba(244, 63, 94, 0.14);
-  border: 1px solid rgba(244, 63, 94, 0.45);
-}
-.rps-card {
-  width: 96px;
-  height: 118px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 14px;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.09), rgba(255, 255, 255, 0.02));
-  border: 2px solid rgba(242, 212, 137, 0.5);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 0 18px rgba(242, 212, 137, 0.07);
-  transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
-}
-.rps-card-face {
-  font-size: 3.1rem;
-  line-height: 1;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
-}
-.rps-card.win {
-  border-color: rgba(52, 211, 153, 0.9);
-  box-shadow: 0 0 20px rgba(52, 211, 153, 0.55), inset 0 0 18px rgba(52, 211, 153, 0.12);
-  animation: rpsPop 0.45s var(--ease);
-}
-.rps-card.lose {
-  border-color: rgba(244, 63, 94, 0.9);
-  box-shadow: 0 0 20px rgba(244, 63, 94, 0.5), inset 0 0 18px rgba(244, 63, 94, 0.1);
-}
-.rps-card.tie {
-  border-color: rgba(148, 163, 184, 0.9);
-  box-shadow: 0 0 16px rgba(148, 163, 184, 0.4);
-}
-.rps-card.shaking {
-  animation: rpsShake 0.55s var(--ease) infinite;
-}
-@keyframes rpsShake {
-  0%, 100% { transform: rotate(0) translateX(0); }
-  25% { transform: rotate(-7deg) translateX(-4px); }
-  75% { transform: rotate(7deg) translateX(4px); }
-}
-@keyframes rpsPop {
-  40% { transform: scale(1.1); }
-}
-.rps-vs {
-  width: 44px;
-  height: 44px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  font-size: 0.85rem;
-  font-weight: 900;
-  color: #241b04;
-  background: linear-gradient(135deg, #d9b45c, #f2d489);
-  box-shadow: 0 0 18px rgba(242, 212, 137, 0.55);
-  animation: vsGlow 2.4s ease-in-out infinite;
-}
-@keyframes vsGlow {
-  0%, 100% { box-shadow: 0 0 12px rgba(242, 212, 137, 0.4); }
-  50% { box-shadow: 0 0 24px rgba(242, 212, 137, 0.75); }
-}
-.rps-picks {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin: 14px auto 6px;
-  flex-wrap: wrap;
-}
-.rpsBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  min-width: 86px;
-  padding: 12px 10px 9px;
-  border-radius: 14px;
-  cursor: pointer;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
-  border: 2px solid rgba(242, 212, 137, 0.45);
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
-}
-.rpsBtn:hover {
-  transform: translateY(-4px);
-  border-color: rgba(242, 212, 137, 0.95);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 14px rgba(242, 212, 137, 0.3);
-}
-.rpsBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-  filter: grayscale(0.6);
-}
-.rps-emoji {
-  font-size: 2.5rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.35));
-}
-.rps-label {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--txt2);
-}
-.rps-status {
-  min-height: 52px;
-  margin: 10px auto 2px;
-  text-align: center;
-  font-size: 1rem;
-  color: var(--txt2);
-  white-space: pre-line;
-  line-height: 1.6;
-}
-/* ── Penalty ── */
-.pn-hint {
-  margin: 6px 0 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
-  border: 1px solid rgba(242, 212, 137, 0.35);
-  color: var(--txt2);
-  font-size: 0.88rem;
-  text-align: center;
-}
-.pn-arena {
-  position: relative;
-  margin: 10px auto 4px;
-  perspective: 600px;
-}
-.pn-arena .goal {
-  position: relative;
-  width: 260px;
-  height: 140px;
-  margin: 0 auto;
-  border: 5px solid rgba(255, 255, 255, 0.92);
-  border-bottom: none;
-  background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.13) 0 2px, transparent 2px 14px),
-    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.13) 0 2px, transparent 2px 14px);
-  border-radius: 8px 8px 0 0;
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 8px 22px rgba(0, 0, 0, 0.4);
-  transition: box-shadow 0.35s var(--ease);
-}
-.goal .gpost {
-  position: absolute;
-  top: 0;
-  width: 9px;
-  height: 100%;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.55));
-  border-radius: 3px;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.35);
-}
-.goal .gpost.gl { left: -6px; }
-.goal .gpost.gr { right: -6px; }
-.goal .gnet {
-  position: absolute;
-  inset: 0;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.16) 1px, transparent 1px) 0 0 / 100% 14px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.16) 1px, transparent 1px) 0 0 / 16px 100%;
-  border-radius: 8px 8px 0 0;
-}
-.goal .keeper {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  margin-left: -0.6em;
-  transform: translateX(0) rotate(0deg);
-  font-size: 2.6rem;
-  z-index: 2;
-  transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.3, 1);
-  filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.5));
-}
-.goal .pball2 {
-  position: absolute;
-  bottom: 6px;
-  left: 50%;
-  margin-left: -0.5em;
-  transform: translateX(0) translateY(0);
-  font-size: 1.6rem;
-  z-index: 3;
-  transition: transform 0.4s var(--ease);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.55));
-}
-.pn-role {
-  margin: 8px auto 4px;
-  padding: 7px 16px;
-  width: fit-content;
-  border-radius: 999px;
-  font-weight: 800;
-  font-size: 0.95rem;
-  color: #d9b45c;
-  background: linear-gradient(135deg, rgba(242, 212, 137, 0.16), rgba(242, 212, 137, 0.05));
-  border: 1px solid rgba(242, 212, 137, 0.45);
-  box-shadow: 0 0 14px rgba(242, 212, 137, 0.12);
-  text-align: center;
-}
-.pn-picks {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin: 8px 0 4px;
-}
-.pnBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 26px;
-  border-radius: 14px;
-  cursor: pointer;
-  background: linear-gradient(145deg, var(--bg3), var(--bg2));
-  border: 2px solid rgba(242, 212, 137, 0.55);
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease), opacity 0.2s;
-}
-.pnBtn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  border-color: rgba(242, 212, 137, 0.95);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(242, 212, 137, 0.3);
-}
-.pnBtn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-.pnBtn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: grayscale(0.4);
-}
-.pn-arrow {
-  font-size: 2rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
-}
-.pn-dir {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #d9b45c;
-}
-/* ── 9 جهات (3×3): شبكة بدل الصف الواحد — نفس pnBtn مع تكيف الحشو والحجم.
-     direction:ltr يثبّت الشبكة بصرياً (↖ يسار الشاشة) حتى في الصفحة العربية RTL —
-     وإلا تنعكس الأعمدة ويظهر أعلى-اليسار في خانة اليمين البصرية ── */
-.pn-picks.nine {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  direction: ltr;
-  gap: 6px;
-  max-width: 330px;
-  margin: 0 auto;
-}
-.pn-picks.nine .pnBtn {
-  padding: 8px 4px;
-  font-size: 0.9rem;
-}
-.pn-picks.nine .pn-arrow {
-  font-size: 1.5rem;
-}
-.pn-picks.nine .pn-dir {
-  font-size: 0.62rem;
-}
-.pn-status {
-  min-height: 40px;
-  margin: 8px auto 2px;
-  text-align: center;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--txt2);
-  white-space: pre-line;
-  line-height: 1.6;
-}
-.pn-arena.pn-goal .goal {
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 34px rgba(52, 211, 153, 0.65);
-  animation: pnFlash 0.5s var(--ease);
-}
-.pn-arena.pn-saved .goal {
-  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(244, 63, 94, 0.6);
-  animation: pnFlashR 0.5s var(--ease);
-}
-@keyframes pnFlash {
-  0% { box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 0 rgba(52, 211, 153, 0); }
-  50% { box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 44px rgba(52, 211, 153, 0.85); }
-  100% { box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 30px rgba(52, 211, 153, 0.5); }
-}
-@keyframes pnFlashR {
-  0% { box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 0 rgba(244, 63, 94, 0); }
-  50% { box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 38px rgba(244, 63, 94, 0.8); }
-  100% { box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.45), 0 0 26px rgba(244, 63, 94, 0.45); }
-}
+/* [RPS+PN PRO v2.62] القسمان مُستبدلان في نهاية الملف بعد إزالة كوين فليب وهاي-لو */
+
 /* ── Lucky 7 ── */
 .l7-hint {
   margin: 6px 0 4px;
@@ -3035,90 +2674,6 @@ body.rami-game-open { overflow: hidden; }
   filter: grayscale(0.5);
 }
 
-/* ═══════════ Hi-Lo Cards ═══════════ */
-.hl-hint {
-  margin: 6px 0 4px;
-  padding: 9px 12px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
-  border: 1px solid rgba(242, 212, 137, 0.35);
-  color: var(--txt2);
-  font-size: 0.82rem;
-  text-align: center;
-}
-.hl-table {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 24px;
-  margin: 14px 0 10px;
-}
-.hl-side {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-.hl-tag {
-  font-size: 0.72rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--txt2);
-}
-.hl-card {
-  position: relative;
-  width: 96px;
-  height: 136px;
-  border-radius: 12px;
-  background: transparent;
-  border: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
-  display: block;
-  overflow: hidden;
-  transform-style: preserve-3d;
-  backface-visibility: hidden;
-}
-.hl-card .hl-img {
-  width: 100%;
-  height: 100%;
-  border-radius: 10px;
-  object-fit: cover;
-  display: block;
-}
-.hl-cur::after {
-  content: '';
-  position: absolute;
-  inset: -3px;
-  border-radius: 14px;
-  border: 1px solid rgba(242, 212, 137, 0.35);
-  pointer-events: none;
-  animation: hlPulseRing 1.8s ease-in-out infinite;
-}
-@keyframes hlPulseRing {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-.hl-vs {
-  font-size: 1.05rem;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  color: #f2d489;
-  text-shadow: 0 0 10px rgba(242, 212, 137, 0.8);
-}
-.hl-flip {
-  animation: hlFlip 0.45s var(--ease);
-}
-@keyframes hlFlip {
-  0% { transform: rotateY(90deg) scale(0.85); opacity: 0.4; }
-  60% { transform: rotateY(-8deg) scale(1.03); opacity: 1; }
-  100% { transform: rotateY(0deg) scale(1); }
-}
-#hHigh:disabled, #hLow:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  filter: grayscale(0.5);
-}
-
 /* ═══════════ Wingo Colors ═══════════ */
 .wg-hint {
   margin: 6px 0 4px;
@@ -3507,8 +3062,6 @@ body.rami-game-open { overflow: hidden; }
 @media (orientation: portrait) {
   /* الحاوية الرئيسية لكل لعبة كلاسيكية تتمدد لتملأ الفراغ المتبقي.
      shrink:0 ضروري — بدونه تنضغط الحاوية لصفر عندما يفيض الأشقاء */
-  #pg-game.app-fs #gamePageBody .stage:has(.hl-table) > .hl-table,
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > div:first-of-type,
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball {
@@ -3519,8 +3072,6 @@ body.rami-game-open { overflow: hidden; }
     align-items: center;
     justify-content: center;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.hl-table),
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d),
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
   #pg-game.app-fs #gamePageBody .stage:has(.pn-arena),
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) {
@@ -3528,36 +3079,6 @@ body.rami-game-open { overflow: hidden; }
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-  }
-  #pg-game.app-fs .stage .hl-table {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(18px, 6vw, 40px);
-    margin: 14px 0 10px;
-  }
-  #pg-game.app-fs .stage .hl-side {
-    gap: 10px;
-  }
-  #pg-game.app-fs .stage .hl-tag {
-    font-size: clamp(0.72rem, 1.6vh, 0.95rem);
-  }
-  #pg-game.app-fs .stage .hl-card {
-    width: clamp(96px, 30vw, 150px);
-    height: clamp(136px, 42vw, 212px);
-  }
-  #pg-game.app-fs .stage .hl-vs {
-    font-size: clamp(1.05rem, 2.2vh, 1.5rem);
-  }
-  /* ── Coin Flip: العملة تتمدد (مربع clamp) داخل حاجتها ── */
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > div:first-of-type {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-  }
-  #pg-game.app-fs .stage .coin3d {
-    width: clamp(132px, 38vw, 220px);
-    height: clamp(132px, 38vw, 220px);
   }
   /* ── RPS: بطاقات أكبر مع الحفاظ على بنية الصف ── */
   #pg-game.app-fs .stage .rps-arena {
@@ -3612,11 +3133,9 @@ body.rami-game-open { overflow: hidden; }
 }
 /* ── لاندسكيب: نفس التمدد مع أحجام أفقية معتدلة ── */
 @media (orientation: landscape) {
-  #pg-game.app-fs #gamePageBody .stage:has(.hl-table) > .hl-table,
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena,
-  #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball,
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > div:first-of-type {
+  #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball{
     flex: 1 1 auto;
     flex-shrink: 0;
     min-height: 0;
@@ -3624,30 +3143,13 @@ body.rami-game-open { overflow: hidden; }
     align-items: center;
     justify-content: center;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.hl-table),
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
   #pg-game.app-fs #gamePageBody .stage:has(.pn-arena),
-  #pg-game.app-fs #gamePageBody .stage:has(.wg-ball),
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) {
+  #pg-game.app-fs #gamePageBody .stage:has(.wg-ball){
     flex: 1 1 auto;
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-  }
-  #pg-game.app-fs .stage .hl-table {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(18px, 5vw, 40px);
-    margin: 8px 0 6px;
-  }
-  #pg-game.app-fs .stage .hl-card {
-    width: clamp(86px, 15vw, 130px);
-    height: clamp(120px, 21vw, 184px);
-  }
-  #pg-game.app-fs .stage .coin3d {
-    width: clamp(100px, 16vw, 160px);
-    height: clamp(100px, 16vw, 160px);
   }
   #pg-game.app-fs .stage .rps-arena {
     gap: clamp(12px, 4vw, 26px);
@@ -3688,7 +3190,6 @@ body.rami-game-open { overflow: hidden; }
 #pg-game.app-fs .stage:has(.dc-wrap),
 #pg-game.app-fs .stage:has(.bc-table),
 #pg-game.app-fs .stage:has(.ab-joker-box),
-#pg-game.app-fs .stage:has(.cf-wrap),
 #pg-game.app-fs .stage:has(.sl-wrap) {
   display: flex;
   flex-direction: column;
@@ -3698,7 +3199,6 @@ body.rami-game-open { overflow: hidden; }
 #pg-game.app-fs .stage:has(.dc-wrap) > .dc-wrap,
 #pg-game.app-fs .stage:has(.bc-table) > .bc-table,
 #pg-game.app-fs .stage:has(.ab-joker-box) > .ab-joker-box,
-#pg-game.app-fs .stage:has(.cf-wrap) > .cf-wrap,
 #pg-game.app-fs .stage:has(.sl-wrap) > .sl-wrap {
   flex: 1 1 auto;
   min-height: 0;
@@ -3727,12 +3227,6 @@ body.rami-game-open { overflow: hidden; }
 /* Andar Bahar: صندوق الجوكر والمجموعات */
 #pg-game.app-fs .stage .ab-joker-box { font-size: clamp(2.6rem, 9vh, 5rem); min-height: clamp(110px, 20vh, 190px); }
 #pg-game.app-fs .stage .ab-pile { font-size: clamp(1.6rem, 5.5vh, 3rem); }
-
-/* Coin Flip: عملة أكبر */
-#pg-game.app-fs .stage .cf-coin,
-#pg-game.app-fs .stage .coin3d { font-size: clamp(4rem, 15vh, 7.5rem); }
-#pg-game.app-fs .stage .cf-hint { font-size: clamp(0.95rem, 2.8vh, 1.3rem); }
-
 /* Slots: شبكة الرموز أكبر */
 #pg-game.app-fs .stage .sl-grid { font-size: clamp(2rem, 8vh, 4.6rem); }
 #pg-game.app-fs .stage .sl-cell { font-size: clamp(2rem, 8vh, 4.6rem); }#pg-game.app-fs .stage .fh-sea { min-height: clamp(120px, 24vh, 230px); font-size: clamp(2rem, 8vh, 4.5rem); }
@@ -3777,54 +3271,6 @@ body.rami-game-open { overflow: hidden; }
     flex: 1 1 auto;
     min-height: 0;
     margin-bottom: 0;
-  }
-
-  /* ── Coin Flip (cf): العملة والتلميح في العمود الأيسر، الرهان يميناً ──
-     قبل الإصلاح: vOv=551px (شاشة 911 داخل نافذة 360) + نصف الشاشة ميت.
-     ملاحظة: eCoin كان يضع width/height inline ثابتة تُبطل clamp() — أُزيلت. */
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) {
-    display: grid;
-    grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) auto;
-    gap: 8px;
-    padding: 8px;
-    align-content: stretch;
-    overflow: hidden;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .cf-wrap {
-    grid-column: 1;
-    grid-row: 1;
-    align-self: center;
-    justify-self: stretch;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-  }
-  #pg-game.app-fs .stage .coin3d {
-    width: clamp(96px, 24vh, 170px) !important;
-    height: clamp(96px, 24vh, 170px) !important;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .bets {
-    grid-column: 2;
-    margin: 0;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .bets:nth-of-type(2) {
-    grid-row: 1;
-    align-self: center;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .bets:first-of-type {
-    grid-row: 1;
-    align-self: center;
-    margin-top: 8px;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .res {
-    grid-column: 2;
-    grid-row: 2;
-    margin: 0;
-    padding: 4px 8px;
-    font-size: 0.85rem;
   }
 }/* ════════════════════════════════════════════════════════════════
    [Fit-4] لاندسكيب — إلغاء تراصّ العناصر في خلية واحدة (2026-09-04)
@@ -3967,28 +3413,6 @@ body.rami-game-open { overflow: hidden; }
   #pg-game.app-fs #gamePageBody .stage:has(.rl-stage) > .bets { grid-row: 2; align-self: center; }
   #pg-game.app-fs #gamePageBody .stage:has(.rl-stage) > .bets ~ .bets { grid-row: 3; align-self: center; }
   #pg-game.app-fs #gamePageBody .stage:has(.rl-stage) > .res { grid-column: 1; grid-row: 4; }
-
-  /* ── 10) العملة (cf): ثلاث .bets (اختيار/تنفيذ/رهان) كانت تتوزع خليتين
-     فقط — صف grid مستقل لكل واحدة (لا first/nth-of-type: cf-wrap div مثلها) ── */
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) {
-    grid-template-rows: minmax(0, 1fr) auto auto auto;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .cf-wrap { grid-row: 1 / -1; }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .bets {
-    grid-row: 1;
-    align-self: center;
-    margin: 0;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .bets ~ .bets {
-    grid-row: 2;
-    align-self: center;
-    margin-top: 0;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .bets ~ .bets ~ .bets {
-    grid-row: 3;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.coin3d) > .res { grid-row: 4; }
-
   /* ── 11) باكارا + دراغون تايغر (فجوة مؤكدة: لا كتلة لاندسكيب لهما أصلاً؛
      dt-table يحمل bc-table أيضاً فالمحدد يشملهما) — الطاولة يساراً بكامل
      الارتفاع، وأزرار الاختيار/التوزيع/الرهان صفوف منفصلة يميناً ── */
@@ -4152,12 +3576,7 @@ body.rami-game-open { overflow: hidden; }
 @media (orientation: portrait) {
   #pg-game.app-fs .stage .bc-cards { min-height: clamp(80px, 14vh, 160px); }
   #pg-game.app-fs .stage .bc-card { font-size: clamp(2rem, 6.5vh, 3.8rem); }
-  #pg-game.app-fs .stage .bc-table { min-height: 0; }  /* هاي-لو بورتريه: البطاقات كانت تُقص على الشاشات القصيرة */
-  #pg-game.app-fs .stage:has(.hl-table) { overflow-y: auto; }
-  #pg-game.app-fs .stage .hl-card {
-    width: clamp(70px, 24vw, 120px);
-    height: clamp(98px, 33vw, 168px);
-  }
+  #pg-game.app-fs .stage .bc-table { min-height: 0; }
 }
 
 /* ═══════════ [Tickets] لوحة سجل تيكيتس الرهانات — منسدلة ملء الشاشة ═══════════ */
@@ -4439,3 +3858,712 @@ body.rami-game-open { overflow: hidden; }
   box-shadow: 0 0 12px rgba(242, 212, 137, 0.5);
 }
 .dama-mini.dama-round:active { transform: scale(0.88); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   [v2.62 PRO] Rock Paper Scissors — حلبة مبارزة احترافية
+   spotlight مركزية، بطاقات فاخرة بقلب 3D، شارة عد تنازلي، عدّاد جلسة،
+   حالة win/lose/tie متوهجة — تُصمَّم لتتماشى مع أنماط ملء الشاشة القائمة
+   (.rps-arena/.rps-card/... أسماء محفوظة للتوافق مع القواعد الجاهزة).
+   ═══════════════════════════════════════════════════════════════════ */
+.rps-hint {
+  margin: 6px 0 4px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
+  border: 1px solid rgba(242, 212, 137, 0.35);
+  color: var(--txt2);
+  font-size: 0.82rem;
+  text-align: center;
+}
+.rps-arena {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  margin: 16px auto 6px;
+  padding: 18px 22px 12px;
+  border-radius: 20px;
+  /* أرضية الحلبة: بقع ضوء مسرحية + إطار ذهبي */
+  background:
+    radial-gradient(ellipse 62% 88% at 50% 38%, rgba(242, 212, 137, 0.1), transparent 70%),
+    radial-gradient(ellipse 120% 60% at 50% 108%, rgba(56, 130, 246, 0.12), transparent 72%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.22));
+  border: 1px solid rgba(242, 212, 137, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 34px rgba(0, 0, 0, 0.38);
+}
+.rps-arena::before {
+  /* خط أرضية المبارزة */
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  bottom: 6px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(242, 212, 137, 0.5), transparent);
+  pointer-events: none;
+}
+.rps-arena.dueling {
+  /* نبض الحلبة أثناء العد التنازلي */
+  animation: rpsArenaPulse 1.26s ease-in-out infinite;
+}
+@keyframes rpsArenaPulse {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 34px rgba(0, 0, 0, 0.38), 0 0 0 rgba(242, 212, 137, 0); }
+  50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 14px 34px rgba(0, 0, 0, 0.38), 0 0 26px rgba(242, 212, 137, 0.35); }
+}
+.rps-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+}
+.rps-side-tag {
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.3px;
+}
+.rps-side-tag.you {
+  color: #7dd3fc;
+  background: rgba(56, 130, 246, 0.16);
+  border: 1px solid rgba(56, 130, 246, 0.45);
+  box-shadow: 0 0 12px rgba(56, 130, 246, 0.22);
+}
+.rps-side-tag.opp {
+  color: #fda4af;
+  background: rgba(244, 63, 94, 0.14);
+  border: 1px solid rgba(244, 63, 94, 0.45);
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.2);
+}
+/* عدّاد نتيجة الجلسة تحت كل بطاقة */
+.rps-score-w {
+  min-width: 46px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  text-align: center;
+  transition: border-color 0.3s var(--ease), box-shadow 0.3s var(--ease);
+}
+.rps-score-w.lead {
+  border-color: rgba(52, 211, 153, 0.65);
+  box-shadow: 0 0 12px rgba(52, 211, 153, 0.3);
+}
+.rps-score {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--txt1);
+  font-variant-numeric: tabular-nums;
+}
+.rps-card {
+  width: 96px;
+  height: 118px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  position: relative;
+  background:
+    linear-gradient(150deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.03) 55%, rgba(0, 0, 0, 0.16)),
+    linear-gradient(180deg, var(--bg3), var(--bg2));
+  border: 2px solid rgba(242, 212, 137, 0.5);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 18px rgba(242, 212, 137, 0.06);
+  transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease), border-color 0.3s var(--ease), opacity 0.3s var(--ease), filter 0.3s var(--ease);
+  perspective: 700px;
+}
+.rps-card::after {
+  /* لمعة زجاجية علوية */
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 6%;
+  right: 6%;
+  height: 42%;
+  border-radius: 12px 12px 40% 40%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent);
+  pointer-events: none;
+}
+.rps-card-face {
+  font-size: 3.1rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.5));
+}
+/* العدّ التنازلي: نبض القبضة */
+.rps-card.counting {
+  animation: rpsPump 0.42s ease-in-out infinite;
+}
+@keyframes rpsPump {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-7px) rotate(-3deg); }
+}
+/* الكشف: قلب 3D بارتداد */
+.rps-card.reveal-pop {
+  animation: rpsReveal 0.5s cubic-bezier(0.2, 1.4, 0.4, 1);
+  transform-origin: center;
+}
+@keyframes rpsReveal {
+  0% { transform: rotateY(0deg) scale(0.82); }
+  55% { transform: rotateY(-96deg) scale(1.06); }
+  100% { transform: rotateY(0deg) scale(1); }
+}
+.rps-card.win {
+  border-color: rgba(52, 211, 153, 0.95);
+  box-shadow: 0 0 26px rgba(52, 211, 153, 0.55), 0 8px 22px rgba(0, 0, 0, 0.45), inset 0 0 20px rgba(52, 211, 153, 0.14);
+  animation: rpsPop 0.5s var(--ease);
+  z-index: 2;
+}
+.rps-card.lose {
+  border-color: rgba(244, 63, 94, 0.75);
+  box-shadow: 0 0 18px rgba(244, 63, 94, 0.4), inset 0 0 16px rgba(244, 63, 94, 0.1);
+  opacity: 0.78;
+  filter: saturate(0.7);
+  animation: rpsDim 0.45s var(--ease);
+}
+@keyframes rpsDim {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.94) rotate(2deg); }
+  100% { transform: scale(1); }
+}
+.rps-card.tie {
+  border-color: rgba(148, 163, 184, 0.9);
+  box-shadow: 0 0 16px rgba(148, 163, 184, 0.4);
+  animation: rpsPop 0.4s var(--ease);
+}
+@keyframes rpsPop {
+  40% { transform: scale(1.12); }
+}
+.rps-vs {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #241b04;
+  background: linear-gradient(135deg, #d9b45c, #f2d489);
+  box-shadow: 0 0 18px rgba(242, 212, 137, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  animation: vsGlow 2.4s ease-in-out infinite;
+  z-index: 2;
+}
+@keyframes vsGlow {
+  0%, 100% { box-shadow: 0 0 12px rgba(242, 212, 137, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+  50% { box-shadow: 0 0 26px rgba(242, 212, 137, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.5); }
+}
+.rps-arena.dueling .rps-vs {
+  animation: vsSpin 0.42s linear infinite;
+}
+@keyframes vsSpin {
+  0% { transform: rotate(0deg) scale(1); }
+  50% { transform: rotate(180deg) scale(1.08); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+/* شارة العد التنازلي فوق الحلبة */
+.rps-count {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 40px;
+  height: 40px;
+  padding: 0 10px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 1.15rem;
+  font-weight: 900;
+  color: #241b04;
+  background: linear-gradient(135deg, #f2d489, #d9b45c);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 16px rgba(242, 212, 137, 0.5);
+  z-index: 5;
+  pointer-events: none;
+}
+.rps-count.pop {
+  display: flex;
+  animation: rpsCountPop 0.38s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+@keyframes rpsCountPop {
+  0% { transform: translateX(-50%) scale(0.5); opacity: 0; }
+  60% { transform: translateX(-50%) scale(1.18); opacity: 1; }
+  100% { transform: translateX(-50%) scale(1); }
+}
+.rps-picks {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 14px auto 6px;
+  flex-wrap: wrap;
+}
+.rpsBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 92px;
+  padding: 13px 12px 10px;
+  border-radius: 16px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.02));
+  border: 2px solid rgba(242, 212, 137, 0.45);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: transform 0.2s var(--ease), border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.rpsBtn::before {
+  /* توهج سفلي عند التحويم */
+  content: '';
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: -40%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(242, 212, 137, 0.28), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+  pointer-events: none;
+}
+.rpsBtn:hover:not(:disabled) {
+  transform: translateY(-5px) scale(1.02);
+  border-color: rgba(242, 212, 137, 0.95);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 18px rgba(242, 212, 137, 0.3);
+}
+.rpsBtn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+.rpsBtn:active:not(:disabled) {
+  transform: translateY(-1px) scale(0.98);
+}
+.rpsBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  filter: grayscale(0.6);
+}
+.rps-emoji {
+  font-size: 2.6rem;
+  line-height: 1;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+  transition: transform 0.2s var(--ease);
+}
+.rpsBtn:hover:not(:disabled) .rps-emoji {
+  transform: scale(1.14) rotate(-4deg);
+}
+.rps-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--txt2);
+}
+.rps-status {
+  min-height: 52px;
+  margin: 10px auto 2px;
+  text-align: center;
+  font-size: 1rem;
+  color: var(--txt2);
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   [v2.62 PRO] Penalty Shootout — استاد كامل
+   جمهور بومضات كاميرات، مرمى بقائمين وعارضة معدنية وشبكة متموّجة،
+   عشب مخطط بمنظور، علامة جزاء، حارس يتراقص ثم يغوص، كرة بذيل طيران،
+   لافتة نتيجة عملاقة — أسماء .pn-arena/.goal/.keeper/.pball2 محفوظة
+   للتوافق مع قواعد ملء الشاشة الجاهزة.
+   ═══════════════════════════════════════════════════════════════════ */
+.pn-hint {
+  margin: 6px 0 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
+  border: 1px solid rgba(242, 212, 137, 0.35);
+  color: var(--txt2);
+  font-size: 0.88rem;
+  text-align: center;
+}
+.pn-arena {
+  position: relative;
+  margin: 8px auto 6px;
+  perspective: 700px;
+  border-radius: 18px 18px 0 0;
+  overflow: hidden;
+  /* سماء الاستاد الليلية */
+  background:
+    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(56, 130, 246, 0.16), transparent 65%),
+    linear-gradient(180deg, #0a1424 0%, #0d1c30 34%, #132a18 35%, #17402a 100%);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+/* جمهور: صفوف نقاط متلألئة + ومضات كاميرات عشوائية */
+.pn-crowd {
+  position: relative;
+  height: 54px;
+  background:
+    repeating-radial-gradient(circle at 12% 100%, rgba(255, 255, 255, 0.13) 0 1.6px, transparent 1.6px 9px),
+    repeating-radial-gradient(circle at 36% 100%, rgba(255, 255, 255, 0.1) 0 1.6px, transparent 1.6px 11px),
+    repeating-radial-gradient(circle at 62% 100%, rgba(255, 255, 255, 0.13) 0 1.6px, transparent 1.6px 9px),
+    repeating-radial-gradient(circle at 88% 100%, rgba(255, 255, 255, 0.1) 0 1.6px, transparent 1.6px 11px),
+    linear-gradient(180deg, rgba(6, 12, 22, 0.9), rgba(10, 20, 36, 0.72));
+  box-shadow: inset 0 -12px 22px rgba(0, 0, 0, 0.55);
+}
+.pn-crowd::after {
+  /* ومضات كاميرات الجمهور */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle 3px at 14% 34%, #fff 96%, transparent),
+    radial-gradient(circle 2px at 44% 62%, #ffe9b8 96%, transparent),
+    radial-gradient(circle 3px at 71% 28%, #fff 96%, transparent),
+    radial-gradient(circle 2px at 90% 55%, #cfe4ff 96%, transparent),
+    radial-gradient(circle 2px at 28% 74%, #ffe9b8 96%, transparent);
+  opacity: 0;
+  animation: pnCameraFlash 5.2s ease-out infinite;
+  pointer-events: none;
+}
+@keyframes pnCameraFlash {
+  0%, 100% { opacity: 0; }
+  6% { opacity: 1; }
+  9% { opacity: 0.1; }
+  31% { opacity: 0.9; }
+  34% { opacity: 0; }
+  58% { opacity: 0.75; }
+  61% { opacity: 0; }
+  82% { opacity: 0.95; }
+  85% { opacity: 0; }
+}
+.pn-arena.cheer .pn-crowd::after {
+  animation: pnCameraFlash 1.1s ease-out infinite;
+}
+.pn-arena.cheer .pn-crowd {
+  /* الجمهور يتوهج عند الهدف */
+  background:
+    repeating-radial-gradient(circle at 12% 100%, rgba(52, 211, 153, 0.22) 0 1.6px, transparent 1.6px 9px),
+    repeating-radial-gradient(circle at 36% 100%, rgba(255, 255, 255, 0.14) 0 1.6px, transparent 1.6px 11px),
+    repeating-radial-gradient(circle at 62% 100%, rgba(52, 211, 153, 0.22) 0 1.6px, transparent 1.6px 9px),
+    repeating-radial-gradient(circle at 88% 100%, rgba(255, 255, 255, 0.14) 0 1.6px, transparent 1.6px 11px),
+    linear-gradient(180deg, rgba(6, 18, 16, 0.9), rgba(10, 30, 26, 0.72));
+}
+.pn-arena .goal {
+  position: relative;
+  width: 270px;
+  height: 148px;
+  margin: 0 auto;
+  border: none;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 13px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 13px),
+    linear-gradient(180deg, rgba(8, 18, 32, 0.35), rgba(4, 10, 20, 0.6));
+  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.4);
+  transition: box-shadow 0.35s var(--ease);
+  z-index: 2;
+}
+.goal .gbar {
+  /* العارضة العلوية */
+  position: absolute;
+  top: -7px;
+  left: -6px;
+  right: -6px;
+  height: 9px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(200, 210, 220, 0.75) 60%, rgba(130, 142, 155, 0.9));
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 255, 255, 0.28);
+}
+.goal .gpost {
+  position: absolute;
+  top: -7px;
+  width: 9px;
+  height: calc(100% + 7px);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(190, 200, 212, 0.8) 55%, rgba(130, 142, 155, 0.95));
+  border-radius: 3px;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 2px 0 8px rgba(0, 0, 0, 0.4);
+}
+.goal .gpost.gl { left: -6px; }
+.goal .gpost.gr { right: -6px; }
+.goal .gnet {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px 10px 0 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.17) 1px, transparent 1px) 0 0 / 100% 14px,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.17) 1px, transparent 1px) 0 0 / 16px 100%;
+}
+/* تموّج الشبكة عند الهدف */
+.goal .gripple {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px 10px 0 0;
+  background:
+    linear-gradient(rgba(52, 211, 153, 0.3) 1.5px, transparent 1.5px) 0 0 / 100% 13px,
+    linear-gradient(90deg, rgba(52, 211, 153, 0.3) 1.5px, transparent 1.5px) 0 0 / 15px 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+.goal .gripple.wave {
+  animation: pnNetWave 0.9s var(--ease);
+}
+@keyframes pnNetWave {
+  0% { opacity: 0; transform: scale(1); }
+  25% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.06) skewX(-1.5deg); }
+}
+.goal.tense {
+  /* توهج المرمى أثناء الترقب (قبل الركلة) */
+  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(242, 212, 137, 0.35);
+}
+.goal .keeper {
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  margin-left: -0.6em;
+  transform: translateX(0) translateY(0) rotate(0deg);
+  font-size: 2.8rem;
+  z-index: 2;
+  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.55));
+  will-change: transform;
+}
+.goal .keeper.idle {
+  /* الحارس يتراقص على أصابعه قبل الركلة */
+  animation: pnKeeperIdle 0.9s ease-in-out infinite;
+}
+@keyframes pnKeeperIdle {
+  0%, 100% { transform: translateX(-5px) scale(1); }
+  25% { transform: translateX(4px) scale(1.03, 0.97); }
+  50% { transform: translateX(5px) scale(1); }
+  75% { transform: translateX(-4px) scale(1.03, 0.97); }
+}
+.goal .pball2 {
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  margin-left: -0.5em;
+  transform: translateX(0) translateY(0);
+  font-size: 1.7rem;
+  z-index: 3;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
+  will-change: transform;
+}
+.goal .pball2.flying {
+  /* ذيل الحركة: توهج مداري أثناء الطيران */
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 10px rgba(242, 212, 137, 0.55));
+}
+/* أرضية العشب: خطوط منظورية */
+.pn-grass {
+  position: relative;
+  height: 74px;
+  margin-top: -2px;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 14%, transparent 14% 30%, rgba(255, 255, 255, 0.045) 30% 44%, transparent 44% 60%, rgba(255, 255, 255, 0.045) 60% 74%, transparent 74% 88%, rgba(255, 255, 255, 0.045) 88% 100%),
+    linear-gradient(180deg, #1c4a2e 0%, #1a5c33 30%, #237040 100%);
+  box-shadow: inset 0 12px 26px rgba(0, 0, 0, 0.35);
+  transform: perspective(300px) rotateX(0deg);
+  z-index: 1;
+}
+/* علامة الجزاء */
+.pn-spot {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+  z-index: 1;
+}
+/* لافتة النتيجة العملاقة */
+.pn-banner {
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.6);
+  padding: 10px 34px;
+  border-radius: 14px;
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-align: center;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 6;
+  white-space: nowrap;
+  transition: opacity 0.25s var(--ease);
+}
+.pn-banner.show {
+  opacity: 1;
+  animation: pnBannerPop 0.55s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes pnBannerPop {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  55% { transform: translate(-50%, -50%) scale(1.14); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); }
+}
+.pn-banner.goal {
+  color: #b8ffe0;
+  background: linear-gradient(135deg, rgba(6, 78, 59, 0.92), rgba(6, 95, 70, 0.88));
+  border: 2px solid rgba(52, 211, 153, 0.9);
+  box-shadow: 0 0 34px rgba(52, 211, 153, 0.6), inset 0 0 22px rgba(52, 211, 153, 0.18);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+.pn-banner.saved {
+  color: #ffd3da;
+  background: linear-gradient(135deg, rgba(95, 14, 32, 0.92), rgba(120, 20, 40, 0.88));
+  border: 2px solid rgba(244, 63, 94, 0.85);
+  box-shadow: 0 0 30px rgba(244, 63, 94, 0.55), inset 0 0 22px rgba(244, 63, 94, 0.16);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
+}
+.pn-role {
+  margin: 10px auto 4px;
+  padding: 7px 16px;
+  width: fit-content;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.95rem;
+  color: #d9b45c;
+  background: linear-gradient(135deg, rgba(242, 212, 137, 0.16), rgba(242, 212, 137, 0.05));
+  border: 1px solid rgba(242, 212, 137, 0.45);
+  box-shadow: 0 0 14px rgba(242, 212, 137, 0.12);
+  text-align: center;
+}
+.pn-picks {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 4px;
+}
+.pnBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 26px;
+  border-radius: 14px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, var(--bg3), var(--bg2));
+  border: 2px solid rgba(242, 212, 137, 0.55);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease), opacity 0.2s;
+}
+.pnBtn::before {
+  content: '';
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  bottom: -42%;
+  height: 60%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.24), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.25s var(--ease);
+  pointer-events: none;
+}
+.pnBtn:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: rgba(242, 212, 137, 0.95);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(242, 212, 137, 0.3);
+}
+.pnBtn:hover:not(:disabled)::before {
+  opacity: 1;
+}
+.pnBtn:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
+.pnBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: grayscale(0.4);
+}
+.pn-arrow {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  transition: transform 0.2s var(--ease);
+}
+.pnBtn:hover:not(:disabled) .pn-arrow {
+  transform: scale(1.18);
+}
+.pn-dir {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #d9b45c;
+}
+/* ── 9 جهات (3×3): شبكة بدل الصف الواحد — نفس pnBtn مع تكيف الحشو والحجم.
+     direction:ltr يثبّت الشبكة بصرياً (↖ يسار الشاشة) حتى في الصفحة العربية RTL —
+     وإلا تنعكس الأعمدة ويظهر أعلى-اليسار في خانة اليمين البصرية ── */
+.pn-picks.nine {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  direction: ltr;
+  gap: 6px;
+  max-width: 330px;
+  margin: 0 auto;
+}
+.pn-picks.nine .pnBtn {
+  padding: 8px 4px;
+  font-size: 0.9rem;
+}
+.pn-picks.nine .pn-arrow {
+  font-size: 1.5rem;
+}
+.pn-picks.nine .pn-dir {
+  font-size: 0.62rem;
+}
+.pn-status {
+  min-height: 40px;
+  margin: 8px auto 2px;
+  text-align: center;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--txt2);
+  white-space: pre-line;
+  line-height: 1.6;
+}
+.pn-arena.pn-goal .goal {
+  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 34px rgba(52, 211, 153, 0.65);
+  animation: pnFlash 0.5s var(--ease);
+}
+.pn-arena.pn-saved .goal {
+  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 30px rgba(244, 63, 94, 0.6);
+  animation: pnFlashR 0.5s var(--ease);
+}
+@keyframes pnFlash {
+  0% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 0 rgba(52, 211, 153, 0); }
+  50% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 44px rgba(52, 211, 153, 0.85); }
+  100% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 30px rgba(52, 211, 153, 0.5); }
+}
+@keyframes pnFlashR {
+  0% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 0 rgba(244, 63, 94, 0); }
+  50% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 38px rgba(244, 63, 94, 0.8); }
+  100% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(244, 63, 94, 0.45); }
+}
+
+/* ═══ [v2.62 PRO] استجابة الاستاد: ضغط الجمهور/العشب حيث الشاشة قصيرة ═══ */
+@media (max-width: 400px) {
+  .pn-crowd { height: 40px; }
+  .pn-grass { height: 52px; }
+  .pn-arena .goal { width: 236px; height: 132px; }
+}
+@media (orientation: landscape) {
+  #pg-game.app-fs .stage .pn-crowd { height: 34px; }
+  #pg-game.app-fs .stage .pn-grass { height: 46px; }
+  #pg-game.app-fs .stage .pn-banner { font-size: 1.7rem; padding: 6px 24px; }
+}
+
+/* ═══ [v2.62 PRO-FS] تصحيح الاستاد في ملء الشاشة ═══
+   قواعد [Fill] القديمة (portrait 3386 + landscape 3459) كانت تجعل .pn-arena
+   صفاً أفقياً مركزاً (display:flex) لأن المرمى كان طفله الوحيد — الاستاد الجديد
+   (جمهور + مرمى + عشب + لافتة) يجب أن يتراصّ عمودياً. هذه القاعدة اللاحقة
+   بنفس النوعية تتغلب عليها مع إبقاء flex:1 1 auto من تلك القواعد (ملء الفراغ). */
+#pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena,
+#pg-game.app-fs .stage .pn-arena {
+  display: block;
+}

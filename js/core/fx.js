@@ -85,6 +85,22 @@ function flash() {
   void el.offsetWidth;
   el.classList.add('on');
 }
+/* ── [v2.62] وميض ملوّن مخصّص (هدف أخضر / تصدي أحمر) — عنصر مستقل لا يعتمد #flash ── */
+function flashColor(color) {
+  let el = document.getElementById('fxColorFlash');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'fxColorFlash';
+    el.style.cssText = 'position:fixed;inset:0;z-index:900;pointer-events:none;opacity:0;transition:opacity 0.45s ease;';
+    document.body.appendChild(el);
+  }
+  el.style.background = 'radial-gradient(circle at 50% 42%, ' + color + ' 0%, transparent 68%)';
+  el.style.transition = 'none';
+  el.style.opacity = '0.85';
+  void el.offsetWidth; /* إعادة تشغيل الانتقال */
+  el.style.transition = 'opacity 0.55s ease';
+  el.style.opacity = '0';
+}
 /* ── احتفال بالفوز ── */
 function celebrate(isBig) {
   if (isBig) {

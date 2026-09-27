@@ -5,13 +5,13 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.61.0';
+window.DTSG_BUILD = 'v2.62.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
 const GAME_IMG = {
   rn: 'ronda', rd: 'ronda', pr: 'parchisi', mn: 'mines', pl: 'plinko',
-  dc: 'dice', cf: 'coin-flip', hl: 'hi-lo', wf: 'wheel', sc: 'scratch',
+  dc: 'dice', wf: 'wheel', sc: 'scratch',
   wg: 'wingo', rp: 'rock-paper', pn: 'football', l7: 'lucky-7', sb: 'sic-bo',
   rl: 'roulette', bc: 'baccarat', dt: 'dragon', sl: 'slot-spin', ab: 'andar-bahar',
   rm: 'rami',
@@ -588,7 +588,6 @@ function initFor(eng) {
     uno: (typeof initUno === 'function') ? initUno : null,
     plinko: (typeof initPlinko === 'function') ? initPlinko : null,
     wheel: (typeof initWheel === 'function') ? initWheel : null,
-    hilo: (typeof initHilo === 'function') ? initHilo : null,
     rl: (typeof initRoulette === 'function') ? initRoulette : null
   };
   return map[eng] || null;

@@ -9,7 +9,7 @@ const BASE = 'http://localhost:3000/';
   await p.goto(BASE, { waitUntil: 'domcontentloaded' });
   await p.waitForFunction(() => !!(typeof AUTH !== 'undefined' && AUTH.user));
   const r = await p.evaluate(async () => {
-    openGame('cf');
+    openGame('rp');
     await new Promise(r2 => setTimeout(r2, 400));
     const gid0 = window._currentGameId;
     gres('خسارة تجريبية', 0);           /* المنصة تربح الرهان */
@@ -20,7 +20,7 @@ const BASE = 'http://localhost:3000/';
     return { gid0, row, rounds: st.rounds };
   });
   console.log(JSON.stringify(r));
-  const ok = r.gid0 === 'cf' && r.row && r.row.win === 10 && r.row.lose === 10 && r.row.count === 2;
+  const ok = r.gid0 === 'rp' && r.row && r.row.win === 10 && r.row.lose === 10 && r.row.count === 2;
   console.log(ok ? 'LEDGER HOOK OK' : 'LEDGER HOOK MISMATCH');
   await b.close();
   process.exit(ok ? 0 : 1);

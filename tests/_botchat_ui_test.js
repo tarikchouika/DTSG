@@ -201,7 +201,7 @@ async function newPage(browser, w, h) {
     const { page, ctx } = await newPage(browser, 412, 915);
     await page.goto(BASE + '/index.html', { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(3000);
-    await page.evaluate(() => { try { openGame('hl'); } catch (e) { } });
+    await page.evaluate(() => { try { openGame('rp'); } catch (e) { } });
     await page.waitForTimeout(2500);
     const g = await page.evaluate(() => {
       const f = document.getElementById('botFab');

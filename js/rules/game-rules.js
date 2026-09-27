@@ -763,77 +763,6 @@ rn: {
       en: '<tr><td>Win (2 players)</td><td>×1.9 bet</td></tr><tr><td>Win (3 players)</td><td>×2.85 bet</td></tr><tr><td>Win (4 players)</td><td>×3.8 bet</td></tr><tr><td>Loss</td><td>Lose bet</td></tr>'
     },
   },
-  /* ═══ Coin Flip 3D ═══ */
-  cf: {
-    name: { ar: 'قلب العملة 3D', fr: 'Coin Flip 3D', en: 'Coin Flip 3D' },
-    goal: {
-      ar: 'اختر وجه العملة أو كتابتها. إذا طابق اختيارك النتيجة بعد الدوران، تربح!',
-      fr: 'Choisissez pile ou face. Si votre choix correspond après la rotation, vous gagnez !',
-      en: 'Pick heads or tails. If your choice matches after the spin, you win!'
-    },
-    steps: {
-      ar: [
-        'اختر "🪙 Heads" أو "Tails"',
-        'اضغط على اختيارك لقلب العملة',
-        'العملة تدور 3D وتستقر على وجه عشوائي',
-        'تطابق الاختيار = ربح ×1.95'
-      ],
-      fr: [
-        'Choisissez "🪙 Heads" ou "Tails"',
-        'Cliquez pour lancer la pièce',
-        'La pièce tourne en 3D et retombe sur une face aléatoire',
-        'Correspondance = gain ×1.95'
-      ],
-      en: [
-        'Choose "🪙 Heads" or "Tails"',
-        'Click to flip the coin',
-        'The coin spins in 3D and lands on a random face',
-        'Match = win ×1.95'
-      ]
-    },
-    payouts: {
-      ar: '<tr><td>تطابق الوجه المختار</td><td>×1.95</td></tr><tr><td>عدم التطابق</td><td>خسارة الرهان</td></tr>',
-      fr: '<tr><td>Face choisie</td><td>×1.95</td></tr><tr><td>Pas de correspondance</td><td>Perte du pari</td></tr>',
-      en: '<tr><td>Chosen side matches</td><td>×1.95</td></tr><tr><td>No match</td><td>Lose bet</td></tr>'
-    },
-  },
-  /* ═══ Hi-Lo Cards ═══ */
-  hl: {
-    name: { ar: 'هاي لو كاردز', fr: 'Hi-Lo Cartes', en: 'Hi-Lo Cards' },
-    goal: {
-      ar: 'خمّن ما إذا كانت البطاقة التالية أعلى أم أقل من البطاقة الحالية.',
-      fr: 'Devinez si la carte suivante est plus haute ou plus basse que la carte actuelle.',
-      en: 'Guess whether the next card is higher or lower than the current card.'
-    },
-    steps: {
-      ar: [
-        'تظهر بطاقة البداية تلقائياً عند فتح اللعبة',
-        'اضغط "أعلى" أو "أقل" لتوقع البطاقة التالية',
-        'تُسحب بطاقة جديدة من المجموعة',
-        'تساوي القيم = تعادل (استرداد الرهان)',
-        'تخمين صحيح = ربح ×1.9'
-      ],
-      fr: [
-        'La carte de départ est distribuée automatiquement à l\'ouverture',
-        'Cliquez sur "Plus haut" ou "Plus bas" pour prédire',
-        'Une nouvelle carte est tirée du jeu',
-        'Valeurs égales = égalité (pari remboursé)',
-        'Bonne prédiction = gain ×1.9'
-      ],
-      en: [
-        'The starting card is dealt automatically when the game opens',
-        'Click "Higher" or "Lower" to predict the next card',
-        'A new card is drawn from the deck',
-        'Equal values = push (bet refunded)',
-        'Correct guess = win ×1.9'
-      ]
-    },
-    payouts: {
-      ar: '<tr><td>تخمين صحيح</td><td>×1.9</td></tr><tr><td>تعادل (نفس القيمة)</td><td>استرداد</td></tr><tr><td>تخمين خاطئ</td><td>خسارة الرهان</td></tr>',
-      fr: '<tr><td>Bonne prédiction</td><td>×1.9</td></tr><tr><td>Égalité (même valeur)</td><td>Remboursé</td></tr><tr><td>Mauvaise prédiction</td><td>Perte du pari</td></tr>',
-      en: '<tr><td>Correct guess</td><td>×1.9</td></tr><tr><td>Push (same value)</td><td>Refund</td></tr><tr><td>Wrong guess</td><td>Lose bet</td></tr>'
-    },
-  },
   /* ═══ Rock Paper Scissors ═══ */
   rp: {
     name: { ar: 'حجر ورقة مقص', fr: 'Pierre Papier Ciseaux', en: 'Rock Paper Scissors' },
@@ -845,6 +774,7 @@ rn: {
     steps: {
       ar: [
         'اختر ✊ حجر أو ✋ ورقة أو ✌️ مقص',
+        'عدّ تنازلي 3-2-1 مع نبض البطاقتين ثم كشف متزامن بقلب 3D',
         'الحاسوب يختار عشوائياً في نفس اللحظة',
         'قارن الاختيارين حسب القاعدة',
         'فوز = ×1.95، تعادل = استرداد، خسارة = خسارة الرهان'
@@ -872,40 +802,40 @@ rn: {
   pn: {
     name: { ar: 'ركلات الترجيح', fr: 'Penalty Shootout', en: 'Penalty Shootout' },
     goal: {
-      ar: 'سجّل ركلة الجزاء: اختر الاتجاه بينما يغوص الحارس. جهة مختلفة عن الحارس = هدف ×1.45!',
-      fr: 'Marquez le penalty : choisissez la direction pendant que le gardien plonge. Direction différente du gardien = but ×1.45 !',
-      en: 'Score the penalty: pick a direction while the keeper dives. A different direction from the keeper = goal ×1.45!'
+      ar: 'سجّل ركلة الجزاء: اختر واحدة من 9 جهات بينما يغوص الحارس. جهة مختلفة عن الحارس = هدف ×1.08!',
+      fr: 'Marquez le penalty : choisissez l\'une des 9 directions pendant que le gardien plonge. Direction différente du gardien = but ×1,08 !',
+      en: 'Score the penalty: pick one of 9 directions while the keeper dives. A different direction from the keeper = goal ×1.08!'
     },
     steps: {
       ar: [
         'حدد مبلغ الرهان',
-        'اختر جهة التسديد: ⬅️ يسار، ⬆️ وسط، ➡️ يمين',
-        'الحارس يختار جهة عشوائياً',
-        'جهات مختلفة = هدف ×1.45',
+        'صافرة الحكم ثم اختر جهة التسديد من شبكة 3×3: يمين/الوسط/يسار × أعلى/الوسط/أسفل',
+        'الكرة تنطلق بمسار قوسي والحارس يغوص في نفس اللحظة',
+        'جهة مختلفة عن الحارس = هدف ×1.08',
         'نفس الجهة = تصدي وخسارة',
-        'الاحتمال: تسجيل 2 من 3 (الحارس 3 جهات) — RTP 96.7%'
+        'الاحتمال: التسجيل 8 من 9 — RTP 96%'
       ],
       fr: [
         'Définissez le montant du pari',
-        'Choisissez la direction : ⬅️ gauche, ⬆️ centre, ➡️ droite',
-        'Le gardien choisit une direction aléatoire',
-        'Directions différentes = but ×1.45',
+        'Après le coup de sifflet, choisissez la direction dans la grille 3×3 : droite/centre/gauche × haut/milieu/bas',
+        'Le ballon part en trajectoire courbe et le gardien plonge au même instant',
+        'Direction différente = but ×1,08',
         'Même direction = arrêt et perte',
-        'Chances : marquer 2 fois sur 3 (gardien : 3 directions) — RTP 96.7%'
+        'Chances : marquer 8 fois sur 9 — RTP 96 %'
       ],
       en: [
         'Set your bet amount',
-        'Choose the direction: ⬅️ left, ⬆️ center, ➡️ right',
-        'The keeper picks a random direction',
-        'Different directions = goal ×1.45',
+        'After the referee whistle, pick a direction in the 3×3 grid: right/center/left × top/middle/bottom',
+        'The ball flies in an arcing trajectory while the keeper dives at the same moment',
+        'A direction different from the keeper = goal ×1.08',
         'Same direction = save and loss',
-        'Odds: score 2 out of 3 (keeper has 3 directions) — RTP 96.7%'
+        'Odds: score 8 out of 9 — RTP 96%'
       ]
     },
     payouts: {
-      ar: '<tr><td>هدف (جهة مختلفة عن الحارس)</td><td>×1.45</td></tr><tr><td>تصدي (نفس الجهة)</td><td>خسارة الرهان</td></tr>',
-      fr: '<tr><td>But (direction différente)</td><td>×1.45</td></tr><tr><td>Arrêt (même direction)</td><td>Perte du pari</td></tr>',
-      en: '<tr><td>Goal (different direction)</td><td>×1.45</td></tr><tr><td>Save (same direction)</td><td>Lose bet</td></tr>'
+      ar: '<tr><td>هدف (جهة مختلفة عن الحارس)</td><td>×1.08</td></tr><tr><td>تصدي (نفس الجهة)</td><td>خسارة الرهان</td></tr>',
+      fr: '<tr><td>But (direction différente)</td><td>×1,08</td></tr><tr><td>Arrêt (même direction)</td><td>Perte du pari</td></tr>',
+      en: '<tr><td>Goal (different direction)</td><td>×1.08</td></tr><tr><td>Save (same direction)</td><td>Lose bet</td></tr>'
     },
   },
   /* ═══ [BGDO] الطاولة — Backgammon (bg) ═══ */

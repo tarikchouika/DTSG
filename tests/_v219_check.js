@@ -110,7 +110,7 @@ function bad(l) { fail++; console.log('  ❌ ' + l); }
     (pay.chips === 3) ? ok('اختصارات سريعة: شحن · حالة معاملة · ربط تيليغرام') : bad('عدد الاختصارات: ' + pay.chips);
 
     /* دخول لعبة → مخفي */
-    await page.evaluate(() => openGame('hl'));
+    await page.evaluate(() => openGame('rp'));
     await PW.wait(page, () => document.body.classList.contains('pg-game'), 8000);
     const inGame = await page.evaluate(() => {
       const f = document.getElementById('botFab');

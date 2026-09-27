@@ -1,9 +1,8 @@
 /* ══════════════════════════════════════════
    DTSG — Digital Traditional Skills Games — Game Engines
-   Slots, Mines, Plinko, Dice, Coin Flip, Hi-Lo,
-   Wheel, Scratch, Wingo, RPS, Penalty, Lucky7,
-   Sic Bo, Roulette, Baccarat, Dragon Tiger,
-   Andar Bahar
+   Slots, Mines, Plinko, Dice, Wheel, Scratch,
+   Wingo, RPS, Penalty, Lucky7, Sic Bo,
+   Roulette, Baccarat, Dragon Tiger, Andar Bahar
    ══════════════════════════════════════════════════════════════════ */
 "use strict";
 
@@ -111,7 +110,7 @@ function gFrame(inner, g) {
   ).join('') : '';
   /* [GFrame-BG] خلفية فقط للألعاب التي لديها background.webp فعلياً
      (chess/dama/billiards/rami بلا خلفية — منع طلبات 404) */
-  const GAME_BG = { andar_bahar: 1, baccarat: 1, backgammon: 1, blackjack: 1, 'coin-flip': 1, crabbin: 1, dice: 1, dominoes: 1, dragon: 1, fishing: 1, football: 1, gates: 1, 'hi-lo': 1, lightning: 1, lottery: 1, 'lucky-7': 1, mahjong: 1, mines: 1, money: 1, olympus: 1, parchisi: 1, plinko: 1, 'rock-paper': 1, ronda: 1, rose: 1, roulette: 1, scratch: 1, 'sic-bo': 1, 'slot-spin': 1, 'sweet-bonanza': 1, wheel: 1, wingo: 1 };
+  const GAME_BG = { andar_bahar: 1, baccarat: 1, backgammon: 1, blackjack: 1, crabbin: 1, dice: 1, dominoes: 1, dragon: 1, fishing: 1, football: 1, gates: 1, lightning: 1, lottery: 1, 'lucky-7': 1, mahjong: 1, mines: 1, money: 1, olympus: 1, parchisi: 1, plinko: 1, 'rock-paper': 1, ronda: 1, rose: 1, roulette: 1, scratch: 1, 'sic-bo': 1, 'slot-spin': 1, 'sweet-bonanza': 1, wheel: 1, wingo: 1 };
   const gbg = (typeof GAME_IMG !== 'undefined' && GAME_IMG[g.id] && GAME_BG[GAME_IMG[g.id]])
     ? '<div class="gstage-bg" style="background-image:url(assets/games/' + GAME_IMG[g.id] + '/background.webp)"></div>'
     : '';
@@ -162,189 +161,21 @@ function shake(el, intensity, duration) {
   doShake();
 }
 
-/* ═══════════ 5. Coin Flip ═══════════ */
-/* ×1.95 ربح → RTP = 0.5 × 1.95 = 97.5% (هامش كازينو) */
-let cSide = 'heads', cBusy = false, cLast = null;
-function eCoin(g) {
-  return gFrame(
-    '<div class="cf-wrap" style="text-align:center;margin:20px 0">' +
-      '<div class="cf-hint">' + T('cf.hint') + '</div>' +
-      '<div class="coin3d" id="cCoin" style="margin:0 auto">' +
-        '<div class="coinInner" style="width:100%;height:100%;position:relative;transform-style:preserve-3d;transition:transform 2s cubic-bezier(0.17,0.67,0.83,0.67)">' +
-          '<div class="coinFace heads" style="position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:50%"></div>' +
-          '<div class="coinFace tails" style="position:absolute;width:100%;height:100%;backface-visibility:hidden;border-radius:50%;transform:rotateY(180deg)"></div>' +
-        '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="bets">' +
-      '<button class="rb blue active" onclick="cSetSide(\'heads\')" id="cBtnHeads">🦁 ' + T('g.heads') + '</button>' +
-      '<button class="rb red" onclick="cSetSide(\'tails\')" id="cBtnTails">👑 ' + T('g.tails') + '</button>' +
-    '</div>' +
-    '<div class="bets">' +
-      '<button class="big" id="cFlipBtn" onclick="cFlip()"> ' + T('g.flip') + '</button>' +
-    '</div>' +
-    betRow(),
-    g
-  );
-}
-function cSetSide(s) {
-  if (cBusy) return;
-  cSide = s;
-  document.getElementById('cBtnHeads').classList.toggle('active', s === 'heads');
-  document.getElementById('cBtnTails').classList.toggle('active', s === 'tails');
-  SND.click();
-}
-function cSetBusy(b) {
-  cBusy = b;
-  ['cFlipBtn', 'cBtnHeads', 'cBtnTails'].forEach(function (id) {
-    const el = document.getElementById(id);
-    if (el) el.disabled = b;
-  });
-}
-function cFlip() {
-  if (cBusy) return;
-  cSetBusy(true);
-  if (!take()) { cSetBusy(false); return; }
-  SND.spin();
-  const coin = document.querySelector('.coinInner');
-  /* استدعاء واحد حتمي لـ _rng — النتيجة محسوبة قبل الدوران */
-  const win = _rng() < 0.5;
-  const resultSide = win ? cSide : (cSide === 'heads' ? 'tails' : 'heads');
-  cLast = { win: win, side: resultSide };
-  /* heads = 2160deg (6 دورات كاملة)، tails = 1980deg (5.5 دورات → نصف دورة زائدة تظهر الوجه الخلفي).
-     القيمة 2340 (6.5 دورات) يسوّيها المتصفح في هذا السياق إلى 1.80216e+06 (مهملة → heads دائماً)؛
-     جرّبت 1980/1620/900 وهي سليمة ثابتة في كل السياقات. */
-  const target = 'rotateY(' + (resultSide === 'tails' ? 1980 : 2160) + 'deg)';
-  /* دورن حاسم: استخدم WAAPI — keyframes صريحة من rotateY(0) إلى الهدف.
-     المتصفح يسوّي زوايا CSS transition الكبيرة (rotateY(2340) → قيم مهملة
-     كـ 1.80216e+06) فلا تصل العملة للوجه؛ الـ WAAPI يحسب keyframes رياضياً
-     بلا قيمة محمولة ولا تسوية، والـ fill:forwards يثبت الوجه النهائي. */
-  coin.getAnimations().forEach(function (a) { a.cancel(); });
-  coin.animate([
-    { transform: 'rotateY(0deg)' },
-    { transform: target }
-  ], { duration: 2000, easing: 'cubic-bezier(0.17,0.67,0.83,0.67)', fill: 'forwards' });
-  setTimeout(() => {
-    if (win) {
-      const w = Math.floor(GB * 1.95);
-      give(w);
-      gres('×1.95 +' + fmt(w) + ' 🪙', w);
-      winFX(w);
-    } else {
-      gres(T('ts.lose'), 0);
-      winFX(0);
-    }
-    cSetBusy(false);
-  }, 2200);
-}
-
-/* ═══════════ 6. Hi-Lo ═══════════ */
-/* ×1.9 ربح + تعادل = استرداد → RTP = (6×1.9 + 1×1)/13 = 95.4% */
-let hCard = null, hBusy = false;
-const hRanks = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
-function hDrawCard() {
-  /* استدعاءان ثابتان: الرتبة ثم الشكل — حتمي للاختبار */
-  return {
-    r: hRanks[Math.floor(_rng() * 13)],
-    s: ['♠','♥','♦','♣'][Math.floor(_rng() * 4)]
-  };
-}
-function hRenderCard(el, card, animate) {
-  if (!el) return;
-  if (animate !== false) {
-    el.classList.remove('hl-flip');
-    void el.offsetWidth; /* إعادة تشغيل أنيميشن القلب */
-    el.classList.add('hl-flip');
-  } else {
-    el.classList.remove('hl-flip');
-  }
-  if (!card) {
-    el.innerHTML = '<img class="hl-img" src="assets/cards/back.webp" alt="" draggable="false">';
-    return;
-  }
-  const red = (card.s === '♥' || card.s === '♦');
-  el.style.color = red ? '#d32f2f' : '#16213e';
-  el.innerHTML = '<img class="hl-img" src="assets/cards/' + card.r + '-' + suitKey(card.s) + '.webp" alt="' + card.r + ' ' + card.s + '" draggable="false">';
-}
-function eHilo(g) {
-  return gFrame(
-    '<div class="hl-hint">' + T('hl.hint') + '</div>' +
-    '<div class="hl-table">' +
-      '<div class="hl-side">' +
-        '<div class="hl-tag">' + T('hl.current') + '</div>' +
-        '<div class="hl-card hl-cur" id="hCard"><img class="hl-img" src="assets/cards/back.webp" alt="" draggable="false"></div>' +
-      '</div>' +
-      '<div class="hl-vs">VS</div>' +
-      '<div class="hl-side">' +
-        '<div class="hl-tag">' + T('hl.next') + '</div>' +
-        '<div class="hl-card hl-next" id="hCard2"><img class="hl-img" src="assets/cards/back.webp" alt="" draggable="false"></div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="bets">' +
-      '<button class="rb blue" id="hHigh" onclick="hGuess(\'high\')"> ' + T('g.high') + ' ↑</button>' +
-      '<button class="rb red" id="hLow" onclick="hGuess(\'low\')"> ' + T('g.low') + ' ↓</button>' +
-    '</div>' +
-    betRow(),
-    g
-  );
-}
-function initHilo() {
-  hCard = hDrawCard();
-  hBusy = false;
-  hRenderCard(document.getElementById('hCard'), hCard, false);
-  hRenderCard(document.getElementById('hCard2'), null, false);
-}
-function hSetBusy(b) {
-  hBusy = b;
-  ['hHigh', 'hLow'].forEach(function (id) {
-    const el = document.getElementById(id);
-    if (el) el.disabled = b;
-  });
-}
-function hGuess(guess) {
-  if (hBusy) return;
-  hSetBusy(true);
-  if (!take()) { hSetBusy(false); return; }
-  SND.card();
-  const newCard = hDrawCard();
-  const hVal = hRanks.indexOf(hCard.r);
-  const nVal = hRanks.indexOf(newCard.r);
-  hRenderCard(document.getElementById('hCard2'), newCard, true);
-  const win = (guess === 'high' && nVal > hVal) || (guess === 'low' && nVal < hVal);
-  const lose = (guess === 'high' && nVal < hVal) || (guess === 'low' && nVal > hVal);
-  if (win) {
-    const w = Math.floor(GB * 1.9);
-    give(w);
-    SND.coin();
-    gres('×1.9 +' + fmt(w) + ' 🪙', w);
-    winFX(w);
-  } else if (lose) {
-    gres(T('ts.lose'), 0);
-    winFX(0);
-  } else {
-    give(GB); /* تعادل — استرداد الرهان */
-    SND.click();
-    gres(T('hl.push'), 0);
-  }
-  /* البطاقة المسحوبة تصبح الحالية للجولة التالية */
-  hCard = newCard;
-  const cur = document.getElementById('hCard');
-  if (cur) hRenderCard(cur, hCard, false);
-  setTimeout(function () {
-    hRenderCard(document.getElementById('hCard2'), null, false);
-    hSetBusy(false);
-  }, 650);
-}
-
 /* ═══════════ 10. RPS ═══════════ */
 /* حجر/ورقة/مقص — فوز ×1.95، تعادل = استرداد، خسارة = −GB
-   RTP = (1.95 + 1 + 0) ÷ 3 = 98.3% — هامش كازينو 1.7% */
+   RTP = (1.95 + 1 + 0) ÷ 3 = 98.3% — هامش كازينو 1.7%
+   [v2.62 PRO] حلبة مبارزة احترافية: عد تنازلي 3-2-1 مع نبض البطاقتين،
+   كشف بقلب 3D، صوت مميز لكل حركة (حجر/ورقة/مقص)، فانفار فوز،
+   عدّاد نتيجة الجلسة، وميض نتيجة ملوّن — منطق الدفع والعشوائية كما هو. */
 var rpRoom = null;
 var rpsBusy = false;
 var rpsLastPick = null;
+var rpsMyScore = 0, rpsAiScore = 0;
 const RPS_MOVES = ['✊', '✋', '✌️'];
 const RPS_BEATS = { '✊': '✌️', '✋': '✊', '✌️': '✋' };
 const RPS_KEYS = { '✊': 'rp.rock', '✋': 'rp.paper', '✌️': 'rp.scissors' };
+/* [v2.62] صوت الحركة الغالبة — الصوت الذي يميّز الجولة */
+const RPS_SND = { '✊': 'rockThud', '✋': 'paperSwish', '✌️': 'scissorsSnip' };
 function rpsLabel(m) {
   return T(RPS_KEYS[m] || '');
 }
@@ -356,9 +187,46 @@ function rpsSetBusy(b) {
   var btns = document.querySelectorAll('.rpsBtn');
   for (var i = 0; i < btns.length; i++) btns[i].disabled = b;
 }
+/* [v2.62] تحديث عدّاد نتيجة الجلسة (أنا / الحاسوب) */
+function rpsSyncScore() {
+  var my = document.getElementById('rpsMyScore');
+  var ai = document.getElementById('rpsAiScore');
+  if (my) my.textContent = String(rpsMyScore);
+  if (ai) ai.textContent = String(rpsAiScore);
+  var myWrap = document.getElementById('rpsMyScoreW');
+  var aiWrap = document.getElementById('rpsAiScoreW');
+  if (myWrap) myWrap.classList.toggle('lead', rpsMyScore > rpsAiScore);
+  if (aiWrap) aiWrap.classList.toggle('lead', rpsAiScore > rpsMyScore);
+}
+/* [v2.62] كشف بطاقة بقلب 3D: المحتوى يُستبدل في منتصف الدوران */
+function rpsRevealCard(cardEl, faceEl, emoji) {
+  if (!cardEl || !faceEl) return;
+  cardEl.classList.remove('reveal-pop');
+  void cardEl.offsetWidth;
+  faceEl.textContent = emoji;
+  cardEl.classList.add('reveal-pop');
+}
+/* [v2.62] شارة العد التنازلي: 3 → 2 → 1 → ! */
+function rpsCountBadge(txt) {
+  var el = document.getElementById('rpsCount');
+  if (!el) return;
+  el.classList.remove('pop');
+  void el.offsetWidth;
+  el.textContent = txt;
+  el.classList.add('pop');
+}
+/* [v2.62] صوت الحركة الغالبة في الجولة */
+function rpsMoveSound(move) {
+  var fn = RPS_SND[move];
+  if (fn && typeof SND !== 'undefined' && typeof SND[fn] === 'function') {
+    try { SND[fn](); } catch (e) {}
+  }
+}
 function eRps(g) {
   rpRoomReset();
   rpsBusy = false;
+  rpsMyScore = 0;
+  rpsAiScore = 0;
   if (typeof Rooms !== 'undefined') {
     Rooms.setGameHandler(rpRoomMove);
     Rooms.setStartHandler(function (room) {
@@ -377,12 +245,15 @@ function eRps(g) {
       '<div class="rps-side">' +
         '<div class="rps-side-tag you">' + T('rp.you') + '</div>' +
         '<div class="rps-card" id="rpsMyCard"><span class="rps-card-face" id="rpsMyFace">❓</span></div>' +
+        '<div class="rps-score-w" id="rpsMyScoreW"><span class="rps-score" id="rpsMyScore">0</span></div>' +
       '</div>' +
       '<div class="rps-vs"><span>VS</span></div>' +
       '<div class="rps-side">' +
         '<div class="rps-side-tag opp" id="rpsOppTag">' + T('rp.computer') + '</div>' +
         '<div class="rps-card" id="rpsOppCard"><span class="rps-card-face" id="rpsOppFace">❓</span></div>' +
+        '<div class="rps-score-w" id="rpsAiScoreW"><span class="rps-score" id="rpsAiScore">0</span></div>' +
       '</div>' +
+      '<div class="rps-count" id="rpsCount" aria-hidden="true"></div>' +
     '</div>' +
     '<div class="rps-picks">' +
       RPS_MOVES.map(function (m) {
@@ -413,50 +284,80 @@ function rpsPlay(p) {
   const oppFace = document.getElementById('rpsOppFace');
   const oppCard = document.getElementById('rpsOppCard');
   const resEl = document.getElementById('rpsResult');
-  if (myFace) myFace.textContent = p;
-  if (myCard) { myCard.classList.remove('win', 'lose', 'tie'); }
-  if (oppCard) { oppCard.classList.remove('win', 'lose', 'tie'); oppCard.classList.add('shaking'); }
-  if (oppFace) oppFace.textContent = '❔';
+  if (myCard) { myCard.classList.remove('win', 'lose', 'tie', 'reveal-pop'); }
+  if (oppCard) { oppCard.classList.remove('win', 'lose', 'tie', 'reveal-pop'); }
   if (resEl) resEl.textContent = '';
-  SND.card();
-  /* كشف حتمي باستدعاء _rng واحد — حركة الحاسوب */
+  /* كشف حتمي باستدعاء _rng واحد — حركة الحاسوب محسوبة قبل العدّ */
   const c = RPS_MOVES[Math.floor(_rng() * 3)];
-  setTimeout(function () {
-    if (oppCard) oppCard.classList.remove('shaking');
-    if (oppFace) oppFace.textContent = c;
-    const win = RPS_BEATS[p] === c;
-    const tie = p === c;
-    let w = 0;
-    if (win) {
-      w = Math.floor(GB * 1.95);
-      give(w);
-      SND.coin();
-      if (myCard) myCard.classList.add('win');
-      if (oppCard) oppCard.classList.add('lose');
-      if (resEl) resEl.textContent = T('rp.you') + ': ' + p + '  vs  ' + T('rp.computer') + ': ' + c + ' — ' + T('rp.winRound');
-      gres('×1.95 +' + fmt(w) + ' 🪙', w);
-      winFX(w);
-    } else if (tie) {
-      give(GB); /* تعادل — استرداد الرهان */
-      SND.click();
-      if (myCard) myCard.classList.add('tie');
-      if (oppCard) oppCard.classList.add('tie');
-      if (resEl) resEl.textContent = T('rp.you') + ': ' + p + '  vs  ' + T('rp.computer') + ': ' + c + ' — ' + T('rp.tieRound');
-      gres(T('rp.tie'), 0);
+  /* [v2.62 PRO] تسلسل سينمائي: صافرة → عدّ تنازلي 3-2-1 بنبض البطاقتين → كشف مزدوج بقلب 3D → حسم */
+  var arena = document.querySelector('.rps-arena');
+  if (arena) arena.classList.add('dueling');
+  if (myCard) myCard.classList.add('counting');
+  if (oppCard) oppCard.classList.add('counting');
+  var step = 3;
+  rpsCountBadge('3');
+  SND.rpsCount(0);
+  var countTimer = setInterval(function () {
+    step--;
+    if (step >= 1) {
+      rpsCountBadge(String(step));
+      SND.rpsCount(3 - step);
     } else {
-      SND.lose();
-      if (myCard) myCard.classList.add('lose');
-      if (oppCard) oppCard.classList.add('win');
-      if (resEl) resEl.textContent = T('rp.you') + ': ' + p + '  vs  ' + T('rp.computer') + ': ' + c + ' — ' + T('rp.loseRound');
-      gres(T('ts.lose'), 0);
-      winFX(0);
+      clearInterval(countTimer);
+      /* لحظة الكشف */
+      rpsCountBadge(T('rp.shoot'));
+      SND.rpsShoot();
+      if (arena) arena.classList.remove('dueling');
+      if (myCard) myCard.classList.remove('counting');
+      if (oppCard) oppCard.classList.remove('counting');
+      SND.rpsReveal();
+      rpsRevealCard(myCard, myFace, p);
+      rpsRevealCard(oppCard, oppFace, c);
+      /* صوت الحركة الغالبة + الحسم بعد لحظة الكشف */
+      setTimeout(function () {
+        const win = RPS_BEATS[p] === c;
+        const tie = p === c;
+        rpsMoveSound(win ? p : c);   /* صوت الحركة التي حسمت الجولة */
+        let w = 0;
+        if (win) {
+          w = Math.floor(GB * 1.95);
+          give(w);
+          rpsMyScore++;
+          SND.rpsWin();
+          if (myCard) myCard.classList.add('win');
+          if (oppCard) oppCard.classList.add('lose');
+          if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.4)');
+          if (resEl) resEl.textContent = T('rp.you') + ': ' + p + '  vs  ' + T('rp.computer') + ': ' + c + ' — ' + T('rp.winRound');
+          gres('×1.95 +' + fmt(w) + ' 🪙', w);
+          winFX(w);
+        } else if (tie) {
+          give(GB); /* تعادل — استرداد الرهان */
+          SND.rpsTie();
+          if (myCard) myCard.classList.add('tie');
+          if (oppCard) oppCard.classList.add('tie');
+          if (resEl) resEl.textContent = T('rp.you') + ': ' + p + '  vs  ' + T('rp.computer') + ': ' + c + ' — ' + T('rp.tieRound');
+          gres(T('rp.tie'), 0);
+        } else {
+          rpsAiScore++;
+          SND.rpsLose();
+          if (myCard) myCard.classList.add('lose');
+          if (oppCard) oppCard.classList.add('win');
+          if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.32)');
+          if (resEl) resEl.textContent = T('rp.you') + ': ' + p + '  vs  ' + T('rp.computer') + ': ' + c + ' — ' + T('rp.loseRound');
+          gres(T('ts.lose'), 0);
+          winFX(0);
+        }
+        rpsSyncScore();
+        setTimeout(function () {
+          if (oppFace) oppFace.textContent = '❓';
+          if (myFace) myFace.textContent = '❓';
+          if (myCard) myCard.classList.remove('reveal-pop');
+          if (oppCard) oppCard.classList.remove('reveal-pop');
+          rpsSetBusy(false);
+        }, 1500);
+      }, 480);
     }
-    setTimeout(function () {
-      if (oppFace) oppFace.textContent = '❓';
-      if (myFace) myFace.textContent = '❓';
-      rpsSetBusy(false);
-    }, 1400);
-  }, 800);
+  }, 420);
 }
 /* ── RPS وضع الغرفة (2 لاعبين: اختيار أعمى متزامن — يكشف الخادم الزوج معاً، النتيجة محلية — بلا رهان) ── */
 function rpsRoomPlay(p) {
@@ -494,9 +395,7 @@ function rpRoomMove(d) {
     }
     rpRoom.oppPicked = false;
     rpRoom.waiting = false;
-    const oppFace = document.getElementById('rpsOppFace');
     const oppTag = document.getElementById('rpsOppTag');
-    if (oppFace) oppFace.textContent = rpRoom.oppPick;
     if (oppTag) oppTag.textContent = rpRoom.oppName || T('rp.opp');
     rpsRoomSettle();
   }
@@ -506,6 +405,20 @@ function rpsRoomSettle() {
   var oppWin = RPS_BEATS[rpRoom.oppPick] === rpRoom.myPick;
   if (myWin) rpRoom.myWins++;
   if (oppWin) rpRoom.oppWins++;
+  /* [v2.62 PRO] كشف الغرفة بنفس السينما: قلب 3D + أصوات + وميض */
+  var myCard = document.getElementById('rpsMyCard');
+  var oppCard = document.getElementById('rpsOppCard');
+  var myFace = document.getElementById('rpsMyFace');
+  var oppFace = document.getElementById('rpsOppFace');
+  SND.rpsReveal();
+  rpsRevealCard(myCard, myFace, rpRoom.myPick);
+  rpsRevealCard(oppCard, oppFace, rpRoom.oppPick);
+  if (myCard) myCard.classList.remove('counting');
+  if (oppCard) oppCard.classList.remove('counting');
+  rpsMoveSound(myWin ? rpRoom.myPick : (oppWin ? rpRoom.oppPick : rpRoom.myPick));
+  if (myWin) { SND.rpsWin(); if (myCard) myCard.classList.add('win'); if (oppCard) oppCard.classList.add('lose'); if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.4)'); }
+  else if (oppWin) { SND.rpsLose(); if (myCard) myCard.classList.add('lose'); if (oppCard) oppCard.classList.add('win'); if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.32)'); }
+  else { SND.rpsTie(); if (myCard) myCard.classList.add('tie'); if (oppCard) oppCard.classList.add('tie'); }
   var el = document.getElementById('rpsResult');
   var txt = T('rp.you') + ': ' + rpRoom.myPick + '  vs  ' + (rpRoom.oppName || T('rp.opp')) + ': ' + rpRoom.oppPick;
   if (myWin) txt += '\n🏆 ' + T('rp.winRound');
@@ -529,8 +442,12 @@ function rpsRoomSettle() {
   setTimeout(function () {
     const mf = document.getElementById('rpsMyFace');
     const of = document.getElementById('rpsOppFace');
+    const mc = document.getElementById('rpsMyCard');
+    const oc = document.getElementById('rpsOppCard');
     if (mf) mf.textContent = '❓';
     if (of) of.textContent = '❓';
+    if (mc) mc.classList.remove('reveal-pop');
+    if (oc) oc.classList.remove('reveal-pop');
     rpsSetBusy(false);
     rpsRoomUi();
   }, 1600);
@@ -554,14 +471,17 @@ function rpsRoomUi() {
 /* solo: تسديدة ضد حارس — 9 جهات (يمين/وسط/يسار × أعلى/وسط/أسفل) — جهة مختلفة = هدف
    P(goal)=8/9 → ×1.08 → RTP = 8/9 × 1.08 = 0.96 (هامش كازينو 4%)
    غرفة (2 لاعبين وجهاً لوجه): 5 جولات متناوبة — seat 0 يهاجم 1/3/5، seat 1 في 2/4 —
-   اختيار أعمى متزامن (sendBlind): الخادم يكشف الزوج معاً فلا يرى من يختار ثانياً حركة الأول */
+   اختيار أعمى متزامن (sendBlind): الخادم يكشف الزوج معاً فلا يرى من يختار ثانياً حركة الأول
+   [v2.62 PRO] استاد كامل: جمهور وومضات كاميرات، قائم/عارضة معدنية، شبكة وتموّج عند الهدف،
+   علامة الجزاء، طيران قوسي للكرة (WAAPI) بذيل حركة ودوران، غوص الحارس بتمدد ودوران،
+   لافتة نتيجة عملاقة (هدف/تصدي)، صافرة/ركلة/هدير جمهور/شبكة/قفاز — منطق الدفع والعشوائية كما هو. */
 var pnRoom = null;
 var pnBusy = false;
 /* ترتيب الجهات: أعلى-يسار، أعلى، أعلى-يمين، يسار-وسط، وسط، يمين-وسط، أسفل-يسار، أسفل، أسفل-يمين */
 const PN_DIRS = ['↖️', '⬆️', '↗️', '⬅️', '🎯', '➡️', '↙️', '⬇️', '↘️'];
 const PN_KEYS = { '↖️': 'pn.tl', '⬆️': 'pn.tc', '↗️': 'pn.tr', '⬅️': 'pn.ml', '🎯': 'pn.mc', '➡️': 'pn.mr', '↙️': 'pn.bl', '⬇️': 'pn.bc', '↘️': 'pn.br' };
-/* إحداثيات الشبكة 3×3: x نسبة مئوية للعرض (translateX%) و y بالبكسل (translateY) —
-   القيم العلوية سالبة (الكرة/الحارس فوق المنتصف) والسفلية موجبة */
+/* إحداثيات الشبكة 3×3: x قيَم معيارية -112..112 (تُحوَّل لبكسل من عرض المرمى الفعلي)
+   و y بالبكسل — القيم العلوية سالبة (الكرة/الحارس فوق المنتصف) والسفلية موجبة */
 const PN_POS = {
   '↖️': { x: -112, y: -36 }, '⬆️': { x: 0, y: -46 }, '↗️': { x: 112, y: -36 },
   '⬅️': { x: -112, y: 0 }, '🎯': { x: 0, y: 0 }, '➡️': { x: 112, y: 0 },
@@ -587,29 +507,91 @@ function penField() {
     keeper: document.getElementById('pnKeeper'),
     ball: document.getElementById('pnBall'),
     res: document.getElementById('penResult'),
-    role: document.getElementById('pnRole')
+    role: document.getElementById('pnRole'),
+    banner: document.getElementById('pnBanner'),
+    ripple: document.getElementById('pnRipple')
   };
+}
+/* [v2.62] تحويل الإحداثيات المعيارية إلى بكسل من عرض المرمى الفعلي —
+   الجهات القصوى تلامس القوائم فعلاً (كانت % من حجم الرمز فلا تكاد تتحرك) */
+function penTargetPx(d) {
+  const f = penField();
+  const p = PN_POS[d] || PN_POS['🎯'];
+  const goal = f.arena ? f.arena.querySelector('.goal') : null;
+  const w = goal ? goal.clientWidth : 260;
+  const h = goal ? goal.clientHeight : 140;
+  const x = (p.x / 112) * (w / 2 - 16);
+  const y = p.y * (h / 140);
+  return { x: x, y: y };
+}
+/* [v2.62] طيران قوسي للكرة بمنحنى WAAPI: صعود ثم هبوط على الهدف + دوران + ذيل حركة */
+function penFlyBall(d, done) {
+  const f = penField();
+  if (!f.ball) return;
+  const t = penTargetPx(d);
+  const ball = f.ball;
+  try { ball.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+  ball.classList.add('flying');
+  const anim = ball.animate([
+    { transform: 'translateX(0px) translateY(0px) scale(1) rotate(0deg)', offset: 0 },
+    { transform: 'translateX(' + (t.x * 0.4) + 'px) translateY(' + (t.y * 0.85 - 14) + 'px) scale(1.16) rotate(260deg)', offset: 0.4 },
+    { transform: 'translateX(' + t.x + 'px) translateY(' + t.y + 'px) scale(0.9) rotate(540deg)', offset: 1 }
+  ], { duration: 520, easing: 'cubic-bezier(0.22, 0.9, 0.36, 1)', fill: 'forwards' });
+  if (anim && anim.onfinish !== undefined) {
+    anim.onfinish = function () {
+      ball.classList.remove('flying');
+      if (done) done();
+    };
+  } else {
+    setTimeout(function () { ball.classList.remove('flying'); if (done) done(); }, 540);
+  }
 }
 function penMoveBall(d) {
   const f = penField();
   if (!f.ball) return;
-  /* شبكة 3×3: x كنسبة من عرض المرمى (translateX%) و y بالبكسل */
-  const p = PN_POS[d] || PN_POS['🎯'];
-  f.ball.style.transform = 'translateX(' + p.x + '%) translateY(' + p.y + 'px)';
+  const t = penTargetPx(d);
+  try { f.ball.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+  f.ball.classList.remove('flying');
+  f.ball.style.transform = 'translateX(' + t.x + 'px) translateY(' + t.y + 'px)';
 }
+/* [v2.62] غوص الحارس: اندفاع بكسل من عرض المرمى + دوران غوص + تمدد رأسي */
 function penMoveKeeper(d) {
   const f = penField();
   if (!f.keeper) return;
-  /* نفس إحداثيات الكرة مع دوران خفيف حسب العمود: يسار → -12deg، يمين → 12deg */
-  const p = PN_POS[d] || PN_POS['🎯'];
-  const rot = p.x < 0 ? -12 : p.x > 0 ? 12 : 0;
-  f.keeper.style.transform = 'translateX(' + p.x + '%) translateY(' + p.y + 'px) rotate(' + rot + 'deg)';
+  const t = penTargetPx(d);
+  const rot = t.x < -20 ? -46 : t.x > 20 ? 46 : 0;
+  try { f.keeper.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+  f.keeper.classList.remove('idle');
+  const stretch = t.y < -18 ? ' scaleY(1.18)' : ' scaleY(1.05)';
+  f.keeper.animate([
+    { transform: 'translateX(0px) translateY(0px) rotate(0deg) scaleY(1)' },
+    { transform: 'translateX(' + t.x + 'px) translateY(' + (t.y + 6) + 'px) rotate(' + rot + 'deg)' + stretch }
+  ], { duration: 460, easing: 'cubic-bezier(0.25, 0.9, 0.3, 1)', fill: 'forwards' });
+}
+/* [v2.62] لافتة النتيجة العملاقة: هدف/تصدي */
+function penBanner(kind) {
+  const f = penField();
+  if (!f.banner) return;
+  f.banner.classList.remove('show', 'goal', 'saved');
+  void f.banner.offsetWidth;
+  f.banner.textContent = kind === 'goal' ? T('pn.goal') : T('pn.save');
+  f.banner.classList.add('show', kind);
 }
 function penResetField() {
   const f = penField();
-  if (f.ball) f.ball.style.transform = 'translateX(0) translateY(0)';
-  if (f.keeper) f.keeper.style.transform = 'translateX(0) translateY(0) rotate(0deg)';
-  if (f.arena) f.arena.classList.remove('pn-goal', 'pn-saved');
+  if (f.ball) {
+    try { f.ball.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+    f.ball.classList.remove('flying');
+    f.ball.style.transform = 'translateX(0) translateY(0)';
+  }
+  if (f.keeper) {
+    try { f.keeper.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+    f.keeper.style.transform = 'translateX(0) translateY(0) rotate(0deg)';
+    f.keeper.classList.add('idle');
+  }
+  if (f.arena) f.arena.classList.remove('pn-goal', 'pn-saved', 'cheer');
+  if (f.banner) f.banner.classList.remove('show', 'goal', 'saved');
+  if (f.ripple) f.ripple.classList.remove('wave');
 }
 function ePenalty(g) {
   pnRoomReset();
@@ -631,12 +613,18 @@ function ePenalty(g) {
   return gFrame(
     '<div class="pn-hint">' + T('pn.hint') + '</div>' +
     '<div class="pn-arena">' +
+      '<div class="pn-crowd" aria-hidden="true"></div>' +
       '<div class="goal">' +
+        '<div class="gbar"></div>' +
         '<div class="gpost gl"></div><div class="gpost gr"></div>' +
         '<div class="gnet"></div>' +
-        '<span class="keeper" id="pnKeeper">🧤</span>' +
+        '<div class="gripple" id="pnRipple" aria-hidden="true"></div>' +
+        '<span class="keeper idle" id="pnKeeper">🧤</span>' +
         '<span class="pball2" id="pnBall">⚽</span>' +
       '</div>' +
+      '<div class="pn-grass" aria-hidden="true"></div>' +
+      '<div class="pn-spot" aria-hidden="true"></div>' +
+      '<div class="pn-banner" id="pnBanner" aria-live="polite"></div>' +
     '</div>' +
     '<div class="pn-role" id="pnRole">⚽ ' + T('pn.youShoot') + '</div>' +
     /* تسعة أزرار 3×3 — نمط .nine في CSS (شبكة بدل الصف الواحد القديم) */
@@ -664,36 +652,62 @@ function penShoot(d) {
   pnSetBusy(true);
   SND.click();
   const f = penField();
-  if (f.role) f.role.textContent = '🧤 ' + T('pn.saving');
   if (f.res) f.res.textContent = '';
-  penMoveBall(d);
-  /* كشف حتمي باستدعاء _rng واحد — جهة الحارس من 9 جهات (P(تصدي)=1/9) */
+  /* كشف حتمي باستدعاء _rng واحد — جهة الحارس من 9 جهات (P(تصدي)=1/9) محسوبة قبل الحركة */
   const gk = PN_DIRS[Math.floor(_rng() * 9)];
+  const win = gk !== d;
+  /* [v2.62 PRO] التسلسل السينمائي: صافرة → استعداد (الحارس يتراقص) → ركلة → طيران قوسي
+     → غوص الحارس → الحسم (لافتة + أصوات + تموّج شبكة + وميض + اهتزاز) */
+  if (f.role) f.role.textContent = '🧤 ' + T('pn.saving');
+  if (typeof SND.pnWhistle === 'function') { try { SND.pnWhistle(); } catch (e) {} }
+  const goal = f.arena ? f.arena.querySelector('.goal') : null;
+  if (goal) goal.classList.add('tense');   /* توهج المرمى أثناء الترقب */
+  /* شحن الكرة لحظة قبل الركل */
+  if (f.ball) {
+    f.ball.animate([
+      { transform: 'translateX(0px) translateY(0px) scale(1)' },
+      { transform: 'translateX(0px) translateY(0px) scale(1.14)' }
+    ], { duration: 260, easing: 'ease-out', fill: 'forwards' });
+  }
   setTimeout(function () {
-    penMoveKeeper(gk);
-    const win = gk !== d;
-    /* P(goal)=8/9 → ×1.08 → RTP = 8/9 × 1.08 ≈ 96% (هامش كازينو 4%) */
-    const w = win ? Math.floor(GB * 1.08) : 0;
-    if (win) {
-      give(w);
-      SND.coin();
-      if (f.arena) f.arena.classList.add('pn-goal');
-      if (f.res) f.res.textContent = T('pn.shot') + ': ' + pnLabel(d) + '  —  ' + T('pn.keep') + ': ' + pnLabel(gk) + '\n🥅 ' + T('pn.goal');
-      gres('×1.08 +' + fmt(w) + ' 🪙', w);
-      winFX(w);
-    } else {
-      SND.lose();
-      if (f.arena) f.arena.classList.add('pn-saved');
-      if (f.res) f.res.textContent = T('pn.shot') + ': ' + pnLabel(d) + '  —  ' + T('pn.keep') + ': ' + pnLabel(gk) + '\n🙌 ' + T('pn.save');
-      gres(T('ts.lose'), 0);
-      winFX(0);
-    }
-    setTimeout(function () {
-      penResetField();
-      pnSetBusy(false);
-      if (f.role) f.role.textContent = '⚽ ' + T('pn.youShoot');
-    }, 1500);
-  }, 700);
+    /* الركلة */
+    if (typeof SND.pnKick === 'function') { try { SND.pnKick(); } catch (e) {} }
+    if (goal) goal.classList.remove('tense');
+    penFlyBall(d, function () {
+      /* الحسم فور وصول الكرة */
+      /* P(goal)=8/9 → ×1.08 → RTP = 8/9 × 1.08 ≈ 96% (هامش كازينو 4%) */
+      const w = win ? Math.floor(GB * 1.08) : 0;
+      if (win) {
+        give(w);
+        if (f.arena) { f.arena.classList.add('pn-goal', 'cheer'); }
+        if (f.ripple) { void f.ripple.offsetWidth; f.ripple.classList.add('wave'); }
+        penBanner('goal');
+        if (typeof SND.pnGoal === 'function') { try { SND.pnGoal(); } catch (e) {} }
+        if (typeof SND.pnNet === 'function') { try { SND.pnNet(); } catch (e) {} }
+        if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.42)');
+        if (typeof shake === 'function' && f.arena) shake(f.arena, 7, 500);
+        if (f.res) f.res.textContent = T('pn.shot') + ': ' + pnLabel(d) + '  —  ' + T('pn.keep') + ': ' + pnLabel(gk) + '\n🥅 ' + T('pn.goal');
+        gres('×1.08 +' + fmt(w) + ' 🪙', w);
+        winFX(w);
+      } else {
+        if (f.arena) f.arena.classList.add('pn-saved');
+        penBanner('saved');
+        if (typeof SND.pnSave === 'function') { try { SND.pnSave(); } catch (e) {} }
+        if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.34)');
+        if (typeof shake === 'function' && f.arena) shake(f.arena, 5, 380);
+        if (f.res) f.res.textContent = T('pn.shot') + ': ' + pnLabel(d) + '  —  ' + T('pn.keep') + ': ' + pnLabel(gk) + '\n🙌 ' + T('pn.save');
+        gres(T('ts.lose'), 0);
+        winFX(0);
+      }
+      setTimeout(function () {
+        penResetField();
+        pnSetBusy(false);
+        if (f.role) f.role.textContent = '⚽ ' + T('pn.youShoot');
+      }, 2100);
+    });
+    /* الحارس يغوص بالتوازي مع الطيران — يسبقها قليلاً كالمبارة الحقيقية */
+    setTimeout(function () { penMoveKeeper(gk); }, 330);
+  }, 560);
 }
 /* ── Penalty وضع الغرفة (اختيار أعمى: كل طرف يختار جهته دون رؤية الآخر — يكشف الخادم الزوج معاً) ── */
 function pnRoomAct(d) {
@@ -735,34 +749,60 @@ function pnRoomSettle() {
   if (goal) {
     if (attacker) pnRoom.myScore++; else pnRoom.oppScore++;
   }
-  /* كشف بصري متزامن على الشاشتين: الحارس يغوص ثم الكرة تنطلق */
-  penMoveKeeper(pnRoom.saveD);
-  setTimeout(function () { penMoveBall(pnRoom.shootD); }, 150);
   var f = penField();
-  if (f.arena) f.arena.classList.add(goal ? 'pn-goal' : 'pn-saved');
+  /* [v2.62 PRO] كشف متزامن سينمائي على الشاشتين: صافرة → ركلة → طيران → غوص → حسم */
+  if (typeof SND.pnWhistle === 'function') { try { SND.pnWhistle(); } catch (e) {} }
   if (f.res) {
-    f.res.textContent = T('pn.shot') + ': ' + pnLabel(pnRoom.shootD) + '  —  ' + T('pn.keep') + ': ' + pnLabel(pnRoom.saveD) +
-      (goal ? '\n🥅 ' + T('pn.goal') : '\n🙌 ' + T('pn.save'));
+    f.res.textContent = T('pn.shot') + ': ' + pnLabel(pnRoom.shootD) + '  —  ' + T('pn.keep') + ': ' + pnLabel(pnRoom.saveD);
   }
-  var pnMax = (window.HTH_ROUNDS && window.HTH_ROUNDS.pn) || (Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.rounds) || 5;   /* [RS-GameOpts] */
-  if (pnRoom.round >= pnMax) {
-    var finalTxt = '';
-    if (pnRoom.myScore > pnRoom.oppScore) finalTxt = '\n🏆 ' + T('pn.matchWin') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore + '!';
-    else if (pnRoom.oppScore > pnRoom.myScore) finalTxt = '\n' + T('pn.matchLose') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore;
-    else finalTxt = '\n🤝 ' + T('pn.matchTie') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore;
-    if (f.res) f.res.textContent += finalTxt + '\n(' + T('pn.again') + ')';
-    return;
-  }
-  pnRoom.round++;
-  pnRoom.shootD = null;
-  pnRoom.saveD = null;
-  pnRoom.myDir = null;
-  pnRoom.waiting = false;
   setTimeout(function () {
-    penResetField();
-    pnSetBusy(false);
-    pnRoomUi();
-  }, 1700);
+    if (typeof SND.pnKick === 'function') { try { SND.pnKick(); } catch (e) {} }
+    penFlyBall(pnRoom.shootD, function () {
+      /* الحسم فور وصول الكرة */
+      if (goal) {
+        if (f.arena) { f.arena.classList.add('pn-goal', 'cheer'); }
+        if (f.ripple) { void f.ripple.offsetWidth; f.ripple.classList.add('wave'); }
+        penBanner('goal');
+        if (typeof SND.pnGoal === 'function') { try { SND.pnGoal(); } catch (e) {} }
+        if (typeof SND.pnNet === 'function') { try { SND.pnNet(); } catch (e) {} }
+        if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.42)');
+        if (typeof shake === 'function' && f.arena) shake(f.arena, 7, 500);
+      } else {
+        if (f.arena) f.arena.classList.add('pn-saved');
+        penBanner('saved');
+        if (typeof SND.pnSave === 'function') { try { SND.pnSave(); } catch (e) {} }
+        if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.34)');
+        if (typeof shake === 'function' && f.arena) shake(f.arena, 5, 380);
+      }
+      if (f.res) {
+        f.res.textContent = T('pn.shot') + ': ' + pnLabel(pnRoom.shootD) + '  —  ' + T('pn.keep') + ': ' + pnLabel(pnRoom.saveD) +
+          (goal ? '\n🥅 ' + T('pn.goal') : '\n🙌 ' + T('pn.save'));
+      }
+      /* نتيجة المباراة إن انتهت */
+      var pnMax = (window.HTH_ROUNDS && window.HTH_ROUNDS.pn) || (Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.rounds) || 5;   /* [RS-GameOpts] */
+      var finishMatch = pnRoom.round >= pnMax;
+      if (finishMatch) {
+        var finalTxt = '';
+        if (pnRoom.myScore > pnRoom.oppScore) finalTxt = '\n🏆 ' + T('pn.matchWin') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore + '!';
+        else if (pnRoom.oppScore > pnRoom.myScore) finalTxt = '\n' + T('pn.matchLose') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore;
+        else finalTxt = '\n🤝 ' + T('pn.matchTie') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore;
+        if (f.res) f.res.textContent += finalTxt + '\n(' + T('pn.again') + ')';
+        return;
+      }
+      pnRoom.round++;
+      pnRoom.shootD = null;
+      pnRoom.saveD = null;
+      pnRoom.myDir = null;
+      pnRoom.waiting = false;
+      setTimeout(function () {
+        penResetField();
+        pnSetBusy(false);
+        pnRoomUi();
+      }, 2200);
+    });
+    /* الحارس يغوص بالتوازي */
+    setTimeout(function () { penMoveKeeper(pnRoom.saveD); }, 330);
+  }, 520);
 }
 function pnRoomUi() {
   var el = document.getElementById('penResult');
@@ -797,8 +837,6 @@ const ENG = {
   get baloot() { return (typeof window.eBaloot === 'function') ? window.eBaloot : null; },
   get uno() { return (typeof window.eUno === 'function') ? window.eUno : null; },
   rami: (typeof window.eRami === 'function') ? window.eRami : ((typeof eRami === 'function') ? eRami : null),
-  coin: (typeof window.eCoin === 'function') ? window.eCoin : ((typeof eCoin === 'function') ? eCoin : null),
-  hilo: (typeof window.eHilo === 'function') ? window.eHilo : ((typeof eHilo === 'function') ? eHilo : null),
   rps: (typeof window.eRps === 'function') ? window.eRps : ((typeof eRps === 'function') ? eRps : null),
   pen: (typeof window.ePenalty === 'function') ? window.ePenalty : ((typeof ePenalty === 'function') ? ePenalty : null),
 };

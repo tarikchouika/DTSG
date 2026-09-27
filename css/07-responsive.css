@@ -46,10 +46,6 @@
   .rbets {
     grid-template-columns: repeat(3, 1fr);
   }
-  .coin3d {
-    width: 90px;
-    height: 90px;
-  }
   .goal {
     width: 220px;
     height: 120px;
