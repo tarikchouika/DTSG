@@ -802,40 +802,46 @@ rn: {
   pn: {
     name: { ar: 'ركلات الترجيح', fr: 'Penalty Shootout', en: 'Penalty Shootout' },
     goal: {
-      ar: 'سجّل ركلة الجزاء: اختر واحدة من 9 جهات بينما يغوص الحارس. جهة مختلفة عن الحارس = هدف ×1.08!',
-      fr: 'Marquez le penalty : choisissez l\'une des 9 directions pendant que le gardien plonge. Direction différente du gardien = but ×1,08 !',
-      en: 'Score the penalty: pick one of 9 directions while the keeper dives. A different direction from the keeper = goal ×1.08!'
+      ar: 'مباراة ركلات ترجيح كاملة: 3-9 تسديدات لكل لاعب (مسدد ومتصدي بالتبادل) تُحدد قبل بدء الجولة — تعادل؟ تسديدة إضافية لكل لاعب حتى يُكسر التعادل ويفوز أحدهما.',
+      fr: 'Une séance complète de tirs au but : 3 à 9 tirs par joueur (tireur/gardien en alternance) fixés avant la manche — égalité ? un tir de plus chacun jusqu\'à la décision.',
+      en: 'A full penalty shootout: 3-9 shots per player (striker/keeper alternating) set before the round — tied? one extra shot each until one player wins.'
     },
     steps: {
       ar: [
-        'حدد مبلغ الرهان',
-        'صافرة الحكم ثم اختر جهة التسديد من شبكة 3×3: يمين/الوسط/يسار × أعلى/الوسط/أسفل',
-        'الكرة تنطلق بمسار قوسي والحارس يغوص في نفس اللحظة',
-        'جهة مختلفة عن الحارس = هدف ×1.08',
-        'نفس الجهة = تصدي وخسارة',
-        'الاحتمال: التسجيل 8 من 9 — RTP 96%'
+        'الجولة = 3-9 تسديدات لكل لاعب تُختار وتُحدد قبل بدئها (الوضع الفردي: 5)',
+        'المسدد والمتصدي يتبادلان الأدوار تسديدة بعد تسديدة (اختيار أعمى متزامن)',
+        'صافرة الحكم ثم اختر منطقتك من شبكة 3×3: يمين/الوسط/يسار × أعلى/الوسط/أسفل',
+        'الكرة تنطلق بمسار قوسي والحارس يغوص نحو منطقته في نفس اللحظة',
+        'منطقة مختلفة عن الحارس = هدف، نفس المنطقة = تصدي',
+        'تعادل بعد جُعبة التسديدات؟ تسديدة إضافية لكل لاعب (موت فجائي) حتى يفوز أحدهما',
+        'نهاية المباراة: تصويت «مباراة جديدة؟» — الموافقون يلعبون والباقون متفرجون',
+        'ضد الحاسوب: تدريب مجاني بلا رهان — الرهان في الغرف فقط (الفائز يأخذ القدح بعد رسم 5%)'
       ],
       fr: [
-        'Définissez le montant du pari',
-        'Après le coup de sifflet, choisissez la direction dans la grille 3×3 : droite/centre/gauche × haut/milieu/bas',
-        'Le ballon part en trajectoire courbe et le gardien plonge au même instant',
-        'Direction différente = but ×1,08',
-        'Même direction = arrêt et perte',
-        'Chances : marquer 8 fois sur 9 — RTP 96 %'
+        'La manche = 3 à 9 tirs par joueur, choisis et fixés avant de commencer (solo : 5)',
+        'Tireur et gardien alternent à chaque tir (choix aveugle simultané)',
+        'Après le coup de sifflet, choisissez votre zone dans la grille 3×3',
+        'Le ballon part en arc et le gardien plonge vers sa zone au même instant',
+        'Zone différente du gardien = but, même zone = arrêt',
+        'Égalité après la série ? un tir de plus chacun (mort subite) jusqu\'à la victoire',
+        'Fin du match : vote « nouvelle partie ? » — les accordés jouent, les autres spectateurs',
+        'Contre l\'IA : entraînement gratuit sans mise — la mise se fait en salle (le gagnant prend le pot après 5 % de commission)'
       ],
       en: [
-        'Set your bet amount',
-        'After the referee whistle, pick a direction in the 3×3 grid: right/center/left × top/middle/bottom',
-        'The ball flies in an arcing trajectory while the keeper dives at the same moment',
-        'A direction different from the keeper = goal ×1.08',
-        'Same direction = save and loss',
-        'Odds: score 8 out of 9 — RTP 96%'
+        'The round = 3-9 shots per player, chosen and set before it starts (solo: 5)',
+        'Striker and keeper alternate shot by shot (simultaneous blind pick)',
+        'After the whistle, pick your zone in the 3×3 grid: right/center/left × top/middle/bottom',
+        'The ball flies in an arc while the keeper dives to their zone at the same moment',
+        'Different zone from the keeper = goal, same zone = save',
+        'Tied after the series? One extra shot each (sudden death) until someone wins',
+        'Match end: "new match?" vote — those who agree play, the rest spectate',
+        'Vs AI: free training with no bet — betting happens in rooms only (winner takes the pot after a 5% rake)'
       ]
     },
     payouts: {
-      ar: '<tr><td>هدف (جهة مختلفة عن الحارس)</td><td>×1.08</td></tr><tr><td>تصدي (نفس الجهة)</td><td>خسارة الرهان</td></tr>',
-      fr: '<tr><td>But (direction différente)</td><td>×1,08</td></tr><tr><td>Arrêt (même direction)</td><td>Perte du pari</td></tr>',
-      en: '<tr><td>Goal (different direction)</td><td>×1.08</td></tr><tr><td>Save (same direction)</td><td>Lose bet</td></tr>'
+      ar: '<tr><td>هدف (منطقة مختلفة عن الحارس)</td><td>✔ في شريط النتائج</td></tr><tr><td>تصدي (نفس المنطقة)</td><td>✕ في شريط النتائج</td></tr><tr><td>الفائز بالمباراة (غرفة)</td><td>القدح كاملاً بعد رسم 5%</td></tr>',
+      fr: '<tr><td>But (zone différente)</td><td>✔ dans la barre de résultats</td></tr><tr><td>Arrêt (même zone)</td><td>✕ dans la barre de résultats</td></tr><tr><td>Vainqueur du match (salle)</td><td>Le pot entier après 5 % de commission</td></tr>',
+      en: '<tr><td>Goal (different zone)</td><td>✔ in the results bar</td></tr><tr><td>Save (same zone)</td><td>✕ in the results bar</td></tr><tr><td>Match winner (room)</td><td>Full pot after a 5% rake</td></tr>'
     },
   },
   /* ═══ [BGDO] الطاولة — Backgammon (bg) ═══ */

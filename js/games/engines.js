@@ -472,33 +472,39 @@ function rpsRoomUi() {
   }
 }
 
-/* ═══════════ 11. Penalty — v2.63 ملء الشاشة ═══════════ */
-/* [v2.63 REDESIGN] إعادة تصميم كاملة وفق المواصفة:
-   • عشب أخضر يملأ الشاشة 100% في البورتريه واللاندسكيب (طبقة fixed inset:0).
-   • بورتريه: المرمى في وسط الشاشة من الحد الأيمن للأيسر بشكل مريح، مقسّم لتسع مناطق
-     تُحدد باللمس أو السحب (تصويب بالإفلات) للتسديد أو للتصدي حسب الدور.
-   • أسفل الشاشة: شريطا نتائج أفقيان (اللاعب الرئيسي + الخصم) بعلامات ✔/✕ لكل تسديدة.
-   • أعلى الشاشة: أيقونات المتفرجين + مجموع رهان الجولة (وضع الغرفة) أو شارة التدريب المجاني.
-   • لاندسكيب: كل العناصر تبقى في مواقعها وتُدار 90° هندسياً (الشريط الأفقي يصبح عمودياً،
-     قائما المرمى يلتقيان بالحدّ الأعلى والأسفل للشاشة).
-   • [Free-EDU] اللعب ضد الحاسوب مجاني وتعليمي — بلا خانة رهان في الواجهة:
-     الرهان بين المستخدمين فقط في الغرف ويُحدد في إعدادات الغرفة عند فتحها.
-   • غرفة (2 لاعبين وجهاً لوجه): ركلات متناوبة — seat 0 يهاجم 1/3/5 وseat 1 في 2/4 —
-     اختيار أعمى متزامن (sendBlind) كما هو، وفي نهاية المباراة يوزّع المضيف القدح
-     عبر Rooms.roomSettle (w0/w1/draw) — الخصم تم عند بدء الجولة والفائز يأخذه برسم 5%.
-   التصويب عبر elementFromPoint (اختبار الإصابة من المتصفح يتكفل بدوران اللاندسكيب)،
-   والإحداثيات كلها offset* (محلية لا تتأثر بالتحويلات). */
+/* ═══════════ 11. Penalty — v2.64 إعادة بناء شاملة ═══════════ */
+/* [v2.64 REBUILD] وفق مواصفة المالك:
+   • الجولة = 3–9 تسديدات لكل لاعب (مسدد/متصدي) تُختار وتُحدد قبل بدء الجولة
+     من إعدادات الغرفة — وعند التعادل تضاف تسديدة لكل لاعب (موت فجائي)
+     حتى يُكسر التعادل ويفوز أحد اللاعبين (لا تعادل نهائي أبداً).
+   • نظام الغرفة = نفس نظام التصويت وانتقال الأدوار (لاعب-متفرج) للبلياردو:
+     عند نهاية المباراة يفتح المضيف تصويت «مباراة جديدة» (60ث) — الموافقون
+     لاعبون والباقون متفرجون، والخادم يعيد إطلاق المباراة عبر startHandler.
+   • بلا أي عبارات مكتوبة أعلى الشاشة (بورتريه) / يمين الشاشة (لاندسكيب):
+     أعلى = حلقات المتفرجين (أيقونات فقط) + رقاقة القدح (أيقونة + رقم).
+   • أيقونات اللاعبين = حلقة بداخلها أول حرفين من اسم المستخدم بلا عبارات.
+   • بورتريه: المرمى في وسط الشاشة تماماً من الحد الأيمن للأيسر (9 مناطق).
+   • لاندسكيب (هاتف لمسي): تخطيط أصلي — القائمان عموديان يلتقيان بالحدّين
+     الأعلى/الأسفل والعارضة ملتصقة بالحد الأعلى، شريطا النتائج عمودان
+     جانبيان بمحتوى مستقيم الاتجاه، والكرة أسفل الوسط تصعد إلى المنطقة.
+   • الحركة (كرة/حارس) بحساب getBoundingClientRect الصافي — دقة بكسل
+     للمنطقة المحددة في الوضعين (لا تحويلات على الأسلاف إطلاقاً).
+   • [v2.64-fix] فئات وميض النتيجة pn-fx-goal/pn-fx-saved منفصلة عن
+     .pn-goal (عنصر المرمى) — كانت collide فتنهار طبقة ملء الشاشة إلى
+     أعلى الشاشة عند كل هدف/إضاعة (خلل «اختفاء 70% من الأرضية»).
+   • اللعب ضد الحاسوب مجاني تعليمي — الرهان في الغرف فقط (تسوية القدح
+     عند نهاية المباراة: الفائز يأخذ الرهانين بعد رسم 5%). */
 var pnRoom = null;
-var pnBusy = false;
 var pnSolo = null;
+var pnBusy = false;
 /* ترتيب المناطق: أعلى-يسار، أعلى، أعلى-يمين، يسار-وسط، وسط، يمين-وسط، أسفل-يسار، أسفل، أسفل-يمين */
 const PN_DIRS = ['↖️', '⬆️', '↗️', '⬅️', '🎯', '➡️', '↙️', '⬇️', '↘️'];
-const PN_KEYS = { '↖️': 'pn.tl', '⬆️': 'pn.tc', '↗️': 'pn.tr', '⬅️': 'pn.ml', '🎯': 'pn.mc', '➡️': 'pn.mr', '↙️': 'pn.bl', '⬇️': 'pn.bc', '↘️': 'pn.br' };
-function pnLabel(d) {
-  return T(PN_KEYS[d] || '');
-}
-function pnMaxRounds() {
-  return (window.HTH_ROUNDS && window.HTH_ROUNDS.pn) || (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.rounds) || 5;
+/* عدد التسديدات لكل لاعب: 3–9 تُحدد قبل الجولة (إعدادات الغرفة) — فردي: 5 */
+function pnShotsPer() {
+  var n = (window.HTH_ROUNDS && window.HTH_ROUNDS.pn) || (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.rounds) || 5;
+  n = parseInt(n, 10);
+  if (isNaN(n)) n = 5;
+  return Math.max(3, Math.min(9, n));
 }
 function pnSetBusy(b) {
   pnBusy = b;
@@ -506,13 +512,36 @@ function pnSetBusy(b) {
   if (fs) fs.classList.toggle('busy', !!b);
 }
 function pnRoomReset() {
-  pnRoom = { round: 1, mySeat: 0, myDir: null, oppDir: null, shootD: null, saveD: null, waiting: false, myScore: 0, oppScore: 0, oppName: '', oppPicked: false, myShots: [], oppShots: [] };
+  pnRoom = { shot: 1, mySeat: null, myDir: null, waiting: false, oppPicked: false, seatGoals: [0, 0], seatShots: [[], []], shootD: null, saveD: null, over: false };
 }
-function pnRoomAttackerSeat() {
-  return (pnRoom.round % 2 === 1) ? 0 : 1;
+/* المهاجم بالتسديدة رقم k: المقعد 0 بالفردية والمقعد 1 بالزوجية (تبادل مسدد/متصدي) */
+function pnAttackerSeat(shot) {
+  return (shot % 2 === 1) ? 0 : 1;
 }
 function pnInRoom() {
   return !!(typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'pn');
+}
+function pnIAmActive() {
+  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  if (!me || !pnInRoom()) return false;
+  return (Rooms.state.players || []).some(function (p) { return p.id === me.id && !p.spectate; });
+}
+function pnMySeat() {
+  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  if (!me || !pnInRoom()) return null;
+  var mine = (Rooms.state.players || []).find(function (p) { return p.id === me.id && !p.spectate; });
+  return mine ? mine.seat : null;
+}
+/* أسماء أصحاب المقعدَين (للحلقات) — متفرج يرى اسمَي اللاعبَين الفعليين */
+function pnSeatNames() {
+  if (pnInRoom() && Rooms.state) {
+    var ps = (Rooms.state.players || []).filter(function (p) { return !p.spectate; });
+    var n0 = '', n1 = '';
+    ps.forEach(function (p) { if (p.seat === 0) n0 = p.username; else if (p.seat === 1) n1 = p.username; });
+    return [n0, n1];
+  }
+  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  return [me ? me.username : '', 'AI'];
 }
 function penField() {
   return {
@@ -524,34 +553,54 @@ function penField() {
     ball: document.getElementById('pnBall'),
     banner: document.getElementById('pnBanner'),
     ripple: document.getElementById('pnRipple'),
-    turn: document.getElementById('pnTurn'),
-    spot: document.getElementById('pnSpot')
+    rematch: document.getElementById('pnRematch'),
+    replay: document.getElementById('pnReplay')
   };
 }
-function pnOffsetsIn(el, ancestor) {
-  var x = 0, y = 0, n = el;
-  while (n && n !== ancestor) { x += n.offsetLeft; y += n.offsetTop; n = n.offsetParent; }
-  return { x: x, y: y };
+/* أول حرفين من اسم المستخدم (يعمل مع العربية أيضاً) */
+function pnInitials(name) {
+  var s = String(name || '').trim().replace(/\s+/g, ' ');
+  if (!s) return '?';
+  return s.slice(0, 2);
 }
-/* مركز منطقة داخل فضاء عنصر (سير offsetParent — لا يتأثر بتحويلات الأسلاف) */
-function pnZoneCenterIn(d, ancestor) {
+function pnRingHtml(cls, initials, title) {
+  return '<span class="pn-ring ' + (cls || '') + '"' + (title ? ' title="' + esc(title) + '"' : '') + '><b>' + esc(initials) + '</b></span>';
+}
+/* ── نهاية المباراة: جُعبت كل التسديدات المسموحة لكل لاعب (زوجية مكتملة)
+   والنتيجتان مختلفتان → فائز؛ التعادل بعد الجُعبة → موت فجائي (تستمر) ── */
+function pnCheckOver(st) {
+  var done = st.shot - 1;                       /* التسديدات المكتملة */
+  var per = pnShotsPer();
+  return done >= per * 2 && done % 2 === 0 && st.seatGoals[0] !== st.seatGoals[1];
+}
+function pnSuddenDeath(st) {
+  return st.shot - 1 > pnShotsPer() * 2;
+}
+/* ═══ الحركة الدقيقة: كل القياسات بالمستطيلات الصافية (بلا تحويلات أسلاف) ═══ */
+function pnZoneCenter(d) {
   var f = penField();
-  var z = f.zones ? f.zones.querySelector('[data-d="' + d + '"]') : null;
-  if (!f.zones || !z || !ancestor) return null;
-  var zo = pnOffsetsIn(z, ancestor);
-  return { x: zo.x + z.offsetWidth / 2, y: zo.y + z.offsetHeight / 2 };
+  if (!f.zones) return null;
+  var z = f.zones.querySelector('[data-d="' + d + '"]');
+  if (!z) return null;
+  var r = z.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
-/* [v2.63] طيران قوسي للكرة من علامة الجزاء إلى المنطقة: قوس صاعد + دوران + تقليص عمق
-   + ارتداد مطاطي عند الوصول — الكرة مُركّزة بهوامش سالبة فالترجمة بكسل صافية */
+function pnStopAnims(el) {
+  if (!el) return;
+  try { el.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+}
+/* طيران قوسي للكرة من موضعها الحالي إلى مركز المنطقة المحددة — دقة بكسل */
 function penFlyBall(d, done) {
   var f = penField();
-  if (!f.ball || !f.pitch) { if (done) done(); return; }
-  var t = pnZoneCenterIn(d, f.pitch);
+  if (!f.ball) { if (done) done(); return; }
+  pnStopAnims(f.ball);
+  f.ball.classList.remove('flying');
+  var br = f.ball.getBoundingClientRect();
+  var t = pnZoneCenter(d);
   if (!t) { if (done) done(); return; }
-  var dx = t.x - (f.ball.offsetLeft + f.ball.offsetWidth / 2);
-  var dy = t.y - (f.ball.offsetTop + f.ball.offsetHeight / 2);
+  var dx = t.x - (br.left + br.width / 2);
+  var dy = t.y - (br.top + br.height / 2);
   var ball = f.ball;
-  try { ball.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
   ball.classList.add('flying');
   var lift = Math.min(130, Math.abs(dy) * 0.34);
   var anim = ball.animate([
@@ -567,18 +616,20 @@ function penFlyBall(d, done) {
   if (anim && anim.onfinish !== undefined) anim.onfinish = fin;
   else setTimeout(fin, 640);
 }
-/* [v2.63] غوص الحارس نحو المنطقة: اندفاع + دوران + تمدد رأسي — من موقعه الأرضي لمركز المنطقة */
+/* غوص الحارس من موقعه الحالي إلى مركز المنطقة المحددة — اندفاع + دوران + تمدد */
 function penMoveKeeper(d) {
   var f = penField();
-  if (!f.keeper || !f.zones) return;
-  var t = pnZoneCenterIn(d, f.goal);
-  if (!t) return;
-  var dx = t.x - (f.keeper.offsetLeft + f.keeper.offsetWidth / 2);
-  var dy = t.y - (f.keeper.offsetTop + f.keeper.offsetHeight / 2);
-  var rot = dx < -18 ? -52 : dx > 18 ? 52 : 0;
-  try { f.keeper.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+  if (!f.keeper) return;
   f.keeper.classList.remove('idle');
   f.keeper.classList.add('diving');
+  pnStopAnims(f.keeper);
+  f.keeper.style.transform = '';
+  var kr = f.keeper.getBoundingClientRect();
+  var t = pnZoneCenter(d);
+  if (!t) return;
+  var dx = t.x - (kr.left + kr.width / 2);
+  var dy = t.y - (kr.top + kr.height / 2);
+  var rot = dx < -18 ? -52 : dx > 18 ? 52 : 0;
   var stretch = dy < -16 ? ' scaleY(1.18)' : ' scaleY(1.07)';
   var anim = f.keeper.animate([
     { transform: 'translate(0px, 0px) rotate(0deg) scaleY(1)' },
@@ -588,24 +639,28 @@ function penMoveKeeper(d) {
     f.keeper.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) rotate(' + rot + 'deg)' + stretch;
   }
 }
-/* [v2.63] لافتة النتيجة العملاقة */
+/* [v2.64] لافتة النتيجة: هدف/تصدي أثناء اللعب — 🏆/😞 عند نهاية المباراة (أيقونات بلا عبارات) */
 function penBanner(kind) {
   var f = penField();
   if (!f.banner) return;
-  f.banner.classList.remove('show', 'goal', 'saved');
+  f.banner.classList.remove('show', 'goal', 'saved', 'win', 'lose');
   void f.banner.offsetWidth;
-  f.banner.textContent = kind === 'goal' ? '🥅 ' + T('pn.goal') : '🙌 ' + T('pn.save');
+  if (kind === 'goal') f.banner.textContent = '🥅 ' + T('pn.goal');
+  else if (kind === 'saved') f.banner.textContent = '🙌 ' + T('pn.save');
+  else if (kind === 'win') f.banner.textContent = '🏆';
+  else if (kind === 'lose') f.banner.textContent = '😞';
+  else return;
   f.banner.classList.add('show', kind);
 }
-/* [v2.63] تموّج الشبكة عند الهدف — مركز الموجة عند منطقة الإصابة */
+/* تموّج الشبكة عند الهدف — مركز الموجة عند منطقة الإصابة (قياس مستطيلي) */
 function penRipple(d) {
   var f = penField();
-  if (!f.ripple || !f.zones) return;
-  var t = pnZoneCenterIn(d, f.goal);
-  if (t) {
-    f.ripple.style.left = t.x + 'px';
-    f.ripple.style.top = t.y + 'px';
-  }
+  if (!f.ripple || !f.goal) return;
+  var t = pnZoneCenter(d);
+  if (!t) return;
+  var gr = f.goal.getBoundingClientRect();
+  f.ripple.style.left = (t.x - gr.left) + 'px';
+  f.ripple.style.top = (t.y - gr.top) + 'px';
   f.ripple.classList.remove('wave');
   void f.ripple.offsetWidth;
   f.ripple.classList.add('wave');
@@ -613,143 +668,158 @@ function penRipple(d) {
 function penResetField() {
   var f = penField();
   if (f.ball) {
-    try { f.ball.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+    pnStopAnims(f.ball);
     f.ball.classList.remove('flying');
     f.ball.style.transform = '';
   }
   if (f.keeper) {
-    try { f.keeper.getAnimations().forEach(function (a) { a.cancel(); }); } catch (e) {}
+    pnStopAnims(f.keeper);
     f.keeper.style.transform = '';
     f.keeper.classList.remove('diving');
     f.keeper.classList.add('idle');
   }
-  if (f.fs) f.fs.classList.remove('pn-goal', 'pn-saved');
+  if (f.fs) f.fs.classList.remove('pn-fx-goal', 'pn-fx-saved');
   if (f.goal) f.goal.classList.remove('tense');
-  if (f.banner) f.banner.classList.remove('show', 'goal', 'saved');
+  if (f.banner) f.banner.classList.remove('show', 'goal', 'saved', 'win', 'lose');
   if (f.ripple) f.ripple.classList.remove('wave');
   if (f.zones) {
     var z = f.zones.querySelectorAll('.pnz.aim');
     for (var i = 0; i < z.length; i++) z[i].classList.remove('aim');
   }
 }
-/* ── الشريط العلوي: متفرجون + رهان الجولة (غرفة) أو تدريب مجاني (فردي) ── */
+/* ═══ سينما التسديدة المشتركة (فردي + غرفة + متفرجون)
+   onOutcome: تُستدعى لحظة ظهور النتيجة (تسجيل ✔/✕ فوراً مع اللافتة)
+   onDone: تُستدعى بعد إعادة ضبط الملعب (جولة اللعب التالية) ═══ */
+function pnPlayShot(shootD, saveD, goal, onOutcome, onDone) {
+  var f = penField();
+  if (typeof SND.pnWhistle === 'function') { try { SND.pnWhistle(); } catch (e) {} }
+  if (f.goal) f.goal.classList.add('tense');
+  if (f.ball) {
+    f.ball.animate([
+      { transform: 'scale(1)' },
+      { transform: 'scale(1.22)' }
+    ], { duration: 300, easing: 'ease-out' });
+  }
+  setTimeout(function () {
+    if (typeof SND.pnKick === 'function') { try { SND.pnKick(); } catch (e) {} }
+    if (f.goal) f.goal.classList.remove('tense');
+    penFlyBall(shootD, function () {
+      if (goal) {
+        if (f.fs) f.fs.classList.add('pn-fx-goal');
+        penRipple(shootD);
+        penBanner('goal');
+        if (typeof SND.pnGoal === 'function') { try { SND.pnGoal(); } catch (e) {} }
+        if (typeof SND.pnNet === 'function') { try { SND.pnNet(); } catch (e) {} }
+        if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.42)');
+        if (typeof shake === 'function' && f.pitch) shake(f.pitch, 7, 500);
+      } else {
+        if (f.fs) f.fs.classList.add('pn-fx-saved');
+        penBanner('saved');
+        if (typeof SND.pnSave === 'function') { try { SND.pnSave(); } catch (e) {} }
+        if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.34)');
+        if (typeof shake === 'function' && f.pitch) shake(f.pitch, 5, 380);
+      }
+      if (onOutcome) onOutcome();
+      setTimeout(function () {
+        penResetField();
+        if (onDone) onDone();
+      }, 2000);
+    });
+    setTimeout(function () { penMoveKeeper(saveD); }, 240);
+  }, 460);
+}
+/* ═══ الشريط العلوي: حلقات المتفرجين (يسار) + رقاقة القدح (يمين) — بلا عبارات ═══ */
 function pnTopRender() {
   var specEl = document.getElementById('pnSpecs');
   var betEl = document.getElementById('pnBet');
   if (!specEl || !betEl) return;
-  var inRoom = pnInRoom() && Rooms.state;
-  if (inRoom) {
-    /* متفرجو الغرفة: اللاعبون بعلم spectate */
+  if (pnInRoom() && Rooms.state) {
     var specs = (Rooms.state.players || []).filter(function (p) { return p.spectate; });
     var html = '';
-    var shown = specs.slice(0, 6);
+    var shown = specs.slice(0, 5);
     for (var i = 0; i < shown.length; i++) {
-      html += '<span class="pn-spec" title="' + esc(String(shown[i].username || '')) + '"><i class="fa-solid fa-user" aria-hidden="true"></i></span>';
+      html += pnRingHtml('spec', pnInitials(shown[i].username), shown[i].username);
     }
-    if (specs.length > 6) html += '<span class="pn-spec more">+' + (specs.length - 6) + '</span>';
-    specEl.innerHTML = specs.length ? ('<span class="pn-specs-n">' + esc(T('pn.spect')) + ' ' + specs.length + '</span>' + html) : '';
+    if (specs.length > 5) html += '<span class="pn-ring spec more">+' + (specs.length - 5) + '</span>';
+    specEl.innerHTML = html;
     specEl.style.display = specs.length ? 'flex' : 'none';
-    /* مجموع رهان الجولة: كل لاعب يراهن بقيمة الغرفة — القدح = رهان اللاعبَين */
     var bet = Number(Rooms.state.bet) || 0;
     var pot = bet * 2;
-    betEl.innerHTML = '<i class="fa-solid fa-coins" aria-hidden="true"></i> ' + esc(T('pn.pot')) + ': <b>' + fmt(pot) + '</b>';
+    betEl.innerHTML = '<i class="fa-solid fa-coins" aria-hidden="true"></i> <b>' + fmt(pot) + '</b>';
+    betEl.style.display = 'flex';
     betEl.className = 'pn-bet room';
   } else {
     specEl.innerHTML = '';
     specEl.style.display = 'none';
-    betEl.innerHTML = '🎓 ' + esc(T('pn.free'));
+    betEl.innerHTML = '';
+    betEl.style.display = 'none';
     betEl.className = 'pn-bet';
   }
 }
-/* ── شريطا النتائج السفليان: اللاعب الرئيسي + الخصم وعلامات تسديداتهما ── */
-function pnBarTokens(seq, max) {
+/* ═══ جانبا النتائج: حلقة الحرفين + علامات ✔/✕ + النتيجة ═══ */
+function pnTokens(seq, per, sudden) {
   var html = '';
-  var start = Math.max(0, seq.length - 11);
+  var total = Math.max(per, seq.length);
+  var start = Math.max(0, total - 11);
   if (start > 0) html += '<span class="pn-tok more">…</span>';
-  for (var i = start; i < seq.length; i++) {
-    html += '<span class="pn-tok ' + (seq[i] ? 'ok' : 'no') + '">' + (seq[i] ? '✔' : '✕') + '</span>';
+  for (var i = start; i < total; i++) {
+    if (i < seq.length) html += '<span class="pn-tok ' + (seq[i] ? 'ok' : 'no') + '">' + (seq[i] ? '✔' : '✕') + '</span>';
+    else html += '<span class="pn-tok empty"></span>';
   }
-  var total = (typeof max === 'number' && max > 0) ? max : 0;
-  if (total) {
-    for (var j = seq.length; j < Math.min(total, start + 11); j++) html += '<span class="pn-tok empty"></span>';
-  }
+  if (sudden && seq.length >= per) html += '<span class="pn-tok sd">⚡</span>';
   return html;
 }
 function pnBarsRender() {
-  var seqMe = document.getElementById('pnSeqMe');
-  var seqOpp = document.getElementById('pnSeqOpp');
-  var nickMe = document.getElementById('pnNickMe');
-  var nickOpp = document.getElementById('pnNickOpp');
-  var scMe = document.getElementById('pnScMe');
-  var scOpp = document.getElementById('pnScOpp');
-  var barMe = document.getElementById('pnBarMe');
-  var barOpp = document.getElementById('pnBarOpp');
-  if (!seqMe || !seqOpp) return;
-  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
-  var myName = me ? me.username : (T('pn.you') || 'أنت');
-  if (pnInRoom() && pnRoom) {
-    nickMe.textContent = myName;
-    nickOpp.textContent = pnRoom.oppName || T('pn.opp');
-    seqMe.innerHTML = pnBarTokens(pnRoom.myShots, Math.ceil(pnMaxRounds() / 2));
-    seqOpp.innerHTML = pnBarTokens(pnRoom.oppShots, Math.floor(pnMaxRounds() / 2));
-    scMe.textContent = String(pnRoom.myScore);
-    scOpp.textContent = String(pnRoom.oppScore);
-    var attacker = pnRoomAttackerSeat() === pnRoom.mySeat;
-    var playing = Rooms.state.status === 'playing';
-    if (barMe) barMe.classList.toggle('active', playing && attacker && !pnRoom.waiting);
-    if (barOpp) barOpp.classList.toggle('active', playing && !attacker && !pnRoom.waiting);
-  } else if (pnSolo) {
-    nickMe.textContent = myName;
-    nickOpp.textContent = T('rp.computer') || 'الحاسوب';
-    seqMe.innerHTML = pnBarTokens(pnSolo.myShots, 0);
-    seqOpp.innerHTML = pnBarTokens(pnSolo.aiSaves, 0);
-    scMe.textContent = String(pnSolo.goals);
-    scOpp.textContent = String(pnSolo.saves);
-    if (barMe) barMe.classList.toggle('active', !pnBusy);
-    if (barOpp) barOpp.classList.remove('active');
+  var f0 = document.getElementById('pnSeq0'), f1 = document.getElementById('pnSeq1');
+  if (!f0 || !f1) return;
+  var i0 = document.getElementById('pnIni0'), i1 = document.getElementById('pnIni1');
+  var s0 = document.getElementById('pnSc0'), s1 = document.getElementById('pnSc1');
+  var side0 = document.getElementById('pnSide0'), side1 = document.getElementById('pnSide1');
+  var names = pnSeatNames();
+  var per = pnShotsPer();
+  var st = pnInRoom() ? pnRoom : pnSolo;
+  if (!st) return;
+  if (i0) i0.textContent = pnInitials(names[0]);
+  if (i1) i1.textContent = pnInitials(names[1]);
+  f0.innerHTML = pnTokens(st.seatShots[0], per, pnSuddenDeath(st));
+  f1.innerHTML = pnTokens(st.seatShots[1], per, pnSuddenDeath(st));
+  if (s0) s0.textContent = String(st.seatGoals[0]);
+  if (s1) s1.textContent = String(st.seatGoals[1]);
+  /* أهلية اللعب: فردي = أنا دائماً؛ غرفة = لاعب نشط والجولة جارية ولم تنتهِ */
+  var canAct = pnSolo ? true : (pnInRoom() && Rooms.state.status === 'playing' && pnIAmActive() && pnRoom && !pnRoom.over);
+  /* شارات الدور ⚽/🧤/⏳ على جانبَي المقعدَين */
+  var atk = pnAttackerSeat(st.shot);
+  var role0 = '', role1 = '';
+  if (!st.over) {
+    if (st === pnRoom && Rooms.state.status !== 'playing') { role0 = '⏳'; role1 = '⏳'; }
+    else {
+      role0 = atk === 0 ? '⚽' : '🧤';
+      role1 = atk === 1 ? '⚽' : '🧤';
+      /* غرفة: من لم يختر بعد بعد اختياري → ⏳ عنده */
+      if (st === pnRoom && pnRoom.waiting && pnMySeat() !== null) {
+        var oppSeat = 1 - pnMySeat();
+        if (oppSeat === 0) role0 = '⏳';
+        if (oppSeat === 1) role1 = '⏳';
+      }
+    }
   }
-}
-/* ── شريط الدور/الحالة ── */
-function pnTurnSet(text, kind) {
-  var el = document.getElementById('pnTurn');
-  if (!el) return;
-  el.textContent = text;
-  el.className = 'pn-turn' + (kind ? ' ' + kind : '');
-}
-function pnSoloIdleTurn() {
-  pnTurnSet('⚽ ' + (T('pn.tapShoot') || 'المس منطقة أو اسحب ثم أفلت للتسديد'), 'shoot');
-}
-function pnRoomIdleTurn() {
-  if (!pnRoom || !pnInRoom()) return;
-  if (Rooms.state.status !== 'playing') {
-    pnTurnSet('🛡️ ' + T('pn.roomWait'), 'wait');
-    return;
-  }
-  var attacker = pnRoomAttackerSeat() === pnRoom.mySeat;
-  var score = T('pn.you') + ' ' + pnRoom.myScore + ' : ' + pnRoom.oppScore + ' — ' + T('pn.round') + ' ' + pnRoom.round + '/' + pnMaxRounds();
-  if (pnRoom.waiting) {
-    pnTurnSet('⏳ ' + T('pn.roomWaiting') + (pnRoom.oppPicked ? ' — ' + T('pn.oppPicked') : '') + ' (' + score + ')', 'wait');
-  } else if (attacker) {
-    pnTurnSet('⚽ ' + T('pn.youShoot') + ' — ' + (T('pn.tapShoot') || '') + ' (' + score + ')', 'shoot');
-  } else {
-    pnTurnSet('🧤 ' + T('pn.youSave') + ' — ' + (T('pn.tapSave') || '') + ' (' + score + ')', 'save');
-  }
+  var r0 = document.getElementById('pnRole0'), r1 = document.getElementById('pnRole1');
+  if (r0) r0.textContent = role0;
+  if (r1) r1.textContent = role1;
+  var isSpec = pnInRoom() && !pnIAmActive();
+  var mySeat = pnMySeat();
+  var activeGlow = !st.over && (pnSolo ? !pnBusy : (Rooms.state.status === 'playing' && !(st === pnRoom && st.waiting)));
+  if (side0) side0.classList.toggle('active', activeGlow && atk === 0);
+  if (side1) side1.classList.toggle('active', activeGlow && atk === 1);
+  if (side0) side0.classList.toggle('mine', !isSpec && mySeat === 0);
+  if (side1) side1.classList.toggle('mine', !isSpec && mySeat === 1);
 }
 function pnRoomUi() {
-  pnRoomIdleTurn();
   pnBarsRender();
   pnTopRender();
+  pnRematchRender();
 }
-/* ── أبعاد الطبقة: يضبط متغيرات الحجم لدوران اللاندسكيب بدقة بكسل ── */
-function pnLayout() {
-  var fs = document.getElementById('pnFs');
-  if (!fs) return;
-  var r = fs.getBoundingClientRect();
-  if (r.height > 0) fs.style.setProperty('--pnH', r.height + 'px');
-  if (r.width > 0) fs.style.setProperty('--pnW', r.width + 'px');
-}
-/* ── التصويب باللمس والسحب: down يبدأ، move يضيء المنطقة تحت الإصبع (elementFromPoint
-   يتكفّل باختبار الإصابة عبر دوران اللاندسكيب)، up يطلق على المنطقة المضاءة ── */
+/* ═══ التصويب باللمس/السحب: down يبدأ، move يضيء المنطقة تحت الإصبع، up يطلق ═══ */
 function pnBindAim() {
   var pitch = document.getElementById('pnPitch');
   if (!pitch || pitch._aimBound) return;
@@ -792,7 +862,6 @@ function pnBindAim() {
     var d = aimDir;
     highlight(null);
     if (!d || pnBusy) return;
-    if (pnInRoom() && (Rooms.state.status !== 'playing' || (pnRoom && pnRoom.waiting))) return;
     penShoot(d);
   }
   function onCancel() {
@@ -802,7 +871,9 @@ function pnBindAim() {
   }
   pitch.addEventListener('pointerdown', function (e) {
     if (pnBusy) return;
-    if (pnInRoom() && (Rooms.state.status !== 'playing' || (pnRoom && pnRoom.waiting) || !pnIAmActive())) return;
+    if (pnInRoom()) {
+      if (Rooms.state.status !== 'playing' || (pnRoom && (pnRoom.waiting || pnRoom.over)) || !pnIAmActive()) return;
+    } else if (!pnSolo || pnSolo.over) return;
     var d = zoneFromPoint(e.clientX, e.clientY);
     if (!d) return;   /* التصويب يبدأ من فوق المرمى فقط — ثم يُسحب أو يُطلق */
     e.preventDefault();
@@ -812,107 +883,6 @@ function pnBindAim() {
     window.addEventListener('pointerup', onUp, { passive: false });
     window.addEventListener('pointercancel', onCancel);
   }, { passive: false });
-}
-/* ── بناء واجهة اللعبة ── */
-function ePenalty(g) {
-  pnRoomReset();
-  pnSolo = { myShots: [], aiSaves: [], goals: 0, saves: 0 };
-  pnBusy = false;
-  if (typeof Rooms !== 'undefined') {
-    Rooms.setGameHandler(pnRoomMove);
-    /* [v2.63] تحديثات الغرفة (انضمام متفرج، تغيّر الرهان/الحالة) تُحدّث الشريط
-       العلوي وشريطي النتائج فوراً — كانت تُرسم مرة عند الفتح فقط */
-    if (typeof Rooms.setUpdateHandler === 'function') {
-      Rooms.setUpdateHandler(function () {
-        pnTopRender();
-        pnBarsRender();
-        if (pnInRoom() && typeof pnRoom !== 'undefined' && pnRoom) pnRoomIdleTurn();
-      });
-    }
-    Rooms.setStartHandler(function (room) {
-      pnRoomReset();
-      if (room && room.players) {
-        var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
-        var mine = room.players.find(function (p) { return p.id === (me && me.id); });
-        var opp = room.players.find(function (p) { return p.id !== (me && me.id) && !p.spectate; });
-        if (mine) pnRoom.mySeat = mine.seat;
-        if (opp) pnRoom.oppName = opp.username;
-      }
-      pnRoomUi();
-    });
-  }
-  var zones = PN_DIRS.map(function (d) {
-    return '<button type="button" class="pnz" data-d="' + d + '" aria-label="' + pnLabel(d) + '" tabindex="-1"><span class="pnz-reticle" aria-hidden="true"></span></button>';
-  }).join('');
-  return '<div class="stage pn-stage" id="pnStage">' +
-    '<div class="pn-fs" id="pnFs">' +
-      '<div class="pn-wrap" id="pnWrap">' +
-        /* أعلى الشاشة: متفرجون + مجموع رهان الجولة */
-        '<div class="pn-top">' +
-          '<div class="pn-specs" id="pnSpecs"></div>' +
-          '<div class="pn-bet" id="pnBet"></div>' +
-        '</div>' +
-        /* الملعب: العشب يملأ الشاشة */
-        '<div class="pn-pitch" id="pnPitch">' +
-          '<div class="pn-turn" id="pnTurn">⚽</div>' +
-          '<div class="pn-goalwrap">' +
-            '<div class="pn-goal" id="pnGoal">' +
-              '<div class="pn-net" aria-hidden="true"></div>' +
-              '<div class="pn-rip" id="pnRipple" aria-hidden="true"></div>' +
-              '<div class="pn-zones" id="pnZones">' + zones + '</div>' +
-              '<span class="pn-post gl" aria-hidden="true"></span>' +
-              '<span class="pn-post gr" aria-hidden="true"></span>' +
-              '<span class="pn-cross" aria-hidden="true"></span>' +
-              '<div class="pn-gk idle" id="pnKeeper">' +
-                '<span class="pn-gk-head" aria-hidden="true"></span>' +
-                '<span class="pn-gk-body" aria-hidden="true"></span>' +
-                '<span class="pn-gk-arm la" aria-hidden="true"></span>' +
-                '<span class="pn-gk-arm ra" aria-hidden="true"></span>' +
-                '<span class="pn-gk-leg ll" aria-hidden="true"></span>' +
-                '<span class="pn-gk-leg rl" aria-hidden="true"></span>' +
-              '</div>' +
-            '</div>' +
-            /* خطوط منطقة الجزاء (طباشير) + قوس المنطقة + الكرة وعلامتها */
-            '<div class="pn-box" aria-hidden="true"></div>' +
-            '<div class="pn-arc" aria-hidden="true"></div>' +
-            '<div class="pn-spot" id="pnSpot" aria-hidden="true"></div>' +
-            '<span class="pn-ball" id="pnBall" aria-hidden="true">⚽</span>' +
-          '</div>' +
-          '<div class="pn-banner" id="pnBanner" aria-live="polite"></div>' +
-        '</div>' +
-        /* أسفل الشاشة: شريطا نتائج اللاعبين */
-        '<div class="pn-bars">' +
-          '<div class="pn-bar me active" id="pnBarMe">' +
-            '<span class="pn-av me" aria-hidden="true"><i class="fa-solid fa-user"></i></span>' +
-            '<span class="pn-nick" id="pnNickMe"></span>' +
-            '<span class="pn-seq" id="pnSeqMe"></span>' +
-            '<span class="pn-sc" id="pnScMe">0</span>' +
-          '</div>' +
-          '<div class="pn-bar opp" id="pnBarOpp">' +
-            '<span class="pn-av opp" aria-hidden="true"><i class="fa-solid fa-robot"></i></span>' +
-            '<span class="pn-nick" id="pnNickOpp"></span>' +
-            '<span class="pn-seq" id="pnSeqOpp"></span>' +
-            '<span class="pn-sc" id="pnScOpp">0</span>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-    '</div>' +
-  '</div>';
-}
-/* ── تهيئة ما بعد الرسم: ربط التصويب + الأبعاد + الشريطان + الشريط العلوي ── */
-function pnInit() {
-  pnBindAim();
-  pnLayout();
-  pnSoloIdleTurn();
-  pnBarsRender();
-  pnTopRender();
-  if (pnInRoom()) pnRoomUi();
-}
-/* هل أنا لاعب نشط (غير متفرج) في غرفة pn؟ */
-function pnIAmActive() {
-  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
-  if (!me || !pnInRoom()) return false;
-  return (Rooms.state.players || []).some(function (p) { return p.id === me.id && !p.spectate; });
 }
 /* ── مدخل التسديد (فردي أو غرفة) ── */
 function penShoot(d) {
@@ -924,75 +894,66 @@ function penShoot(d) {
 }
 /* ── التسديدة الفردية: مجانية تعليمية — بلا خصم ولا أرباح ولا خانة رهان ── */
 function penFire(d) {
-  if (pnBusy) return;
+  if (pnBusy || !pnSolo || pnSolo.over) return;
   pnSetBusy(true);
-  var f = penField();
-  /* كشف حتمي باستدعاء _rng واحد — منطقة الحارس من 9 محسوبة قبل الحركة */
-  var gk = PN_DIRS[Math.floor(_rng() * 9)];
-  var win = gk !== d;
-  pnTurnSet('🧤 ' + T('pn.saving'), 'wait');
-  if (typeof SND.pnWhistle === 'function') { try { SND.pnWhistle(); } catch (e) {} }
-  if (f.goal) f.goal.classList.add('tense');
-  /* شحن الكرة لحظة قبل الركل */
-  if (f.ball) {
-    f.ball.animate([
-      { transform: 'scale(1)' },
-      { transform: 'scale(1.22)' }
-    ], { duration: 300, easing: 'ease-out' });
+  var atk = pnAttackerSeat(pnSolo.shot);   /* فردي: المقعد 0 = أنا */
+  var aiD = PN_DIRS[Math.floor(_rng() * 9)];
+  var shootD = (atk === 0) ? d : aiD;
+  var saveD = (atk === 0) ? aiD : d;
+  var goal = shootD !== saveD;
+  pnPlayShot(shootD, saveD, goal, function () {
+    /* النتيجة تُسجّل فور ظهور اللافتة — العلامة تظهر في الشريط لحظياً */
+    pnSolo.seatShots[atk].push(goal);
+    if (goal) pnSolo.seatGoals[atk]++;
+    pnSolo.shot++;
+    pnBarsRender();
+  }, function () {
+    if (pnCheckOver(pnSolo)) { pnSoloEnd(); return; }
+    pnSetBusy(false);
+    pnBarsRender();
+  });
+}
+function pnSoloEnd() {
+  pnSolo.over = true;
+  pnSetBusy(true);
+  var winSeat = pnSolo.seatGoals[0] > pnSolo.seatGoals[1] ? 0 : 1;
+  var iWon = winSeat === 0;
+  penBanner(iWon ? 'win' : 'lose');
+  if (iWon) {
+    if (typeof SND.rpsWin === 'function') { try { SND.rpsWin(); } catch (e) {} }
+    if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.4)');
+  } else {
+    if (typeof SND.rpsLose === 'function') { try { SND.rpsLose(); } catch (e) {} }
   }
-  setTimeout(function () {
-    if (typeof SND.pnKick === 'function') { try { SND.pnKick(); } catch (e) {} }
-    if (f.goal) f.goal.classList.remove('tense');
-    penFlyBall(d, function () {
-      if (win) {
-        if (f.fs) f.fs.classList.add('pn-goal');
-        penRipple(d);
-        penBanner('goal');
-        if (typeof SND.pnGoal === 'function') { try { SND.pnGoal(); } catch (e) {} }
-        if (typeof SND.pnNet === 'function') { try { SND.pnNet(); } catch (e) {} }
-        if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.42)');
-        if (typeof shake === 'function' && f.pitch) shake(f.pitch, 7, 500);
-        pnTurnSet('⚽ ' + T('pn.shot') + ': ' + pnLabel(d) + ' — ' + T('pn.keep') + ': ' + pnLabel(gk) + ' 🥅 ' + T('pn.goal'), 'goal');
-        pnSolo.myShots.push(true);
-        pnSolo.aiSaves.push(false);
-        pnSolo.goals++;
-      } else {
-        if (f.fs) f.fs.classList.add('pn-saved');
-        penBanner('saved');
-        if (typeof SND.pnSave === 'function') { try { SND.pnSave(); } catch (e) {} }
-        if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.34)');
-        if (typeof shake === 'function' && f.pitch) shake(f.pitch, 5, 380);
-        pnTurnSet('⚽ ' + T('pn.shot') + ': ' + pnLabel(d) + ' — ' + T('pn.keep') + ': ' + pnLabel(gk) + ' 🙌 ' + T('pn.save'), 'save');
-        pnSolo.myShots.push(false);
-        pnSolo.aiSaves.push(true);
-        pnSolo.saves++;
-      }
-      pnBarsRender();
-      setTimeout(function () {
-        penResetField();
-        pnSetBusy(false);
-        pnSoloIdleTurn();
-      }, 2200);
-    });
-    /* الحارس يغوص بالتوازي — يسبق وصول الكرة قليلاً كالمباراة الحقيقية */
-    setTimeout(function () { penMoveKeeper(gk); }, 240);
-  }, 460);
+  var f = penField();
+  if (f.replay) f.replay.hidden = false;
+  pnBarsRender();
+}
+function pnSoloRestart() {
+  pnSolo = { shot: 1, seatGoals: [0, 0], seatShots: [[], []], over: false };
+  pnSetBusy(false);
+  penResetField();
+  var f = penField();
+  if (f.replay) f.replay.hidden = true;
+  pnBarsRender();
 }
 /* ── Penalty وضع الغرفة (اختيار أعمى متزامن — يكشف الخادم الزوج معاً) ── */
 function pnRoomAct(d) {
-  if (!pnRoom || pnRoom.waiting) return;
+  /* [v2.64-hardening] pnBusy يقفل أثناء سينما النتيجة — لا يُقبل اختيار
+     مبكر يتسرّب للخادم ويزاوج أزواجاً من تسديدات مختلفة */
+  if (!pnRoom || pnRoom.waiting || pnRoom.over || pnBusy) return;
   SND.click();
   pnRoom.myDir = d;
   pnRoom.waiting = true;
   pnSetBusy(true);
   Rooms.sendBlind({ d: d });
-  pnRoomUi();
+  pnBarsRender();
 }
 function pnRoomMove(d) {
   if (!pnRoom) return;
   if (d.action === 'blind') {
     pnRoom.oppPicked = true;
-    pnRoomUi();
+    pnBarsRender();
   } else if (d.action === 'blindResult') {
     var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
     var myId = me ? String(me.id) : null;
@@ -1004,8 +965,9 @@ function pnRoomMove(d) {
     }
     var myD = (myId && d.data.dirs[myId]) ? d.data.dirs[myId] : pnRoom.myDir;
     var oppD = oppId ? d.data.dirs[oppId] : null;
-    var attacker = pnRoomAttackerSeat() === pnRoom.mySeat;
-    if (attacker) { pnRoom.shootD = myD; pnRoom.saveD = oppD; }
+    var attacker = pnAttackerSeat(pnRoom.shot);
+    var mySeat = pnMySeat();
+    if (mySeat === attacker) { pnRoom.shootD = myD; pnRoom.saveD = oppD; }
     else { pnRoom.shootD = oppD; pnRoom.saveD = myD; }
     pnRoom.waiting = false;
     pnRoom.oppPicked = false;
@@ -1013,68 +975,224 @@ function pnRoomMove(d) {
   }
 }
 function pnRoomSettle() {
+  if (!pnRoom) return;
   var goal = pnRoom.shootD !== pnRoom.saveD;
-  var attacker = pnRoomAttackerSeat() === pnRoom.mySeat;
-  if (goal) {
-    if (attacker) pnRoom.myScore++; else pnRoom.oppScore++;
+  var atk = pnAttackerSeat(pnRoom.shot);
+  pnPlayShot(pnRoom.shootD, pnRoom.saveD, goal, function () {
+    /* النتيجة تُسجّل فور ظهور اللافتة عند الجميع (لاعبين + متفرجين) */
+    pnRoom.seatShots[atk].push(goal);
+    if (goal) pnRoom.seatGoals[atk]++;
+    pnRoom.shot++;
+    pnRoom.waiting = false;
+    pnRoom.myDir = null;
+    pnRoom.shootD = null;
+    pnRoom.saveD = null;
+    pnRoom.oppPicked = false;
+    pnBarsRender();
+  }, function () {
+    if (pnCheckOver(pnRoom)) { pnMatchEnd(); return; }
+    pnSetBusy(false);
+    pnRoomUi();
+  });
+}
+/* ═══ نهاية مباراة الغرفة: تسوية القدح + فتح تصويت المباراة الجديدة (نظام البلياردو) ═══ */
+function pnMatchEnd() {
+  pnRoom.over = true;
+  pnSetBusy(true);
+  var g0 = pnRoom.seatGoals[0], g1 = pnRoom.seatGoals[1];
+  var winSeat = (g0 > g1) ? 0 : 1;
+  var mySeat = pnMySeat();
+  var iWon = (mySeat === winSeat);
+  penBanner(iWon === false ? 'lose' : 'win');
+  if (typeof flashColor === 'function') flashColor(iWon ? 'rgba(52, 211, 153, 0.4)' : 'rgba(244, 63, 94, 0.32)');
+  if (typeof SND.rpsWin === 'function') { try { SND[iWon ? 'rpsWin' : 'rpsLose'](); } catch (e) {} }
+  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  var isOwner = Rooms.state && me && Rooms.state.owner_id === me.id;
+  /* [RoomSettle] الرهان وجهاً لوجه: المضيف فقط يوزّع القدح (الخصم تم عند البدء) */
+  if (isOwner && typeof Rooms.roomSettle === 'function') {
+    try { Rooms.roomSettle(winSeat === 0 ? 'w0' : 'w1'); } catch (e) {}
   }
-  /* سجل الشريطين: نتيجة المهاجم (هدف=✔) ونظيرها عند الخصم */
-  if (attacker) pnRoom.myShots.push(!!goal);
-  else pnRoom.oppShots.push(!!goal);
-  var f = penField();
-  pnTurnSet('⏳ ' + T('pn.shot') + ': ' + pnLabel(pnRoom.shootD) + ' — ' + T('pn.keep') + ': ' + pnLabel(pnRoom.saveD), 'wait');
-  if (typeof SND.pnWhistle === 'function') { try { SND.pnWhistle(); } catch (e) {} }
-  setTimeout(function () {
-    if (typeof SND.pnKick === 'function') { try { SND.pnKick(); } catch (e) {} }
-    penFlyBall(pnRoom.shootD, function () {
-      if (goal) {
-        if (f.fs) f.fs.classList.add('pn-goal');
-        penRipple(pnRoom.shootD);
-        penBanner('goal');
-        if (typeof SND.pnGoal === 'function') { try { SND.pnGoal(); } catch (e) {} }
-        if (typeof SND.pnNet === 'function') { try { SND.pnNet(); } catch (e) {} }
-        if (typeof flashColor === 'function') flashColor('rgba(52, 211, 153, 0.42)');
-        if (typeof shake === 'function' && f.pitch) shake(f.pitch, 7, 500);
-        pnTurnSet('⚽ ' + T('pn.shot') + ': ' + pnLabel(pnRoom.shootD) + ' — ' + T('pn.keep') + ': ' + pnLabel(pnRoom.saveD) + ' 🥅 ' + T('pn.goal'), 'goal');
-      } else {
-        if (f.fs) f.fs.classList.add('pn-saved');
-        penBanner('saved');
-        if (typeof SND.pnSave === 'function') { try { SND.pnSave(); } catch (e) {} }
-        if (typeof flashColor === 'function') flashColor('rgba(244, 63, 94, 0.34)');
-        if (typeof shake === 'function' && f.pitch) shake(f.pitch, 5, 380);
-        pnTurnSet('⚽ ' + T('pn.shot') + ': ' + pnLabel(pnRoom.shootD) + ' — ' + T('pn.keep') + ': ' + pnLabel(pnRoom.saveD) + ' 🙌 ' + T('pn.save'), 'save');
-      }
-      pnBarsRender();
-      /* نتيجة المباراة إن انتهت */
-      var finishMatch = pnRoom.round >= pnMaxRounds();
-      if (finishMatch) {
-        var finalTxt = '';
-        if (pnRoom.myScore > pnRoom.oppScore) finalTxt = '🏆 ' + T('pn.matchWin') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore + '!';
-        else if (pnRoom.oppScore > pnRoom.myScore) finalTxt = T('pn.matchLose') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore;
-        else finalTxt = '🤝 ' + T('pn.matchTie') + ' ' + pnRoom.myScore + ':' + pnRoom.oppScore;
-        pnTurnSet(finalTxt + ' — (' + T('pn.again') + ')', pnRoom.myScore > pnRoom.oppScore ? 'goal' : 'save');
-        /* [RoomSettle] الرهان وجهاً لوجه: المضيف فقط يوزّع القدح (الخصم تم عند البدء) */
-        if (typeof Rooms !== 'undefined' && Rooms.roomSettle) {
-          var s0 = (pnRoom.mySeat === 0) ? pnRoom.myScore : pnRoom.oppScore;
-          var s1 = (pnRoom.mySeat === 0) ? pnRoom.oppScore : pnRoom.myScore;
-          try { Rooms.roomSettle(s0 > s1 ? 'w0' : (s1 > s0 ? 'w1' : 'draw')); } catch (e) {}
-        }
-        return;
-      }
-      pnRoom.round++;
-      pnRoom.shootD = null;
-      pnRoom.saveD = null;
-      pnRoom.myDir = null;
-      pnRoom.waiting = false;
-      setTimeout(function () {
-        penResetField();
-        pnSetBusy(false);
-        pnRoomUi();
-      }, 2200);
+  /* [Rematch-vote] فتح تصويت المباراة الجديدة فور النهاية — نفس نظام البلياردو:
+     الموافقون (≥2 ويحويهم المالك) يبدؤون مباراة جديدة، الباقون متفرجون */
+  if (isOwner && typeof Rooms.startRematch === 'function') {
+    try { Rooms.startRematch(); } catch (e) {}
+  }
+  pnRematchRender();
+  pnBarsRender();
+}
+/* ═══ لوحة تصويت المباراة الجديدة (لاعب-متفرج — انتقال الأدوار بالتصويت) ═══ */
+function pnRematchRender() {
+  var host = document.getElementById('pnRematch');
+  if (!host) return;
+  try { if (window._pnRmTi) { clearInterval(window._pnRmTi); window._pnRmTi = null; } } catch (e) {}
+  var inRoom = pnInRoom() && Rooms.state;
+  if (!inRoom) { host.hidden = true; host.innerHTML = ''; return; }
+  var rm = Rooms.state.rematch;
+  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  var myId = me ? String(me.id) : null;
+  if (!rm) {
+    if (pnRoom && pnRoom.over && Rooms.state.status !== 'playing') {
+      host.hidden = false;
+      host.innerHTML = '<div class="pn-rm-box"><span class="pn-rm-ico">⏳</span></div>';
+    } else { host.hidden = true; host.innerHTML = ''; }
+    return;
+  }
+  if (rm.resolved && !rm.rematch) {
+    host.hidden = false;
+    host.innerHTML = '<div class="pn-rm-box"><span class="pn-rm-ico">🚫</span><div class="pn-rm-note">' + esc(T('pn.rematchNo')) + '</div></div>';
+    return;
+  }
+  if (rm.resolved && rm.rematch) {
+    host.hidden = false;
+    host.innerHTML = '<div class="pn-rm-box"><span class="pn-rm-ico">▶️</span></div>';
+    return;
+  }
+  /* تصويت نشط: صفوف المشاركين (حلقة + علامة الصوت) + أزرار + عدّاد
+     [v2.64-fix] معرّفات المشاركين تُوحَّد نصياً — الخادم يرسلها أرقاماً
+     بينما me.id يُقارن نصياً فكان indexOf يفشل ويحجب أزرار التصويت */
+  var rows = '';
+  var parts = (rm.participants || []).map(String);
+  for (var i = 0; i < parts.length; i++) {
+    var pid = parts[i];
+    var v = rm.votes ? rm.votes[pid] : null;
+    var name = (rm.names && rm.names[pid]) ? rm.names[pid] : ('#' + pid);
+    var mark = (v === 'agree') ? '✅' : (v === 'refuse') ? '❌' : '⏳';
+    rows += '<div class="pn-rm-row">' + pnRingHtml('', pnInitials(name), name) + '<span class="pn-rm-mark">' + mark + '</span></div>';
+  }
+  var myVote = rm.votes ? rm.votes[myId] : null;
+  var isParticipant = (parts.indexOf(myId) !== -1);
+  var actions = '';
+  if (isParticipant && !myVote) {
+    actions = '<button type="button" class="pn-rm-btn yes" onclick="Rooms.voteRematch(\'agree\')">✅ ' + esc(T('pn.rematchAgree')) + '</button>' +
+      '<button type="button" class="pn-rm-btn no" onclick="Rooms.voteRematch(\'refuse\')">❌ ' + esc(T('pn.rematchRefuse')) + '</button>';
+  } else if (isParticipant && myVote) {
+    actions = '<div class="pn-rm-note">' + esc(T('pn.rematchVoted')) + '</div>';
+  } else {
+    actions = '<div class="pn-rm-note">' + esc(T('pn.rematchWaitVotes')) + '</div>';
+  }
+  var remain = rm.ts ? Math.max(0, 60 - Math.floor((Date.now() - rm.ts) / 1000)) : 60;
+  host.hidden = false;
+  host.innerHTML = '<div class="pn-rm-box">' +
+    '<div class="pn-rm-title">🔁 ' + esc(T('pn.rematchTitle')) + '</div>' +
+    '<div class="pn-rm-rows">' + rows + '</div>' +
+    '<div class="pn-rm-actions">' + actions + '</div>' +
+    '<div class="pn-rm-timer">⏱ <span id="pnRmTimerN">' + remain + '</span></div>' +
+    '</div>';
+  if (rm.ts) {
+    var ts = rm.ts;
+    window._pnRmTi = setInterval(function () {
+      var r = Math.max(0, 60 - Math.floor((Date.now() - ts) / 1000));
+      var el = document.getElementById('pnRmTimerN');
+      if (el) el.textContent = String(r);
+      if (r <= 0) { try { clearInterval(window._pnRmTi); } catch (e) {} window._pnRmTi = null; }
+    }, 1000);
+  }
+}
+/* ── بناء واجهة اللعبة ── */
+function ePenalty(g) {
+  pnRoomReset();
+  pnSolo = null;
+  pnBusy = false;
+  if (typeof Rooms !== 'undefined') {
+    Rooms.setGameHandler(pnRoomMove);
+    /* [v2.64] تحديثات الغرفة (أصوات، انضمام متفرج، تغيّر الرهان/الحالة)
+       تُحدّث الشرائط ولوحة التصويت فوراً */
+    if (typeof Rooms.setUpdateHandler === 'function') {
+      Rooms.setUpdateHandler(function () {
+        pnTopRender();
+        pnBarsRender();
+        pnRematchRender();
+      });
+    }
+    Rooms.setStartHandler(function (room) {
+      /* مباراة جديدة (تصويت موافق أو بدء أول): مقاعد جديدة + حالة نظيفة */
+      pnRoomReset();
+      pnSolo = null;
+      pnSetBusy(false);
+      penResetField();
+      var f = penField();
+      if (f.rematch) { f.rematch.hidden = true; f.rematch.innerHTML = ''; }
+      if (f.replay) f.replay.hidden = true;
+      pnRoomUi();
     });
-    /* الحارس يغوص بالتوازي */
-    setTimeout(function () { penMoveKeeper(pnRoom.saveD); }, 240);
-  }, 460);
+  }
+  var zones = PN_DIRS.map(function (d) {
+    return '<button type="button" class="pnz" data-d="' + d + '" tabindex="-1" aria-label="zone"><span class="pnz-reticle" aria-hidden="true"></span></button>';
+  }).join('');
+  var side = function (n) {
+    return '<div class="pn-side s' + n + '" id="pnSide' + n + '">' +
+      '<span class="pn-ring"><b id="pnIni' + n + '"></b></span>' +
+      '<i class="pn-role" id="pnRole' + n + '"></i>' +
+      '<span class="pn-seq" id="pnSeq' + n + '"></span>' +
+      '<b class="pn-sc" id="pnSc' + n + '">0</b>' +
+      '</div>';
+  };
+  return '<div class="stage pn-stage" id="pnStage">' +
+    '<div class="pn-fs" id="pnFs">' +
+      '<div class="pn-wrap">' +
+        /* أعلى: حلقات المتفرجين + رقاقة القدح (أيقونات بلا عبارات) */
+        '<div class="pn-top">' +
+          '<div class="pn-specs" id="pnSpecs"></div>' +
+          '<div class="pn-bet" id="pnBet"></div>' +
+        '</div>' +
+        '<div class="pn-mid">' +
+          side(0) +
+          '<div class="pn-pitch" id="pnPitch">' +
+            '<div class="pn-goalwrap">' +
+              '<div class="pn-gz">' +
+                '<div class="pn-goal" id="pnGoal">' +
+                  '<div class="pn-net" aria-hidden="true"></div>' +
+                  '<div class="pn-rip" id="pnRipple" aria-hidden="true"></div>' +
+                  '<div class="pn-zones" id="pnZones">' + zones + '</div>' +
+                  '<span class="pn-post gl" aria-hidden="true"></span>' +
+                  '<span class="pn-post gr" aria-hidden="true"></span>' +
+                  '<span class="pn-cross" aria-hidden="true"></span>' +
+                  '<div class="pn-gk idle" id="pnKeeper">' +
+                    '<span class="pn-gk-head" aria-hidden="true"></span>' +
+                    '<span class="pn-gk-body" aria-hidden="true"></span>' +
+                    '<span class="pn-gk-arm la" aria-hidden="true"></span>' +
+                    '<span class="pn-gk-arm ra" aria-hidden="true"></span>' +
+                    '<span class="pn-gk-leg ll" aria-hidden="true"></span>' +
+                    '<span class="pn-gk-leg rl" aria-hidden="true"></span>' +
+                  '</div>' +
+                '</div>' +
+                /* خطوط منطقة الجزاء (طباشير) تحت المرمى — بورتريه فقط */
+                '<div class="pn-box" aria-hidden="true"></div>' +
+                '<div class="pn-arc" aria-hidden="true"></div>' +
+              '</div>' +
+            '</div>' +
+            /* علامة الجزاء + الكرة أسفل الملعب أمام المرمى (الوضعان) */
+            '<span class="pn-spot" id="pnSpot" aria-hidden="true"></span>' +
+            '<span class="pn-ball" id="pnBall" aria-hidden="true">⚽</span>' +
+            '<div class="pn-banner" id="pnBanner" aria-live="polite"></div>' +
+            '<button type="button" class="pn-replay" id="pnReplay" hidden>🔄</button>' +
+            '<div class="pn-rematch" id="pnRematch" hidden></div>' +
+          '</div>' +
+          side(1) +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+/* ── تهيئة ما بعد الرسم: ربط التصويب + الشرائط + الشريط العلوي + إعادة اللعب ── */
+function pnInit() {
+  pnBindAim();
+  var f = penField();
+  if (f.replay && !f.replay._bound) {
+    f.replay._bound = true;
+    f.replay.addEventListener('click', function (e) {
+      e.stopPropagation();
+      SND.click();
+      pnSoloRestart();
+    });
+  }
+  if (pnInRoom()) {
+    pnRoomUi();
+  } else {
+    pnSolo = { shot: 1, seatGoals: [0, 0], seatShots: [[], []], over: false };
+    pnBarsRender();
+    pnTopRender();
+  }
 }
 
 /* ═══════════ سجل المحركات ═══════════ */

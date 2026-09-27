@@ -110,7 +110,7 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
   const balanceAfter = await p.evaluate(() => ST.gold);
   ok(isFinite(balanceAfter), 'wallet intact after RPS rounds: ' + balanceAfter);
 
-  console.log('═══ 3) Penalty — v2.63 ملء الشاشة: 9 مناطق + شريطا نتائج + تسديدة ═══');
+  console.log('═══ 3) Penalty — v2.64: 9 مناطق + شريطا نتائج + تسديدة دقيقة ═══');
   await p.evaluate(() => openGame('pn'));
   await wait(p, () => { const b = document.getElementById('gamePageBody'); return b && b.querySelector('.pn-fs') ? true : false; }, 10000, 'pn render');
   const pnEls = await p.evaluate(() => ({
@@ -121,20 +121,24 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
     banner: !!document.getElementById('pnBanner'),
     bet: !!document.getElementById('pnBet'),
     specs: !!document.getElementById('pnSpecs'),
-    barMe: !!document.getElementById('pnBarMe'),
-    barOpp: !!document.getElementById('pnBarOpp'),
+    side0: !!document.getElementById('pnSide0'),
+    side1: !!document.getElementById('pnSide1'),
     turn: !!document.getElementById('pnTurn'),
+    rings: document.querySelectorAll('.pn-ring').length,
+    rematch: !!document.getElementById('pnRematch'),
     ball: !!document.getElementById('pnBall'),
     crossbar: !!document.querySelector('.pn-cross'),
     posts: document.querySelectorAll('.pn-post').length
   }));
-  ok(pnEls.fs && pnEls.turn && pnEls.ball, 'fullscreen pitch layer + turn chip + ball present');
+  ok(pnEls.fs && pnEls.ball, 'fullscreen pitch layer + ball present');
+  ok(!pnEls.turn, 'NO turn/status text chip (no phrases at top)');
   ok(pnEls.zones === 9, 'goal divided into 9 touch zones');
   ok(pnEls.posts === 2 && pnEls.crossbar, 'metallic posts + crossbar frame');
   ok(pnEls.gk && pnEls.gkParts >= 6, 'CSS keeper figure (head+body+arms+legs)');
   ok(pnEls.banner, 'result banner element present');
-  ok(pnEls.bet && pnEls.specs, 'top bar: spectators slot + bet/free chip');
-  ok(pnEls.barMe && pnEls.barOpp, 'bottom: two player result bars');
+  ok(pnEls.bet && pnEls.specs, 'top bar containers present (rings + bet chip, icons only)');
+  ok(pnEls.side0 && pnEls.side1 && pnEls.rings >= 2, 'two result sides with ring avatars (initials)');
+  ok(pnEls.rematch, 'rematch voting panel container present (billiards system)');
   // ملء الشاشة 100% + المرمى بعرض الشاشة تقريبا
   const fill = await p.evaluate(() => {
     const fs = document.querySelector('.pn-fs');
@@ -186,9 +190,10 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
   }
   const freeChip = await p.evaluate(() => {
     const b = document.getElementById('pnBet');
-    return b && /\ud83c\udf93|تدريب|free/i.test(b.textContent) ? b.textContent : false;
+    const s = document.getElementById('pnSpecs');
+    return (b && b.textContent.trim() === '' && s && s.textContent.trim() === '') ? 'empty-top' : false;
   });
-  ok(freeChip !== false, 'free-training chip shown (no bet field): "' + freeChip + '"');
+  ok(freeChip !== false, 'solo top bar completely empty (free mode: no phrases, no chips)');
   const noBet = await p.evaluate(() => !!document.querySelector('#gamePageBody .bets, #gamePageBody .bet-input, #gamePageBody #GBd'));
   ok(!noBet, 'NO bet amount field in penalty UI');
   // تسديدة كاملة — الركلة تبدأ بعد شحن 460ms
@@ -208,34 +213,37 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
     banner: document.getElementById('pnBanner').textContent,
     goal: document.getElementById('pnBanner').classList.contains('goal'),
     saved: document.getElementById('pnBanner').classList.contains('saved'),
-    tok: document.querySelectorAll('#pnSeqMe .pn-tok:not(.empty)').length,
-    sc: document.getElementById('pnScMe').textContent,
-    scOpp: document.getElementById('pnScOpp').textContent,
-    turn: document.getElementById('pnTurn').textContent.length > 3,
+    tok: document.querySelectorAll('#pnSeq0 .pn-tok:not(.empty)').length,
+    sc: document.getElementById('pnSc0').textContent,
+    scOpp: document.getElementById('pnSc1').textContent,
+    role0: document.getElementById('pnRole0').textContent,
+    role1: document.getElementById('pnRole1').textContent,
     ripple: !!document.getElementById('pnRipple')
   }));
   ok(pnRes.banner && (pnRes.goal || pnRes.saved), 'result banner: "' + pnRes.banner + '" (' + (pnRes.goal ? 'GOAL' : 'SAVED') + ') in ' + flightMs + 'ms');
   ok(pnRes.tok >= 1, 'result token appears in player bar (✔/✕)');
-  ok(pnRes.turn, 'turn chip shows shot summary');
-  ok((pnRes.goal && Number(pnRes.sc) >= 1) || (pnRes.saved && Number(pnRes.scOpp) >= 1), 'bar score counters update (me ' + pnRes.sc + ' : opp ' + pnRes.scOpp + ')');
+  ok(pnRes.role0 && pnRes.role1, 'role badges ⚽/🧤 on both sides (turn indicated by icons, not text)');
+  ok((pnRes.goal && Number(pnRes.sc) >= 1) || (pnRes.saved && Number(pnRes.sc) === 0), 'bar score reflects outcome (me ' + pnRes.sc + ' : opp ' + pnRes.scOpp + ')');
   // انتظار إعادة التهيئة
   await sleep(2400);
   const pnReset = await p.evaluate(() => ({
     bannerHidden: !document.getElementById('pnBanner').classList.contains('show'),
     gkIdle: document.getElementById('pnKeeper').classList.contains('idle'),
     ballHome: document.getElementById('pnBall').style.transform === '',
-    tokens: document.querySelectorAll('#pnSeqMe .pn-tok:not(.empty)').length
+    tokens: document.querySelectorAll('#pnSeq0 .pn-tok:not(.empty)').length
   }));
   ok(pnReset.bannerHidden && pnReset.gkIdle && pnReset.ballHome, 'field reset: banner hidden, keeper idle, ball home');
   ok(pnReset.tokens >= 1, 'shot history persists in result bar after reset');
-  // تسديدة ثانية
+  /* تسديدة ثانية: دور التصديّ (تبادل مسدد/متصدي — v2.64) */
   await p.evaluate(() => penShoot('⬇️'));
   await sleep(1500);
   const b2 = await p.evaluate(() => document.getElementById('pnBanner') && document.getElementById('pnBanner').classList.contains('show'));
   ok(b2, 'Penalty second outcome banner shown (busy reset works)');
   await sleep(2500);
-  const toks2 = await p.evaluate(() => document.querySelectorAll('#pnSeqMe .pn-tok:not(.empty)').length);
-  ok(toks2 >= 2, 'second result token appended (' + toks2 + ' tokens)');
+  const toks2 = await p.evaluate(() => document.querySelectorAll('#pnSeq0 .pn-tok:not(.empty)').length + document.querySelectorAll('#pnSeq1 .pn-tok:not(.empty)').length);
+  ok(toks2 >= 2, 'second result token appended across bars (' + toks2 + ' tokens)');
+  const roles2 = await p.evaluate(() => document.getElementById('pnRole0').textContent + '/' + document.getElementById('pnRole1').textContent);
+  ok(roles2 === '🧤/⚽' || roles2 === '⚽/🧤', 'roles alternate after shot 2 (' + roles2 + ')');
   const pnBal = await p.evaluate(() => ST.gold);
   ok(isFinite(pnBal), 'wallet intact after penalty shots (free mode): ' + pnBal);
 

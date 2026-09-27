@@ -1,9 +1,10 @@
 process.chdir(require('path').resolve(__dirname, '..'));
-/* [v2.63] اختبار امتثال ثابت:
+/* [v2.64] اختبار امتثال ثابت:
    1) خيار bj الوهمي أُزيل من قائمة ألعاب الغرف (واجهة + خادم) بلا أثر
    2) بلا خانة رهان في واجهتي rp/pn — اللعب ضد الحاسوب مجاني (الكود لا يستدعي take/give/betRow)
    3) تسوية رهان الغرف لـ rp/pn عند نهاية المباراة (RoomSettle)
-   4) CSS بينالتي الجديد مربوط والقديم أُزيل */
+   4) [v2.64] منطق 3-9 تسديدات لكل لاعب + موت فجائي + تصويت البلياردو + بلا عبارات أعلى
+   5) [v2.64] لاندسكيب أصلي: قائمان عموديان بالحدّين + عوارضة بالحد الأعلى (لا تدوير) */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0; const fails = [];
@@ -44,28 +45,52 @@ const pnBody = engSrc.slice(pnStart, pnEnd);
 ok(pnStart > 0 && !/betRow\(\)/.test(pnBody), 'ePenalty UI has no betRow()');
 ok(!/\btake\(\)/.test(pnBody) && !/\bgive\(/.test(pnBody), 'penalty engine has no take()/give() money logic');
 ok(!/gres\(/.test(pnBody), 'penalty engine has no gres() money ledger calls');
-const penFireBody = pnBody.slice(pnBody.indexOf('function penFire'), pnBody.indexOf('function pnRoomAct'));
+const penFireBody = pnBody.slice(pnBody.indexOf('function penFire'), pnBody.indexOf('function pnSoloEnd'));
 ok(/_rng\(\)/.test(penFireBody), 'solo shot still uses CSPRNG _rng() (fair randomness kept)');
 
-console.log('═══ 3) تسوية رهان الغرف + القواعد والنصوص ═══');
-ok(/Rooms\.roomSettle\(/.test(pnBody), 'penalty room match settles the bet (roomSettle w0/w1/draw)');
+console.log('═══ 3) منطق v2.64: 3-9 تسديدات/لاعب + موت فجائي + تصويت البلياردو ═══');
+ok(/Rooms\.roomSettle\(/.test(pnBody), 'penalty room match settles the bet (roomSettle w0/w1)');
 const rpsRoomBody = engSrc.slice(engSrc.indexOf('function rpsRoomSettle'), engSrc.indexOf('function rpsRoomUi'));
 ok(/Rooms\.roomSettle\(/.test(rpsRoomBody), 'RPS room match settles the bet (roomSettle w0/w1/draw)');
-ok(/تدريب مجاني|free/i.test(read('js/games/catalog.js')) === false || /تعليمي مجاني، والرهان في الغرف فقط/.test(read('js/games/catalog.js')), 'rp/pn catalog descriptions: free educational + rooms-only betting');
-ok(/pn\.free/.test(transSrc) && /pn\.pot/.test(transSrc) && /pn\.tapShoot/.test(transSrc), 'new pn.* translation keys present (free/pot/tapShoot)');
+ok(/تعليمي مجاني، والرهان في الغرف فقط/.test(read('js/games/catalog.js')) || /تدريب مجاني، الرهان في الغرف فقط/.test(read('js/games/catalog.js')), 'rp/pn catalog descriptions: free educational + rooms-only betting');
+ok(/pn\.rematchTitle/.test(transSrc) && /pn\.rematchAgree/.test(transSrc), 'pn rematch voting translation keys present');
+ok(!/pn\.free/.test(transSrc) && !/pn\.pot/.test(transSrc) && !/pn\.tapShoot/.test(transSrc) && !/pn\.spect/.test(transSrc), 'dead pn phrase keys removed (free/pot/tapShoot/spect)');
+ok(/function pnShotsPer\(\)/.test(pnBody) && /Math\.max\(3,\s*Math\.min\(9/.test(pnBody), 'shots per player clamped 3..9');
+ok(/function pnCheckOver\(/.test(pnBody) && /pnShotsPer\(\)\s*\*\s*2/.test(pnBody) && /pnSuddenDeath/.test(pnBody), 'sudden death logic: tied after full series → extra shot each until broken');
+ok(/Rooms\.startRematch\(\)/.test(pnBody) && /voteRematch/.test(pnBody) && /tryResolveRematch|rematch/.test(serverSrc), 'rematch voting UI wired (billiards system: start + vote)');
+ok(/pnRoomAct\(/.test(pnBody) && /pnRoom\.waiting \|\| pnRoom\.over \|\| pnBusy/.test(pnBody), 'blind picks gated while cinema busy (no cross-pair leaks)');
+ok(/pnPlayShot\(/.test(pnBody), 'shared shot cinema (solo + room + spectators)');
 ok(!/×1\.08/.test(pnBody) && !/×1\.95/.test(rpsPlayBody), 'no payout multiplier texts in free engines');
 
-console.log('═══ 4) CSS بينالتي v2.63 ═══');
-ok(/css\/16-penalty\.css\?v=pn63/.test(idxSrc), '16-penalty.css linked in index.html');
-const gamesCss = read('css/04-games.css');
-ok(!/pn-arena|pn-picks|pnBtn|\.pn-crowd|\.pn-grass|pball2|\.gpost|\.gnet/.test(gamesCss), 'old penalty stadium CSS fully removed from 04-games.css');
+console.log('═══ 4) واجهة v2.64: بلا عبارات + حلقات الأحرف الأولى + بورتريه مركزي ═══');
 const pnCss = read('css/16-penalty.css');
+ok(/css\/16-penalty\.css\?v=pn64/.test(idxSrc), '16-penalty.css linked in index.html (pn64)');
 ok(/\.pn-fs\s*\{[^}]*position:\s*fixed/.test(pnCss), '.pn-fs is fixed fullscreen (100% coverage)');
 ok(/\.pn-zones\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(pnCss), 'goal zones = 3x3 grid (9 zones)');
-ok(/\.pn-bar\s*\(me\)|\.pn-bar\.me|\.pn-bar\b/.test(pnCss) && /\.pn-tok/.test(pnCss), 'bottom result bars with ✔/✕ tokens');
-ok(/\.pn-spec\b/.test(pnCss) && /\.pn-bet\b/.test(pnCss), 'top bar: spectator chips + round-bet chip');
-ok(/orientation:\s*landscape[\s\S]*?rotate\(90deg\)/.test(pnCss), 'landscape: whole layout rotates 90° (bars become vertical, posts meet top/bottom)');
-ok(!/touch-action:\s*auto/.test(pnCss), 'aim layer uses touch-action none (drag aim)');
+ok(/\.pn-ring\b/.test(pnCss) && /function pnInitials\(/.test(pnBody), 'ring avatars with first-two-initials');
+ok(!/pn-turn|pnTurn/.test(pnCss) && !/pnTurn/.test(pnBody), 'no turn/status text chip anywhere (no top phrases)');
+ok(/pn-fx-goal/.test(pnCss) && !/\.pn-fs\.pn-goal/.test(pnCss), 'flash classes renamed pn-fx-* (collapse bug killed)');
+ok(/align-items:\s*center[\s\S]*?justify-content:\s*center/.test(pnCss), 'goalwrap flex-centers the goal (portrait center of screen)');
+ok(/\.pn-goalwrap\s*\{[^}]*align-items:\s*center/.test(pnCss) && /position:\s*absolute;\s*inset:\s*0/.test(pnCss.replace(/\n/g, ' ')) || /\.pn-goalwrap/.test(pnCss), 'goalwrap: absolute inset-0 flex center');
+ok(/getBoundingClientRect/.test(pnBody.slice(pnBody.indexOf('function pnZoneCenter'), pnBody.indexOf('function penFlyBall') + 400)), 'movement math is rect-based (pixel-precise)');
 
-console.log('\\n[v2.63 compliance] ' + pass + '/' + (pass + fail) + ' PASS');
+console.log('═══ 5) لاندسكيب أصلي: قائمان بالحدّين + عوارضة بالحد الأعلى ═══');
+const landIdx = pnCss.indexOf('(orientation: landscape)');
+const landCss = pnCss.slice(landIdx, landIdx + 2600);
+ok(landIdx > 0, 'landscape media block present');
+ok(!/rotate\(90deg\)/.test(pnCss), 'NO rotation transform — native landscape layout (was upside-down before)');
+ok(/\.pn-gz\s*\{[^}]*height:\s*100%/.test(landCss), 'goal box = full height (posts meet top AND bottom edges)');
+ok(/\.pn-side\s*\{[^}]*flex-direction:\s*column/.test(landCss), 'result sides become vertical columns');
+ok(/\.pn-side \.pn-seq\s*\{[^}]*flex-direction:\s*column/.test(landCss), 'tokens stack vertically (upright, column-direction compatible)');
+ok(/\.pn-gk\s*\{[^}]*top:\s*calc\(50%/.test(landCss), 'keeper centered in tall goal (dives from center)');
+ok(/\.pn-box,\s*\.pn-arc\s*\{\s*display:\s*none/.test(landCss), 'portrait-only chalk lines hidden in landscape');
+ok(/\.pn-top\s*\{[^}]*position:\s*absolute/.test(landCss), 'top chips overlay corners (no phrase bar)');
+
+console.log('═══ 6) إعدادات الغرفة: 3-9 تسديدات لكل لاعب ═══');
+const pnOpts = roomsSrc.slice(roomsSrc.indexOf("if (gid === 'pn')"), roomsSrc.indexOf("if (gid === 'bg')"));
+ok(/\[\[3,\s*'3'\],\s*\[4,\s*'4'\],\s*\[5,\s*'5'\],\s*\[6,\s*'6'\],\s*\[7,\s*'7'\],\s*\[8,\s*'8'\],\s*\[9,\s*'9'\]\]/.test(pnOpts), 'room opts: 3..9 shots per player');
+ok(/عدد التسديدات لكل لاعب/.test(pnOpts), 'option label: shots per player');
+ok(!/timer/.test(pnOpts), 'no dead timer option for pn');
+
+console.log('\n[v2.64 compliance] ' + pass + '/' + (pass + fail) + ' PASS');
 if (fail) { console.log('FAILURES:', fails); process.exit(1); }
