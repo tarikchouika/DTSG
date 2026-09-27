@@ -3960,3 +3960,127 @@ body.rami-game-open { overflow: hidden; }
   white-space: pre-line;
   line-height: 1.6;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   [v2.65] RPS لاندسكيب قصير — شبكة عمودين مدمجة (لا قصّ إطلاقاً)
+   العلة المقاسة (هاتف 740×360، وضع اللعب = app-fs دائماً):
+   المحتوى المكدَّس عمودياً ~510px (تلميح+حلبة+أزرار+حالة) داخل .stage
+   الذي يملأ ارتفاع الشاشة (flex:1) مع overflow:hidden — فتُقصّ أزرار
+   الاختيار والحالة تحت الحافة السفلية → غير قابلة للعب.
+   الحل: الحلبة (البطاقتان) عمود واسع يمتدّ على صفوف المعلومات،
+   والتلميح/الحالة/النتيجة عمود جانبي، والأزرار الثلاثة صفاً أفقياً
+   عريضاً أسفل — كل العناصر داخل الإطار. بورتريه لا يُمس (مثالي).
+   CSS فقط — صفر منطق لعب. تُدرَج آخر الملف لتغلب في التتالي.
+   ═══════════════════════════════════════════════════════════════════ */
+@media (orientation: landscape) and (max-height: 520px) {
+  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
+  #pg-game.active #gamePageBody .stage:has(.rps-arena) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(150px, 24vw, 260px);
+    grid-template-rows: auto auto auto auto;
+    align-content: center;
+    gap: 4px 12px;
+    padding: 8px;
+  }
+  /* الحلبة: العمود الأول (يمين RTL) تمتد على صفوف المعلومات الثلاثة */
+  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
+  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-arena {
+    grid-column: 1;
+    grid-row: 1 / 4;
+    align-self: center;
+    justify-self: center;
+    max-width: 100%;
+    margin: 0;
+    padding: 10px 14px 8px;
+  }
+  /* عمود المعلومات (يسار RTL): تلميح أعلى، حالة وسط، نتيجة أسفل */
+  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-hint,
+  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-hint {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    margin: 0;
+    padding: 5px 9px;
+    font-size: 0.72rem;
+    border-radius: 8px;
+  }
+  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-status,
+  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-status {
+    grid-column: 2;
+    grid-row: 2;
+    align-self: center;
+    margin: 0;
+    min-height: 0;
+    font-size: 0.78rem;
+    line-height: 1.4;
+  }
+  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .res,
+  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .res {
+    grid-column: 2;
+    grid-row: 3;
+    align-self: end;
+    margin: 0;
+    min-height: 0;
+    font-size: 0.78rem;
+  }
+  /* أزرار الاختيار الثلاثة: صف أفقي عريض أسفل الشاشة بعرض المرحلة */
+  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-picks,
+  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-picks {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    align-self: end;
+    margin: 0;
+    gap: 10px;
+  }
+  /* عناصر مدمجة تلائم الارتفاع القصير */
+  #pg-game.app-fs .stage .rps-arena,
+  #pg-game.active .stage .rps-arena {
+    gap: clamp(10px, 3.5vw, 26px);
+  }
+  #pg-game.app-fs .stage .rps-side,
+  #pg-game.active .stage .rps-side {
+    gap: 4px;
+  }
+  #pg-game.app-fs .stage .rps-side-tag,
+  #pg-game.active .stage .rps-side-tag {
+    font-size: 0.68rem;
+    padding: 2px 10px;
+  }
+  #pg-game.app-fs .stage .rps-card,
+  #pg-game.active .stage .rps-card {
+    width: clamp(80px, 13vw, 120px);
+    height: clamp(98px, 16vw, 148px);
+    border-radius: 12px;
+  }
+  #pg-game.app-fs .stage .rps-card-face,
+  #pg-game.active .stage .rps-card-face {
+    font-size: clamp(2rem, 4.8vw, 3.1rem);
+  }
+  #pg-game.app-fs .stage .rps-vs,
+  #pg-game.active .stage .rps-vs {
+    width: 36px;
+    height: 36px;
+    font-size: 0.72rem;
+  }
+  #pg-game.app-fs .stage .rps-score-w,
+  #pg-game.active .stage .rps-score-w {
+    min-width: 40px;
+    padding: 1px 8px;
+  }
+  #pg-game.app-fs .stage .rps-score,
+  #pg-game.active .stage .rps-score {
+    font-size: 0.8rem;
+  }
+  .rpsBtn {
+    min-width: 84px;
+    padding: 7px 10px 6px;
+    gap: 3px;
+    border-radius: 13px;
+  }
+  .rps-emoji {
+    font-size: 1.9rem;
+  }
+  .rps-label {
+    font-size: 0.68rem;
+  }
+}

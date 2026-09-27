@@ -1,10 +1,10 @@
 /* ══════════════════════════════════════════════════════════════════
-   DTSG — [v2.64] Penalty Shootout — ملء الشاشة + تخطيط أصلي للوضعين
+   DTSG — [v2.65] Penalty Shootout — ملء الشاشة + تخطيط أصلي للوضعين
    عشب يملأ الشاشة 100% في الوضعين · مرمى 9 مناطق باللمس/السحب ·
-   بورتريه: المرمى في وسط الشاشة من الحد الأيمن للأيسر ·
-   لاندسكيب الهاتف: تخطيط أصلي — القائمان عموديان يلتقيان بالحدّين
-   الأعلى/الأسفل والعوارضة بالحد الأعلى، جانبا النتائج عمودان
-   بمحتوى مستقيم · لا عبارات مكتوبة أعلى الشاشة · حلقات الأحرف الأولى ·
+   بورتريه: المرمى في وسط الشاشة من الحد الأيمن للأيسر (مثالي — لا يُمس) ·
+   لاندسكيب الهاتف: قصّ 35% من أسفل المرمى لمنطقة التسديد + عرض ×3 ·
+   خط أبيض عند 65% يفصل المرمى عن منطقة انطلاق الكرة · الحارس على الخط ·
+   لا عبارات مكتوبة أعلى الشاشة · حلقات الأحرف الأولى ·
    3–9 تسديدات لكل لاعب + موت فجائي · تصويت المباراة الجديدة (كالبلياردو).
    ══════════════════════════════════════════════════════════════════ */
 
@@ -763,26 +763,51 @@
   .pn-side .pn-role { order: -1; }
   .pn-side .pn-sc { margin-top: auto; }
   .pn-side .pn-ring { width: 38px; height: 38px; font-size: 0.8rem; }
-  /* المرمى: كامل ارتفاع الملعب — القائمان بالحدّين والعوارضة بالحد الأعلى */
+  /* [v2.65] المرمى بمواصفة المالك: قصّ 35% من أسفل المرمى لتصبح منطقة
+     التسديد (الكرة) + تكبير العرض ثلاثة أضعاف:
+     • القائمان عموديان من العوارضة (الحدّ الأعلى، موازية له) نزولاً حتى
+       خط التسديد عند 65% من ارتفاع الملعب — بورتريه لا يُمس (مثالي).
+     • العرض = 3× القيمة السابقة clamp(180,50vmin,340) بحد 94% من الملعب.
+     • خط أبيض عند 65% يفصل المرمى عن منطقة انطلاق الكرة أسفله. */
+  .pn-goalwrap { align-items: flex-start; }
   .pn-gz {
-    width: clamp(180px, 50vmin, 340px);
-    height: 100%;
+    width: min(94%, calc(clamp(180px, 50vmin, 340px) * 3));
+    height: 65%;
     aspect-ratio: auto;
   }
   .pn-goal { border-radius: 0 0 6px 6px; }
   .pn-goal .pn-post.gl { left: calc(var(--postw) / -2); top: 0; width: var(--postw); height: 100%; }
   .pn-goal .pn-post.gr { right: calc(var(--postw) / -2); top: 0; width: var(--postw); height: 100%; }
   .pn-goal .pn-cross { top: calc(var(--postw) / -2); left: calc(var(--postw) / -2); right: calc(var(--postw) / -2); }
-  /* الحارس وسط المرمى — يغوص من المركز إلى المنطقة المحددة */
-  .pn-gk { top: calc(50% - 9.5%); bottom: auto; }
+  /* خط منطقة التسديد: عند القصّة (65%) — حصراً في اللاندسكيب */
+  .pn-pitch::before {
+    content: '';
+    position: absolute;
+    top: calc(65% - 1.5px);
+    left: 2%;
+    right: 2%;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.22),
+      rgba(255, 255, 255, 0.92) 14%,
+      rgba(255, 255, 255, 0.92) 86%,
+      rgba(255, 255, 255, 0.22));
+    box-shadow: 0 0 7px rgba(255, 255, 255, 0.38), 0 1px 3px rgba(0, 0, 0, 0.35);
+    z-index: 11;
+    pointer-events: none;
+  }
+  /* الحارس واقف على خط التسديد (أسفل المرمى) — يغوص منه إلى المنطقة */
+  .pn-gk { bottom: 1.5%; top: auto; }
   /* خطوط منطقة الجزاء زخرفة بورتريه — تُخفى في اللاندسكيب */
   .pn-box, .pn-arc { display: none; }
-  /* الكرة وعلامتها أسفل الوسط (تصعد إلى المنطقة) */
-  .pn-spot { bottom: calc(6px + var(--safe-area-inset-bottom, 0px)); }
-  .pn-ball { bottom: calc(13px + var(--safe-area-inset-bottom, 0px)); }
-  .pn-banner { top: 50%; font-size: clamp(1.7rem, 9vmin, 3.6rem); }
-  .pn-replay { bottom: 13%; }
-  .pn-fs { --pnb: clamp(30px, 8.5vmin, 52px); }
+  /* الكرة وعلامتها وسط منطقة التسديد (35% السفلى) */
+  .pn-spot { bottom: calc(6% + 1px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-ball { bottom: calc(6% + 8px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-banner { top: 32%; font-size: clamp(1.7rem, 9vmin, 3.6rem); }
+  .pn-replay { left: auto; right: 7%; transform: none; bottom: calc(6% + 4px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-replay:active { transform: scale(0.94); }
+  .pn-fs { --pnb: clamp(32px, 10vmin, 54px); }
 }
 
 /* ═══ ملء ارتفاع الشاشات القصيرة: تقليل الحشوات ═══ */

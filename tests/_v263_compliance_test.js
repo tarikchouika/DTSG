@@ -74,15 +74,18 @@ ok(/align-items:\s*center[\s\S]*?justify-content:\s*center/.test(pnCss), 'goalwr
 ok(/\.pn-goalwrap\s*\{[^}]*align-items:\s*center/.test(pnCss) && /position:\s*absolute;\s*inset:\s*0/.test(pnCss.replace(/\n/g, ' ')) || /\.pn-goalwrap/.test(pnCss), 'goalwrap: absolute inset-0 flex center');
 ok(/getBoundingClientRect/.test(pnBody.slice(pnBody.indexOf('function pnZoneCenter'), pnBody.indexOf('function penFlyBall') + 400)), 'movement math is rect-based (pixel-precise)');
 
-console.log('═══ 5) لاندسكيب أصلي: قائمان بالحدّين + عوارضة بالحد الأعلى ═══');
+console.log('═══ 5) لاندسكيب أصلي: [v2.65] قصّ 35% أسفل المرمى + عرض ×3 + خط التسديد ═══');
 const landIdx = pnCss.indexOf('(orientation: landscape)');
-const landCss = pnCss.slice(landIdx, landIdx + 2600);
+const landCss = pnCss.slice(landIdx, landIdx + 3600);
 ok(landIdx > 0, 'landscape media block present');
 ok(!/rotate\(90deg\)/.test(pnCss), 'NO rotation transform — native landscape layout (was upside-down before)');
-ok(/\.pn-gz\s*\{[^}]*height:\s*100%/.test(landCss), 'goal box = full height (posts meet top AND bottom edges)');
+ok(/\.pn-gz\s*\{[^}]*height:\s*65%/.test(landCss), '[v2.65] goal box = 65% height (35% cut from bottom = shooting zone)');
+ok(/\.pn-gz\s*\{[^}]*width:\s*min\(94%,\s*calc\(clamp\(180px,\s*50vmin,\s*340px\)\s*\*\s*3\)\)/.test(landCss), '[v2.65] goal width = 3× previous (capped 94% of pitch)');
+ok(/\.pn-goalwrap\s*\{[^}]*align-items:\s*flex-start/.test(landCss), '[v2.65] goal anchored to top (crossbar at top edge, posts end at the 65% cut)');
+ok(/\.pn-pitch::before[\s\S]{0,400}?top:\s*calc\(65%\s*-\s*1\.5px\)/.test(landCss), '[v2.65] white shooting line at the 65% boundary (ball area line)');
 ok(/\.pn-side\s*\{[^}]*flex-direction:\s*column/.test(landCss), 'result sides become vertical columns');
 ok(/\.pn-side \.pn-seq\s*\{[^}]*flex-direction:\s*column/.test(landCss), 'tokens stack vertically (upright, column-direction compatible)');
-ok(/\.pn-gk\s*\{[^}]*top:\s*calc\(50%/.test(landCss), 'keeper centered in tall goal (dives from center)');
+ok(/\.pn-gk\s*\{[^}]*bottom:\s*1\.5%/.test(landCss), '[v2.65] keeper stands on the shooting line at goal bottom');
 ok(/\.pn-box,\s*\.pn-arc\s*\{\s*display:\s*none/.test(landCss), 'portrait-only chalk lines hidden in landscape');
 ok(/\.pn-top\s*\{[^}]*position:\s*absolute/.test(landCss), 'top chips overlay corners (no phrase bar)');
 
@@ -92,5 +95,5 @@ ok(/\[\[3,\s*'3'\],\s*\[4,\s*'4'\],\s*\[5,\s*'5'\],\s*\[6,\s*'6'\],\s*\[7,\s*'7'
 ok(/عدد التسديدات لكل لاعب/.test(pnOpts), 'option label: shots per player');
 ok(!/timer/.test(pnOpts), 'no dead timer option for pn');
 
-console.log('\n[v2.64 compliance] ' + pass + '/' + (pass + fail) + ' PASS');
+console.log('\n[v2.65 compliance] ' + pass + '/' + (pass + fail) + ' PASS');
 if (fail) { console.log('FAILURES:', fails); process.exit(1); }
