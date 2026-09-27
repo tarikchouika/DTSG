@@ -1873,7 +1873,7 @@ const server = http.createServer((req, res) => {
         if (isNaN(bet) || bet <= 0) { json({ ok: false, error: 'bet_required' }, 400); return; }
         const visibility = (data.visibility === 'private') ? 'private' : 'public';   /* [B-rooms] عامة/خاصة */
         /* [BJMP] قائمة الألعاب المسموح بها في الغرف (مطابقة لـ Rooms.roomGameIds في الواجهة) */
-        const ROOM_GAMES_ALLOWED = { rp: 1, pn: 1, pr: 1, rn: 1, rm: 1, rd: 1, bj: 1, dm: 1, ch: 1, bg: 1, do: 1, bl8: 1, blbb: 1, blgv: 1, blsn: 1, blca: 1 };   /* [BGDO] الطاولة bg + الضومنة do غرفتان ثنائيتان */
+        const ROOM_GAMES_ALLOWED = { rp: 1, pn: 1, pr: 1, rn: 1, rm: 1, rd: 1, dm: 1, ch: 1, bg: 1, do: 1, bl8: 1, blbb: 1, blgv: 1, blsn: 1, blca: 1 };   /* [BGDO] الطاولة bg + الضومنة do غرفتان ثنائيتان + [BJ-ghost] بلاك جاك أُزيلت — حُذف معرفها */
         const gid = data.game_id || 'rm';
         if (!ROOM_GAMES_ALLOWED[gid]) { json({ ok: false, message: 'لعبة غير مدعومة في الغرف' }, 400); return; }
         const maxp = Math.max(2, Math.min(8, parseInt(data.max_players, 10) || 4));

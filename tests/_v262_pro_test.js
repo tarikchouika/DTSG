@@ -55,6 +55,9 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
   ok(rpsEls.arena && rpsEls.count && rpsEls.vs, 'RPS duel arena + countdown badge + VS present');
   ok(rpsEls.myScore && rpsEls.aiScore, 'RPS session score counters present');
   ok(rpsEls.btns === 3, 'RPS 3 move buttons');
+  /* [v2.63] بلا خانة رهان في واجهة RPS — اللعب ضد الحاسوب مجاني تعليمي */
+  const rpsNoBet = await p.evaluate(() => !document.querySelector('#gamePageBody .bets, #gamePageBody .bet-input, #gamePageBody #GBd'));
+  ok(rpsNoBet, 'RPS: NO bet amount field (free educational vs AI)');
   // جولة كاملة
   await p.evaluate(() => rpsPlay('✊'));
   await wait(p, () => { const c = document.getElementById('rpsCount'); return c && c.classList.contains('pop') ? c.textContent : false; }, 6000, 'countdown');
@@ -107,31 +110,95 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
   const balanceAfter = await p.evaluate(() => ST.gold);
   ok(isFinite(balanceAfter), 'wallet intact after RPS rounds: ' + balanceAfter);
 
-  console.log('═══ 3) Penalty — استاد وتسديدة كاملة ═══');
+  console.log('═══ 3) Penalty — v2.63 ملء الشاشة: 9 مناطق + شريطا نتائج + تسديدة ═══');
   await p.evaluate(() => openGame('pn'));
-  await wait(p, () => { const b = document.getElementById('gamePageBody'); return b && b.querySelector('.pn-arena') ? true : false; }, 10000, 'pn render');
+  await wait(p, () => { const b = document.getElementById('gamePageBody'); return b && b.querySelector('.pn-fs') ? true : false; }, 10000, 'pn render');
   const pnEls = await p.evaluate(() => ({
-    crowd: !!document.querySelector('.pn-crowd'),
-    grass: !!document.querySelector('.pn-grass'),
-    spot: !!document.querySelector('.pn-spot'),
+    fs: !!document.querySelector('.pn-fs'),
+    zones: document.querySelectorAll('.pnz').length,
+    gk: !!document.querySelector('.pn-gk'),
+    gkParts: document.querySelectorAll('.pn-gk-head,.pn-gk-body,.pn-gk-arm,.pn-gk-leg').length,
     banner: !!document.getElementById('pnBanner'),
-    ripple: !!document.getElementById('pnRipple'),
-    gbar: !!document.querySelector('.goal .gbar'),
-    keeperIdle: document.getElementById('pnKeeper').classList.contains('idle'),
-    btns: document.querySelectorAll('.pnBtn').length
+    bet: !!document.getElementById('pnBet'),
+    specs: !!document.getElementById('pnSpecs'),
+    barMe: !!document.getElementById('pnBarMe'),
+    barOpp: !!document.getElementById('pnBarOpp'),
+    turn: !!document.getElementById('pnTurn'),
+    ball: !!document.getElementById('pnBall'),
+    crossbar: !!document.querySelector('.pn-cross'),
+    posts: document.querySelectorAll('.pn-post').length
   }));
-  ok(pnEls.crowd && pnEls.grass && pnEls.spot && pnEls.gbar, 'stadium: crowd + grass + spot + crossbar present');
-  ok(pnEls.banner && pnEls.ripple, 'result banner + net ripple elements present');
-  ok(pnEls.keeperIdle, 'keeper idle-dancing before kick');
-  ok(pnEls.btns === 9, 'Penalty 9 direction buttons');
-  // تسديدة كاملة
+  ok(pnEls.fs && pnEls.turn && pnEls.ball, 'fullscreen pitch layer + turn chip + ball present');
+  ok(pnEls.zones === 9, 'goal divided into 9 touch zones');
+  ok(pnEls.posts === 2 && pnEls.crossbar, 'metallic posts + crossbar frame');
+  ok(pnEls.gk && pnEls.gkParts >= 6, 'CSS keeper figure (head+body+arms+legs)');
+  ok(pnEls.banner, 'result banner element present');
+  ok(pnEls.bet && pnEls.specs, 'top bar: spectators slot + bet/free chip');
+  ok(pnEls.barMe && pnEls.barOpp, 'bottom: two player result bars');
+  // ملء الشاشة 100% + المرمى بعرض الشاشة تقريبا
+  const fill = await p.evaluate(() => {
+    const fs = document.querySelector('.pn-fs');
+    const goal = document.querySelector('.pn-goal');
+    if (!fs || !goal) return { err: 1 };
+    const f = fs.getBoundingClientRect();
+    const g = goal.getBoundingClientRect();
+    return {
+      fw: Math.round(f.width), fh: Math.round(f.height),
+      iw: window.innerWidth, ih: window.innerHeight,
+      gw: Math.round(g.width), gx: Math.round(g.left), gxr: Math.round(g.right)
+    };
+  });
+  ok(fill.fw >= fill.iw - 2 && fill.fh >= fill.ih - 2, 'grass fills 100% of screen (' + fill.fw + 'x' + fill.fh + ' in ' + fill.iw + 'x' + fill.ih + ')');
+  ok(fill.gw >= 580 && fill.gx >= -2 && fill.gxr <= fill.iw + 2, 'goal centered with comfortable size on desktop (' + fill.gw + 'px of ' + fill.iw + ')');
+  /* موبايل بورتريه: المرمى يملأ من الحد الأيمن للأيسر (مواصفة المستخدم) — سياق منفصل */
+  {
+    const bm = await chromium.launch({ args: ['--no-sandbox'] });
+    const ctxm = await bm.newContext({ viewport: { width: 390, height: 780, isMobile: true, hasTouch: true }, isMobile: true, hasTouch: true });
+    await ctxm.request.post(BASE + 'api/register', { data: { username: 'v263m' + Date.now().toString().slice(-6), password: 'pw123456' } });
+    const pm = await ctxm.newPage();
+    await pm.goto(BASE, { waitUntil: 'domcontentloaded' });
+    await wait(pm, () => !!(typeof AUTH !== 'undefined' && AUTH.user));
+    await pm.evaluate(() => openGame('pn'));
+    await wait(pm, () => !!(document.getElementById('gamePageBody') && document.querySelector('.pn-fs')), 10000, 'pn mobile render');
+    await sleep(700);
+    const fillM = await pm.evaluate(() => {
+      const fs = document.querySelector('.pn-fs');
+      const goal = document.querySelector('.pn-goal');
+      if (!fs || !goal) return { err: 1 };
+      const f = fs.getBoundingClientRect();
+      const g = goal.getBoundingClientRect();
+      return { fw: Math.round(f.width), fh: Math.round(f.height), gw: Math.round(g.width), gx: Math.round(g.left), gxr: Math.round(g.right) };
+    });
+    ok(fillM.fw >= 388 && fillM.fh >= 778, 'portrait: grass fills 100% of mobile screen (' + fillM.fw + 'x' + fillM.fh + ')');
+    ok(fillM.gw >= 390 * 0.86 && fillM.gx >= -2 && fillM.gxr <= 392, 'portrait: goal spans edge-to-edge comfortably (' + fillM.gw + 'px of 390)');
+    /* لمس منطقة فعلية (pointerdown/up) للتسديد باللمس */
+    const tapShot = await pm.evaluate(() => {
+      const z = document.querySelector('.pnz[data-d="🎯"]');
+      if (!z) return false;
+      const r = z.getBoundingClientRect();
+      const opts = { bubbles: true, cancelable: true, pointerId: 1, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2 };
+      z.dispatchEvent(new PointerEvent('pointerdown', opts));
+      z.dispatchEvent(new PointerEvent('pointerup', opts));
+      return true;
+    });
+    ok(tapShot, 'touch-zone tap dispatches aim events');
+    await bm.close();
+  }
+  const freeChip = await p.evaluate(() => {
+    const b = document.getElementById('pnBet');
+    return b && /\ud83c\udf93|تدريب|free/i.test(b.textContent) ? b.textContent : false;
+  });
+  ok(freeChip !== false, 'free-training chip shown (no bet field): "' + freeChip + '"');
+  const noBet = await p.evaluate(() => !!document.querySelector('#gamePageBody .bets, #gamePageBody .bet-input, #gamePageBody #GBd'));
+  ok(!noBet, 'NO bet amount field in penalty UI');
+  // تسديدة كاملة — الركلة تبدأ بعد شحن 460ms
   const t0 = Date.now();
   await p.evaluate(() => penShoot('↗️'));
-  await sleep(300);
-  const tenseBall = await p.evaluate(() => {
+  const flyBall = await wait(p, () => {
     const b = document.getElementById('pnBall');
-    return { flying: b.classList.contains('flying') || !!b.style.transform };
-  });
+    return b && (b.classList.contains('flying') || b.style.transform) ? true : false;
+  }, 3000, 'ball flight');
+  ok(flyBall, 'ball flight animation started (arc + spin)');
   await wait(p, () => {
     const banner = document.getElementById('pnBanner');
     return banner && banner.classList.contains('show') ? banner.textContent : false;
@@ -141,28 +208,36 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
     banner: document.getElementById('pnBanner').textContent,
     goal: document.getElementById('pnBanner').classList.contains('goal'),
     saved: document.getElementById('pnBanner').classList.contains('saved'),
-    arenaState: document.querySelector('.pn-arena').classList.contains('pn-goal') || document.querySelector('.pn-arena').classList.contains('pn-saved'),
-    res: document.getElementById('penResult').textContent.length > 3
+    tok: document.querySelectorAll('#pnSeqMe .pn-tok:not(.empty)').length,
+    sc: document.getElementById('pnScMe').textContent,
+    scOpp: document.getElementById('pnScOpp').textContent,
+    turn: document.getElementById('pnTurn').textContent.length > 3,
+    ripple: !!document.getElementById('pnRipple')
   }));
-  ok(pnRes.banner && (pnRes.goal || pnRes.saved), 'result banner shown: "' + pnRes.banner + '" (' + (pnRes.goal ? 'GOAL' : 'SAVED') + ') in ' + flightMs + 'ms');
-  ok(pnRes.arenaState && pnRes.res, 'arena outcome state + status text set');
+  ok(pnRes.banner && (pnRes.goal || pnRes.saved), 'result banner: "' + pnRes.banner + '" (' + (pnRes.goal ? 'GOAL' : 'SAVED') + ') in ' + flightMs + 'ms');
+  ok(pnRes.tok >= 1, 'result token appears in player bar (✔/✕)');
+  ok(pnRes.turn, 'turn chip shows shot summary');
+  ok((pnRes.goal && Number(pnRes.sc) >= 1) || (pnRes.saved && Number(pnRes.scOpp) >= 1), 'bar score counters update (me ' + pnRes.sc + ' : opp ' + pnRes.scOpp + ')');
   // انتظار إعادة التهيئة
   await sleep(2400);
   const pnReset = await p.evaluate(() => ({
     bannerHidden: !document.getElementById('pnBanner').classList.contains('show'),
-    keeperIdle: document.getElementById('pnKeeper').classList.contains('idle'),
-    ballHome: /^translateX\(0px\) translateY\(0px\)$/.test(document.getElementById('pnBall').style.transform.trim()),
-    roleBack: document.getElementById('pnRole').textContent.indexOf('⚽') === 0
+    gkIdle: document.getElementById('pnKeeper').classList.contains('idle'),
+    ballHome: document.getElementById('pnBall').style.transform === '',
+    tokens: document.querySelectorAll('#pnSeqMe .pn-tok:not(.empty)').length
   }));
-  ok(pnReset.bannerHidden && pnReset.keeperIdle && pnReset.ballHome, 'field reset: banner hidden, keeper idle, ball home');
-  ok(pnReset.roleBack, 'role badge back to striker mode');
+  ok(pnReset.bannerHidden && pnReset.gkIdle && pnReset.ballHome, 'field reset: banner hidden, keeper idle, ball home');
+  ok(pnReset.tokens >= 1, 'shot history persists in result bar after reset');
   // تسديدة ثانية
-  const busyOk = await p.evaluate(() => { penShoot('⬇️'); return true; });
-  ok(busyOk, 'Penalty second shot starts (busy reset works)');
-  await sleep(2200);
+  await p.evaluate(() => penShoot('⬇️'));
+  await sleep(1500);
   const b2 = await p.evaluate(() => document.getElementById('pnBanner') && document.getElementById('pnBanner').classList.contains('show'));
-  ok(b2, 'Penalty second outcome banner shown');
-  await sleep(2400);
+  ok(b2, 'Penalty second outcome banner shown (busy reset works)');
+  await sleep(2500);
+  const toks2 = await p.evaluate(() => document.querySelectorAll('#pnSeqMe .pn-tok:not(.empty)').length);
+  ok(toks2 >= 2, 'second result token appended (' + toks2 + ' tokens)');
+  const pnBal = await p.evaluate(() => ST.gold);
+  ok(isFinite(pnBal), 'wallet intact after penalty shots (free mode): ' + pnBal);
 
   console.log('═══ 4) نقاط المحذوفات 404 + بلا أخطاء JS ═══');
   for (const u of ['assets/games/coin-flip/icon.webp', 'assets/games/hi-lo/icon.webp']) {

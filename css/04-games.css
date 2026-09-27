@@ -2777,7 +2777,6 @@ body.rami-game-open { overflow: hidden; }
   filter: grayscale(0.5);
 }
 
-
 .gwho { font-weight: 700; color: var(--t1); max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .gact { font-family: 'Consolas', 'Courier New', monospace; font-size: 0.78rem; }
 .gwin { color: #34D399; font-weight: 700; }/* ═══════════ تحسينات: رموز بكرات FA، كرة روليت، أيقونات أزرار ═══════════ */
@@ -3063,7 +3062,6 @@ body.rami-game-open { overflow: hidden; }
   /* الحاوية الرئيسية لكل لعبة كلاسيكية تتمدد لتملأ الفراغ المتبقي.
      shrink:0 ضروري — بدونه تنضغط الحاوية لصفر عندما يفيض الأشقاء */
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball {
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -3073,7 +3071,6 @@ body.rami-game-open { overflow: hidden; }
     justify-content: center;
   }
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena),
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) {
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -3107,21 +3104,6 @@ body.rami-game-open { overflow: hidden; }
     font-size: clamp(2.5rem, 6.5vw, 3.8rem);
   }
   /* ── Penalty: المرمى أكبر مع الحفاظ على نسق الحارس/الكرة ── */
-  #pg-game.app-fs .stage .pn-arena {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  #pg-game.app-fs .stage .pn-arena .goal {
-    width: clamp(260px, 82vw, 380px);
-    height: clamp(140px, 33vh, 210px);
-  }
-  #pg-game.app-fs .stage .goal .keeper {
-    font-size: clamp(2.6rem, 6.5vh, 4rem);
-  }
-  #pg-game.app-fs .stage .goal .pball2 {
-    font-size: clamp(1.6rem, 4vh, 2.4rem);
-  }
   /* ── Wingo: كرة أكبر في المنتصف ── */
   #pg-game.app-fs .stage .wg-ball {
     width: clamp(118px, 36vw, 210px);
@@ -3134,7 +3116,6 @@ body.rami-game-open { overflow: hidden; }
 /* ── لاندسكيب: نفس التمدد مع أحجام أفقية معتدلة ── */
 @media (orientation: landscape) {
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball{
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -3144,7 +3125,6 @@ body.rami-game-open { overflow: hidden; }
     justify-content: center;
   }
   #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena),
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball){
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -3160,16 +3140,6 @@ body.rami-game-open { overflow: hidden; }
   }
   #pg-game.app-fs .stage .rps-card-face {
     font-size: clamp(2.6rem, 6vw, 4rem);
-  }
-  #pg-game.app-fs .stage .pn-arena .goal {
-    width: clamp(220px, 36vw, 340px);
-    height: clamp(120px, 26vh, 190px);
-  }
-  #pg-game.app-fs .stage .goal .keeper {
-    font-size: clamp(2.2rem, 6vh, 3.4rem);
-  }
-  #pg-game.app-fs .stage .goal .pball2 {
-    font-size: clamp(1.4rem, 3.4vh, 2.1rem);
   }
   #pg-game.app-fs .stage .wg-ball {
     width: clamp(100px, 15vw, 170px);
@@ -3324,29 +3294,7 @@ body.rami-game-open { overflow: hidden; }
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .bets { grid-row: 3; align-self: center; }
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .bets ~ .bets { grid-row: 4; align-self: center; }
 
-  /* ── 5) ضربة الجزاء (pn): hint وrole كانا معاً (row1,center) ── */
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) {
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena { grid-row: 1 / 5; }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-picks { grid-row: 5; align-self: center; }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-hint { grid-row: 1; align-self: start; }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-role { grid-row: 2; align-self: start; }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-status {
-    grid-column: 1;
-    grid-row: 3;
-    align-self: end;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .bets {
-    grid-column: 1;
-    grid-row: 4;
-    align-self: center;
-  }
-  #pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .res {
-    grid-column: 1;
-    grid-row: 5;
-    align-self: end;
-  }  /* ── 7) أندر بحر (ab): الجوكر والمجموعتان كانا معاً (row1) ── */
+  /* ── 7) أندر بحر (ab): الجوكر والمجموعتان كانا معاً (row1) ── */
   #pg-game.app-fs #gamePageBody .stage:has(.ab-joker-box) {
     grid-template-rows: auto minmax(0, 1fr) auto auto;
   }
@@ -4167,403 +4115,4 @@ body.rami-game-open { overflow: hidden; }
   color: var(--txt2);
   white-space: pre-line;
   line-height: 1.6;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   [v2.62 PRO] Penalty Shootout — استاد كامل
-   جمهور بومضات كاميرات، مرمى بقائمين وعارضة معدنية وشبكة متموّجة،
-   عشب مخطط بمنظور، علامة جزاء، حارس يتراقص ثم يغوص، كرة بذيل طيران،
-   لافتة نتيجة عملاقة — أسماء .pn-arena/.goal/.keeper/.pball2 محفوظة
-   للتوافق مع قواعد ملء الشاشة الجاهزة.
-   ═══════════════════════════════════════════════════════════════════ */
-.pn-hint {
-  margin: 6px 0 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, rgba(242, 212, 137, 0.14), rgba(242, 212, 137, 0.04));
-  border: 1px solid rgba(242, 212, 137, 0.35);
-  color: var(--txt2);
-  font-size: 0.88rem;
-  text-align: center;
-}
-.pn-arena {
-  position: relative;
-  margin: 8px auto 6px;
-  perspective: 700px;
-  border-radius: 18px 18px 0 0;
-  overflow: hidden;
-  /* سماء الاستاد الليلية */
-  background:
-    radial-gradient(ellipse 90% 60% at 50% 0%, rgba(56, 130, 246, 0.16), transparent 65%),
-    linear-gradient(180deg, #0a1424 0%, #0d1c30 34%, #132a18 35%, #17402a 100%);
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-/* جمهور: صفوف نقاط متلألئة + ومضات كاميرات عشوائية */
-.pn-crowd {
-  position: relative;
-  height: 54px;
-  background:
-    repeating-radial-gradient(circle at 12% 100%, rgba(255, 255, 255, 0.13) 0 1.6px, transparent 1.6px 9px),
-    repeating-radial-gradient(circle at 36% 100%, rgba(255, 255, 255, 0.1) 0 1.6px, transparent 1.6px 11px),
-    repeating-radial-gradient(circle at 62% 100%, rgba(255, 255, 255, 0.13) 0 1.6px, transparent 1.6px 9px),
-    repeating-radial-gradient(circle at 88% 100%, rgba(255, 255, 255, 0.1) 0 1.6px, transparent 1.6px 11px),
-    linear-gradient(180deg, rgba(6, 12, 22, 0.9), rgba(10, 20, 36, 0.72));
-  box-shadow: inset 0 -12px 22px rgba(0, 0, 0, 0.55);
-}
-.pn-crowd::after {
-  /* ومضات كاميرات الجمهور */
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle 3px at 14% 34%, #fff 96%, transparent),
-    radial-gradient(circle 2px at 44% 62%, #ffe9b8 96%, transparent),
-    radial-gradient(circle 3px at 71% 28%, #fff 96%, transparent),
-    radial-gradient(circle 2px at 90% 55%, #cfe4ff 96%, transparent),
-    radial-gradient(circle 2px at 28% 74%, #ffe9b8 96%, transparent);
-  opacity: 0;
-  animation: pnCameraFlash 5.2s ease-out infinite;
-  pointer-events: none;
-}
-@keyframes pnCameraFlash {
-  0%, 100% { opacity: 0; }
-  6% { opacity: 1; }
-  9% { opacity: 0.1; }
-  31% { opacity: 0.9; }
-  34% { opacity: 0; }
-  58% { opacity: 0.75; }
-  61% { opacity: 0; }
-  82% { opacity: 0.95; }
-  85% { opacity: 0; }
-}
-.pn-arena.cheer .pn-crowd::after {
-  animation: pnCameraFlash 1.1s ease-out infinite;
-}
-.pn-arena.cheer .pn-crowd {
-  /* الجمهور يتوهج عند الهدف */
-  background:
-    repeating-radial-gradient(circle at 12% 100%, rgba(52, 211, 153, 0.22) 0 1.6px, transparent 1.6px 9px),
-    repeating-radial-gradient(circle at 36% 100%, rgba(255, 255, 255, 0.14) 0 1.6px, transparent 1.6px 11px),
-    repeating-radial-gradient(circle at 62% 100%, rgba(52, 211, 153, 0.22) 0 1.6px, transparent 1.6px 9px),
-    repeating-radial-gradient(circle at 88% 100%, rgba(255, 255, 255, 0.14) 0 1.6px, transparent 1.6px 11px),
-    linear-gradient(180deg, rgba(6, 18, 16, 0.9), rgba(10, 30, 26, 0.72));
-}
-.pn-arena .goal {
-  position: relative;
-  width: 270px;
-  height: 148px;
-  margin: 0 auto;
-  border: none;
-  border-bottom: none;
-  border-radius: 10px 10px 0 0;
-  background:
-    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 13px),
-    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.1) 0 2px, transparent 2px 13px),
-    linear-gradient(180deg, rgba(8, 18, 32, 0.35), rgba(4, 10, 20, 0.6));
-  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.4);
-  transition: box-shadow 0.35s var(--ease);
-  z-index: 2;
-}
-.goal .gbar {
-  /* العارضة العلوية */
-  position: absolute;
-  top: -7px;
-  left: -6px;
-  right: -6px;
-  height: 9px;
-  border-radius: 4px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(200, 210, 220, 0.75) 60%, rgba(130, 142, 155, 0.9));
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5), 0 0 12px rgba(255, 255, 255, 0.28);
-}
-.goal .gpost {
-  position: absolute;
-  top: -7px;
-  width: 9px;
-  height: calc(100% + 7px);
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.98), rgba(190, 200, 212, 0.8) 55%, rgba(130, 142, 155, 0.95));
-  border-radius: 3px;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.3), 2px 0 8px rgba(0, 0, 0, 0.4);
-}
-.goal .gpost.gl { left: -6px; }
-.goal .gpost.gr { right: -6px; }
-.goal .gnet {
-  position: absolute;
-  inset: 0;
-  border-radius: 10px 10px 0 0;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.17) 1px, transparent 1px) 0 0 / 100% 14px,
-    linear-gradient(90deg, rgba(255, 255, 255, 0.17) 1px, transparent 1px) 0 0 / 16px 100%;
-}
-/* تموّج الشبكة عند الهدف */
-.goal .gripple {
-  position: absolute;
-  inset: 0;
-  border-radius: 10px 10px 0 0;
-  background:
-    linear-gradient(rgba(52, 211, 153, 0.3) 1.5px, transparent 1.5px) 0 0 / 100% 13px,
-    linear-gradient(90deg, rgba(52, 211, 153, 0.3) 1.5px, transparent 1.5px) 0 0 / 15px 100%;
-  opacity: 0;
-  pointer-events: none;
-}
-.goal .gripple.wave {
-  animation: pnNetWave 0.9s var(--ease);
-}
-@keyframes pnNetWave {
-  0% { opacity: 0; transform: scale(1); }
-  25% { opacity: 1; }
-  100% { opacity: 0; transform: scale(1.06) skewX(-1.5deg); }
-}
-.goal.tense {
-  /* توهج المرمى أثناء الترقب (قبل الركلة) */
-  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(242, 212, 137, 0.35);
-}
-.goal .keeper {
-  position: absolute;
-  bottom: 2px;
-  left: 50%;
-  margin-left: -0.6em;
-  transform: translateX(0) translateY(0) rotate(0deg);
-  font-size: 2.8rem;
-  z-index: 2;
-  filter: drop-shadow(0 4px 7px rgba(0, 0, 0, 0.55));
-  will-change: transform;
-}
-.goal .keeper.idle {
-  /* الحارس يتراقص على أصابعه قبل الركلة */
-  animation: pnKeeperIdle 0.9s ease-in-out infinite;
-}
-@keyframes pnKeeperIdle {
-  0%, 100% { transform: translateX(-5px) scale(1); }
-  25% { transform: translateX(4px) scale(1.03, 0.97); }
-  50% { transform: translateX(5px) scale(1); }
-  75% { transform: translateX(-4px) scale(1.03, 0.97); }
-}
-.goal .pball2 {
-  position: absolute;
-  bottom: 5px;
-  left: 50%;
-  margin-left: -0.5em;
-  transform: translateX(0) translateY(0);
-  font-size: 1.7rem;
-  z-index: 3;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6));
-  will-change: transform;
-}
-.goal .pball2.flying {
-  /* ذيل الحركة: توهج مداري أثناء الطيران */
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.6)) drop-shadow(0 0 10px rgba(242, 212, 137, 0.55));
-}
-/* أرضية العشب: خطوط منظورية */
-.pn-grass {
-  position: relative;
-  height: 74px;
-  margin-top: -2px;
-  background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 0 14%, transparent 14% 30%, rgba(255, 255, 255, 0.045) 30% 44%, transparent 44% 60%, rgba(255, 255, 255, 0.045) 60% 74%, transparent 74% 88%, rgba(255, 255, 255, 0.045) 88% 100%),
-    linear-gradient(180deg, #1c4a2e 0%, #1a5c33 30%, #237040 100%);
-  box-shadow: inset 0 12px 26px rgba(0, 0, 0, 0.35);
-  transform: perspective(300px) rotateX(0deg);
-  z-index: 1;
-}
-/* علامة الجزاء */
-.pn-spot {
-  position: absolute;
-  bottom: 22px;
-  left: 50%;
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-  z-index: 1;
-}
-/* لافتة النتيجة العملاقة */
-.pn-banner {
-  position: absolute;
-  top: 34%;
-  left: 50%;
-  transform: translate(-50%, -50%) scale(0.6);
-  padding: 10px 34px;
-  border-radius: 14px;
-  font-size: 2.2rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-align: center;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 6;
-  white-space: nowrap;
-  transition: opacity 0.25s var(--ease);
-}
-.pn-banner.show {
-  opacity: 1;
-  animation: pnBannerPop 0.55s cubic-bezier(0.2, 1.6, 0.4, 1);
-}
-@keyframes pnBannerPop {
-  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
-  55% { transform: translate(-50%, -50%) scale(1.14); opacity: 1; }
-  100% { transform: translate(-50%, -50%) scale(1); }
-}
-.pn-banner.goal {
-  color: #b8ffe0;
-  background: linear-gradient(135deg, rgba(6, 78, 59, 0.92), rgba(6, 95, 70, 0.88));
-  border: 2px solid rgba(52, 211, 153, 0.9);
-  box-shadow: 0 0 34px rgba(52, 211, 153, 0.6), inset 0 0 22px rgba(52, 211, 153, 0.18);
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
-}
-.pn-banner.saved {
-  color: #ffd3da;
-  background: linear-gradient(135deg, rgba(95, 14, 32, 0.92), rgba(120, 20, 40, 0.88));
-  border: 2px solid rgba(244, 63, 94, 0.85);
-  box-shadow: 0 0 30px rgba(244, 63, 94, 0.55), inset 0 0 22px rgba(244, 63, 94, 0.16);
-  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.3);
-}
-.pn-role {
-  margin: 10px auto 4px;
-  padding: 7px 16px;
-  width: fit-content;
-  border-radius: 999px;
-  font-weight: 800;
-  font-size: 0.95rem;
-  color: #d9b45c;
-  background: linear-gradient(135deg, rgba(242, 212, 137, 0.16), rgba(242, 212, 137, 0.05));
-  border: 1px solid rgba(242, 212, 137, 0.45);
-  box-shadow: 0 0 14px rgba(242, 212, 137, 0.12);
-  text-align: center;
-}
-.pn-picks {
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-  margin: 8px 0 4px;
-}
-.pnBtn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 10px 26px;
-  border-radius: 14px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(145deg, var(--bg3), var(--bg2));
-  border: 2px solid rgba(242, 212, 137, 0.55);
-  box-shadow: 0 5px 14px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-  transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), border-color 0.2s var(--ease), opacity 0.2s;
-}
-.pnBtn::before {
-  content: '';
-  position: absolute;
-  left: 14%;
-  right: 14%;
-  bottom: -42%;
-  height: 60%;
-  border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.24), transparent 70%);
-  opacity: 0;
-  transition: opacity 0.25s var(--ease);
-  pointer-events: none;
-}
-.pnBtn:hover:not(:disabled) {
-  transform: translateY(-3px);
-  border-color: rgba(242, 212, 137, 0.95);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(242, 212, 137, 0.3);
-}
-.pnBtn:hover:not(:disabled)::before {
-  opacity: 1;
-}
-.pnBtn:active:not(:disabled) {
-  transform: translateY(0) scale(0.97);
-}
-.pnBtn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  filter: grayscale(0.4);
-}
-.pn-arrow {
-  font-size: 2rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
-  transition: transform 0.2s var(--ease);
-}
-.pnBtn:hover:not(:disabled) .pn-arrow {
-  transform: scale(1.18);
-}
-.pn-dir {
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: #d9b45c;
-}
-/* ── 9 جهات (3×3): شبكة بدل الصف الواحد — نفس pnBtn مع تكيف الحشو والحجم.
-     direction:ltr يثبّت الشبكة بصرياً (↖ يسار الشاشة) حتى في الصفحة العربية RTL —
-     وإلا تنعكس الأعمدة ويظهر أعلى-اليسار في خانة اليمين البصرية ── */
-.pn-picks.nine {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  direction: ltr;
-  gap: 6px;
-  max-width: 330px;
-  margin: 0 auto;
-}
-.pn-picks.nine .pnBtn {
-  padding: 8px 4px;
-  font-size: 0.9rem;
-}
-.pn-picks.nine .pn-arrow {
-  font-size: 1.5rem;
-}
-.pn-picks.nine .pn-dir {
-  font-size: 0.62rem;
-}
-.pn-status {
-  min-height: 40px;
-  margin: 8px auto 2px;
-  text-align: center;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: var(--txt2);
-  white-space: pre-line;
-  line-height: 1.6;
-}
-.pn-arena.pn-goal .goal {
-  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 34px rgba(52, 211, 153, 0.65);
-  animation: pnFlash 0.5s var(--ease);
-}
-.pn-arena.pn-saved .goal {
-  box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 30px rgba(244, 63, 94, 0.6);
-  animation: pnFlashR 0.5s var(--ease);
-}
-@keyframes pnFlash {
-  0% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 0 rgba(52, 211, 153, 0); }
-  50% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 44px rgba(52, 211, 153, 0.85); }
-  100% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 30px rgba(52, 211, 153, 0.5); }
-}
-@keyframes pnFlashR {
-  0% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 0 rgba(244, 63, 94, 0); }
-  50% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 38px rgba(244, 63, 94, 0.8); }
-  100% { box-shadow: inset 0 0 44px rgba(0, 0, 0, 0.5), 0 0 26px rgba(244, 63, 94, 0.45); }
-}
-
-/* ═══ [v2.62 PRO] استجابة الاستاد: ضغط الجمهور/العشب حيث الشاشة قصيرة ═══ */
-@media (max-width: 400px) {
-  .pn-crowd { height: 40px; }
-  .pn-grass { height: 52px; }
-  .pn-arena .goal { width: 236px; height: 132px; }
-}
-@media (orientation: landscape) {
-  #pg-game.app-fs .stage .pn-crowd { height: 34px; }
-  #pg-game.app-fs .stage .pn-grass { height: 46px; }
-  #pg-game.app-fs .stage .pn-banner { font-size: 1.7rem; padding: 6px 24px; }
-}
-
-/* ═══ [v2.62 PRO-FS] تصحيح الاستاد في ملء الشاشة ═══
-   قواعد [Fill] القديمة (portrait 3386 + landscape 3459) كانت تجعل .pn-arena
-   صفاً أفقياً مركزاً (display:flex) لأن المرمى كان طفله الوحيد — الاستاد الجديد
-   (جمهور + مرمى + عشب + لافتة) يجب أن يتراصّ عمودياً. هذه القاعدة اللاحقة
-   بنفس النوعية تتغلب عليها مع إبقاء flex:1 1 auto من تلك القواعد (ملء الفراغ). */
-#pg-game.app-fs #gamePageBody .stage:has(.pn-arena) > .pn-arena,
-#pg-game.app-fs .stage .pn-arena {
-  display: block;
 }

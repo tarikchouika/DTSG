@@ -162,7 +162,7 @@ const BotsLedger = {
     try { return JSON.parse(sGet(this.KEY, '{}')) || {}; } catch (e) { return {}; }
   },
   _write(d) { sSet(this.KEY, JSON.stringify(d)); },
-  /* gid: معرف اللعبة (rn/pr/rami/chess/bg/do/dama/bj…) • delta: +ربح منصة / −دفع للاعب */
+  /* gid: معرف اللعبة (rn/pr/rami/chess/bg/do/dama…) • delta: +ربح منصة / −دفع للاعب */
   record(gid, delta) {
     try {
       const num = r2num(delta);

@@ -260,7 +260,7 @@ function openTcModal() {
     /* [Policy 2026-09-16] تُعاد التعبئة عند كل فتح — المعطلة تختفي
        [tourney-fix 2026-09-23] البطولات = ألعاب المواجهة 2+ فقط: المصدر roomGameIds (ألعاب الأونلاين)
        ناقصة ما عطّله السوبر أدمن (DISABLED) — ألعاب المواجهة فقط (لا روليت: ليست مواجهة لاعبين). */
-    const roomIds = (typeof Rooms !== 'undefined' && Rooms.roomGameIds) ? Object.keys(Rooms.roomGameIds) : ['rn', 'rp', 'pn', 'pr', 'rm', 'rd', 'bj', 'dm', 'ch', 'bg', 'do', 'bl8', 'blbb', 'blgv', 'blsn', 'blca'];
+    const roomIds = (typeof Rooms !== 'undefined' && Rooms.roomGameIds) ? Object.keys(Rooms.roomGameIds) : ['rn', 'rp', 'pn', 'pr', 'rm', 'rd', 'dm', 'ch', 'bg', 'do', 'bl8', 'blbb', 'blgv', 'blsn', 'blca'];
     const allowed = roomIds.filter(function (id) { return !DISABLED[id]; });
     sel.innerHTML = GAMES.filter(function (g) { return allowed.indexOf(g.id) >= 0 && !DISABLED[g.id]; })
       .map(function (g) { return '<option value="' + g.id + '">' + g.em + ' ' + esc(gname(g)) + '</option>'; })
@@ -588,7 +588,8 @@ function initFor(eng) {
     uno: (typeof initUno === 'function') ? initUno : null,
     plinko: (typeof initPlinko === 'function') ? initPlinko : null,
     wheel: (typeof initWheel === 'function') ? initWheel : null,
-    rl: (typeof initRoulette === 'function') ? initRoulette : null
+    rl: (typeof initRoulette === 'function') ? initRoulette : null,
+    pen: (typeof window.pnInit === 'function') ? window.pnInit : null
   };
   return map[eng] || null;
 }
@@ -628,7 +629,7 @@ function openGame(id) {
   /* استئناف الجولة المفتوحة: لألعاب الورق/اللوحة المحلية (متعددة الأدوار)
      نُجمّد حالة اللعبة عند الخروج ونعيدها كما هي عند العودة — دون بدء جولة جديدة.
      (الألعاب الفورية لا تُستأنف: تُسجَّل نتائجها في السجل فقط) */
-  var RESUMABLE = ['rm', 'rn', 'bj', 'pr'];
+  var RESUMABLE = ['rm', 'rn', 'pr'];
   /* [PR-Sync] جولة غرفة جارية لنفس اللعبة: الاستئناف المجمّد يعرض لوحة قديمة متجمدة —
      يجب إعادة البناء الكاملة ليُعاد بناء الجولة من سجل الخادم (room:replay) */
   var roomLive = typeof Rooms !== 'undefined' && Rooms.state &&
@@ -772,7 +773,7 @@ function closeGamePage() {
 
   /* ألعاب الورق/اللوحة المحلية (متعددة الأدوار): نُجمّد DOMها وحالتها
      لاستئناف الجولة كما هي عند العودة. غيرها يُنظَّف كالمعتاد. */
-  var RESUMABLE = ['rm', 'rn', 'bj', 'pr'];
+  var RESUMABLE = ['rm', 'rn', 'pr'];
   var curId = window._currentGameId;
   var keepLive = RESUMABLE.indexOf(curId) !== -1 &&
     window.SessionResume && window.SessionResume.isResumable();
@@ -871,6 +872,9 @@ function fitGameStage() {
       stage.id === 'rdStage' || stage.id === 'dmStage' || stage.id === 'bwStage' ||
       stage.id === 'blStage' ||
       stage.querySelector('#ramiContainer')) return;
+  /* [v2.63-PN] بينالتي شوت: ملء شاشة fixed inset:0 — أي transform هنا كان يجعل
+     position:fixed نسبياً للمرحلة فيكسر التغطية 100% ويقصّ العشب — تخطَّ التحجيم كلياً */
+  if (stage.id === 'pnStage' || stage.querySelector('.pn-fs')) return;
   _observeStage(stage);
   var availW = body.clientWidth;
   var availH = body.clientHeight;

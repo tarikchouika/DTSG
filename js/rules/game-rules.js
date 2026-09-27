@@ -1119,16 +1119,6 @@ var Tutorial = {
         { target: '.ronda-nums', text: 'اختر رقماً من هنا', arrow: 'down' },
         { target: '.ronda-syms', text: 'ثم اختر رمزاً', arrow: 'down' },
         { target: '.ronda-btn.primary', text: 'اضغط للبدء!', arrow: 'up' }
-      ],
-      av: [
-        { target: '.bets', text: 'حدد مبلغ الرهان أولاً', arrow: 'down' },
-        { target: '#cStart', text: 'اضغط هنا للإقلاع', arrow: 'up' },
-        { target: '#cCash', text: 'اسحب قبل التحطم!', arrow: 'up' }
-      ],
-      bj: [
-        { target: '#bDeal', text: 'اضغط توزيع لبدء الجولة', arrow: 'up' },
-        { target: '#bHit', text: 'اسحب بطاقة إضافية', arrow: 'up' },
-        { target: '#bStand', text: 'أو قف وقارن', arrow: 'up' }
       ]
     };
     if (!steps[gameId]) return;

@@ -28,7 +28,7 @@
   var Rooms = {
     state: null,
     /* الألعاب المدعومة للغرف: id -> أقصى عدد لاعبين */
-    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, bj: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BJMP] بلاك جاك جماعي 2-4 بلا بانكر + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين */
+    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين + [BJ-ghost] بلاك جاك أُزيلت من المنصة — حُذف خيارها الوهمي من القائمة */
 
     isGameSupported: function (id) { return !!Rooms.roomGameIds[id]; },
     /* [Persist] طلب إعادة بناء الجولة: إعادة فتح قناة WS للغرفة — الخادم يعيد
@@ -480,11 +480,6 @@
       ];
       if (gid === 'rp') return [
         { key: 'rounds', label: T('rp.rounds') || 'عدد الجولات', opts: [[3, '3'], [5, '5'], [7, '7']], def: 3 },
-        timer
-      ];
-      /* [BJMP] بلاك جاك جماعي: عدد المقاعد 2-4 (نتحكم بالخيارات بأنفسنا — لا تُضاف maxp تلقائياً) */
-      if (gid === 'bj') return [
-        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: [[2, '2 ' + (T('ui.players') || 'لاعبين')], [3, '3 ' + (T('ui.players') || 'لاعبين')], [4, '4 ' + (T('ui.players') || 'لاعبين')]], def: 4 },
         timer
       ];
       if (gid === 'pn') return [

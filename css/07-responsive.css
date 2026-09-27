@@ -46,10 +46,6 @@
   .rbets {
     grid-template-columns: repeat(3, 1fr);
   }
-  .goal {
-    width: 220px;
-    height: 120px;
-  }
   /* توب بار: حشوات ومسافات مضغوطة للشاشات الأصغر من 380px */
   .topbar {
     padding: calc(10px + var(--safe-top)) 12px 10px;

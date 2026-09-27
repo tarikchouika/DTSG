@@ -35,13 +35,14 @@ ok(!tcBody.includes("['rn', 'rp', 'pn', 'pr', 'ke', 'av', 'rl', 'bj', 'bc']"), '
 ok(/Object\.keys\(Rooms\.roomGameIds\)/.test(tcBody) || /Object\.keys\((typeof Rooms)/.test(tcBody) || tcBody.includes('Object.keys(Rooms.roomGameIds)'), 'allowed sourced from Rooms.roomGameIds');
 ok(tcBody.includes('roomIds.filter(function (id) { return !DISABLED[id]; })'), 'super-disabled games excluded');
 
-// محتوى roomGameIds: كل ألعاب المواجهة الـ18 حاضرة، ولا ألعاب فردية (حُدّث من 16 بعد إضافة البلياردو الأنواع + أونو)
+// محتوى roomGameIds: كل ألعاب المواجهة الـ17 حاضرة، ولا ألعاب فردية (حُدّث من 18 بعد إزالة خيار bj الوهمي — بلاك جاك غير موجودة في الكتالوج)
 const roomKeys = [...roomsSrc.matchAll(/^\s*roomGameIds:\s*\{([^}]+)\}/gm)][0][1];
 const ids = [...roomKeys.matchAll(/(\w+)\s*:/g)].map(m => m[1]);
-ok(ids.length === 18, 'roomGameIds has 18 confrontation games (got ' + ids.length + ')');
-for (const need of ['rm', 'rd', 'dm', 'ch', 'bg', 'do', 'blbb', 'blsn', 'pr', 'rn', 'rp', 'pn', 'bj']) {
+ok(ids.length === 17, 'roomGameIds has 17 confrontation games (got ' + ids.length + ')');
+for (const need of ['rm', 'rd', 'dm', 'ch', 'bg', 'do', 'blbb', 'blsn', 'pr', 'rn', 'rp', 'pn', 'bl', 'un']) {
   ok(ids.includes(need), 'confrontation game in tournament source: ' + need);
 }
+ok(!ids.includes('bj'), 'ghost bj option NOT in roomGameIds (blackjack removed from catalog)');
 for (const banned of ['ke', 'av', 'rl', 'cr', 'slots', 'mj']) {
   ok(!ids.includes(banned), 'non-confrontation game NOT in tournament source: ' + banned);
 }
