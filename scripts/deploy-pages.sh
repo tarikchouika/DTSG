@@ -61,7 +61,14 @@ cd "$REPO"
 # الملفات والمجلدات العامة فقط (نفس قاعدة deploy-clean.sh المعتمدة)
 # ronda-game: محرك روندا الكلاسيكية (index.html يحمل سكربتاته من ronda-game/js/*)
 # backgammon-game / dominoes-game: [BGDO] مشروعا الطاولة والضومنة المستقلان
-cp -r js css assets ronda-game backgammon-game dominoes-game "$OUT/"
+# uno-game / baloot-game: [UN/BL] مشروعا أونو والبلوت المستقلان
+# [v2.65.1-HOTFIX 2026-09-28] أونو والبلوت كانا غائبين من هنا: النشر عبر هذا
+# السكربت كان يرفع الواجهة بلا المجلدين، فتخدم Pages صفحة index.html بدل
+# ملفات JS (200 + text/html + etag المطابق لـ index.html) → اللعبتان معطلتان
+# على dtsg.pages.dev بينما Vercel (نشر المستودع كاملاً) يعمل. القاعدة الجديدة
+# المعمّمة: كل مجلد لعبة مستقلة يُشار إليه من index.html يجب أن يظهر هنا —
+# يتحقق آلياً عبر tests/_deploy_coverage_test.js.
+cp -r js css assets ronda-game backgammon-game dominoes-game uno-game baloot-game "$OUT/"
 
 for f in index.html admins.html about.html contact.html 2fa.html \
          fairness.html privacy.html terms.html \
@@ -86,6 +93,15 @@ rm -rf "$OUT"/ronda-game/tests "$OUT"/ronda-game/README.md 2>/dev/null || true
 # [BGDO] تنظيف احتياطي لمجلدات tests داخل المشروعين + حذف ملفات تدقيق الدمج من النشر
 rm -rf "$OUT"/backgammon-game/tests "$OUT"/dominoes-game/tests 2>/dev/null || true
 rm -f "$OUT"/backgammon-game/INTEGRATION.md "$OUT"/dominoes-game/INTEGRATION.md 2>/dev/null || true
+# [UN/BL v2.65.1] نفس القاعدة لأونو والبلوت: tests + وثائق + صفحة QA المستقلة
+# (index.html — وثيقتا الدمج تنصّان: «صفحة مستقلة للاختبار، غير مطلوبة للنشر»)
+# + baloot-game/integration (مقتطف ترجمات تطويري) + baloot-game/assets (أيقونات
+# النسخة المستقلة فقط — أيقونات الكتالوج تعيش في assets/games/<un|baloot> المرفوعة)
+rm -rf "$OUT"/uno-game/tests "$OUT"/baloot-game/tests 2>/dev/null || true
+rm -f "$OUT"/uno-game/README.md "$OUT"/uno-game/INTEGRATION.md \
+      "$OUT"/baloot-game/README.md "$OUT"/baloot-game/INTEGRATION.md 2>/dev/null || true
+rm -f "$OUT"/uno-game/index.html "$OUT"/baloot-game/index.html 2>/dev/null || true
+rm -rf "$OUT"/baloot-game/integration "$OUT"/baloot-game/assets 2>/dev/null || true
 find "$OUT" -name "*.db*" -delete 2>/dev/null || true
 
 N_FILES="$(find "$OUT" -type f | wc -l)"

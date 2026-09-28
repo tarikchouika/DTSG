@@ -18,6 +18,7 @@
 | 8 | **قبل حذف أي شيء:** أثبت أنه لا يحوي محتوى فريداً (`compare/<sha>...main` ⇒ `behind_by=0`) واعرض الدليل على المالك، ثم انتظر موافقته. |
 | 9 | **بيئة الخادم من `.env.local` فقط:** ممنوع `pm2 restart --update-env` من صدفة ناقصة (حادثة 2026-09-22: مُسحت كل متغيرات الدفع والبوتات ثم حُفظت بـ`pm2 save`). الاستعمال الإلزامي: `bash scripts/phone-env-restart.sh`. |
 | 10 | **أي تغيير في الأسرار أو الويبهوك يتحقق من الطرفين:** الخادم (البيئة) + تيليغرام (`setWebhook` بالسرّ نفسه) — ثم `getWebhookInfo` بلا `last_error`. |
+| 11 | **أي مجلد لعبة مستقلة جديد (⇐ `-game/`) يجب إضافته فوراً إلى سطر `cp -r` في `scripts/deploy-pages.sh` و`deploy-clean.sh`.** حادثة 2026-09-28 (v2.65.1): أُدمجت أونو والبلوت دون تحديث السكربت ⇒ نشر Cloudflare Pages بلا المجلدين ⇒ Pages تخدم `index.html` بدل ملفات JS (200 + `text/html` + etag المطابق لـ index.html) فتعطلتا على `dtsg.pages.dev` بينما Vercel (نشر المستودع كاملاً) يعمل. الحارس الآلي: `node tests/_deploy_coverage_test.js`. |
 
 ---
 
@@ -56,7 +57,7 @@ git fetch origin main && git log --oneline -1 origin/main   # اقرأ آخر ح
 
 | الملف | لماذا حسّاس |
 |---|---|
-| `scripts/deploy-pages.sh` | النشر الحيّ — مصدر الفرع يجب أن يبقى `origin/main` |
+| `scripts/deploy-pages.sh` | النشر الحيّ — مصدر الفرع يجب أن يبقى `origin/main` · أي مجلد لعبة مستقلة يجب أن يُدرج في سطر `cp -r` (قاعدة 11) |
 | `_headers` · `api-url2.json` · `tunnel-live.json` | تربط الواجهة بخادم الهاتف — كسرها = تعطّل الموقع |
 | `js/core/api.js` · `js/core/live-ws-bridge.js` | حلّ عنوان الباكأند + الاحتياطي السحابي |
 | `server.js` · `server-payments.js` · `cf-worker/*` | المال والمصادقة |
