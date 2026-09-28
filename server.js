@@ -341,6 +341,20 @@ function logTicket(userId, gameId, bet, won, payout, resultTxt) {
   } catch (e) {}
 }
 
+/* [Financials 2026-09-28] بوت المالية للسوپر أدمن @dtsgfinancials_bot — نفس القاعدة
+   والصلاحيات وجداول الداشبورد: يعرض الشحن/السحب/سجلات المستخدمين/جميع السجلات،
+   وينفّذ الموافقة/الرفض بنفس دوال الداشبورد (pay.adminActOnPlatformTx) والشحن/
+   الخصم/الضبط بنفس منطق /api/admin/user/:id/balance (logTx نفسه). سوپر أدمن حصراً. */
+const fin = require('./server-financials.js');
+fin.initFinancials(db);
+fin.setCtx(db, users, sessions, {
+  pay: pay,
+  logTx: logTx,
+  notifyUser: async function (userId, text) {
+    try { return await sup.notifyUser(userId, text); } catch (e) { return false; }
+  }
+});
+
 /* إنشاء الحسابات الافتراضية فقط إن كانت القاعدة فارغة (نفس حسابات الباك-أند القديم) */
 (function seedIfEmpty() {
   const count = db.prepare('SELECT COUNT(*) AS c FROM users').get().c;
@@ -928,6 +942,9 @@ const server = http.createServer((req, res) => {
 
       /* ── [Support 2026-09-18] بوت الدعم + واجهة صفحة الدعم (ربط/تذاكر/أدمنز) ── */
       if (sup.isSupportPath(pathname)) { sup.handleHttp(req, res, pathname, body, parsedUrl); return; }
+
+      /* ── [Financials 2026-09-28] ويب هوك بوت المالية (سوپر أدمن حصراً) — سرّه: FINANCIALS_WEBHOOK_SECRET ── */
+      if (fin.isFinancialsPath(pathname)) { fin.handleHttp(req, res, pathname, body, parsedUrl); return; }
 
       /* ── [Private Chat 2026-09-22] بوت المحادثة الخاصة + رابط الربط القصير ── */
       if (privateChat.isPrivatePath(pathname)) { privateChat.handleHttp(req, res, pathname, body, parsedUrl); return; }

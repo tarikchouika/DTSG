@@ -38,3 +38,4 @@ tests/_scratch_*.js
 
 # [v2.59.1 OPS] نسخ royalcoin.db الاحتياطية (بيانات شخصية) — لا تُرفع إلى GitHub أبداً
 backups/
+tool-results/

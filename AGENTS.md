@@ -26,14 +26,17 @@
 
 ```bash
 cd /root/DTSG
-bash scripts/phone-env-restart.sh     # يقرأ .env.local → يعيد التشغيل → يتحقق من 15 مفتاحاً → pm2 save
+bash scripts/phone-env-restart.sh     # يقرأ .env.local → يعيد التشغيل → يتحقق من المفاتيح (منها مفاتيح بوت المالية) → pm2 save
 ```
 
 **بعد كل إعادة تشغيل تحقّق من (خطأ صامت = منصة معطّلة):**
 1. `curl -s http://127.0.0.1:3000/api/payments/methods` ⇒ `binance_pay_id` غير فارغ · وسيلة `live`.
 2. `curl -s https://api.telegram.org/bot$SUPPORT_BOT_TOKEN/getWebhookInfo` ⇒ بلا `last_error`.
 3. `tests/_support_bot_test.js` · `_private_chat_test.js` · `_voucher_bot_scope_test.js` · `_money_invariants_test.js`.
-4. `pm2 save` بعد نجاح الفحوص فقط.
+4. `[v2.66] بوت المالية (dtsgfinancials_bot)`: `node tests/_financial_bot_test.js` + `_financial_bot_db_test.js` ·
+   `curl -s http://127.0.0.1:3000/api/financials/status` ⇒ `ok:true` ·
+   `curl -s https://api.telegram.org/bot$FINANCIALS_BOT_TOKEN/getWebhookInfo` ⇒ بلا `last_error`.
+5. `pm2 save` بعد نجاح الفحوص فقط.
 
 ---
 

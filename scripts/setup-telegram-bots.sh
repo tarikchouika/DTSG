@@ -1,19 +1,21 @@
 #!/usr/bin/env bash
 # ═══════════════════════════════════════════════════════════════════════════
-#  DTSG — تهيئة وربط بوتات تيليغرام (v2.56)
+#  DTSG — تهيئة وربط بوتات تيليغرام (v2.66)
 #    بوت الدعم       : @dtsgsupports_bot      ← خدمة العملاء/التذاكر
 #    بوت المنصة      : (TELEGRAM_BOT_TOKEN)   ← المدفوعات والمالية
 #    بوت الدردشة الخاص: (PRIVATE_CHAT_BOT_TOKEN) ← حسابات المنصة المرتبطة فقط
+#    بوت المالية      : @dtsgfinancials_bot    ← سوپر أدمن حصراً (v2.66)
 #
 #  ما يفعله:
 #    1) يتحقق من صلاحية التوكنات (getMe)
-#    2) يضبط الويب هوك لبوت الدعم وبوت الدردشة الخاص بسرّين منفصلين
+#    2) يضبط الويب هوك لبوت الدعم وبوت الدردشة الخاص وبوت المالية بسرّين منفصلة
 #    3) يضبط قائمة الأوامر والوصف لكل بوت
 #    4) يفحص أن المسارات تصل للخادم فعلاً (200) ويطبع getWebhookInfo
 #
 #  الاستعمال:  bash scripts/setup-telegram-bots.sh
 #  متغيّرات: SUPPORT_BOT_TOKEN · PRIVATE_CHAT_BOT_TOKEN · TELEGRAM_BOT_TOKEN
 #             SUPPORT_WEBHOOK_SECRET · PRIVATE_CHAT_WEBHOOK_SECRET · DTSG_PUBLIC_BASE
+#             FINANCIALS_BOT_TOKEN · FINANCIALS_WEBHOOK_SECRET · FINANCIALS_SUPER_TG
 # ═══════════════════════════════════════════════════════════════════════════
 set -uo pipefail
 
@@ -39,6 +41,14 @@ if [ -n "$PRIVATE_CHAT_BOT_TOKEN" ] && [ -z "$PRIVATE_WEBHOOK_SECRET" ]; then
   PRIVATE_WEBHOOK_SECRET="dtsgpriv_$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
   echo "ℹ️  وُلّد سرّ بوت الدردشة الخاص (صدّره للخادم): PRIVATE_CHAT_WEBHOOK_SECRET=$PRIVATE_WEBHOOK_SECRET"
 fi
+# [v2.66] بوت المالية (سوپر أدمن حصراً) — @dtsgfinancials_bot
+FINANCIALS_BOT_TOKEN="${FINANCIALS_BOT_TOKEN:-}"
+FINANCIALS_WEBHOOK_SECRET="${FINANCIALS_WEBHOOK_SECRET:-}"
+if [ -n "$FINANCIALS_BOT_TOKEN" ] && [ -z "$FINANCIALS_WEBHOOK_SECRET" ]; then
+  FINANCIALS_WEBHOOK_SECRET="dtsgfin_$(head -c 18 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 20)"
+  echo "ℹ️  وُلّد سرّ بوت المالية (صدّره للهاتف في .env.local): FINANCIALS_WEBHOOK_SECRET=$FINANCIALS_WEBHOOK_SECRET"
+fi
+FINANCIALS_SUPER_TG="${FINANCIALS_SUPER_TG:-${TELEGRAM_ADMIN_CHAT_ID:-}}"
 BASE="${DTSG_PUBLIC_BASE:-https://casino-phone.dmgames-api.workers.dev}"
 TG="https://api.telegram.org"
 
@@ -75,6 +85,23 @@ if [ -n "$PRIVATE_CHAT_BOT_TOKEN" ]; then
 else
   warn "PRIVATE_CHAT_BOT_TOKEN غير مضبوط — تخطّي بوت الدردشة الخاص (لن تظهر روابطه حتى يُضبط)."
 fi
+if [ -n "$FINANCIALS_BOT_TOKEN" ]; then
+  FIN_ME="$(curl -s -m 20 "$TG/bot$FINANCIALS_BOT_TOKEN/getMe")"
+  FIN_NAME="$(printf '%s' "$FIN_ME" | jq1 "['result']['username']")"
+  if [ -n "$FIN_NAME" ]; then
+    ok "بوت المالية: @$FIN_NAME"
+    if [ -z "$FINANCIALS_SUPER_TG" ]; then
+      warn "FINANCIALS_SUPER_TG (أو TELEGRAM_ADMIN_CHAT_ID) غير مضبوط — البوت لن يستجيب لأحد حتى يُضبط."
+    else
+      ok "سوپر أدمن بوت المالية: $FINANCIALS_SUPER_TG"
+    fi
+  else
+    bad "توكن بوت المالية غير صالح: $FIN_ME"
+    exit 1
+  fi
+else
+  warn "FINANCIALS_BOT_TOKEN غير مضبوط — تخطّي بوت المالية (dtsgfinancials_bot)."
+fi
 
 say "2) ضبط الويب هوك لبوت الدعم"
 WH_URL="$BASE/api/support/webhook"
@@ -105,6 +132,39 @@ PY
     {"command":"help","description":"المساعدة"}
    ]}' | grep -q '"ok":true' && ok "أوامر بوت الدردشة الخاص" || warn "تعذّر ضبط أوامر بوت الدردشة الخاص"
   curl -s -m 20 "$TG/bot$PRIVATE_CHAT_BOT_TOKEN/setMyDescription" -H 'content-type: application/json' -d '{"description":"🔒 دردشة DTSG الخاصة. للمستخدمين المرتبطين بالمنصة فقط. لا نكشف معرّفات تيليغرام للطرف الآخر."}' | grep -q '"ok":true' && ok "وصف بوت الدردشة الخاص" || warn "تعذّر ضبط وصف بوت الدردشة الخاص"
+fi
+
+if [ -n "$FINANCIALS_BOT_TOKEN" ]; then
+  say "2.c) ضبط ويب هوك بوت المالية (سوپر أدمن حصراً)"
+  FIN_WH_URL="$BASE/api/financials/webhook"
+  FR="$(curl -s -m 25 "$TG/bot$FINANCIALS_BOT_TOKEN/setWebhook" -H 'content-type: application/json' -d "$(python3 - "$FIN_WH_URL" "$FINANCIALS_WEBHOOK_SECRET" <<'PY'
+import json,sys
+print(json.dumps({"url":sys.argv[1],"secret_token":sys.argv[2],"allowed_updates":["message","callback_query","edited_message"],"drop_pending_updates":True,"max_connections":40}))
+PY
+)")"
+  printf '%s' "$FR" | grep -q '"ok":true' && ok "الويب هوك مضبوط: $FIN_WH_URL" || bad "فشل ضبط ويب هوك بوت المالية: $FR"
+  curl -s -m 20 "$TG/bot$FINANCIALS_BOT_TOKEN/setMyCommands" -H 'content-type: application/json' -d '{
+   "commands":[
+    {"command":"start","description":"لوحة بوت المالية (سوپر أدمن)"},
+    {"command":"stats","description":"إحصاءات المنصة والمحفظة"},
+    {"command":"pending","description":"طلبات الشحن/السحب المعلّقة"},
+    {"command":"deposits","description":"سجل الشحن"},
+    {"command":"withdrawals","description":"سجل السحب"},
+    {"command":"users","description":"سجلات المستخدمين"},
+    {"command":"user","description":"ملف مستخدم ومعاملاته"},
+    {"command":"log","description":"جميع السجلات [نوع] [صفحة]"},
+    {"command":"money","description":"سجل المال والمجاميع"},
+    {"command":"games","description":"إحصاءات مالية لكل لعبة"},
+    {"command":"tx","description":"تفاصيل معاملة"},
+    {"command":"charge","description":"شحن كوينز لمستخدم"},
+    {"command":"deduct","description":"خصم كوينز من مستخدم"},
+    {"command":"setbalance","description":"ضبط رصيد مستخدم"},
+    {"command":"audit","description":"آخر أفعال البوت"},
+    {"command":"help","description":"الأوامر الكاملة"}
+   ]}' | grep -q '"ok":true' && ok "أوامر بوت المالية" || warn "تعذّر ضبط أوامر بوت المالية"
+  curl -s -m 20 "$TG/bot$FINANCIALS_BOT_TOKEN/setMyDescription" -H 'content-type: application/json' -d '{"description":"🏦 بوت مالية DTSG — سوپر أدمن حصراً. سجلات الشحن والسحب والمستخدمين وجميع السجلات، بنفس خصائص لوحة السوپر أدمين في المنصة."}' | grep -q '"ok":true' && ok "وصف بوت المالية" || warn "تعذّر ضبط وصف بوت المالية"
+  curl -s -m 20 "$TG/bot$FINANCIALS_BOT_TOKEN/setMyShortDescription" -H 'content-type: application/json' -d '{"short_description":"مالية DTSG — شحن · سحب · سجلات · مستخدمون (سوپر أدمن)"}' >/dev/null && ok "الوصف المختصر للمالية"
+  curl -s -m 20 "$TG/bot$FINANCIALS_BOT_TOKEN/setMyName" -H 'content-type: application/json' -d '{"name":"مالية DTSG | Financials"}' | grep -q '"ok":true' && ok "اسم البوت: مالية DTSG | Financials" || warn "تعذّر تغيير الاسم"
 fi
 
 say "3) قائمة الأوامر + الوصف"
@@ -149,6 +209,18 @@ if [ -n "$PRIVATE_CHAT_BOT_TOKEN" ]; then
   esac
 fi
 
+if [ -n "$FINANCIALS_BOT_TOKEN" ]; then
+  say "4.c) فحص وصول بوت المالية للخادم"
+  F_CODE="$(curl -sL -m 25 -o /tmp/_fin_wh.txt -w '%{http_code}' -X POST "$BASE/api/financials/webhook" -H 'content-type: application/json' -H "x-telegram-bot-api-secret-token: $FINANCIALS_WEBHOOK_SECRET" -d '{"update_id":3}')"
+  echo "   POST $BASE/api/financials/webhook → $F_CODE  $(head -c 120 /tmp/_fin_wh.txt)"
+  case "$F_CODE" in
+    200) ok "الخادم يعالج تحديثات بوت المالية ✅ (سوپر أدمن جاهز)" ;;
+    403) bad "FINANCIALS_WEBHOOK_SECRET غير مطابق على الخادم — اضبطه في .env.local ثم أعد التشغيل" ;;
+    404) warn "مسار بوت المالية غير موجود على الخادم بعد — نفّذ: cd /root/DTSG && git fetch origin && git reset --hard origin/main && bash scripts/phone-env-restart.sh" ;;
+    *)   warn "استجابة غير متوقعة ($F_CODE) — راجع سجل الخادم" ;;
+  esac
+fi
+
 say "5) معلومات الويب هوك (تشخيص)"
 curl -s -m 20 "$TG/bot$SUPPORT_BOT_TOKEN/getWebhookInfo" | python3 -c "
 import json,sys
@@ -178,6 +250,18 @@ print('   allowed_updates:', d.get('allowed_updates'))
 "
   echo "   لخادم المنصة: PRIVATE_CHAT_BOT_USERNAME=$PRIVATE_CHAT_BOT_USERNAME"
 fi
+if [ -n "${FINANCIALS_BOT_TOKEN:-}" ]; then
+  say "8) معلومات ويب هوك بوت المالية"
+  curl -s -m 20 "$TG/bot$FINANCIALS_BOT_TOKEN/getWebhookInfo" | python3 -c "
+import json,sys
+d=json.load(sys.stdin).get('result',{})
+print('   url:', d.get('url') or '(فارغ)')
+print('   pending_update_count:', d.get('pending_update_count'))
+print('   last_error:', d.get('last_error_message') or '—', '·', d.get('last_error_date') or '')
+print('   allowed_updates:', d.get('allowed_updates'))
+"
+  echo "   للتجربة (من حساب السوپر أدمن فقط): https://t.me/dtsgfinancials_bot ← /start ← /pending"
+fi
 
 cat <<'EOF'
 
@@ -186,6 +270,10 @@ cat <<'EOF'
   cd /root/DTSG && git fetch origin && git reset --hard origin/main
   bash scripts/phone-env-restart.sh        # يقرأ .env.local ثم يعيد تشغيل pm2 بالبيئة الكاملة
 (السكربت يضبط SUPPORT_BOT_TOKEN و SUPPORT_WEBHOOK_SECRET وPRIVATE_CHAT_BOT_TOKEN وPRIVATE_CHAT_WEBHOOK_SECRET من البيئة)
+[v2.66] بوت المالية @dtsgfinancials_bot: أضِف في .env.local على الهاتف:
+  FINANCIALS_BOT_TOKEN=<توكن BotFather> · FINANCIALS_WEBHOOK_SECRET=$FINANCIALS_WEBHOOK_SECRET
+  FINANCIALS_SUPER_TG=<معرّف شات السوپر أدمن> (أو اتركه — يأخذ TELEGRAM_ADMIN_CHAT_ID)
+ثم أعد تشغيل setup-telegram-bots.sh وphone-env-restart.sh.
 ⚠️ لا تُعد تشغيل pm2 بترقية البيئة (ترقية المتغيرات من صدفة ناقصة) — يمسح كل متغيرات المنصة (حادثة 2026-09-22). المسار المعتمد الوحيد: bash scripts/phone-env-restart.sh
 
 للتجربة: افتح https://t.me/dtsgsupports_bot واكتب /start، أو أنشئ رابط البوت الخاص من نافذة مركز المساعدة في المنصة.

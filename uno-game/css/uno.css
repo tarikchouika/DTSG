@@ -284,7 +284,12 @@
 }
 .un-hand { position: absolute; inset: 0; }
 .un-handcard {
-  position: absolute; bottom: 20px; left: 50%;
+  /* [Owner 2026-09-28] إزاحة سلسلة أوراق اللاعب الرئيسي (الجالس أسفل) للأعلى 15px
+     في الوضعين (لاندسكيب + بورتريه): bottom: 20px → 35px.
+     القاعدة أساسية فتشمل الوضعين معاً، وبلا أي تغيير في الشكل أو الحجم
+     (مقاس الورقة --un-cw · قوس المروحة transform · الخطوة --un-fan-step كلها كما هي)،
+     ولا يتحرك معها أي عنصر آخر (اللوحة · زر UNO · شريط الأفعال · الخصوم). */
+  position: absolute; bottom: 35px; left: 50%;
   width: var(--un-cw); height: calc(var(--un-cw) * 1.4);
   --un-d: calc(var(--i) - (var(--n) - 1) / 2);
   /* [Fans-2] قوس يد كلاسيكي: الطرفين لأسفل والوسط لأعلى (قوس ⌒) */
