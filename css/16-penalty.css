@@ -1,0 +1,822 @@
+/* ══════════════════════════════════════════════════════════════════
+   DTSG — [v2.65] Penalty Shootout — ملء الشاشة + تخطيط أصلي للوضعين
+   عشب يملأ الشاشة 100% في الوضعين · مرمى 9 مناطق باللمس/السحب ·
+   بورتريه: المرمى في وسط الشاشة من الحد الأيمن للأيسر (مثالي — لا يُمس) ·
+   لاندسكيب الهاتف: قصّ 35% من أسفل المرمى لمنطقة التسديد + عرض ×3 ·
+   خط أبيض عند 65% يفصل المرمى عن منطقة انطلاق الكرة · الحارس على الخط ·
+   لا عبارات مكتوبة أعلى الشاشة · حلقات الأحرف الأولى ·
+   3–9 تسديدات لكل لاعب + موت فجائي · تصويت المباراة الجديدة (كالبلياردو).
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── تحييد إطار المرحلة القياسي: الملعب هو الشاشة نفسها ── */
+#gamePageBody .stage.pn-stage,
+.stage.pn-stage {
+  padding: 0 !important;
+  margin: 0 !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+
+/* ── الطبقة الكاملة: عشب يغطي 100% من الشاشة في الوضعين ──
+   [v2.64-fix] فئات الوميض pn-fx-goal/pn-fx-saved منفصلة تماماً عن
+   .pn-goal (عنصر المرمى) — التسمية القديمة المتطابقة كانت تجعل الحاوية
+   relative+aspect-ratio فتنهار إلى أعلى الشاشة عند كل هدف/إضاعة. */
+.pn-fs {
+  --pnb: clamp(34px, 9vmin, 56px);          /* حجم الكرة */
+  position: fixed;
+  inset: 0;
+  z-index: 940;   /* تحت مودال الغرفة (1000) والزر العائم (5100) */
+  overflow: hidden;
+  touch-action: none;
+  /* العشب: تدرج + خطوط جز + ظل حواف */
+  background:
+    radial-gradient(ellipse 130% 90% at 50% 8%, rgba(255, 255, 255, 0.10), transparent 55%),
+    repeating-linear-gradient(90deg,
+      rgba(255, 255, 255, 0.055) 0 7%,
+      rgba(0, 0, 0, 0.028) 7% 14%),
+    linear-gradient(180deg, #37a552 0%, #2a8f43 34%, #1f7a35 62%, #19682d 100%);
+}
+.pn-fs::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 120% 120% at 50% 50%, transparent 62%, rgba(4, 22, 10, 0.42) 100%);
+  z-index: 40;
+}
+.pn-fs.pn-fx-goal { animation: pnFxGoal 0.9s var(--ease); }
+.pn-fs.pn-fx-saved { animation: pnFxSaved 0.7s var(--ease); }
+@keyframes pnFxGoal {
+  0% { box-shadow: inset 0 0 0 0 rgba(52, 211, 153, 0); }
+  30% { box-shadow: inset 0 0 120px 30px rgba(52, 211, 153, 0.4); }
+  100% { box-shadow: inset 0 0 0 0 rgba(52, 211, 153, 0); }
+}
+@keyframes pnFxSaved {
+  0% { box-shadow: inset 0 0 0 0 rgba(244, 63, 94, 0); }
+  28% { box-shadow: inset 0 0 110px 26px rgba(244, 63, 94, 0.35); }
+  100% { box-shadow: inset 0 0 0 0 rgba(244, 63, 94, 0); }
+}
+
+/* ── الحاوية الداخلية: أعلى ثم الوسط (جانب0/ملعب/جانب1) ── */
+.pn-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.pn-mid {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pn-pitch { order: 1; }
+.pn-side.s0 { order: 2; }
+.pn-side.s1 { order: 3; }
+
+/* ═══ الشريط العلوي: حلقات المتفرجين + رقاقة القدح — بلا أي عبارات ═══ */
+.pn-top {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: calc(6px + var(--safe-top, 0px)) 10px 2px;
+  min-height: 38px;
+}
+.pn-specs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+.pn-bet {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #fff8e1;
+  background: linear-gradient(180deg, rgba(122, 95, 22, 0.85), rgba(64, 48, 8, 0.85));
+  border: 1px solid rgba(242, 212, 137, 0.55);
+  border-radius: 20px;
+  padding: 4px 11px;
+  white-space: nowrap;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+}
+.pn-bet i { color: #f2d489; }
+.pn-bet b { color: #ffe9a8; }
+
+/* ═══ حلقة الأحرف الأولى: أيقونة اللاعب/المتفرج ═══ */
+.pn-ring {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #fdf6dd;
+  letter-spacing: 0.02em;
+  background:
+    radial-gradient(circle at 50% 42%, #243b21 0%, #182a15 78%);
+  border: 2.5px solid transparent;
+  background-clip: padding-box;
+  box-shadow: 0 0 0 2px rgba(242, 212, 137, 0.55), inset 0 0 10px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pn-side.mine .pn-ring {
+  background: radial-gradient(circle at 50% 42%, #3a2f10 0%, #221a06 80%);
+  box-shadow: 0 0 0 2px rgba(255, 232, 150, 0.9), inset 0 0 10px rgba(0, 0, 0, 0.5), 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.pn-ring.spec {
+  width: 26px;
+  height: 26px;
+  font-size: 0.6rem;
+  box-shadow: 0 0 0 1.5px rgba(148, 197, 173, 0.55), inset 0 0 8px rgba(0, 0, 0, 0.5);
+}
+.pn-ring.spec.more {
+  font-size: 0.62rem;
+  color: #cfe7d8;
+  background: rgba(6, 32, 16, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: none;
+}
+
+/* ═══ جانبا النتائج (بورتريه: شريطان أفقيان أسفل الشاشة) ═══ */
+.pn-side {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 42px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(7, 31, 16, 0.78), rgba(4, 20, 10, 0.82));
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.pn-side + .pn-side { margin-top: 0; }
+.pn-mid .pn-side.s0 { margin: 4px 6px 0; }
+.pn-mid .pn-side.s1 { margin: 4px 6px calc(6px + var(--safe-area-inset-bottom, 0px)); }
+.pn-side.active {
+  border-color: rgba(242, 212, 137, 0.85);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 16px rgba(242, 212, 137, 0.3);
+  animation: pnBarActive 1.8s ease-in-out infinite;
+}
+@keyframes pnBarActive {
+  0%, 100% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 10px rgba(242, 212, 137, 0.22); }
+  50% { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 22px rgba(242, 212, 137, 0.45); }
+}
+.pn-role {
+  flex: 0 0 auto;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-style: normal;
+  background: rgba(2, 16, 8, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+.pn-role:empty { visibility: hidden; }
+.pn-seq {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+.pn-tok {
+  flex: 0 0 auto;
+  width: clamp(17px, 4.6vmin, 23px);
+  height: clamp(17px, 4.6vmin, 23px);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(0.6rem, 2.6vmin, 0.78rem);
+  font-weight: 900;
+  animation: pnTokIn 0.32s cubic-bezier(0.2, 1.6, 0.4, 1);
+}
+@keyframes pnTokIn {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.25); }
+  100% { transform: scale(1); }
+}
+.pn-tok.ok {
+  color: #06251a;
+  background: radial-gradient(circle at 35% 30%, #7cf5b6, #10b981);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.55);
+}
+.pn-tok.no {
+  color: #33060e;
+  background: radial-gradient(circle at 35% 30%, #ffb1bf, #e11d48);
+  box-shadow: 0 0 8px rgba(225, 29, 72, 0.5);
+}
+.pn-tok.empty {
+  background: transparent;
+  border: 1.5px dashed rgba(255, 255, 255, 0.28);
+  animation: none;
+}
+.pn-tok.more { background: none; color: #ffe9a8; box-shadow: none; }
+.pn-tok.sd { background: rgba(2, 16, 8, 0.6); border: 1px solid rgba(251, 191, 36, 0.6); font-size: 0.6rem; }
+.pn-sc {
+  flex: 0 0 auto;
+  min-width: 30px;
+  text-align: center;
+  font-size: 1.06rem;
+  font-weight: 900;
+  color: #ffe9a8;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(242, 212, 137, 0.4);
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+/* ═══ الملعب ═══ */
+.pn-pitch {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  z-index: 10;
+  touch-action: none;
+}
+/* المرمى: حاوية مركزة بلا transform (flex) — إحداثيات offset/rect صافية */
+.pn-goalwrap {
+  --postw: clamp(7px, 2.6vmin, 13px);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 12;
+}
+.pn-gz {
+  position: relative;
+  width: min(94%, 620px);
+  aspect-ratio: 2.08 / 1;
+}
+.pn-goal {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, rgba(9, 34, 20, 0.5), rgba(5, 22, 13, 0.66));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 50px rgba(0, 0, 0, 0.5);
+  transition: box-shadow 0.3s var(--ease);
+}
+.pn-goal.tense {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 50px rgba(0, 0, 0, 0.5), 0 0 30px rgba(242, 212, 137, 0.4);
+}
+/* القائمان والعوارضة: معدن أبيض متوهج */
+.pn-goal .pn-post {
+  position: absolute;
+  background: linear-gradient(90deg, #ffffff, #dbe4ec 55%, #97a5b1);
+  border-radius: 5px;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.45), 2px 0 10px rgba(0, 0, 0, 0.45);
+  z-index: 18;
+  pointer-events: none;
+}
+.pn-goal .pn-post.gl { left: calc(var(--postw) / -2); top: calc(var(--postw) / -2); width: var(--postw); height: calc(100% + var(--postw)); }
+.pn-goal .pn-post.gr { right: calc(var(--postw) / -2); top: calc(var(--postw) / -2); width: var(--postw); height: calc(100% + var(--postw)); }
+.pn-goal .pn-cross {
+  position: absolute;
+  top: calc(var(--postw) / -2);
+  left: calc(var(--postw) / -2);
+  right: calc(var(--postw) / -2);
+  height: var(--postw);
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffffff, #d7dfe7 60%, #9aa8b4);
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.45), 0 3px 10px rgba(0, 0, 0, 0.45);
+  z-index: 18;
+  pointer-events: none;
+}
+/* الشبكة: ضفيرة قطرية مزدوجة */
+.pn-goal .pn-net {
+  position: absolute;
+  inset: 0;
+  z-index: 13;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.13) 1px, transparent 1px) 0 0 / 100% 11%,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.13) 1px, transparent 1px) 0 0 / 8.5% 100%,
+    repeating-linear-gradient(48deg, rgba(255, 255, 255, 0.065) 0 1.5px, transparent 1.5px 14px),
+    repeating-linear-gradient(-48deg, rgba(255, 255, 255, 0.065) 0 1.5px, transparent 1.5px 14px);
+}
+/* موجة الشبكة عند الهدف — مركزها منطقة الإصابة (يضبطه JS) */
+.pn-goal .pn-rip {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  z-index: 16;
+  pointer-events: none;
+  opacity: 0;
+}
+.pn-goal .pn-rip.wave { animation: pnRipple 0.85s var(--ease); }
+@keyframes pnRipple {
+  0% { opacity: 0.95; box-shadow: 0 0 0 0 rgba(110, 231, 183, 0.85), 0 0 22px 6px rgba(110, 231, 183, 0.6) inset; transform: scale(0.4); }
+  70% { opacity: 0.5; }
+  100% { opacity: 0; box-shadow: 0 0 0 90px rgba(110, 231, 183, 0), 0 0 30px 10px rgba(110, 231, 183, 0) inset; transform: scale(1); }
+}
+
+/* ── مناطق التسع: شبكة 3×3 تُحدد باللمس أو السحب ── */
+.pn-zones {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  z-index: 15;
+}
+.pn-zones .pnz {
+  position: relative;
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+  border-radius: 8px;
+  transition: background 0.16s var(--ease);
+}
+.pn-zones .pnz:first-child { border-radius: 6px 3px 3px 3px; }
+.pn-zones .pnz:nth-child(3) { border-radius: 3px 6px 3px 3px; }
+.pn-zones .pnz:nth-child(7) { border-radius: 3px 3px 3px 6px; }
+.pn-zones .pnz:nth-child(9) { border-radius: 3px 3px 6px 3px; }
+.pn-zones .pnz:hover { background: rgba(255, 255, 255, 0.075); }
+.pn-zones .pnz.aim {
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.05) 70%),
+    rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+/* معينات التصويب: أقواس زوايا تتوسّع عند التصويب */
+.pnz-reticle {
+  position: absolute;
+  inset: 16% 19%;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(1.25);
+  transition: opacity 0.16s var(--ease), transform 0.16s var(--ease);
+}
+.pnz-reticle::before,
+.pnz-reticle::after {
+  content: '';
+  position: absolute;
+  width: 16%;
+  height: 24%;
+  border: 2.5px solid #ffe9a8;
+  filter: drop-shadow(0 0 4px rgba(242, 212, 137, 0.8));
+}
+.pnz-reticle::before { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 3px 0 0 0; }
+.pnz-reticle::after { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 3px 0; }
+.pn-zones .pnz.aim .pnz-reticle {
+  opacity: 1;
+  transform: scale(1);
+  animation: pnReticle 0.9s ease-in-out infinite;
+}
+@keyframes pnReticle {
+  0%, 100% { filter: drop-shadow(0 0 3px rgba(242, 212, 137, 0.7)); }
+  50% { filter: drop-shadow(0 0 9px rgba(242, 212, 137, 1)); }
+}
+.pn-fs.busy .pn-zones { pointer-events: none; }
+
+/* ── الحارس: شخصية CSS كاملة تتراقص وتغوص ── */
+.pn-gk {
+  --jersey1: #f7b32b;
+  --jersey2: #d98e04;
+  position: absolute;
+  left: calc(50% - 7.5%);
+  bottom: 1%;
+  width: 15%;
+  height: 19%;
+  z-index: 17;
+  pointer-events: none;
+  will-change: transform;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
+}
+.pn-gk.idle { animation: pnGkIdle 0.85s ease-in-out infinite; }
+@keyframes pnGkIdle {
+  0%, 100% { transform: translateX(-6%) translateY(0); }
+  50% { transform: translateX(6%) translateY(2%); }
+}
+.pn-gk-head {
+  position: absolute;
+  top: 0;
+  left: 33%;
+  width: 34%;
+  height: 27%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #f4c99b, #d9a06b 70%);
+  box-shadow: inset 0 -18% 0 -8% rgba(61, 36, 20, 0.55), inset 0 55% 0 -40% #3a2a1a;
+}
+.pn-gk-body {
+  position: absolute;
+  top: 25%;
+  left: 21%;
+  width: 58%;
+  height: 42%;
+  border-radius: 26% 26% 18% 18%;
+  background: linear-gradient(180deg, var(--jersey1), var(--jersey2));
+  box-shadow: inset 0 -22% 0 rgba(0, 0, 0, 0.22);
+}
+.pn-gk-body::after {
+  content: '';
+  position: absolute;
+  top: 34%;
+  left: 50%;
+  width: 26%;
+  height: 26%;
+  margin-left: -13%;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+.pn-gk-arm {
+  position: absolute;
+  top: 27%;
+  width: 17%;
+  height: 40%;
+  border-radius: 44%;
+  background: linear-gradient(180deg, var(--jersey2), var(--jersey1));
+  z-index: -1;
+}
+.pn-gk-arm.la { left: 2%; transform: rotate(30deg); transform-origin: top center; }
+.pn-gk-arm.ra { right: 2%; transform: rotate(-30deg); transform-origin: top center; }
+.pn-gk-arm::after {
+  content: '';
+  position: absolute;
+  bottom: -8%;
+  left: -12%;
+  width: 124%;
+  height: 34%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 35%, #ffffff, #cfd6dc);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+.pn-gk-leg {
+  position: absolute;
+  bottom: 0;
+  width: 14%;
+  height: 30%;
+  border-radius: 22%;
+  background: linear-gradient(180deg, #1f2937, #0f172a);
+}
+.pn-gk-leg.ll { left: 24%; transform: rotate(4deg); }
+.pn-gk-leg.rl { right: 24%; transform: rotate(-4deg); }
+.pn-gk-leg::after {
+  content: '';
+  position: absolute;
+  bottom: -6%;
+  left: -14%;
+  width: 128%;
+  height: 22%;
+  border-radius: 40%;
+  background: #f4f7fa;
+}
+.pn-gk.diving .pn-gk-arm.la { transform: rotate(74deg) translateY(-8%); }
+.pn-gk.diving .pn-gk-arm.ra { transform: rotate(-74deg) translateY(-8%); }
+
+/* ── منطقة الجزاء (طباشير) تحت المرمى — بورتريه فقط ── */
+.pn-box {
+  position: absolute;
+  top: 100%;
+  left: -17%;
+  right: -17%;
+  height: 0;
+  padding-bottom: 62%;
+  z-index: 5;
+  pointer-events: none;
+  border: 0;
+  border-left: 3px solid rgba(255, 255, 255, 0.17);
+  border-right: 3px solid rgba(255, 255, 255, 0.17);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.17);
+  border-radius: 0 0 14px 14px;
+}
+.pn-arc {
+  position: absolute;
+  top: 158%;
+  left: 50%;
+  width: 26%;
+  aspect-ratio: 2.4 / 1;
+  margin-left: -13%;
+  border: 3px solid rgba(255, 255, 255, 0.13);
+  border-top: 0;
+  border-radius: 0 0 130px 130px;
+  z-index: 5;
+  pointer-events: none;
+}
+
+/* ── علامة الجزاء + الكرة: أبناء الملعب أسفل الوسط (الوضعان) ── */
+.pn-spot {
+  position: absolute;
+  left: calc(50% - 7px);
+  bottom: 12%;
+  width: 14px;
+  height: 5px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.5);
+  z-index: 11;
+  pointer-events: none;
+}
+.pn-ball {
+  position: absolute;
+  left: calc(50% - var(--pnb) / 2);
+  bottom: calc(12% + 9px);
+  width: var(--pnb);
+  height: var(--pnb);
+  font-size: calc(var(--pnb) * 0.92);
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 19;
+  pointer-events: none;
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5));
+  will-change: transform;
+}
+.pn-ball.flying {
+  filter: drop-shadow(0 5px 8px rgba(0, 0, 0, 0.5)) drop-shadow(0 0 12px rgba(255, 255, 255, 0.55));
+}
+
+/* ── لافتة النتيجة (أيقونات: هدف/تصدي/🏆/😞) ── */
+.pn-banner {
+  position: absolute;
+  left: 50%;
+  top: 44%;
+  transform: translate(-50%, -50%) scale(0.6);
+  z-index: 26;
+  font-size: clamp(1.9rem, 11vmin, 4.6rem);
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 0.1em 0.5em;
+  border-radius: 18px;
+  text-shadow: 0 4px 18px rgba(0, 0, 0, 0.55);
+}
+.pn-banner.show {
+  opacity: 1;
+  animation: pnBannerIn 0.55s cubic-bezier(0.18, 1.4, 0.32, 1) forwards;
+}
+@keyframes pnBannerIn {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  60% { transform: translate(-50%, -50%) scale(1.12); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+.pn-banner.goal,
+.pn-banner.win {
+  color: #d9ffe9;
+  background: linear-gradient(90deg, rgba(6, 78, 59, 0.9), rgba(16, 185, 129, 0.82), rgba(6, 78, 59, 0.9));
+  border: 2px solid rgba(110, 231, 183, 0.8);
+  box-shadow: 0 8px 34px rgba(16, 185, 129, 0.4), inset 0 0 30px rgba(255, 255, 255, 0.12);
+}
+.pn-banner.saved,
+.pn-banner.lose {
+  color: #ffe4e9;
+  background: linear-gradient(90deg, rgba(120, 20, 40, 0.9), rgba(225, 29, 72, 0.8), rgba(120, 20, 40, 0.9));
+  border: 2px solid rgba(253, 164, 175, 0.75);
+  box-shadow: 0 8px 34px rgba(225, 29, 72, 0.38), inset 0 0 30px rgba(255, 255, 255, 0.1);
+}
+
+/* ── زر إعادة اللعب الفردي (أيقونة فقط) ── */
+.pn-replay {
+  position: absolute;
+  left: 50%;
+  bottom: 9%;
+  transform: translateX(-50%);
+  z-index: 28;
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(242, 212, 137, 0.85);
+  background: linear-gradient(180deg, rgba(10, 46, 24, 0.92), rgba(5, 24, 12, 0.95));
+  color: #ffe9a8;
+  font-size: 1.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45), 0 0 18px rgba(242, 212, 137, 0.35);
+  animation: pnBarActive 1.8s ease-in-out infinite;
+}
+.pn-replay:active { transform: translateX(-50%) scale(0.94); }
+
+/* ═══ لوحة تصويت المباراة الجديدة (نظام البلياردو) ═══ */
+.pn-rematch {
+  position: absolute;
+  inset: 0;
+  z-index: 32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  pointer-events: none;
+}
+.pn-rematch:not([hidden]) { pointer-events: auto; }
+.pn-rematch::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 12, 6, 0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  border-radius: 0;
+}
+.pn-rm-box {
+  position: relative;
+  max-width: min(88%, 360px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 18px 12px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, rgba(8, 36, 19, 0.96), rgba(4, 20, 10, 0.97));
+  border: 1.5px solid rgba(242, 212, 137, 0.4);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+}
+.pn-rm-ico { font-size: 2rem; animation: pnBarActive 1.4s ease-in-out infinite; }
+.pn-rm-title {
+  font-size: 1rem;
+  font-weight: 900;
+  color: #f4ffe9;
+}
+.pn-rm-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+.pn-rm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.pn-rm-mark { font-size: 1rem; }
+.pn-rm-actions {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.pn-rm-btn {
+  flex: 1 1 50%;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.07);
+  color: #f2fbe9;
+  font-weight: 800;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.pn-rm-btn.yes { border-color: rgba(110, 231, 183, 0.7); background: rgba(16, 185, 129, 0.22); }
+.pn-rm-btn.no { border-color: rgba(253, 164, 175, 0.6); background: rgba(225, 29, 72, 0.18); }
+.pn-rm-btn:active { transform: scale(0.96); }
+.pn-rm-note {
+  font-size: 0.74rem;
+  color: #cfe7d8;
+  text-align: center;
+}
+.pn-rm-timer {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #ffe9a8;
+}
+
+/* ═══ لاندسكيب الهاتف: تخطيط أصلي (لا تدوير) ═══
+   القائمان عموديان يلتقيان بالحدّين الأعلى/الأسفل · العوارضة بالحد الأعلى ·
+   جانبا النتائج عمودان جانبيان بمحتوى مستقيم · الكرة أسفل الوسط تصعد ·
+   رقائقا المتفرجين/القدح زاويا عليا بلا عبارات. */
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 560px) {
+  .pn-top {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 35;
+    min-height: 0;
+    padding: 3px 6px;
+    pointer-events: none;
+  }
+  .pn-top .pn-bet { pointer-events: auto; }
+  .pn-specs { flex-wrap: nowrap; }
+  .pn-mid { flex-direction: row; align-items: stretch; }
+  .pn-side.s0 { order: 1; }
+  .pn-pitch { order: 2; }
+  .pn-side.s1 { order: 3; }
+  /* الجانبان: عمودان رأسيان بمحتوى مستقيم الاتجاه */
+  .pn-side {
+    flex: 0 0 auto;
+    width: 74px;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 6px;
+    min-height: 0;
+    padding: 38px 6px calc(8px + var(--safe-area-inset-bottom, 0px));
+    border-radius: 16px;
+  }
+  .pn-mid .pn-side.s0 { margin: 6px 0 6px 6px; }
+  .pn-mid .pn-side.s1 { margin: 6px 6px 6px 0; }
+  .pn-side .pn-seq {
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    justify-content: flex-start;
+  }
+  .pn-side .pn-tok { width: 21px; height: 21px; font-size: 0.66rem; }
+  .pn-side .pn-role { order: -1; }
+  .pn-side .pn-sc { margin-top: auto; }
+  .pn-side .pn-ring { width: 38px; height: 38px; font-size: 0.8rem; }
+  /* [v2.65] المرمى بمواصفة المالك: قصّ 35% من أسفل المرمى لتصبح منطقة
+     التسديد (الكرة) + تكبير العرض ثلاثة أضعاف:
+     • القائمان عموديان من العوارضة (الحدّ الأعلى، موازية له) نزولاً حتى
+       خط التسديد عند 65% من ارتفاع الملعب — بورتريه لا يُمس (مثالي).
+     • العرض = 3× القيمة السابقة clamp(180,50vmin,340) بحد 94% من الملعب.
+     • خط أبيض عند 65% يفصل المرمى عن منطقة انطلاق الكرة أسفله. */
+  .pn-goalwrap { align-items: flex-start; }
+  .pn-gz {
+    width: min(94%, calc(clamp(180px, 50vmin, 340px) * 3));
+    height: 65%;
+    aspect-ratio: auto;
+  }
+  .pn-goal { border-radius: 0 0 6px 6px; }
+  .pn-goal .pn-post.gl { left: calc(var(--postw) / -2); top: 0; width: var(--postw); height: 100%; }
+  .pn-goal .pn-post.gr { right: calc(var(--postw) / -2); top: 0; width: var(--postw); height: 100%; }
+  .pn-goal .pn-cross { top: calc(var(--postw) / -2); left: calc(var(--postw) / -2); right: calc(var(--postw) / -2); }
+  /* خط منطقة التسديد: عند القصّة (65%) — حصراً في اللاندسكيب */
+  .pn-pitch::before {
+    content: '';
+    position: absolute;
+    top: calc(65% - 1.5px);
+    left: 2%;
+    right: 2%;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg,
+      rgba(255, 255, 255, 0.22),
+      rgba(255, 255, 255, 0.92) 14%,
+      rgba(255, 255, 255, 0.92) 86%,
+      rgba(255, 255, 255, 0.22));
+    box-shadow: 0 0 7px rgba(255, 255, 255, 0.38), 0 1px 3px rgba(0, 0, 0, 0.35);
+    z-index: 11;
+    pointer-events: none;
+  }
+  /* الحارس واقف على خط التسديد (أسفل المرمى) — يغوص منه إلى المنطقة */
+  .pn-gk { bottom: 1.5%; top: auto; }
+  /* خطوط منطقة الجزاء زخرفة بورتريه — تُخفى في اللاندسكيب */
+  .pn-box, .pn-arc { display: none; }
+  /* الكرة وعلامتها وسط منطقة التسديد (35% السفلى) */
+  .pn-spot { bottom: calc(6% + 1px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-ball { bottom: calc(6% + 8px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-banner { top: 32%; font-size: clamp(1.7rem, 9vmin, 3.6rem); }
+  .pn-replay { left: auto; right: 7%; transform: none; bottom: calc(6% + 4px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-replay:active { transform: scale(0.94); }
+  .pn-fs { --pnb: clamp(32px, 10vmin, 54px); }
+}
+
+/* ═══ ملء ارتفاع الشاشات القصيرة: تقليل الحشوات ═══ */
+@media (max-height: 640px) and (orientation: portrait) {
+  .pn-gz { width: min(88%, 560px); }
+  .pn-side { min-height: 36px; padding: 3px 8px; }
+  .pn-side .pn-ring { width: 30px; height: 30px; }
+  .pn-top { min-height: 32px; padding-top: calc(4px + var(--safe-top, 0px)); }
+  .pn-mid .pn-side.s1 { margin-bottom: calc(4px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-ball { bottom: calc(10% + 7px); }
+  .pn-spot { bottom: 10%; }
+}

@@ -1,0 +1,697 @@
+/* ═══════════════════════════════════════════
+   Billiards — واجهة حديثة نظيفة
+   الطاولة 85% ملتصقة بالهوامش الذهبية (يسار/أسفل)
+   شريطان شفافان 15%: علوي (تدوير/صينية/تصغير) وأيمن (7 أيقونات)
+   بلا نصوص ولا خلفيات ولا حاويات
+   ═══════════════════════════════════════════ */
+
+/* المسرح يملأ جسم صفحة اللعبة — الهامش الذهبي هو إطار الحاوية */
+#pg-game.active #gamePageBody #billiardsStage {
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  margin: 0 !important;
+  transform: none !important;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+  border-radius: 0;
+  border: none !important;   /* [R14] إزالة الشريط الذهبي المحيط بحاوية اللعبة */
+  /* [R10] طلب المالك: خلفية الحاوية موحدة اللون بلون خشب الطاولة —
+     بلا خطوط طولية/عرضية ولا تدرج دموي مخطط */
+  background: #c08a4a;
+  box-shadow: none;   /* [R14] إزالة الهالة الذهبية الداخلية */
+  overflow: hidden;
+}
+
+/* البلياردو يملأ الصفحة كاملة: لا شريط نتائج ولا فراغ أسود */
+#pg-game.active #gamePageBody #billiardsStage { flex: 1 1 auto; }
+#billiardsStage ~ #GRes,
+#gamePageBody:has(#billiardsStage) #GRes { display: none !important; }
+
+
+#billiardsStage .dama-play {
+  max-width: none;
+  gap: 0;
+  padding: 0;   /* [R10] التصاق تام: الطاولة تلامس هامشي الشاشة أعلى/أسفل */
+}
+#billiardsStage .dama-setup { max-width: 460px; }
+
+.bl-wrap {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* عناصر وظيفية مُخفاة بصرياً (تبقى للتحكم/القارئات/الاختبارات) */
+.bl-sr { display: none !important; }
+
+/* ── شعار اللعبة ── */
+.bl-logo-em { font-size: clamp(34px, 7vh, 54px); line-height: 1; filter: drop-shadow(0 3px 10px rgba(0,0,0,.6)); }
+
+/* ── اختيار الصنف (شاشة الإعداد) ── */
+/* [UI-v3] رقائق الأصناف أزيلت — كل صنف لعبة مستقلة */
+
+.bl-look { display: flex; gap: 6px; width: 100%; }
+.bl-look select {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 8px;
+  border-radius: 9px;
+  border: 1px solid var(--bd);
+  background: var(--bg2);
+  color: var(--t1);
+  font-family: inherit;
+  font-size: 12px;
+}
+.bl-modes { display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: 4px; }
+#billiardsStage .bl-hint { font-size: 11px; color: var(--t3); text-align: center; line-height: 1.6; }
+
+/* v10→[R10]: حاوية اللعبة كلها لون خشب موحد (الحواف خارج المسرح أيضاً) —
+   بلا خطوط ولا تدرج دموي */
+body.bl-game-open #pg-game,
+body.bl-game-open #gamePageBody {
+  background: #c08a4a !important;
+}
+
+/* ═══ v12b: وضع صفحة اللعبة = هيدر قياسي + حاوية بتناسق الوضع الممتلئ + سجل ═══
+   (الهيدر وسجل الجولات ظاهران — وحاوية اللعبة تملأ كامل المساحة المتبقية
+   من الشاشة تحت الهيدر بلا حشوات، بنفس أبعاد ونِسَب وضع ملء الشاشة تماماً؛
+   السجل يظهر بالتمرير أسفلها. وضع ملء الشاشة نفسه لم يُمسّ.) */
+body.bl-game-open:not(.app-fs-on) #pg-game .gp-head { position: sticky; top: 0; z-index: 60; }
+body.bl-game-open:not(.app-fs-on) #pg-game .ghist { display: block; }
+/* الحاوية بلا حشو: الخشب يلتصق بحواف المساحة كما في الوضع الممتلئ */
+body.bl-game-open:not(.app-fs-on) #gamePageBody {
+  padding: 0 !important;
+  min-width: 0;
+}
+/* المسرح يملأ الحاوية بالضبط — نفس قواعد الامتلاء المستعملة في الوضع الممتلئ */
+body.bl-game-open:not(.app-fs-on) #gamePageBody #billiardsStage {
+  height: 100%;
+  width: 100%;
+  margin: 0 !important;
+  transform: none !important;
+}
+/* ════════════════════════════════════════════════════════════════
+   [R10] واجهة البلياردو — طلب المالك (2026-09-26)
+   الطاولة تملأ وسط الحاوية ويلتصق ضلعاها الأعلى والأسفل بهامشي الشاشة
+   (لاندسكيب)؛ كل الأدوات أعمدة طافية فوق خلفية الخشب الموحدة:
+   • لاندسكيب: التدوير بالزاوية العليا اليسرى؛ القوة + الكرة البيضاء
+     عمود أيسر؛ عمودا اللاعبَين (أفاتار + كراته بخط مستقيم تحته)
+     أسفل أيقونتي تصغير الشاشة (اللاعب 1) والخروج (اللاعب 2).
+   • بورتريه: شريطا اللاعبَين أفقياً أسفل الطاولة ثم شريط التحكم.
+   • ممنوع أي عبارة مكتوبة — الدور بتوهج الأفاتار، والمؤقت شارة
+     ذهبية ملتصقة بأعلى أفاتار اللاعب النشط من اليمين.
+   • الأيقونات الثلاث (تصغير + خروج + تدوير) حلقة ذهبية بداخلها
+     رمز أسود بشكل موحد؛ في البورتريه أصغر بنسبة 30%.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── الحاوية: بورتريه = شبكة 3 صفوف؛ لاندسكيب = كتلة بأبناء مطلقين ── */
+.bl-frame {
+  position: relative;      /* مرجع تموضع الأعمدة الطافية */
+  direction: ltr;
+  display: grid;
+  grid-template: minmax(0, 1fr) auto auto / minmax(0, 1fr);
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.bl-frame.bl-land { display: block; }
+
+/* ── منطقة الطاولة ──
+   [R12] طلب المالك: الطاولة تملأ كامل المساحة في وسط الشاشة —
+   يلتقي ضلعاها الأعلى والأسفل بحدي الشاشة، وضلعها الأيمن بحلقة زر
+   الخروج، وضلعها الأيسر بأيقونة الكرة البيضاء.
+   في البورتريه: إزاحة الطاولة للأسفل 17px. */
+.bl-mid {
+  grid-area: 1 / 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: 0;
+  min-width: 0;
+}
+/* لاندسكيب: الحاوية تملأ الشاشة بالكامل بلا حشوات */
+.bl-frame.bl-land .bl-mid {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+}
+.bl-frame.bl-land .bl-mid > .bl-stagebox { width: 100%; height: 100%; }
+/* بورتريه: إزاحة الطاولة للأسفل 17px كما طلب المالك */
+.bl-frame.bl-port .bl-mid {
+  padding-top: 17px;
+}
+
+.bl-stagebox {
+  position: relative;
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 120px;
+  border-radius: 0;
+  overflow: hidden;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  touch-action: none;
+}
+.bl-stagebox canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+}
+
+/* ═══ [R11] الأيقونات الثلاث الموحدة: قرص ذهبي ممتلئ + رمز أسود ═══ */
+body.bl-game-open #gameFsExit,
+body.bl-game-open #gameLeaveBtn,
+body.bl-game-open .bl-rotbtn {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.55), rgba(255,255,255,0) 45%),
+    linear-gradient(160deg, #f6e0a5, #e9c877 40%, #c79733) !important;
+  border: 2px solid rgba(247, 232, 200, .85) !important;
+  border-radius: 50% !important;
+  color: #1a1206 !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .45) inset,
+    0 4px 12px rgba(0, 0, 0, .5),
+    0 0 12px rgba(217, 180, 92, .55) !important;
+  text-shadow: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+}
+body.bl-game-open #gameFsExit i,
+body.bl-game-open #gameLeaveBtn i,
+body.bl-game-open .bl-rotbtn i { color: #1a1206 !important; }
+
+/* زر التدوير: الزاوية العليا اليسرى — في الوضعين */
+/* [R14] لاندسكيب: إزاحة لليمين 14px كما طلب المالك */
+body.bl-game-open .bl-rotbtn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  transition: transform .12s;
+}
+body.bl-game-open .bl-rotbtn:active { transform: scale(.9); }
+/* الشاشة الممتلئة: يثبّت على زاوية الشاشة نفسها مثل أيقونتي التصغير والخروج */
+body.app-fs-on.bl-game-open #blRotBtn {
+  position: fixed;
+  top: 0;
+  left: 14px;   /* [R14] مطابقة مع الوضع غير الممتلئ */
+  z-index: 14500;
+}
+
+/* أيقونتا التصغير والخروج: الزاوية العليا اليمنى */
+body.bl-game-open #gameFsExit {
+  top: 0 !important;
+  right: 0 !important;
+  border-radius: 50% !important;
+}
+body.bl-game-open #gameLeaveBtn {
+  top: 0 !important;
+  border-radius: 50% !important;
+}
+
+/* ── الأحجام: لاندسكيب موحدة 42px؛ بورتريه موحدة 30px (+25%) ── */
+/* [R13] إصلاح تداخل الأزرار: leave right = exit right + exit width + 6px gap */
+@media (orientation: landscape) {
+  body.bl-game-open #gameFsExit,
+  body.bl-game-open #gameLeaveBtn {
+    width: 42px !important;
+    height: 42px !important;
+  }
+  /* [R14] 3px gap بين زر الخروج وزر تصغير الشاشة */
+  body.bl-game-open #gameLeaveBtn { right: calc(42px + 3px) !important; }
+  body.bl-game-open #gameFsExit i,
+  body.bl-game-open #gameLeaveBtn i { font-size: 17px !important; }
+  /* [R14] إزاحة زر التدوير لليمين 14px */
+  body.bl-game-open .bl-rotbtn { width: 42px; height: 42px; font-size: 17px; left: 14px; }
+}
+@media (orientation: portrait) {
+  /* [R11] طلب المالك: تكبير أيقونات البورتريه بنسبة 25% (24px → 30px) */
+  body.bl-game-open #gameFsExit,
+  body.bl-game-open #gameLeaveBtn {
+    width: 30px !important;
+    height: 30px !important;
+    border-width: 2px !important;
+  }
+  /* [R13] إصلاح تداخل: leave right = exit right + exit width + 6px gap */
+  body.bl-game-open #gameLeaveBtn { right: calc(10px + 30px + 6px) !important; }
+  body.bl-game-open #gameFsExit i,
+  body.bl-game-open #gameLeaveBtn i { font-size: 13px !important; }
+  body.bl-game-open .bl-rotbtn { width: 30px; height: 30px; font-size: 13px; border-width: 2px; }
+}
+
+/* ═══ [R12] عمود التحكم الأيسر (لاندسكيب): يلامس الضلع الأيسر للطاولة ═══
+   عمود التحكم عرضه = المسافة من حافة الشاشة اليسرى إلى الضلع الأيسر
+   للطاولة (يحسبها JS ويضبطها عبر المتغير --bl-table-left). */
+.bl-ctrls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 0;
+}
+.bl-frame.bl-land .bl-ctrls {
+  position: absolute;
+  left: 8px;   /* [R14] إزاحة لليمين 8px كما طلب المالك */
+  top: 48px;
+  bottom: 8px;
+  width: clamp(64px, 10vmin, 96px);
+  flex-direction: column;
+  justify-content: flex-start;
+  z-index: 11;
+  pointer-events: none;
+}
+.bl-frame.bl-land .bl-ctrls .bl-cue-track,
+.bl-frame.bl-land .bl-ctrls .bl-spin { pointer-events: auto; }
+/* شريط القوة العمودي (لاندسكيب) */
+.bl-frame.bl-land .bl-ctrls .bl-cue-track {
+  flex: 1 1 auto;
+  min-height: 110px;
+  min-width: 0;
+  width: 22px;
+  height: auto;
+  margin: 0;
+  border-radius: 999px;
+  background: linear-gradient(to bottom, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
+}
+.bl-frame.bl-land .bl-ctrls .bl-spin { margin-top: auto; }
+
+/* ═══ عمودا اللاعبَين (لاندسكيب) ═══ */
+.bl-rail {
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+.bl-frame.bl-land .bl-rail {
+  position: absolute;
+  right: 0;
+  top: 44px;
+  bottom: 0;
+  width: 112px;
+  pointer-events: none;
+  z-index: 11;
+}
+.bl-frame.bl-land #blUnitMe  { position: absolute; right: 0;   top: 4px; }
+.bl-frame.bl-land #blUnitOpp { position: absolute; right: 42px; top: 4px; }
+.bl-frame.bl-land .bl-vtray { flex-direction: column; }
+/* شارة مؤقت اللاعب 1 لا تتجاوز حافة القص (عموده أقصى اليمين) */
+.bl-frame.bl-land #blUnitMe .bl-tbadge { right: -2px; }
+
+/* وحدة اللاعب: عمود رأسي — أفاتار ثم (نقاط سنوكر رقماً) ثم كراته */
+.bl-punit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0 2px;
+}
+.bl-punit .bl-av { flex: 0 0 auto; }
+
+/* [R10] ممنوع العبارات المكتوبة: الأسماء لا تُعرض أبداً؛ شارة المجموعة
+   لا تظهر إلا لنقاط سنوكر/كاروم (رقم فقط — يتحكم بها JS) */
+.bl-nm { display: none !important; }
+.bl-pl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 0 auto;
+}
+.bl-pl:has(> .bl-grp[hidden]) { display: none; }
+.bl-grp {
+  font-size: 12px;
+  font-weight: 900;
+  color: #ffe9a8;
+  text-shadow: 0 1px 3px rgba(0,0,0,.85);
+  white-space: nowrap;
+}
+.bl-grp.g-score {
+  background: rgba(0, 0, 0, .4);
+  border: 1px solid rgba(255, 215, 94, .35);
+  color: #ffd75e;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.bl-grp.g-score.on { box-shadow: 0 0 8px rgba(255, 215, 94, .5); }
+
+/* ═══ [R10] شارة المؤقت: ملتصقة بأعلى أفاتار اللاعب النشط من اليمين ═══ */
+.bl-avwrap { position: relative; display: inline-flex; flex: 0 0 auto; }
+.bl-tbadge {
+  position: absolute;
+  top: -7px;
+  right: -10px;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 30%, #f6dd9a, #e9c877 45%, #c9a24d);
+  border: 1.5px solid #6e4f16;
+  color: #191008;
+  font-size: 11px;
+  font-weight: 900;
+  font-style: normal;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, .5);
+  z-index: 3;
+}
+.bl-tbadge[hidden] { display: none !important; }
+.bl-tbadge.bl-time-low {
+  background: radial-gradient(circle at 35% 30%, #ff8a75, #e2372b 55%, #a31d12);
+  color: #fff;
+  border-color: #5c0d06;
+  animation: blTimeLow 1s steps(2) infinite;
+}
+
+/* الأفاتاران: 1 أزرق/حلقة ذهبية — 2 أحمر/حلقة زرقاء */
+.bl-frame .bl-av {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 900; color: #fff;
+  flex: 0 0 auto;
+  text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  box-shadow: 0 2px 6px rgba(0,0,0,.55), inset 0 1px 2px rgba(255,255,255,.3);
+  transition: box-shadow .25s;
+}
+.bl-frame .bl-av.p1 { background: radial-gradient(circle at 34% 30%, #3a68e8, #1F4BCB 65%, #16368f); border: 3px solid #d9b45c; }
+.bl-frame .bl-av.p2 { background: radial-gradient(circle at 34% 30%, #e04a60, #C62A44 65%, #8f1a2e); border: 3px solid #2E4BCB; }
+.bl-frame .bl-av.active { box-shadow: 0 0 0 3px rgba(255, 210, 63, .6), 0 0 18px rgba(255, 210, 63, .65); }
+
+/* شارة النقاط (سنوكر/كاروم) رقماً فقط */
+.bl-score {
+  color: #ffd75e;
+  font-size: 13px;
+  font-weight: 900;
+  text-shadow: 0 1px 3px rgba(0,0,0,.85);
+  background: rgba(0,0,0,.4);
+  border-radius: 999px;
+  padding: 1px 8px;
+  flex: 0 0 auto;
+}
+
+/* ═══ [R10] البورتريه: شريطا اللاعبَين أسفل الطاولة ثم شريط التحكم ═══ */
+.bl-port-bars {
+  grid-area: 2 / 1;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 3px 6px;
+  z-index: 9;
+}
+.bl-frame.bl-port .bl-port-bars { display: flex; }
+.bl-pbar {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 0 4px;
+}
+/* الوحدة داخل شريط البورتريه: صف أفقي — أفاتار ← كرات */
+.bl-frame.bl-port .bl-pbar .bl-punit { flex-direction: row; align-items: center; gap: 8px; flex: 0 0 auto; }
+.bl-frame.bl-port .bl-pbar .bl-vtray { flex-direction: row; }
+/* شريط التحكم السفلي: كرة بيضاء + شريط القوة المكبّر */
+.bl-frame.bl-port .bl-rail {
+  grid-area: 3 / 1;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 10px calc(6px + var(--safe-bottom, 0px));
+  z-index: 10;
+}
+.bl-frame.bl-port .bl-rail .bl-ctrls { flex: 1 1 auto; }
+.bl-frame.bl-port .bl-rail .bl-spin { margin: 0; flex: 0 0 auto; }
+
+/* ═══ شريط قوة الضربة (بلا عصا): التدرج مقياس دائم — أخضر ثم أصفر ثم
+   برتقالي ثم أحمر؛ السحب نحو الأحمر يزيد القوة والإفلات ينفّذ الضربة.
+   التعتيم (bl-cue-fill) يغطي الجزء غير المستعمل وحافته المضيئة تعلّم
+   مستوى القوة الحالي ═══ */
+.bl-cue-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 120px;
+  height: clamp(32px, 6vmin, 46px);
+  background: linear-gradient(to right, #2ecc71 0%, #a8d94a 30%, #f5c400 55%, #f2812e 78%, #e2372b 100%);
+  border-radius: 9px;
+  border: 2px solid rgba(0,0,0,.65);
+  box-shadow: inset 0 3px 6px rgba(0,0,0,.55), 0 2px 6px rgba(0,0,0,.45);
+  margin: 0 4px;
+  cursor: grab;
+  touch-action: none;
+  overflow: hidden;
+}
+.bl-cue-track:active { cursor: grabbing; }
+.bl-cue-fill {
+  position: absolute;
+  top: 0; bottom: 0; right: 0;
+  width: 25%;
+  background: rgba(12, 7, 2, .78);
+  pointer-events: none;
+}
+.bl-frame.bl-land .bl-cue-fill {
+  top: auto; right: 0; left: 0; bottom: 0;
+  height: 25%;
+  width: auto;
+}
+.bl-cue-fill::before {
+  content: "";
+  position: absolute;
+  background: #ffe9a8;
+  box-shadow: 0 0 7px rgba(255,233,168,.95), 0 0 14px rgba(255,233,168,.55);
+}
+.bl-cue-fill::before { left: 0; top: 0; bottom: 0; width: 3px; }
+.bl-frame.bl-land .bl-cue-fill::before { left: 0; right: 0; top: 0; bottom: auto; height: 3px; width: auto; }
+.bl-powval {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: clamp(12px, 2.4vmin, 16px);
+  font-weight: 900;
+  text-shadow: 0 1px 3px #000, 0 0 7px #000;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* الكرة البيضاء (السبين) */
+.bl-spin {
+  width: min(56px, 86%);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  position: relative;
+  cursor: pointer;
+  background: radial-gradient(circle at 34% 30%, #ffffff, #e6e6de 55%, #a9a99d 100%);
+  box-shadow: inset -3px -4px 8px rgba(0,0,0,.35), 0 2px 6px rgba(0,0,0,.5);
+  touch-action: none;
+}
+.bl-spin i {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 14px; height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 5px rgba(239,68,68,.8);
+  pointer-events: none;
+}
+/* السبين مكبّر: لاندسكيب +65% وبورتريه +50% */
+.bl-frame.bl-land .bl-ctrls .bl-spin {
+  width: clamp(73px, 12.4vmin, 106px);
+  aspect-ratio: 1;
+}
+.bl-frame.bl-port .bl-rail .bl-spin {
+  width: clamp(66px, 11.3vmin, 96px);
+  aspect-ratio: 1;
+}
+
+/* ── صينية الكرات الساقطة: خط مستقيم تحت أفاتار صاحبها ── */
+.bl-vtray {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 1 auto;
+  overflow: hidden;
+  min-width: 24px;
+  min-height: 24px;
+}
+.bl-frame.bl-port .bl-vtray { flex-direction: row; }
+.bl-vtray .bl-tcell { width: 24px; height: 24px; flex: 0 0 auto; }
+.bl-vtray .bl-tb { width: 20px; height: 20px; }
+.bl-tcell {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+}
+.bl-tcell.hot { background: transparent; }
+.bl-tcell.hot .bl-tb { box-shadow: 0 0 0 2px #d9b45c, 0 0 8px rgba(217,180,92,.7), inset -2px -3px 5px rgba(0,0,0,.5); }
+.bl-tb {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset -2px -3px 5px rgba(0,0,0,.5), inset 2px 3px 5px rgba(255,255,255,.45), 0 1px 3px rgba(0,0,0,.7);
+}
+.bl-tb i {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: #fff;
+  font-style: normal;
+  font-size: 7.5px;
+  font-weight: 800;
+  color: #111;
+  display: flex; align-items: center; justify-content: center;
+}
+
+/* محمول: عناصر أصغر قليلاً */
+@media (max-width: 560px) {
+  .bl-tcell { width: 20px; height: 20px; }
+  .bl-tb { width: 16px; height: 16px; }
+  .bl-tb i { width: 8px; height: 8px; font-size: 6px; }
+  .bl-frame .bl-av { width: 30px; height: 30px; font-size: 13px; border-width: 2px; }
+  .bl-vtray .bl-tcell { width: 20px; height: 20px; }
+  .bl-vtray .bl-tb { width: 17px; height: 17px; }
+}
+
+/* Blackball (EPA) */
+.bl-grp.g-red { color: #ff6b5e; }
+.bl-grp.g-yellow { color: #ffd54a; }
+.bl-grp.g-black { color: #cfd3dc; }
+
+/* الريراك */
+.bl-rerack {
+  position: fixed; inset: 0; z-index: 120;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(4, 10, 18, .66); backdrop-filter: blur(2px);
+}
+.bl-rerack[hidden] { display: none; }
+.bl-rerack-card {
+  background: linear-gradient(180deg, #22304180, #16202c);
+  border: 1px solid #35506e; border-radius: 14px;
+  padding: 20px 24px; display: flex; flex-direction: column; gap: 10px;
+  text-align: center; color: #e8eef7; max-width: min(92vw, 380px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .5);
+}
+.bl-rerack-card b { font-size: 15px; line-height: 1.6; }
+
+/* سنوكر: شريط الترشيح */
+.bl-noms {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 10px;
+  flex-wrap: wrap;
+}
+.bl-nom {
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-radius: 999px;
+  color: #fff;
+  font-weight: 700;
+  font-size: .8rem;
+  padding: 7px 14px;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, .55);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+.bl-nom:hover { transform: scale(1.07); box-shadow: 0 0 12px rgba(255, 215, 94, .55); }
+
+/* رسالة عائمة (مخفية في التصميم النظيف) */
+.bl-msg {
+  position: absolute;
+  top: 8px; left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,.82);
+  border: 1px solid rgba(255,255,255,.28);
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-size: clamp(10px, 1.5vh, 12.5px);
+  color: var(--t1);
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 92%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity .3s;
+  z-index: 5;
+}
+.bl-msg.show { opacity: 1; }
+.bl-stake {
+  position: absolute;
+  top: 8px; inset-inline-start: 10px;
+  font-size: 11.5px;
+  color: var(--gold);
+  background: rgba(0,0,0,.55);
+  border-radius: 999px;
+  padding: 3px 10px;
+  z-index: 5;
+}
+
+/* [V19.5] عدّاد دور البلياردو — تحذير الوقت المنخفض */
+.bl-time-low { color: #ff5252 !important; animation: blTimeLow 1s steps(2) infinite; }
+@keyframes blTimeLow { 50% { opacity: .45; } }
+
+/* ═══ [Unify] تناسق البلياردو مع أبعاد الشاشة — إبطال القواعد العامة القاصّة ═══ */
+/* [R10] صنف bl-stage أزيل لتفادي تصادمه مع جذر البلوت (bl-stage في baloot.css\n   كان يفرض min-height:480px على صندوق طاولة البلياردو فيصغّرها) */
+#gamePageBody .bl-stagebox canvas,
+#pg-game.app-fs .bl-stagebox canvas,
+#pg-game:fullscreen .bl-stagebox canvas,
+#pg-game:-webkit-full-screen .bl-stagebox canvas {
+  max-height: none !important;
+  max-width: none !important;
+  height: 100% !important;
+  width: 100% !important;
+}
+/* حاوية اللعبة مع البلياردو: عرض كامل بلا توسيط ولا تمرير */
+#pg-game:fullscreen #gamePageBody:has(#billiardsStage),
+#pg-game:-webkit-full-screen #gamePageBody:has(#billiardsStage),
+#pg-game.app-fs #gamePageBody:has(#billiardsStage) {
+  max-width: 100% !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+}
+#pg-game.app-fs #gamePageBody #billiardsStage,
+#pg-game:fullscreen #gamePageBody #billiardsStage,
+#pg-game:-webkit-full-screen #gamePageBody #billiardsStage {
+  height: 100%;
+  width: 100%;
+  max-width: 100% !important;
+  margin: 0 !important;
+  transform: none !important;
+  flex: 1 1 auto;
+}
+#gamePageBody #billiardsStage { margin-bottom: 0 !important; }
+
+/* زر الخروج الذهبي فوق طبقات اللعبة */
+body.bl-game-open .game-fs-exit { z-index: 14500 !important; }
+
+/* شارة الدور القديمة: مخفية دائماً (الدور بتوهج الأفاتار) */
+.bl-turnpill { display: none !important; }
+.bl-turnpill[hidden], .bl-stake[hidden] { display: none !important; }

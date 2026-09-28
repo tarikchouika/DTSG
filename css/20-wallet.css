@@ -1,0 +1,144 @@
+/* ════════════════════════════════════════════════════════════════
+   DTSG — المحفظة: شحن / سحب / كوبونات / سجل  [Payments 2026-09-16]
+   ════════════════════════════════════════════════════════════════ */
+#walletOverlay {
+  position: fixed; inset: 0; z-index: 1200; /* [Mobile-fix] فوق الهيدر (200) كي يظهر زر الإغلاق */
+  background: rgba(4, 10, 18, .62); backdrop-filter: blur(6px);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+#walletOverlay[hidden] { display: none; }
+@media (min-width: 700px) { #walletOverlay { align-items: center; } }
+.wl-sheet {
+  width: min(560px, 100%); max-height: 92vh; overflow-y: auto;
+  background: linear-gradient(165deg, #101c30, #0b1526);
+  border: 1px solid var(--bd, #2a3a55); border-bottom: 0;
+  border-radius: 20px 20px 0 0; padding: 16px 16px 22px;
+  box-shadow: 0 -10px 50px rgba(0, 0, 0, .55);
+  color: var(--t1, #eaf2ff);
+}
+@media (min-width: 700px) { .wl-sheet { border-radius: 20px; border-bottom: 1px solid var(--bd, #2a3a55); } }
+.wl-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.wl-head h3 { margin: 0; font-size: 1.05rem; }
+.wl-x { background: none; border: 0; color: var(--t3, #8aa0c0); font-size: 1.2rem; cursor: pointer; }
+.wl-bal {
+  display: flex; gap: 10px; align-items: center; justify-content: space-between;
+  background: rgba(242, 212, 137, .08); border: 1px solid rgba(242, 212, 137, .25);
+  border-radius: 14px; padding: 10px 14px; margin-bottom: 12px;
+}
+.wl-bal .usd { font-size: 1.25rem; font-weight: 800; color: #f2d489; }
+.wl-bal .gold { font-size: .9rem; color: var(--t2, #c6d4ea); }
+.wl-rate-note { margin-top: 3px; color: var(--t3, #8aa0c0); font-size: .62rem; line-height: 1.45; }
+.wl-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.wl-tabs button {
+  flex: 1; padding: 9px 4px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--bd, #2a3a55); background: rgba(255, 255, 255, .04);
+  color: var(--t2, #c6d4ea); font-size: .85rem;
+}
+.wl-tabs button.on { background: rgba(242, 212, 137, .16); border-color: rgba(242, 212, 137, .5); color: #f2d489; font-weight: 700; }
+.wl-pane[hidden] { display: none; }
+.wl-method {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 1px solid var(--bd, #2a3a55); border-radius: 14px;
+  background: rgba(255, 255, 255, .03); color: var(--t1, #eaf2ff);
+  padding: 10px 12px; margin-bottom: 8px; cursor: pointer; text-align: start;
+}
+.wl-method .ic { font-size: 1.3rem; }
+.wl-method .soon { margin-inline-start: auto; font-size: .7rem; color: var(--t3, #8aa0c0); border: 1px solid var(--bd, #2a3a55); border-radius: 999px; padding: 2px 8px; }
+.wl-method:disabled { opacity: .55; cursor: not-allowed; }
+.wl-row { margin-bottom: 10px; }
+.wl-row label { display: block; font-size: .8rem; color: var(--t3, #8aa0c0); margin-bottom: 4px; }
+.wl-row input, .wl-row select {
+  width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px 12px;
+  border: 1px solid var(--bd, #2a3a55); background: rgba(255, 255, 255, .05);
+  color: var(--t1, #eaf2ff); font-size: .95rem;
+}
+.wl-cta {
+  width: 100%; border: 0; border-radius: 14px; padding: 12px;
+  background: linear-gradient(135deg, #f2d489, #d9a441); color: #221a05;
+  font-weight: 800; font-size: .95rem; cursor: pointer;
+}
+.wl-cta:disabled { opacity: .6; cursor: wait; }
+.wl-note { font-size: .78rem; color: var(--t3, #8aa0c0); margin-top: 8px; line-height: 1.7; }
+.wl-acct {
+  background: rgba(14, 116, 144, .12); border: 1px dashed rgba(34, 211, 238, .4);
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 10px;
+  font-size: .9rem; line-height: 1.9; word-break: break-all;
+}
+.wl-acct b { color: #22d3ee; }
+.wl-copy { border: 0; background: rgba(34, 211, 238, .15); color: #22d3ee; border-radius: 8px; padding: 3px 10px; cursor: pointer; font-size: .75rem; }
+.wl-tx { border: 1px solid var(--bd, #2a3a55); border-radius: 12px; padding: 8px 10px; margin-bottom: 6px; font-size: .8rem; display: flex; justify-content: space-between; gap: 8px; }
+.wl-tx .st-pending { color: #fbbf24; } .wl-tx .st-completed { color: #34d399; } .wl-tx .st-rejected { color: #f87171; }
+.wl-msg { min-height: 1.2em; font-size: .82rem; margin-top: 8px; }
+.wl-msg.ok { color: #34d399; } .wl-msg.err { color: #f87171; }
+/* [QR v2.40] رمز الدفع داخل المحفظة — قابل للمسح المباشر من تطبيق البنك/المحفظة */
+.wl-qr { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 4px 0 10px; }
+.wl-qr img { width: 180px; height: 180px; max-width: 62vw; max-height: 62vw; border-radius: 14px; background: #fff; padding: 8px; border: 1px solid rgba(34, 211, 238, .45); }
+.wl-qr span { font-size: .76rem; color: var(--t3, #94a3b8); }
+@media (max-width: 420px) { .wl-qr img { width: 148px; height: 148px; } }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [v2.44-RADIANT] المحفظة في الوضع المشع 🌟
+   المشكلة المُبلَّغ عنها: النافذة كانت داكنة مثبّتة (#101c30) بينما النصوص تأخذ
+   متغيّرات الثيم — وفي «المشع» تصير هذه داكنة (--t1:#1E1B16) ⇒ نصّ داكن على
+   خلفية داكنة = غير مقروء. الحل: ثيم كامل للنافذة يناسب الوضع المشع (عاجي/كريمي
+   + ذهبي العلامة #b8892f) مع تباين واضح لكل عنصر (حقول، شرائح، قوائم، حالات).
+   ═══════════════════════════════════════════════════════════════════════════ */
+html[data-theme="radiant"] #walletOverlay { background: rgba(60, 48, 28, .38); }
+html[data-theme="radiant"] .wl-sheet {
+  background: linear-gradient(168deg, #ffffff 0%, #faf5e9 55%, #f3ecdb 100%);
+  border-color: #e6dcc2;
+  color: #1e1b16;
+  box-shadow: 0 -12px 44px rgba(90, 70, 30, .22);
+}
+html[data-theme="radiant"] .wl-head h3 { color: #1e1b16; }
+html[data-theme="radiant"] .wl-x { color: #6e6a60; }
+html[data-theme="radiant"] .wl-x:hover { color: #1e1b16; }
+html[data-theme="radiant"] .wl-bal {
+  background: linear-gradient(135deg, rgba(184, 137, 47, .13), rgba(217, 180, 92, .07));
+  border-color: rgba(184, 137, 47, .38);
+}
+html[data-theme="radiant"] .wl-bal .usd { color: #9c6f16; }
+html[data-theme="radiant"] .wl-bal .gold { color: #6b5b34; }
+html[data-theme="radiant"] .wl-tabs button {
+  background: #ffffff; border-color: #e6dcc2; color: #4a453b;
+}
+html[data-theme="radiant"] .wl-tabs button.on {
+  background: linear-gradient(135deg, #f7e6b6, #efd894);
+  border-color: #c79a2e; color: #6b4a06; font-weight: 800;
+  box-shadow: 0 2px 10px rgba(184, 137, 47, .25);
+}
+html[data-theme="radiant"] .wl-method {
+  background: #ffffff; border-color: #e6dcc2; color: #1e1b16;
+}
+html[data-theme="radiant"] .wl-method:hover { border-color: #c79a2e; background: #fffdf6; }
+html[data-theme="radiant"] .wl-method .soon { color: #8a7c5e; border-color: #e0d5b8; }
+html[data-theme="radiant"] .wl-row label { color: #6e6a60; }
+html[data-theme="radiant"] .wl-row input,
+html[data-theme="radiant"] .wl-row select {
+  background: #ffffff; border-color: #ddd2b4; color: #1e1b16;
+}
+html[data-theme="radiant"] .wl-row input::placeholder { color: #a49a80; }
+html[data-theme="radiant"] .wl-row input:focus,
+html[data-theme="radiant"] .wl-row select:focus {
+  outline: none; border-color: #b8892f; box-shadow: 0 0 0 3px rgba(184, 137, 47, .18);
+}
+html[data-theme="radiant"] .wl-cta {
+  background: linear-gradient(135deg, #d9b45c, #b8892f); color: #ffffff;
+  box-shadow: 0 4px 16px rgba(184, 137, 47, .3);
+}
+html[data-theme="radiant"] .wl-note { color: #6e6a60; }
+html[data-theme="radiant"] .wl-acct {
+  background: rgba(13, 148, 136, .10); border-color: rgba(13, 148, 136, .45); color: #1e1b16;
+}
+html[data-theme="radiant"] .wl-acct b { color: #0f766e; }
+html[data-theme="radiant"] .wl-copy { background: rgba(13, 148, 136, .16); color: #0f766e; }
+html[data-theme="radiant"] .wl-tx {
+  background: #ffffff; border-color: #e6dcc2; color: #2b2620;
+}
+html[data-theme="radiant"] .wl-tx .st-pending { color: #a16207; }
+html[data-theme="radiant"] .wl-tx .st-completed { color: #047857; }
+html[data-theme="radiant"] .wl-tx .st-rejected { color: #b91c1c; }
+html[data-theme="radiant"] .wl-msg.ok { color: #047857; }
+html[data-theme="radiant"] .wl-msg.err { color: #b91c1c; }
+html[data-theme="radiant"] .wl-qr img { border-color: rgba(184, 137, 47, .5); }
+html[data-theme="radiant"] .wl-qr span { color: #6e6a60; }

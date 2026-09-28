@@ -1,2 +1,40 @@
-skills/
+# Dependencies
 node_modules/
+skills/
+
+# SQLite — بيانات تشغيل (يخلق المخطط تلقائياً server.cjs عبر CREATE TABLE IF NOT EXISTS)
+*.db
+*.db-wal
+*.db-shm
+
+# Local runtime
+server.log
+.wrangler/
+.dev.vars
+# [2026-09-22] أسرار بيئة خادم الهاتف/البوتات (مصدرها الوحيد) — لا تُرفع أبداً
+.env.local
+.env
+
+# لقطات الاختبارات تُكتب في /tmp/dtsg-shots (ليست جزءاً من المستودع)
+screenshots/
+shot_*.png
+_shot_*.png
+
+# [v2.44] مخرجات تشغيل محلية (بوت الفوتشير/قاعدة الاختبار)
+data/
+
+# [v2.45] مجلد نشر البوت المحلي (يحتوي .env وقاعدة محلية) — لا يُرفع
+telegram-voucher-bot/
+
+# [v2.45.1] مسار تجريبي فقط — ڤيرسيل ليست أساس النشر
+# الأساسي: Cloudflare Pages (فرونت) + Worker + KV (عنوان النفق) + خادم الهاتف (SQLite محلية). لا R2.
+# لا تُضِف vercel.json/.vercelignore إلى git، ولا تحذف Dockerfile/.dockerignore من أجل ڤيرسيل.
+vercel.json
+.vercelignore
+
+# [2026-09-23] لقطات اختبارات playwright وسكربتات مؤقتة
+tests/_artifacts/
+tests/_scratch_*.js
+
+# [v2.59.1 OPS] نسخ royalcoin.db الاحتياطية (بيانات شخصية) — لا تُرفع إلى GitHub أبداً
+backups/

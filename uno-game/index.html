@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b1526">
+  <title>أونو — DTSG (وضع مستقل للاختبار)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/uno.css">
+  <style>
+    :root { --bg: #0b1526; --gold: #d9b45c; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { background: var(--bg); font-family: 'Cairo', 'Segoe UI', system-ui, sans-serif; color: #e9e2cf; overflow: hidden; }
+    .st-bar {
+      position: fixed; top: 0; inset-inline: 0; z-index: 50;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 14px; background: rgba(11, 21, 38, 0.92);
+      border-bottom: 1px solid rgba(217, 180, 92, 0.25); backdrop-filter: blur(8px);
+    }
+    .st-logo { font-weight: 900; letter-spacing: 2px; font-size: 15px; color: var(--gold); font-family: 'Orbitron', 'Cairo', sans-serif; }
+    .st-logo small { color: #9aa5b8; font-weight: 600; letter-spacing: 0; font-family: 'Cairo', sans-serif; font-size: 11px; margin-inline-start: 8px; }
+    #app { position: absolute; inset: 0; top: 40px; }
+    #unStage { position: absolute; inset: 0; }
+  </style>
+</head>
+<body>
+  <header class="st-bar">
+    <div class="st-logo">DTSG <small>أونو — وضع مستقل (QA)</small></div>
+  </header>
+  <div id="app">
+    <div class="stage un-stage" id="unStage"></div>
+  </div>
+
+  <script src="js/engine/uno-core.js"></script>
+  <script src="js/engine/uno-game.js"></script>
+  <script src="js/ui/uno-audio.js"></script>
+  <script src="js/ui/uno-i18n.js"></script>
+  <script src="js/ui/uno-renderer.js"></script>
+  <script src="js/ui/uno-html.js"></script>
+  <script src="js/ui/uno-app.js"></script>
+  <script>
+    (function () {
+      window.UN_ASSET_BASE = '../assets';
+      UnoApp.attach();
+    })();
+  </script>
+</body>
+</html>

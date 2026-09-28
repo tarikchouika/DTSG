@@ -1,0 +1,885 @@
+/* ════════════════════════════════════════════════════════════════════
+   FLAT DOG · فلات دوچ  —  card game UI
+   Dark luxury: deep emerald felt, obsidian frames, glassmorphic panels,
+   metallic gold accents. Mobile = vertical + sticky bottom bar + bottom
+   sheet; Desktop = dashboard grid (history | felt | controls).
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── design tokens ── */
+:root {
+  --fd-emerald: #0c4a36;
+  --fd-emerald-deep: #07291f;
+  --fd-emerald-glow: #14b27a;
+  --fd-obsidian: #0b1526;
+  --fd-obsidian-2: #121a26;
+  --fd-gold: #d9b45c;
+  --fd-gold-soft: #f2d489;
+  --fd-glass: rgba(255, 255, 255, 0.055);
+  --fd-glass-2: rgba(255, 255, 255, 0.09);
+  --fd-glass-bd: rgba(255, 255, 255, 0.12);
+  --fd-radius: 16px;
+}
+
+/* ── stage root (emerald felt) ── */
+.fd-stage {
+  position: relative;
+  width: 100%;
+  min-height: 560px;
+  padding: 14px 14px 12px;
+  border-radius: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  direction: rtl;
+  color: #eef3f0;
+  overflow: hidden;
+  border: 1.5px solid rgba(217, 180, 92, 0.5);
+  background:
+    radial-gradient(ellipse 120% 90% at 50% 32%, var(--fd-emerald) 0%, var(--fd-emerald-deep) 58%, #04150f 100%);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), inset 0 0 80px rgba(0, 0, 0, 0.4);
+}
+/* subtle felt weave + gold glints */
+.fd-stage::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 16px),
+    repeating-linear-gradient(-45deg, rgba(217, 180, 92, 0.022) 0 2px, transparent 2px 22px);
+  pointer-events: none;
+}
+.fd-stage::after {
+  content: '';
+  position: absolute; top: 0; inset-inline: 0; height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(217, 180, 92, 0.85), transparent);
+  pointer-events: none;
+}
+
+/* ── topbar ── */
+.fd-topbar {
+  position: relative; z-index: 3;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap;
+}
+.fd-brand { display: inline-flex; align-items: center; gap: 9px; }
+.fd-brand-mark {
+  width: 38px; height: 38px; border-radius: 11px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 0.95rem; letter-spacing: -0.5px; color: #0b1526;
+  background: linear-gradient(145deg, #f2d489, var(--fd-gold) 55%, #b8892f);
+  box-shadow: 0 4px 14px rgba(217, 180, 92, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.6);
+}
+.fd-brand-txt { font-weight: 900; font-size: 1.02rem; line-height: 1.05; letter-spacing: 0.3px; }
+.fd-brand-txt small { display: block; font-size: 0.62rem; font-weight: 700; color: rgba(217, 180, 92, 0.85); letter-spacing: 0.5px; }
+
+/* turn status — glowing highlight instead of heavy borders */
+.fd-turn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 999px;
+  background: var(--fd-glass);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border: 1px solid var(--fd-glass-bd);
+  font-weight: 800; font-size: 0.82rem; color: #d8e2dd;
+  transition: box-shadow 0.4s ease, background 0.4s ease, color 0.4s ease;
+}
+.fd-turn-ic { font-size: 1rem; }
+.fd-turn.glow {
+  color: #06281c; font-weight: 900;
+  background: linear-gradient(135deg, var(--fd-gold), var(--fd-gold-soft));
+  border-color: rgba(217, 180, 92, 0.7);
+  box-shadow: 0 0 0 1px rgba(217, 180, 92, 0.4), 0 0 22px rgba(217, 180, 92, 0.55);
+  animation: fdTurnPulse 1.6s ease-in-out infinite;
+}
+@keyframes fdTurnPulse {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(217, 180, 92, 0.4), 0 0 18px rgba(217, 180, 92, 0.45); }
+  50% { box-shadow: 0 0 0 1px rgba(217, 180, 92, 0.6), 0 0 30px rgba(217, 180, 92, 0.8); }
+}
+.fd-round {
+  padding: 7px 15px; border-radius: 999px;
+  background: var(--fd-glass); border: 1px solid var(--fd-glass-bd);
+  font-size: 0.74rem; font-weight: 700; color: #b9c6c0; white-space: nowrap;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.fd-round b { color: var(--fd-gold); }
+
+/* ── main grid ── */
+.fd-main {
+  position: relative; z-index: 2;
+  display: flex; flex-direction: column; gap: 12px; flex: 1;
+}
+
+/* ── felt (center table) ── */
+.fd-felt {
+  position: relative;
+  flex: 1;
+  border-radius: var(--fd-radius);
+  padding: 16px 12px;
+  display: flex; flex-direction: column; gap: 14px; align-items: center;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(20, 178, 122, 0.16), transparent 70%),
+    linear-gradient(160deg, rgba(8, 30, 22, 0.85), rgba(4, 16, 12, 0.9));
+  border: 1px solid rgba(217, 180, 92, 0.22);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.5);
+}
+.fd-felt-ring {
+  position: absolute; inset: 8px; border-radius: 14px;
+  border: 1.5px dashed rgba(217, 180, 92, 0.18);
+  pointer-events: none;
+}
+/* [Logo] اللوغو الرسمي بمنتصف طاولة الرندة — طبقة شفافة خلف الأوراق */
+.fd-felt::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: url('../assets/dtsg/dtsg-logo-watermark.png') center / min(46%, 280px) auto no-repeat;
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+/* dealer / selector rows */
+.fd-dealer, .fd-selector {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.fd-selector { justify-content: space-between; }
+.fd-pinfo { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+.fd-avatar {
+  width: 40px; height: 40px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; font-size: 1.15rem;
+  background: var(--fd-glass); border: 1px solid var(--fd-glass-bd);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08);
+}
+.fd-avatar.dog { border-color: rgba(239, 68, 68, 0.45); }
+.fd-avatar.flat { border-color: rgba(217, 180, 92, 0.5); }
+.fd-pname { font-weight: 800; font-size: 0.8rem; line-height: 1.1; white-space: nowrap; }
+.fd-pname small { display: block; font-size: 0.62rem; font-weight: 600; color: #97a8a1; }
+
+/* deck beside the dealer */
+.fd-deck { position: relative; width: 64px; height: 90px; flex-shrink: 0; }
+.fd-deck-pile { position: absolute; inset: 0; }
+.fd-deck-pile .fd-card.back { position: absolute; inset: 0; }
+.fd-deck-pile .fd-card.back:nth-child(1) { transform: translate(-3px, -3px) rotate(-4deg); }
+.fd-deck-pile .fd-card.back:nth-child(2) { transform: translate(0, 0) rotate(-1deg); }
+.fd-deck-pile .fd-card.back:nth-child(3) { transform: translate(3px, 3px) rotate(3deg); }
+.fd-deck-count {
+  position: absolute; bottom: -9px; left: 50%; transform: translateX(-50%);
+  background: var(--fd-obsidian); border: 1px solid rgba(217, 180, 92, 0.5);
+  padding: 1px 9px; border-radius: 999px; font-size: 0.62rem; font-weight: 800; color: var(--fd-gold);
+  white-space: nowrap;
+}
+
+/* the two throw zones: FLAT (selector) & DOG (dealer) */
+.fd-zones { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.fd-zone {
+  border-radius: var(--fd-radius); padding: 10px 8px 8px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--fd-glass);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--fd-glass-bd);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
+}
+.fd-zone.flat { border-color: rgba(217, 180, 92, 0.28); }
+.fd-zone.dog { border-color: rgba(239, 68, 68, 0.24); }
+.fd-zone.active { transform: translateY(-3px); }
+.fd-zone.active.flat { border-color: rgba(217, 180, 92, 0.7); box-shadow: 0 0 26px rgba(217, 180, 92, 0.4); }
+.fd-zone.active.dog { border-color: rgba(239, 68, 68, 0.6); box-shadow: 0 0 26px rgba(239, 68, 68, 0.32); }
+.fd-zone-label { font-weight: 900; font-size: 0.84rem; letter-spacing: 1px; }
+.fd-zone.flat .fd-zone-label { color: var(--fd-gold); }
+.fd-zone.dog .fd-zone-label { color: #fca5a5; }
+.fd-zone-label small { font-weight: 700; font-size: 0.64rem; opacity: 0.8; letter-spacing: 0; }
+.fd-zone-card { min-height: 90px; display: flex; align-items: center; justify-content: center; }
+.fd-zone-tag { font-size: 0.6rem; font-weight: 700; color: #8fa39b; }
+
+.fd-selcard { width: 64px; height: 90px; flex-shrink: 0; }
+.fd-hint { font-size: 0.74rem; font-weight: 700; color: #c3d0ca; min-height: 18px; text-align: center; }
+
+/* ── cards ── */
+.fd-card {
+  width: 64px; height: 90px; border-radius: 10px; position: relative;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.55);
+  transition: transform 0.25s var(--ease, ease), box-shadow 0.25s var(--ease, ease);
+  user-select: none;
+}
+.fd-card.mini { width: 56px; height: 78px; }
+.fd-card.back {
+  /* [BackImg] الظهر الجديد شفاف — الصورة فقط بلا تدرجات داكنة تحتها */
+  background: url('../assets/cards/back.webp') center / cover no-repeat;
+  border: 2px solid rgba(217, 180, 92, 0.65);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.5), 0 6px 16px rgba(0, 0, 0, 0.55);
+}
+/* وجه الورقة: أصل كامل لكل ورقة (background-image inline من ronda.js) */
+.fd-card.face {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  border: 1px solid rgba(217, 180, 92, 0.35);
+}
+/* الأصل يرسم الرقم والرمز داخل الصورة — لا طبقات نص */
+.fd-card.face .fd-card-c, .fd-card.face .fd-card-center { display: none; }
+.fd-card.face.selected { transform: translateY(-8px); box-shadow: 0 0 26px rgba(217, 180, 92, 0.7), 0 10px 22px rgba(0, 0, 0, 0.55); }
+.fd-card.face.matched { border-color: var(--green, #10b981); box-shadow: 0 0 24px rgba(16, 185, 129, 0.8), 0 6px 16px rgba(0, 0, 0, 0.5); animation: fdMatch 0.6s ease 2; }
+.fd-card.face.miss { filter: grayscale(0.45) brightness(0.92); transform: scale(0.96); }
+@keyframes fdMatch { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.fd-card.drawn { animation: fdDraw 0.32s ease; }
+@keyframes fdDraw { 0% { transform: translateY(-10px) scale(0.92); opacity: 0.3; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+.fd-card.drawn-card { animation: fdFlip 0.5s cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes fdFlip { 0% { transform: perspective(600px) rotateY(85deg) translateY(20px) scale(0.72); opacity: 0; } 55% { transform: perspective(600px) rotateY(-14deg) translateY(-5px) scale(1.06); opacity: 1; } 100% { transform: perspective(600px) rotateY(0) translateY(0) scale(1); opacity: 1; } }
+
+/* ── side panel (right on desktop / bottom on mobile) ── */
+.fd-side {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; border-radius: var(--fd-radius);
+  background: var(--fd-glass);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--fd-glass-bd);
+}
+.fd-mode-info { display: flex; flex-direction: column; gap: 5px; }
+.fd-mi-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.76rem; color: #aebbb4; font-weight: 600; }
+.fd-mi-row b { color: #eef3f0; font-weight: 800; }
+.fd-mi-row b.gold { color: var(--fd-gold); }
+
+/* bet bar */
+.fd-betbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fd-bet-label { font-size: 0.74rem; font-weight: 800; color: var(--fd-gold); }
+.fd-bet-btn {
+  width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(217, 180, 92, 0.5);
+  background: rgba(10, 15, 23, 0.7); color: var(--fd-gold); font-size: 1.1rem; font-weight: 900;
+  cursor: pointer; font-family: inherit; transition: all 0.15s var(--ease, ease);
+}
+.fd-bet-btn:hover:not(:disabled) { background: var(--fd-gold); color: #0b1526; box-shadow: 0 0 14px rgba(217, 180, 92, 0.5); }
+.fd-bet-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.fd-bet-amt {
+  flex: 1; min-width: 60px; height: 36px; display: flex; align-items: center; justify-content: center;
+  background: rgba(10, 15, 23, 0.7); border: 1px solid var(--fd-glass-bd); border-radius: 10px;
+  font-weight: 900; font-size: 0.92rem; color: #eef3f0;
+}
+
+/* ── left panel (history) — desktop only by default ── */
+.fd-left { display: none; flex-direction: column; gap: 8px; }
+.fd-aside-h { font-size: 0.72rem; font-weight: 800; color: var(--fd-gold); letter-spacing: 0.5px; }
+.fd-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+.fd-chip { width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 0.58rem; font-weight: 900; }
+.fd-chip.win { background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 0 8px rgba(16, 185, 129, 0.5); }
+.fd-chip.lose { background: rgba(239, 68, 68, 0.18); border: 1px solid rgba(239, 68, 68, 0.5); color: #fca5a5; }
+.fd-log {
+  flex: 1; min-height: 70px; max-height: 220px; overflow-y: auto;
+  background: rgba(8, 18, 14, 0.6); border: 1px solid var(--fd-glass-bd); border-radius: 12px; padding: 8px 11px;
+  font-size: 0.72rem; color: #aebbb4; scrollbar-width: thin;
+}
+.fd-log-entry { padding: 2px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+.fd-log-entry:last-child { border: none; }
+.fd-log-entry.win { color: #6ee7b7; }
+.fd-log-entry.lose { color: #fca5a5; }
+.fd-log-entry.event { color: #93c5fd; }
+
+/* ── bottom sheet (selection phases) ── */
+.fd-sheet {
+  position: absolute; inset-inline: 0; bottom: 0; z-index: 18;
+  max-height: 62%;
+  padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(110%); opacity: 0; pointer-events: none;
+  transition: transform 0.34s cubic-bezier(0.2, 0.8, 0.3, 1), opacity 0.3s ease;
+}
+.fd-sheet.show { transform: translateY(0); opacity: 1; pointer-events: auto; }
+.fd-sheet-inner {
+  background: linear-gradient(180deg, rgba(18, 26, 38, 0.97), rgba(10, 15, 23, 0.97));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(217, 180, 92, 0.4);
+  border-radius: 20px 20px 16px 16px;
+  padding: 16px 16px 14px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.55);
+}
+.fd-sheet-h { font-size: 0.9rem; font-weight: 900; margin-bottom: 12px; color: var(--fd-gold); display: flex; align-items: center; gap: 7px; }
+
+/* modes */
+.fd-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fd-mode-btn {
+  position: relative; padding: 14px 11px; border-radius: 14px; cursor: pointer; text-align: center;
+  background: var(--fd-glass-2); border: 1px solid var(--fd-glass-bd); color: #eef3f0; font-family: inherit;
+  transition: all 0.18s var(--ease, ease); overflow: hidden;
+}
+.fd-mode-btn:hover { border-color: var(--fd-gold); transform: translateY(-2px); box-shadow: 0 8px 22px rgba(217, 180, 92, 0.2); }
+.fd-mode-em { display: block; font-size: 1.6rem; margin-bottom: 5px; }
+.fd-mode-name { display: block; font-size: 0.86rem; font-weight: 900; margin-bottom: 3px; }
+.fd-mode-desc { display: block; font-size: 0.66rem; opacity: 0.7; line-height: 1.45; }
+.fd-mode-mult { position: absolute; top: 7px; inset-inline-end: 7px; background: var(--fd-gold); color: #0b1526; font-size: 0.62rem; font-weight: 900; padding: 2px 8px; border-radius: 999px; }
+
+/* numbers */
+.fd-nums { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-bottom: 11px; }
+.fd-num-btn {
+  padding: 9px 0; min-height: 44px; border-radius: 12px; cursor: pointer;
+  background: var(--fd-glass-2); border: 1px solid var(--fd-glass-bd); color: #eef3f0;
+  font-weight: 800; font-size: 0.86rem; font-family: inherit; transition: all 0.15s var(--ease, ease);
+}
+.fd-num-btn:hover:not(:disabled):not(.sel) { border-color: var(--fd-gold); color: var(--fd-gold); transform: translateY(-1px); }
+.fd-num-btn.sel { background: var(--fd-gold); color: #0b1526; border-color: var(--fd-gold); box-shadow: 0 0 14px rgba(217, 180, 92, 0.55); animation: fdPop 0.25s ease; }
+.fd-num-btn:disabled:not(.sel) { opacity: 0.35; cursor: not-allowed; }
+@keyframes fdPop { 0% { transform: scale(0.82); } 100% { transform: scale(1); } }
+
+/* symbols */
+.fd-sym-recap { font-size: 0.74rem; color: #aebbb4; background: rgba(217, 180, 92, 0.08); border: 1px dashed rgba(217, 180, 92, 0.35); border-radius: 10px; padding: 6px 12px; display: inline-block; margin-bottom: 10px; }
+.fd-sym-recap b { color: var(--fd-gold); }
+.fd-syms { display: flex; gap: 9px; justify-content: center; flex-wrap: wrap; margin-bottom: 11px; }
+.fd-sym-btn {
+  width: 70px; min-height: 72px; border-radius: 14px; cursor: pointer; font-family: inherit;
+  background: var(--fd-glass-2); border: 1px solid var(--fd-glass-bd);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s var(--ease, ease);
+}
+.fd-sym-btn span { font-size: 1.8rem; line-height: 1; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.5); }
+.fd-sym-btn small { font-size: 0.62rem; font-weight: 700; color: #97a8a1; }
+.fd-sym-btn:hover:not(:disabled):not(.sel) { border-color: var(--fd-gold); transform: translateY(-2px) scale(1.03); }
+.fd-sym-btn.sel { border-color: var(--fd-gold); box-shadow: 0 0 16px rgba(217, 180, 92, 0.5); background: rgba(217, 180, 92, 0.12); animation: fdPop 0.25s ease; }
+.fd-sym-btn:disabled:not(.sel) { opacity: 0.35; cursor: not-allowed; }
+
+/* confirm + wait */
+.fd-btn.primary { width: 100%; padding: 12px; border: none; border-radius: 12px; font-weight: 900; font-size: 0.86rem; cursor: pointer; font-family: inherit; background: linear-gradient(135deg, var(--fd-gold), var(--fd-gold-soft)); color: #0b1526; box-shadow: 0 4px 16px rgba(217, 180, 92, 0.35); transition: all 0.15s var(--ease, ease); }
+.fd-btn.primary:hover:not(:disabled) { box-shadow: 0 6px 22px rgba(217, 180, 92, 0.55); transform: translateY(-1px); }
+.fd-btn.primary:disabled { opacity: 0.35; cursor: not-allowed; box-shadow: none; }
+.fd-confirm { margin-top: 2px; }
+.fd-wait { text-align: center; padding: 12px; }
+.fd-wait-ic { font-size: 1.7rem; margin-bottom: 6px; animation: fdFloat 1.6s ease-in-out infinite; }
+@keyframes fdFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+.fd-wait div { font-size: 0.8rem; color: #c3d0ca; font-weight: 600; }
+
+/* ── result banner ── */
+.fd-banner {
+  position: absolute; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center;
+  background: rgba(3, 10, 7, 0.86); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+  border-radius: 20px; opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.fd-banner.show { opacity: 1; pointer-events: auto; }
+.fd-banner-inner { text-align: center; animation: fdRes 0.5s cubic-bezier(0.2, 0.8, 0.3, 1); }
+@keyframes fdRes { 0% { transform: scale(0.5); opacity: 0; } 60% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+.fd-banner-ic { font-size: 3rem; margin-bottom: 6px; }
+.fd-banner-text { font-size: 2.4rem; font-weight: 900; margin-bottom: 6px; text-shadow: 0 4px 20px rgba(0, 0, 0, 0.8); }
+.fd-banner-inner.win .fd-banner-text { background: linear-gradient(135deg, #f2d489, var(--fd-gold)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.fd-banner-inner.lose .fd-banner-text { color: #fca5a5; }
+.fd-banner-inner.neutral .fd-banner-text { color: #93c5fd; }
+.fd-banner-sub { font-size: 1rem; font-weight: 900; color: #eef3f0; }
+.fd-banner-inner.win .fd-banner-sub { color: var(--fd-gold); }
+
+/* ── rotation (multiplayer) ── */
+.fd-rotation { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 6px; direction: ltr; }
+.fd-rot-title { font-size: 0.72rem; font-weight: 700; color: var(--fd-gold); }
+.fd-rot-item { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 10px; font-size: 0.74rem; font-weight: 700; border: 1px solid var(--fd-glass-bd); background: rgba(30, 41, 59, 0.6); color: #e2e8f0; white-space: nowrap; }
+.fd-rot-item.dealer { background: rgba(127, 29, 29, 0.5); border-color: rgba(248, 113, 113, 0.5); color: #fecaca; }
+.fd-rot-item.selector { background: rgba(122, 90, 30, 0.5); border-color: rgba(217, 180, 92, 0.55); color: #f2d489; }
+.fd-rot-item.me { box-shadow: 0 0 0 2px var(--fd-gold), 0 0 12px rgba(217, 180, 92, 0.4); }
+.fd-rot-item i { font-style: normal; font-size: 0.66rem; opacity: 0.85; }
+.fd-rot-lbl { font-size: 0.6rem; font-weight: 600; padding: 1px 6px; border-radius: 999px; background: rgba(0, 0, 0, 0.35); }
+.fd-rot-arrow { color: var(--fd-gold); font-size: 0.85rem; opacity: 0.8; }
+
+/* ═══════════ DESKTOP DASHBOARD (≥900px) ═══════════ */
+@media (min-width: 900px) {
+  .fd-stage { min-height: 660px; padding: 18px; gap: 14px; }
+  .fd-main { display: grid; grid-template-columns: 220px 1fr 250px; gap: 14px; }
+  .fd-left { display: flex; }
+  .fd-felt { padding: 22px 18px; gap: 18px; }
+  .fd-card { width: 78px; height: 110px; }
+  .fd-card.mini { width: 64px; height: 90px; }
+  .fd-deck { width: 78px; height: 110px; }
+  .fd-selcard { width: 78px; height: 110px; }
+  .fd-zone-card { min-height: 110px; }
+  .fd-avatar { width: 46px; height: 46px; font-size: 1.3rem; }
+  .fd-pname { font-size: 0.86rem; }
+  .fd-zone-label { font-size: 0.92rem; }
+  .fd-nums { grid-template-columns: repeat(10, 1fr); }
+  .fd-sheet { max-height: 70%; }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FLAT DOG · إعادة تصميم الطاولة رباعية المقاعد (4-SEAT TABLE)
+   مائدة خضراء تملأ الشاشة، حواف ذهبية = حدود الشاشة، 4 مقاعد،
+   فلات/دوغ في الوسط، اسم اللعبة أعلى اليسار، المتفرجون أعلى اليمين،
+   شريط أيقونات ذهبي شفاف أسفل الشاشة.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* — المسرح: يملأ الشاشة بحواف ذهبية — */
+#rnContainer { height: 100%; }          /* يطالب بارتفاع gamePageBody كاملاً */
+.fd-stage {
+  min-height: 100% !important;
+  height: 100%;
+  padding: 6px;
+  border-radius: 8px;
+  border: 3px solid var(--fd-gold);
+  box-shadow: inset 0 0 70px rgba(0,0,0,.55);
+  display: flex;
+  flex-direction: column;
+  /* يبقى الشريط السفلي ظاهراً ويمكن التمرير لكشف أي عنصر إن ضاقت الشاشة */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fd-table {
+  position: relative;
+  flex: 1;
+  min-height: 420px;
+  margin: 2px;
+  border-radius: 6px;
+}
+.fd-stage::after { display: none; }   /* أزل الشريط الذهبي العلوي القديم */
+
+/* — اسم اللعبة أعلى اليسار (ذهبي) — */
+.fd-gname {
+  position: absolute; top: 9px; left: 14px; z-index: 6;
+  font-weight: 900; font-size: 1.12rem; color: var(--fd-gold);
+  letter-spacing: .4px; text-shadow: 0 2px 9px rgba(0,0,0,.7);
+}
+
+/* — المتفرجون أعلى اليمين (شفاف) — */
+.fd-spec-strip {
+  position: absolute; top: 9px; right: 14px; z-index: 6;
+  display: flex; gap: 6px; direction: ltr; max-width: 46%;
+}
+.fd-spec-ic {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .6rem; font-weight: 800; color: var(--fd-gold);
+  background: transparent; border: 1px solid rgba(217,180,92,.4);
+}
+
+/* — شارة الدور + الجولة (شفافة صغيرة) — */
+.fd-turn-mini {
+  position: absolute; top: 11px; left: 50%; transform: translateX(-50%); z-index: 6;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 13px; border-radius: 999px;
+  background: rgba(0,0,0,.32); border: 1px solid rgba(217,180,92,.3);
+  font-weight: 800; font-size: .74rem; color: #d8e2dd; white-space: nowrap;
+  transition: all .3s ease;
+}
+.fd-turn-mini.glow {
+  color: #06281c; background: linear-gradient(135deg,var(--fd-gold),var(--fd-gold-soft));
+  border-color: rgba(217,180,92,.7); box-shadow: 0 0 18px rgba(217,180,92,.55);
+}
+.fd-round-mini {
+  position: absolute; top: 38px; left: 14px; z-index: 6;
+  font-size: .66rem; font-weight: 700; color: rgba(217,180,92,.8);
+}
+.fd-round-mini b { color: var(--fd-gold); }
+
+/* — المقاعد الأربعة (عكس عقارب الساعة: أسفل-يمين ← أعلى-يمين ← أعلى-يسار ← أسفل-يسار) — */
+.fd-seat {
+  position: absolute; z-index: 4;
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  width: 120px;
+}
+.fd-seat.pos-main   { right: 2%;  bottom: 2%;  align-items: flex-end; }
+.fd-seat.pos-opp1   { right: 2%;  top: 12%;    align-items: flex-end; }
+.fd-seat.pos-opp2   { left: 2%;   top: 12%;    align-items: flex-start; }
+.fd-seat.pos-opp3   { left: 2%;   bottom: 2%;  align-items: flex-start; }
+.fd-seat-card { width: 100%; min-height: 6px; }
+.fd-seat-icon { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.fd-av {
+  width: 44px; height: 44px; border-radius: 13px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: .82rem; color: #eef3f0;
+  background: rgba(0,0,0,.34); border: 1.5px solid rgba(255,255,255,.18);
+  box-shadow: inset 0 1px 2px rgba(255,255,255,.08);
+}
+.fd-seat-name {
+  font-size: .66rem; font-weight: 700; color: #c8d4ce; text-align: center;
+  max-width: 116px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fd-seat-name i { font-style: normal; font-size: .58rem; color: #94a59d; }
+/* أدوار المقاعد */
+.fd-seat.dealer .fd-av   { border-color: rgba(239,68,68,.7); box-shadow: 0 0 14px rgba(239,68,68,.45); }
+.fd-seat.selector .fd-av { border-color: rgba(217,180,92,.8); box-shadow: 0 0 14px rgba(217,180,92,.5); }
+.fd-seat.me .fd-av       { box-shadow: 0 0 0 2px var(--fd-gold), 0 0 16px rgba(217,180,92,.45); }
+.fd-seat.me .fd-seat-name{ color: var(--fd-gold); }
+.fd-seat.bot .fd-av      { background: rgba(127,29,29,.35); }
+.fd-seat.empty .fd-av    { color: rgba(255,255,255,.25); border-style: dashed; background: transparent; }
+.fd-seat.empty .fd-seat-name { color: rgba(255,255,255,.3); font-style: italic; }
+
+/* — الوسط: ورقتا فلات ودوغ بلا حاوية — */
+.fd-center {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  display: flex; gap: 18px; align-items: center; z-index: 3;
+}
+.fd-center .fd-zone {
+  background: transparent !important; border: none !important;
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  box-shadow: none !important; padding: 4px;
+}
+.fd-center .fd-zone-label {
+  font-size: 1.5rem; font-weight: 900; letter-spacing: 2px; margin-bottom: 6px; opacity: .9;
+}
+.fd-center .fd-zone.flat .fd-zone-label { color: var(--fd-gold); text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+.fd-center .fd-zone.dog  .fd-zone-label { color: #fca5a5; text-shadow: 0 2px 10px rgba(0,0,0,.6); }
+
+/* — مأوى رزمة الموزع (قرب opp1) وبطاقة المتخمن (قرب main) — */
+.fd-deckhost { position: absolute; right: 16%; top: 22%; z-index: 3; }
+.fd-selhost  { position: absolute; right: 16%; bottom: 22%; z-index: 3; }
+
+.fd-hint {
+  position: absolute; bottom: 2%; left: 50%; transform: translateX(-50%); z-index: 5;
+  font-size: .74rem; font-weight: 700; color: #c3d0ca; text-align: center;
+}
+
+/* — الشريط السفلي: أيقونات ذهبية شفافة — */
+.fd-bottombar {
+  flex-shrink: 0; z-index: 7;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 6px 10px; direction: ltr;
+}
+.fd-bb-left, .fd-bb-center, .fd-bb-right { display: flex; align-items: center; gap: 8px; }
+.fd-bb-center { flex: 1; justify-content: center; }
+.fd-ic-btn {
+  width: 42px; height: 42px; border-radius: 12px; cursor: pointer; font-family: inherit;
+  font-size: 1.15rem; line-height: 1; color: var(--fd-gold);
+  background: transparent; border: 1px solid rgba(217,180,92,.45);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s var(--ease, ease);
+}
+.fd-ic-btn:hover:not(:disabled) { background: rgba(217,180,92,.16); box-shadow: 0 0 14px rgba(217,180,92,.4); transform: translateY(-1px); }
+.fd-ic-btn:disabled { opacity: .3; cursor: not-allowed; }
+.fd-ic-btn.ghost { opacity: .55; }
+.fd-ic-btn.mode.sel { background: var(--fd-gold); color: #0b1526; box-shadow: 0 0 14px rgba(217,180,92,.55); }
+.fd-bet-amt {
+  min-width: 56px; height: 36px; padding: 0 8px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.32); border: 1px solid rgba(255,255,255,.14);
+  font-weight: 900; font-size: .9rem; color: var(--fd-gold);
+}
+
+/* في وضع الجولة: المقاعد تتقلّص قليلاً والوسط أكثر بروزاً */
+@media (max-width: 900px) {
+  .fd-center { gap: 12px; }
+  .fd-center .fd-zone-label { font-size: 1.2rem; }
+  .fd-card { width: 56px; height: 78px; }
+  .fd-seat { width: 96px; }
+  .fd-av { width: 38px; height: 38px; font-size: .74rem; }
+  .fd-seat-name { font-size: .6rem; }
+  .fd-ic-btn { width: 38px; height: 38px; font-size: 1rem; }
+}
+
+/* — النتيجة المختصرة (نقاط) قرب اسم اللعبة، والسجل مخفي — */
+.fd-score {
+  position: absolute; top: 36px; left: 14px; z-index: 6;
+  display: flex; gap: 3px; flex-wrap: wrap; max-width: 46%;
+}
+.fd-score .fd-chip { width: 14px; height: 14px; font-size: 0; border-radius: 50%; }
+.fd-history { display: none; }
+
+/* ════════════════════════════════════════════════════════════════════
+   FLAT DOG · تنقيحات (حسب ملاحظات المستخدم)
+   - الطاولة تملأ الشاشة حافةً لحافة (الذهب = حدود الشاشة) — مقتصرة على رندا
+   - تصغير زر الخروج من الشاشة الممتلئة
+   - القائمة المنسدلة: أيقونات دائرية شفافة في خط أفقي (بلا خلفية سوداء)
+   ════════════════════════════════════════════════════════════════════ */
+
+/* الطاولة تملأ الشاشة بالكامل: يجعل #pg-game طبقة ثابتة بملء الـ viewport
+   عندما تكون اللعبة رندا فقط — فتصبح الحواف الذهبية حدود الشاشة بلا فواصل جانبية */
+#pg-game.app-fs:has(#rnContainer) {
+  position: fixed; inset: 0;
+  width: 100% !important; height: 100% !important;
+  z-index: 900;
+}
+/* إخفاء النتيجة المرئية (محتفَظ بها داخلياً) — الطاولة نظيفة */
+.fd-score { display: none !important; }
+
+/* تصغير زر الخروج من الشاشة الممتلئة (يظهر في وضع app-fs) */
+body.app-fs-on .game-fs-exit {
+  width: clamp(30px, 7vw, 36px) !important;
+  height: clamp(30px, 7vw, 36px) !important;
+  top: calc(6px + var(--safe-top)) !important;
+}
+.game-fs-exit i { font-size: clamp(.8rem, 2.4vw, 1rem) !important; }
+
+/* — القائمة المنسدلة: شريط شفاف فوق الشريط السفلي — بلا خلفية سوداء ولا حاوية — */
+.fd-sheet {
+  background: transparent !important;
+  bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  max-height: none !important;
+  display: flex !important;
+  justify-content: center;
+  padding: 0 !important;
+}
+.fd-sheet-inner {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  width: auto !important;
+}
+
+/* الأرقام: أيقونات دائرية في خط أفقي واحد — شفافة بلا خلفية */
+.fd-nums {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 8px;
+  justify-content: center;
+  grid-template-columns: none !important;
+  margin: 0 !important;
+}
+.fd-num-btn {
+  width: 46px !important; height: 46px !important; min-height: 46px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 1.5px solid rgba(217, 180, 92, 0.5) !important;
+  color: var(--fd-gold) !important;
+  font-weight: 900; font-size: 0.92rem;
+  display: flex; align-items: center; justify-content: center;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.fd-num-btn:hover:not(:disabled):not(.sel) {
+  background: rgba(217, 180, 92, 0.16) !important;
+  transform: translateY(-1px);
+}
+.fd-num-btn.sel {
+  background: var(--fd-gold) !important;
+  color: #0b1526 !important;
+  box-shadow: 0 0 16px rgba(217, 180, 92, 0.6);
+  text-shadow: none;
+}
+.fd-num-btn:disabled:not(.sel) { opacity: 0.3; }
+
+/* الرموز: أيقونات دائرية شفافة في خط أفقي */
+.fd-syms {
+  display: flex !important;
+  flex-wrap: nowrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 0 !important;
+}
+.fd-sym-btn {
+  width: 50px !important; height: 50px !important; min-height: 50px !important;
+  border-radius: 50% !important;
+  background: transparent !important;
+  border: 1.5px solid rgba(217, 180, 92, 0.5) !important;
+  padding: 0 !important;
+  display: flex; align-items: center; justify-content: center;
+}
+.fd-sym-btn span { font-size: 1.6rem; text-shadow: 0 2px 6px rgba(0, 0, 0, 0.6); }
+.fd-sym-btn:hover:not(:disabled):not(.sel) { background: rgba(217, 180, 92, 0.16) !important; transform: translateY(-1px); }
+.fd-sym-btn.sel { box-shadow: 0 0 16px rgba(217, 180, 92, 0.6); background: rgba(217, 180, 92, 0.18) !important; }
+.fd-sym-btn:disabled:not(.sel) { opacity: 0.3; }
+
+/* سؤال «راهن / انسحب»: زرّان شفافان */
+.fd-bet-prompt { display: flex; gap: 12px; justify-content: center; }
+.fd-prompt-btn {
+  min-width: 100px; padding: 11px 20px; border-radius: 999px; cursor: pointer;
+  font-family: inherit; font-weight: 900; font-size: 0.95rem;
+  border: 1.5px solid rgba(217, 180, 92, 0.55);
+  background: transparent; color: var(--fd-gold);
+  transition: all 0.15s var(--ease, ease);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+.fd-prompt-btn.bet {
+  background: linear-gradient(135deg, var(--fd-gold), var(--fd-gold-soft));
+  color: #0b1526; border-color: transparent;
+  box-shadow: 0 0 16px rgba(217, 180, 92, 0.5);
+  text-shadow: none;
+}
+.fd-prompt-btn.bet:hover { transform: translateY(-1px); }
+.fd-prompt-btn.quit { color: #fca5a5; border-color: rgba(239, 68, 68, 0.5); }
+.fd-prompt-btn.quit:hover { background: rgba(239, 68, 68, 0.16); }
+
+@media (max-width: 480px) {
+  .fd-num-btn { width: 38px !important; height: 38px !important; min-height: 38px !important; font-size: 0.82rem; }
+  .fd-sym-btn { width: 42px !important; height: 42px !important; min-height: 42px !important; }
+  .fd-sym-btn span { font-size: 1.4rem; }
+  .fd-nums { gap: 6px; }
+}
+
+/* ═══════════ ملىء الشاشة 100% بلا فجوات + أرقام متجاوبة + تسمية الأوراق ═══════════ */
+/* الطاولة الخضراء تملأ الشاشة بالكامل: حوافها الذهبية = حدود الشاشة بلا فجوات سوداء.
+   position:fixed مقتصر على وضع الشاشة الممتلئة (الافتراضي). */
+body.app-fs-on .fd-stage {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  border-radius: 0 !important;
+  z-index: 60;
+}
+/* إخفاء أي خلفية داكنة للحاويات حول الطاولة */
+body.app-fs-on #rnContainer,
+body.app-fs-on #gamePageBody,
+body.app-fs-on #pg-game { background: transparent !important; }
+
+/* الأرقام المنسدلة: تتوزّع وتتكبّر/تصغر حسب الشاشة فتظهر كاملة (1…12) */
+.fd-nums {
+  width: 100% !important;
+  max-width: 600px;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+.fd-num-btn {
+  flex: 1 1 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 54px;
+  font-size: clamp(0.7rem, 3.4vw, 0.95rem) !important;
+}
+/* الرموز كذلك متجاوبة */
+.fd-syms { width: 100% !important; max-width: 360px; }
+.fd-sym-btn {
+  flex: 1 1 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  width: auto !important; height: auto !important;
+  min-width: 0 !important; min-height: 0 !important;
+  max-width: 60px;
+}
+.fd-sym-btn span { font-size: clamp(1rem, 5vw, 1.7rem) !important; }
+
+/* تسمية ورقتي فلات ودوچ حسب اللغة */
+.fd-center .fd-zone-label {
+  font-size: clamp(0.9rem, 2.4vw, 1.4rem) !important;
+  font-weight: 900; letter-spacing: 1px; margin-bottom: 6px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+}
+
+/* — مرحلة تحديد الموزع: ورقة في كل مقعد + تتويج الموزع — */
+.fd-seat-card { display: flex; align-items: center; justify-content: center; min-height: 8px; }
+.fd-seat-card .fd-card { width: 44px; height: 62px; box-shadow: 0 4px 12px rgba(0,0,0,.5); animation: fdDraw .3s ease; }
+.fd-seat.dealer-pick .fd-av {
+  border-color: var(--fd-gold) !important;
+  box-shadow: 0 0 0 2px var(--fd-gold), 0 0 18px rgba(217,180,92,.7) !important;
+  background: rgba(217,180,92,.18);
+}
+.fd-seat.dealer-pick .fd-seat-name { color: var(--fd-gold); }
+.fd-seat.dealer-pick::after {
+  content: '👑'; position: absolute; top: -10px; font-size: 1.1rem;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.6));
+  animation: fdFloat 1.6s ease-in-out infinite;
+}
+@media (max-width: 480px) { .fd-seat-card .fd-card { width: 36px; height: 50px; } }
+
+/* — مرحلة الرهان (غرفة): شريط شفاف — */
+.fd-bet-phase { display: flex; gap: 10px; justify-content: center; align-items: center; }
+.fd-bp-amt { display: flex; flex-direction: column; align-items: center; line-height: 1.1; min-width: 64px; }
+.fd-bp-amt span { font-size: 0.62rem; font-weight: 700; color: #b9c6c0; }
+.fd-bp-amt b { font-size: 1.15rem; font-weight: 900; color: var(--fd-gold); text-shadow: 0 2px 8px rgba(0,0,0,.5); }
+
+/* ═══ الأرقام المنسدلة: دائرية كبيرة تملأ عرض الطاولة وتتكبّر/تصغر حسب الشاشة ═══ */
+.fd-sheet-inner { padding-left: 8px !important; padding-right: 8px !important; }
+.fd-nums {
+  width: 100% !important;
+  max-width: none !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  gap: clamp(4px, 1.4vw, 12px) !important;
+  padding: 0 2px !important;
+  margin: 0 !important;
+  box-sizing: border-box !important;
+}
+.fd-num-btn {
+  flex: 1 1 0 !important;
+  aspect-ratio: 1 / 1 !important;
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: 82px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 1.5px solid rgba(217, 180, 92, 0.5) !important;
+  color: var(--fd-gold) !important;
+  font-weight: 900 !important;
+  font-size: clamp(0.82rem, 3.8vw, 1.25rem) !important;
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+.fd-num-btn.sel { background: var(--fd-gold) !important; color: #0b1526 !important; box-shadow: 0 0 16px rgba(217, 180, 92, 0.6); text-shadow: none; }
+.fd-num-btn:disabled:not(.sel) { opacity: 0.3; }
+
+/* ═══ تصحيح: الأرقام/الرموز دائرية بحجم clamp محدد (تتناسب مع عرض الشاشة، بلا قص) ═══ */
+.fd-num-btn {
+  flex: 0 0 auto !important;
+  width: clamp(32px, 8.8vw, 60px) !important;
+  height: clamp(32px, 8.8vw, 60px) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  aspect-ratio: auto !important;
+  border-radius: 50% !important;
+  font-size: clamp(0.8rem, 3.3vw, 1.15rem) !important;
+}
+.fd-sym-btn {
+  flex: 0 0 auto !important;
+  width: clamp(44px, 12vw, 74px) !important;
+  height: clamp(44px, 12vw, 74px) !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  aspect-ratio: auto !important;
+}
+.fd-sym-btn span { font-size: clamp(1.1rem, 5vw, 2rem) !important; }
+.fd-nums { gap: clamp(4px, 1vw, 9px) !important; }
+
+/* ═══════════ [FLATDOG-FS] ملء الشاشة: تموضع هندسي حسب الاتجاه + تمرير عند الحاجة ═══════════ */
+/* الطاولة تملأ الشاشة، والشريط السفلي يبقى ظاهراً مثبّتاً؛ يُسمح بالتمرير
+   عندما يتعذّر على المحتوى أن يفي الشاشة (اللاندسكيب على الهواتف القصيرة) */
+body.app-fs-on .fd-stage {
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+}
+/* الشريط السفلي يلتصق بالأسفل ويفضح كل الأزرار حتى في حال التمرير */
+body.app-fs-on .fd-bottombar {
+  position: sticky;
+  bottom: 0;
+  background: transparent;
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  margin-top: auto;
+}
+/* لئلا يغطّي زر الخروج الذهبي شريط المتفرجين في اللاندسكيب */
+body.app-fs-on .fd-spec-strip {
+  top: calc(50px + env(safe-area-inset-top, 0px)) !important;
+}
+/* ── لاندسكيب (هواتف قصيرة / أجهزة عريضة) ──
+   ألغِ الحد الأدنى لارتفاع الطاولة كي تفي الشاشة بلا قصّ، ووزّع العناصر
+   هندسياً حسب العرض دون تكدّس رأسي يقطع الأزرار. الوضع يتكيّف تلقائياً
+   مع اتجاه الجهاز (بلا قفل إجباري). */
+@media (orientation: landscape) {
+  body.app-fs-on .fd-table { min-height: 0 !important; }
+  body.app-fs-on .fd-stage { gap: 8px; padding: 8px !important; height: 100%; }
+  /* بطاقات أصغر قليلاً في اللاندسكيب الضيّق لإبقاء الوسط والشريط السفلي ظاهرين */
+  body.app-fs-on .fd-card { width: clamp(48px, 11vw, 72px) !important; height: clamp(66px, 15vw, 100px) !important; }
+  body.app-fs-on .fd-ic-btn { width: clamp(34px, 7vw, 44px) !important; height: clamp(34px, 7vw, 44px) !important; }
+}
+/* هواتف قصيرة في اللاندسكيب: كل العناصر تفي الشاشة بلا قصّ ولا تمرير إجباري،
+   والأيقونات/الأزرار تبقى ظاهرة وموزّعة هندسياً */
+@media (orientation: landscape) and (max-height: 480px) {
+  body.app-fs-on .fd-stage { padding: 6px !important; gap: 6px; }
+  body.app-fs-on .fd-table { min-height: 0 !important; margin: 1px; }
+  body.app-fs-on .fd-seat { width: clamp(74px, 19vw, 104px); }
+  body.app-fs-on .fd-av { width: clamp(30px, 7vw, 40px); height: clamp(30px, 7vw, 40px); font-size: .7rem; }
+  body.app-fs-on .fd-seat-name { font-size: .56rem; max-width: 100px; }
+  body.app-fs-on .fd-center { gap: 10px; }
+  body.app-fs-on .fd-center .fd-zone-label { font-size: 1rem !important; margin-bottom: 4px; }
+  body.app-fs-on .fd-card { width: clamp(42px, 9vw, 60px) !important; height: clamp(58px, 12vw, 84px) !important; }
+  body.app-fs-on .fd-ic-btn { width: clamp(30px, 6.5vw, 40px) !important; height: clamp(30px, 6.5vw, 40px) !important; font-size: .95rem; }
+  body.app-fs-on .fd-bottombar { padding: 3px 8px; gap: 6px; }
+  body.app-fs-on .fd-bb-left .fd-bet-amt { height: 30px; }
+  body.app-fs-on .fd-spec-strip { top: 5px; right: 7px; gap: 4px; max-width: 50%; }
+  body.app-fs-on .fd-spec-ic { width: 22px; height: 22px; font-size: .5rem; }
+  body.app-fs-on .fd-turn-mini { top: 5px; padding: 3px 9px; font-size: .64rem; }
+  body.app-fs-on .fd-gname { font-size: .9rem; top: 5px; left: 7px; }
+  body.app-fs-on .fd-round-mini { top: 28px; left: 7px; font-size: .58rem; }
+  body.app-fs-on .fd-deckhost { right: 14%; top: 20%; }
+  body.app-fs-on .fd-selhost { right: 14%; bottom: 20%; }
+}
+/* ── بورتريه (الهواتف — الوضع التلقائي) ── لا حاجة لقفل اتجاه: التخطيط متجاوب
+   ويتكيّف تلقائياً إن قلب المستخدم الشاشة */
+
+/* [ES] أيقونات الرموز الإسبانية الحقيقية داخل أزرار اختيار الرمز */
+.fd-sym-btn .fd-sym-img {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}

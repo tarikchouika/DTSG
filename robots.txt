@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# DTSG — ألعاب الدكاء التقليدية الرقمية
+Sitemap: https://dtsg.pages.dev/sitemap.xml

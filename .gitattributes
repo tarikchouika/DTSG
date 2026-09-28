@@ -1,0 +1,23 @@
+# .gitattributes - تطبيع صلاحيات الملفات لمنع تغييرات الـ mode العرضية
+# كل الملفات افتراضياً mode 644 (غير قابلة للتنفيذ)
+* text=auto eol=lf
+
+# ملفات قابلة للتنفيذ بشكل صريح (only shell scripts)
+*.sh text eol=lf
+
+# ملفات الوسائط تحفظ كما هي (binary)
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.svg binary
+*.ico binary
+*.gif binary
+*.webm binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
