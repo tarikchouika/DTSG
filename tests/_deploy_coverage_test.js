@@ -108,6 +108,53 @@ for (const b of ['uno-game/uno-bridge.js', 'baloot-game/baloot-bridge.js',
   else bad(`جسر التكامل مفقود: ${b}`);
 }
 
+/* ── 6) [v2.68.1] فخّ "HTML بدل الملفات" مُغلق ──
+   Pages يخدم index.html بـ 200 + text/html لأي مسار غير مرفوع، فيتحوّل أي ملف
+   JS ناقص من سطر النسخ إلى خطأ تحليل صامت (نفس جذر حادثة أونو/البلوت).
+   الإغلاق: صفحة 404.html تُنشر + قواعد 404 صريحة في _redirects لكل مجلد
+   خادمي + قاعدة شاملة. */
+{
+  if (fs.existsSync('404.html')) ok('صفحة 404.html موجودة');
+  else bad('صفحة 404.html مفقودة — قواعد 404 ستخدم ملفاً غير موجود');
+
+  const sh = fs.readFileSync('scripts/deploy-pages.sh', 'utf8');
+  if (/\b404\.html\b/.test(sh)) ok('deploy-pages.sh ينشر 404.html');
+  else bad('deploy-pages.sh لا ينشر 404.html — لن تعمل قواعد 404 على Pages');
+
+  const rd = fs.readFileSync('_redirects', 'utf8');
+  const DENY_FOLDERS = ['games', 'rooms', 'cf-worker', 'scripts', 'tests', 'data',
+                        'node_modules', 'backups', 'logs', 'telegram-voucher-bot', 'docs', 'download'];
+  let missing = DENY_FOLDERS.filter(f => !new RegExp(`^/${f}/\\*\\s+/404\\.html\\s+404`, 'm').test(rd));
+  if (missing.length === 0) ok(`قواعد 404 صريحة لكل المجلدات الخادمية (${DENY_FOLDERS.length})`);
+  else bad(`قواعد 404 ناقصة في _redirects: ${missing.join(', ')}`);
+
+  /* [v2.68.1] تغطية كاملة: كل مدخل في جذر المستودع لا يُنشر يجب أن له قاعدة 404،
+     وإلا خدمه Pages بـ index.html (200 + text/html) — نفس جذر حادثة v2.65.1. */
+  const shSrc = fs.readFileSync('scripts/deploy-pages.sh', 'utf8');
+  const cpDir = (shSrc.match(/cp -r ([^\n"]+)/) || [, ''])[1].split(/\s+/).filter(Boolean);
+  /* كل حلقات النسخ في السكربت (for f in … / for g in …) — لا الأولى فقط */
+  const loopFiles = (shSrc.match(/for \w+ in [^;]+; do/g) || [])
+    .flatMap(s => (s.match(/[\w.*-]+/g) || []))
+    .filter(f => f && !f.endsWith('.') && f !== 'in' && f !== 'f' && f !== 'g');
+  const deployed = new Set([...cpDir, ...loopFiles]);
+  const IGNORE = new Set(['.git', '.gitattributes', '.gitignore', '.dockerignore', '.env', '.env.local', '.wrangler']);
+  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const uncovered = fs.readdirSync('.').filter(e => {
+    if (IGNORE.has(e) || deployed.has(e)) return false;
+    const isDir = fs.statSync(e).isDirectory();
+    const re = isDir ? new RegExp(`^/${esc(e)}/\\*\\s+/404\\.html\\s+404`, 'm')
+                      : new RegExp(`^/${esc(e)}\\s+/404\\.html\\s+404`, 'm');
+    return !re.test(rd);
+  });
+  if (uncovered.length === 0) ok('كل مدخل غير منشور في جذر المستودع محجوب بقاعدة 404');
+  else bad(`مداخل غير منشورة بلا قاعدة 404 (تُخدَم index.html): ${uncovered.join(', ')}`);
+
+  /* [v2.68.1] القاعدة الشاملة /* ممنوعة: قواعد التحويل تتقدّم على الأصول في
+     Pages فتكسر خدمة index.html داخل المجلدات (/uno-game/ ⇒ 404). */
+  if (/^\/\*\s+\/404\.html/m.test(rd)) bad('قاعدة /* ⇒ 404 الشاملة موجودة — تكسر /uno-game/ و/baloot-game/');
+  else ok('لا قاعدة شاملة /* (service index.html داخل المجلدات سليم)');
+}
+
 /* ── النتيجة ── */
 console.log(`\n${fail === 0 ? '✔ نجح' : '✗ فشل'}: ${pass} ناجح · ${fail} فاشل (تغطية النشر v2.65.1)`);
 process.exit(fail === 0 ? 0 : 1);

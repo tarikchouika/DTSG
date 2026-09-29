@@ -1,2 +1,58 @@
 # [v2.44] Redirects configuration
 # Cryptomus verification removed
+
+# ═══ [v2.68.1] إغلاق فخّ "HTML بدل الملفات" على Pages ═══
+# الحادثة المرجعية (v2.65.1): أي مسار غير مرفوع كان Pages يخدم له index.html
+# بـ 200 + text/html بدل 404. النتيجة: أي ملف JS ناقص من سطر النسخ يُحمل كـ HTML
+# ⇒ خطأ تحليل صامت ⇒ اللعبة معطّلة بصمت (وقع فعلاً في أونو والبلوت).
+# الخادم يحجب هذه المسارات بـ 404 (STATIC_DENY في server.js) — هذه تُوحّد سلوك
+# Pages معه.
+#
+# ⚠️ قاعدة `/* ⇒ 404` الشاملة ممنوعة هنا: قواعد التحويل تتقدّم على الأصول في
+# Pages، فتكسر خدمة index.html داخل المجلدات (/uno-game/ و/baloot-game/
+# و/backgammon-game/ أعادت 404 بسببها — انحدار مُثبت 2026-09-29).
+# الحل: تعداد صريح لكل مسار غير منشور فقط.
+#
+# وحدات الخادم (خادمية بحتة — لا تُنشر عمداً):
+/games/*           /404.html  404
+/rooms/*           /404.html  404
+/cf-worker/*       /404.html  404
+/scripts/*         /404.html  404
+/tests/*           /404.html  404
+/data/*            /404.html  404
+/node_modules/*    /404.html  404
+/backups/*         /404.html  404
+/logs/*            /404.html  404
+/telegram-voucher-bot/* /404.html 404
+# وثائق ومخططات داخلية لا تُنشر:
+/docs/*            /404.html  404
+/download/*        /404.html  404
+# ملفات الخادم والأسرار (مطابقة لأنماط STATIC_DENY في server.js):
+/server.js         /404.html  404
+/server-payments.js    /404.html  404
+/server-support.js     /404.html  404
+/server-financials.js  /404.html  404
+/server-private-chat.js /404.html  404
+/package.json      /404.html  404
+/package-lock.json /404.html  404
+/tunnel-live.json  /404.html  404
+/deploy-server.js  /404.html  404
+/deploy-clean.sh   /404.html  404
+/deploy.html       /404.html  404
+/.env              /404.html  404
+/.env.local        /404.html  404
+/.gitignore        /404.html  404
+/.gitattributes    /404.html  404
+/.dockerignore     /404.html  404
+# وثائق markdown داخلية:
+/AGENTS.md             /404.html  404
+/CHANGELOG.md          /404.html  404
+/BILLIARDS_PLAN.md     /404.html  404
+/FINANCIALS_BOT.md     /404.html  404
+/GOLVAZOR_SPEC.md      /404.html  404
+/PHONE_SERVER_FIX.md   /404.html  404
+/PHONE_UPDATE_v242.md  /404.html  404
+/RESILIENCE_AUDIT.md   /404.html  404
+/SUPPORT_BOT.md        /404.html  404
+/worklog.md            /404.html  404
+/Dockerfile            /404.html  404
