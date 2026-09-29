@@ -20,17 +20,23 @@ function unMyUserId() {
   return null;
 }
 
-/* ── معالجات نظام الغرف (نفس نمط البلوت) ── */
+/* ── معالجات نظام الغرف ── */
 function UN_roomStart(room) {
   const app = window.UnoApp;
   if (!app) return;
   app.enterRoom(room, { live: false });
 }
-function UN_roomMove(tag, payload) {
+/* [v2.68·إصلاح جوهري] التوقيع كان (tag, payload) بمعاملين بينما rooms.js
+   يستدعي معالج الحركة بمعامل واحد (كائن بثّ room:move الكامل) ⇒ payload
+   كان undefined ⇒ return مبكر ⇒ حركات أونو الحيّة لم تصل الأطراف أبداً عبر
+   هذا المسار — كانت الغرفة تعتمد كلياً على إعادة البناء عند إعادة الاتصال
+   (منظّم 700ms) = تأخير المزامنة 2-6 ثوانٍ ولوحة الضيف لا تُبنى.
+   netApplyMove نفسه يفكّ الغلاف (action==='unmove' && d.data) فلنمرّر
+   الكائن كما هو — نفس عقد بقية الجسور (البلوت/الطاولة/الضومنة...). */
+function UN_roomMove(d) {
   const app = window.UnoApp;
-  if (!app || !payload) return;
-  if (tag === 'unmove') app.netApplyMove(payload);
-  else app.netApplyMove(payload);
+  if (!app || !d) return;
+  try { app.netApplyMove(d); } catch (e) { if (window.console) console.error('[Uno MP] move', e && e.message); }
 }
 function UN_roomUpdate(room) {
   const app = window.UnoApp;
@@ -38,24 +44,28 @@ function UN_roomUpdate(room) {
   if (room && room.game_id === 'un') app._resumeRoom();
 }
 
-/* إعادة البناء من سجل الخادم (room:replay) — متسلسل مع بقية الألعاب */
+/* إعادة البناء من سجل الخادم (room:replay) — [v2.68·عزل] حراسة نظيفة:
+   لا نعالج إلا إذا غرفة أونو هي الغرفة النشطة (كانت الشروط القديمة
+   بأسبقية معاملات ملتبسة تخطي حراسة أحياناً) */
 function UN_applyReplay(history, room_id) {
   const app = window.UnoApp;
-  const rs = app._roomState ? app._roomState() : null;
-  if (room_id && rs && String(rs.id) !== String(room_id)) return false;
-  if (!app || app.config && app.config.mode === 'room' && rs && rs.game_id !== 'un') return false;
-  if (rs && rs.game_id !== 'un' && !(app.roomMode)) return false;
+  if (!app) return false;
+  const rs = (typeof Rooms !== 'undefined' && Rooms.state) ? Rooms.state : null;
+  /* الغرفة النشطة ليست أونو ⇒ ليست لنا (تمرّ للسلسلة) */
+  if (!rs || rs.game_id !== 'un') return false;
+  if (room_id && String(rs.id) !== String(room_id)) return false;
   app.applyReplay(history);
   return true;
 }
 
-/* تسجيل معالجات الغرف */
+/* تسجيل معالجات الغرف — [v2.68·عزل] تسجيل صريح بمفتاح أونو: معالجاتها
+   تُخزّن باسم 'un' فلا تُستبدل بمعالجات لعبة أخرى تُفتح بعدها/قبلها */
 function unRegisterRooms() {
   try {
     if (typeof Rooms === 'undefined' || !Rooms) return;
-    if (typeof Rooms.setGameHandler === 'function') Rooms.setGameHandler(UN_roomMove);
-    if (typeof Rooms.setStartHandler === 'function') Rooms.setStartHandler(UN_roomStart);
-    if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(UN_roomUpdate);
+    if (typeof Rooms.setGameHandler === 'function') Rooms.setGameHandler(UN_roomMove, 'un');
+    if (typeof Rooms.setStartHandler === 'function') Rooms.setStartHandler(UN_roomStart, 'un');
+    if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(UN_roomUpdate, 'un');
 
     /* استهلاك سجل معلق (رجوع من صفحة أخرى) */
     try {

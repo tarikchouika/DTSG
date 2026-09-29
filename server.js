@@ -14,8 +14,10 @@ const BUILD_VERSION = (function () {
    كان data/royalcoin.db (قاعدة المستخدمين) و server.js و package.json متاحة للتنزيل
    من الإنترنت عبر النفق/الووركر. تُعاد لها 404 كأنها غير موجودة. */
 const STATIC_DENY = [
+  /* [v2.68·عزل] games/ وrooms/ وحدات خادم (سجل الألعاب ومديري الغرف) —
+     لا تُقدَّم للويب مثل server.js نفسه (كشف كود بلا داعٍ) */
   /^\/?(server[^\/]*\.js|package(-lock)?\.json|tunnel-live\.json|\.env[^\/]*)/i,
-  /^\/?(data|cf-worker|scripts|tests|node_modules|logs|backup|backups|tmp)(\/|$)/i,
+  /^\/?(data|cf-worker|scripts|tests|node_modules|logs|backup|backups|tmp|games|rooms)(\/|$)/i,
   /(^|\/)\.(env|git|gitignore|htaccess|npmrc)/i,
   /(\.db|\.db-wal|\.db-shm|\.sqlite3?|\/dump\.sql)(\?|$)/i
 ];
@@ -345,16 +347,12 @@ function totpVerify(secret, code) {
 let nextUserId = 100;
 const users = {};               // userId -> {id, username, passHash, passSalt, role, gold, lang, banned}
 const sessions = {};            // sid -> userId
-const rooms = {};               // roomId -> room object
-let nextRoomId = 1;
-/* [v2.67] معرّفات رتيبة لا تُعاد بعد إعادة التشغيل: عدّاد محفوظ في جدول meta —
-   العميل المتقادم الذي يعيد الاتصال بعد إعادة تشغيل الخادم كان يبتلع سجل غرفة
-   جديدة تحمل المعرف نفسه فيعرض اللعبة الخاطئة (r15 القديمة تُستبدل بر15 جديدة) */
-try {
-  db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)');
-  const _nrid = db.prepare("SELECT value FROM meta WHERE key = 'next_room_id'").get();
-  if (_nrid && parseInt(_nrid.value, 10) > 0) nextRoomId = parseInt(_nrid.value, 10);
-} catch (e) {}
+/* [v2.68·عزل] نظام الغرف أصبح لكل لعبة مديره المستقل: games/registry.js
+   (تعريف كل لعبة: مقاعدها/حركاتها/مخطط حالتها) + rooms/room-manager.js
+   (دورة حياة مخصصة لكل لعبة) + rooms/index.js (المحور: توجيه معرف/رمز عالمي).
+   الخريطة العالمية `rooms` المشتركة أزيلت — غرف كل لعبة معزولة عن الأخريات،
+   فلا عطل في لعبة يمس بقية الألعاب. إنجاز v2.67 (رتابة المعرفات عبر جدول
+   meta) محفوظ حرفياً داخل المحور. الإنشاء أدناه بعد اكتمال السياق (users/db/sse). */
 /* [Payments 2026-09-16] المحفظة/الدفع/السحب فوق SQLite المحلية — بلا D1 (تصحيح المالك) */
 const pay = require('./server-payments.js');
 pay.initPaymentsTables(db);
@@ -498,23 +496,23 @@ setInterval(() => {
 const GHOST_GRACE_MS = (parseInt(process.env.DTSG_GHOST_GRACE_MS, 10) > 0) ? parseInt(process.env.DTSG_GHOST_GRACE_MS, 10) : (3 * 60 * 1000);
 function ghostSweepPass(forceGraceMs) {
   const grace = (Number(forceGraceMs) > 0) ? Number(forceGraceMs) : GHOST_GRACE_MS;
-  Object.values(rooms).forEach(function (room) {
+  roomHub.allRooms().forEach(function (room) {   /* [v2.68·عزل] كل غرف كل الألعاب عبر المحور */
     try {
-      sweepExpiredRoom(room);
+      roomHub.io.sweepExpiredRoom(room);
       if (room.status === 'playing' && !room.settled) {
         const cutoff = Date.now() - grace;
         let changed = false;
         room.players.filter(function (p) { return !p.spectate && users[p.id]; }).forEach(function (p) {
           const lastSeen = Math.max((room.lastActivity && room.lastActivity[p.id]) || 0, 0);
           if (!hasLiveSse(p.id) && lastSeen < cutoff) {
-            refundEscrow(room, p.id);
+            roomHub.io.refundEscrow(room, p.id);
             room.players = room.players.filter(function (x) { return x.id !== p.id; });
             changed = true;
           }
         });
         if (changed) {
-          if (room.players.filter(function (x) { return !x.spectate; }).length === 0) { dissolveRoom(room); }
-          else { promoteQueued(room); updateRoom(room); }
+          if (room.players.filter(function (x) { return !x.spectate; }).length === 0) { roomHub.io.dissolveRoom(room); }
+          else { roomHub.io.promoteQueued(room); roomHub.io.updateRoom(room); }
         }
       }
     } catch (e) {}
@@ -641,109 +639,16 @@ function publicUser(u) {
 /* هل اللاعب موقوف عن التعليق الصوتي والمراسلة؟ */
 function isMuted(u) { return !!(u && u.muted_until && u.muted_until > Date.now()); }
 
-/* ═══════ الغرف: تسلسل + بثّ ═══════ */
-function serializeRoom(room) {
-  const nonspec = room.players.filter(function (p) { return !p.spectate; }).sort(function (a, b) { return a.seat - b.seat; });
-  return {
-    id: room.id,
-    code: room.code,
-    game_id: room.game_id,
-    owner_id: room.owner_id,
-    owner_name: room.owner_name,
-    max_players: room.max_players,
-    status: room.status,
-    bet: room.bet || 0,   /* [B10] رهان الغرفة */
-    room_type: room.room_type || null,   /* [B10] نوع الرهان: 'hour' | 'percentage' */
-    expires_at: room.expires_at != null ? Number(room.expires_at) : null,   /* [B-rooms] نهاية صلاحية غرف الساعة */
-    visibility: room.visibility === 'private' ? 'private' : 'public',       /* [B-rooms] عامة/خاصة */
-    settled: !!room.settled,   /* [B-settle] هل حُلّت الجولة الجارية */
-    rev: room.rev || 0,   /* [v2.67·H3] ترقيم النسخة — العميل يقارنه ليعرف إن فاته شيء ويطلب المصالحة */
-    expired: !!room.expired,   /* [B-rooms] انتهت مدة الساعة والجولة الجارية آخر جولة */
-    players: room.players.map(function (p) {
-      return { id: p.id, username: p.username, ready: !!p.ready, spectate: !!p.spectate, seat: p.seat, isBot: !!p.isBot };
-    }),
-    order: nonspec.map(function (p) { return p.id; }),
-    room_state: room.room_state || {},
-    game_opts: room.game_opts || null,   /* [RS-GameOpts] إعدادات اللعبة للجميع */
-    /* [Spectator] ملخّص المقاعد وطابور طلبات الانضمام */
-    seats: { players: nonspec.length, max: room.max_players, free: Math.max(0, room.max_players - nonspec.length) },
-    joinQueue: (room.joinQueue || []).map(function (r) { return { id: r.id, username: r.username, ts: r.ts }; }),
-    /* [Req3] حالة تصويت المباراة الجديدة */
-    driverId: room.driverId != null ? room.driverId : room.owner_id,   /* [Resilience] السائق الحالي */
-    hasHistory: !!(room.moveHistory && room.moveHistory.length),   /* [Resilience] هل بدأت الجولة؟ يمنع إعادة استضافة المالك عند العودة */
-    online: Object.keys(room.online || {}),   /* [Resilience] اللاعبون المتصلون */
-    rematch: room.rematch ? {
-      participants: room.rematch.participants || [],
-      votes: room.rematch.votes || {},
-      resolved: !!room.rematch.resolved,
-      rematch: !!room.rematch.rematch,
-      agreed: room.rematch.agreed || [],
-      names: room.rematch.names || {},
-      ts: room.rematch.ts || 0
-    } : null
-  };
-}
+/* ═══════ [v2.68·عزل] الغرف: مدير لكل لعبة عبر المحور ═══════
+   كل توابع الغرف القديمة (serializeRoom/broadcastRoom/updateRoom/غرف الساعة/
+   الإيداعات/التصويت/الطابور/السائق) انتقلت حرفياً إلى rooms/shared.js وتُدار
+   لكل لعبة عبر rooms/room-manager.js. server.js يستهلك المحور فقط. */
+const roomHub = require('./rooms/index.js').createRoomHub({
+  users: users, db: db, sseClients: sseClients,
+  BET_FEE_RATE: BET_FEE_RATE, r2: r2, logTx: logTx, isMuted: isMuted
+});
 function sendSSE(res, event, data) {
   try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) {}
-}
-function broadcastRoom(room, event, payload) {
-  const memberIds = new Set(room.players.map(function (p) { return p.id; }));
-  sseClients.forEach(function (c) {
-    if (c.userId != null && memberIds.has(c.userId)) sendSSE(c.res, event, payload);
-  });
-}
-function updateRoom(room) { room.rev = (room.rev || 0) + 1; broadcastRoom(room, 'room:update', serializeRoom(room)); }   /* [v2.67·H3] كل تعديل حالة يرفع ترقيم النسخة rev للمصالحة */
-
-/* ═══════ [B-rooms] غرف الساعة: انتهاء المدة والحلّ بعد الجولة الجارية ═══════ */
-/* هل انتهت صلاحية غرفة الساعة؟ (الغرف النسبية بلا حدّ زمني) */
-function roomTimeUp(room) { return !!(room && room.room_type === 'hour' && room.expires_at != null && Date.now() > room.expires_at); }
-/* حُلّ الغرفة: بثّ room:update بقيمة null ثم حذفها (يغلقها عند الجميع) */
-function dissolveRoom(room) {
-  if (!room || !rooms[room.id]) return;
-  /* [v2.67·مال] إغلاق غرفة وجولتها غير مسوّاة → استرداد الإيداعات المتبقية
-     (كانت تُحرق مع الغرفة عند انتهاء الساعة أو انسحاب الجميع) */
-  if (room.status === 'playing' && !room.settled) refundAllEscrow(room);
-  broadcastRoom(room, 'room:update', null);
-  delete rooms[room.id];
-}
-/* [v2.67·مال] استرداد إيداع رهان لاعب (مغادرة/انقطاع/إغلاق بلا تسوية) —
-   بلا سجل win/bet تطبيقاً لمسار تعادل settleRound نفسه (استرجاع صامت للرصيد) */
-function refundEscrow(room, uid) {
-  try {
-    if (!room || !room.escrow || uid == null) return 0;
-    const amt = Number(room.escrow[uid] || 0);
-    if (!(amt > 0)) return 0;
-    room.escrow[uid] = 0;
-    const u = users[uid];
-    if (u) {
-      u.gold = (u.gold || 0) + amt;
-      try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-    }
-    return amt;
-  } catch (e) { return 0; }
-}
-function refundAllEscrow(room) {
-  if (!room || !room.escrow) return;
-  Object.keys(room.escrow).forEach(function (uid) { refundEscrow(room, Number(uid)); });
-  room.escrow = {};
-}
-/* انتهاء الصلاحية عند أي حدث غرفة: إن كانت الغرفة في الانتظار تُحلّ فوراً؛
-   وإن كانت جولة جارية تُعلَّم فقط expired=true وتُحلّ عند أول نهاية جولة (endBet/settle/rematch/vote) */
-function sweepExpiredRoom(room) {
-  if (!roomTimeUp(room)) return false;
-  if (room.status === 'playing') {
-    if (!room.expired) room.expired = true;   /* لا تُقفل حتى تنتهي الجولة الجارية */
-    return false;
-  }
-  dissolveRoom(room);
-  return true;
-}
-/* ما بعد الجولة: إن كانت غرفة ساعة منتهية/معلَّمة → حُلّها (يعيد true إن حُلّت) */
-function dissolveIfExpired(room) {
-  if (!room || room.room_type !== 'hour') return false;
-  if (!room.expired && !roomTimeUp(room)) return false;
-  dissolveRoom(room);
-  return true;
 }
 /* [v2.43] دفع الرصيد لحظياً لصاحب الحساب بعد أي تغيير مالي يحدث خارج جلسته
    (اعتماد إيداع/كوبون/إنشاء طلب سحب) — بدونه يبقى الرصيد المعروض قديماً حتى إعادة التحميل. */
@@ -812,107 +717,8 @@ function sendToUser(userId, event, data) {
 }
 
 
-/* [Req3] حلّ تصويت المباراة الجديدة: حين يقرّر كل المشاركين (تصويت أو مغادرة=رفض)
-   الموافقون المتبقّون (≥2 ويحويهم المُنشئ) يبدؤون مباراة جديدة؛ وإلا فلا مباراة جديدة */
-function tryResolveRematch(room) {
-  if (!room || !room.rematch || room.rematch.resolved) return false;
-  var rm = room.rematch;
-  var inRoom = function (id) { return room.players.some(function (p) { return p.id === id; }); };
-  var allDecided = rm.participants.every(function (id) { return rm.votes[id] || !inRoom(id); });
-  if (!allDecided) return false;
-  var agreed = rm.participants.filter(function (id) { return rm.votes[id] === 'agree' && inRoom(id); });
-  rm.resolved = true;
-  var ownerPresent = inRoom(room.owner_id);
-  if (agreed.length >= 2 && (!ownerPresent || agreed.indexOf(room.owner_id) !== -1)) {
-    /* مباراة جديدة: الموافقون لاعبون، البقية متفرجون */
-    room.players.forEach(function (p) {
-      if (agreed.indexOf(p.id) !== -1) { p.spectate = false; p.ready = true; }
-      else { p.spectate = true; p.ready = true; }
-    });
-    /* [v2.67·مال] الجولة الجديدة تُقتطع رهاناتها فعلاً (كانت تُوزَّع أرباح بلا
-       اقتطاع — ضخ نقود عبر إعادة المباراة المتكرّرة). من لا يملك رهانه يتحول
-       متفرجاً ويعود المقعد شاغراً. */
-    const bet = Number(room.bet) || 0;
-    room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
-      const u = users[p.id];
-      if (u && (u.gold || 0) >= bet) {
-        if (bet > 0) {
-          u.gold = (u.gold || 0) - bet;
-          try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-        }
-      } else {
-        p.spectate = true; p.ready = true;   /* لا يملك الرهان → متفرج */
-      }
-    });
-    room.escrow = {};
-    room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
-      if (users[p.id]) room.escrow[p.id] = bet;
-    });
-    var seat = 0;
-    room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) { p.seat = seat++; });
-    room.status = 'playing';          /* انتظار→لعب يُطلق إعادة التهيئة عند الجميع */
-    room.rematch = null;
-    room.moveHistory = [];           /* [Resilience] مباراة جديدة = سجل جديد (يسمح للمالك بالاستضافة) */
-    room.dedupSeen = {};
-    room.settled = null;             /* [B-settle] جولة جديدة قابلة للتسوية */
-  } else {
-    rm.rematch = false; rm.agreed = agreed; /* لا موافقة كافية */
-  }
-  return true;
-}
-
-/* [Spectator] ترقية المتفرجين في الطابور إلى مقاعد شاغرة (بقدر المتاح) */
-function promoteQueued(room) {
-  if (!room || !room.joinQueue || !room.joinQueue.length) return;
-  for (;;) {
-    const nonSpec = room.players.filter(function (p) { return !p.spectate; }).length;
-    if (nonSpec >= room.max_players) break;
-    const req = room.joinQueue.shift();
-    if (!req) break;
-    const p = room.players.find(function (x) { return x.id === req.id; });
-    if (p) {
-      p.spectate = false;
-      p.ready = true;
-      p.seat = nonSpec;
-    } else {
-      /* لم يعد في الغرفة — أعدّه لاعباً مباشرةً */
-      room.players.push({ id: req.id, username: req.username, ready: true, spectate: false, seat: nonSpec });
-    }
-  }
-  if (!room.joinQueue.length) room.joinQueue = [];
-}
-
-/* [Resilience] تتبّع المتصلين وإعادة تعيين السائق عند انقطاعه */
-function markOnline(room, uid) {
-  if (!room) return;
-  if (!room.online) room.online = {};
-  if (!room.lastActivity) room.lastActivity = {};
-  room.lastActivity[uid] = Date.now();   /* [v2.67] الاتصال نشاط موثّق لمنظّف الأشباح */
-  room.online[uid] = (room.online[uid] || 0) + 1;
-  /* [Resilience] إن كان السائق الحالي غير متصل (انقطع الجميع ثم عاد أحدهم) → نوّط له */
-  if (room.driverId != null && !isOnline(room, room.driverId)) {
-    var me = room.players.find(function (p) { return p.id === uid && !p.spectate; });
-    if (me) { var before = room.driverId; room.driverId = uid; if (before !== uid) updateRoom(room); }
-  }
-}
-function markOffline(room, uid) {
-  if (!room || !room.online) return;
-  room.online[uid] = (room.online[uid] || 1) - 1;
-  if (room.online[uid] <= 0) { delete room.online[uid]; }
-  /* إن كان السائق قد انقطع → نوّط الساقة لأقرب لاعب متصل */
-  if (room.driverId === uid) reassignDriver(room);
-}
-function isOnline(room, uid) { return !!(room && room.online && room.online[uid] > 0); }
-function reassignDriver(room) {
-  if (!room) return;
-  const nonspec = room.players.filter(function (p) { return !p.spectate; }).sort(function (a, b) { return a.seat - b.seat; });
-  const next = nonspec.find(function (p) { return isOnline(room, p.id) && !p.isBot; });
-  const before = room.driverId;
-  /* لا يُعطى السائق لبوت (لا عميل له): يُفضَّل أول إنسان متصل، ثم أول إنسان، ثم المالك */
-  const humanFallback = nonspec.find(function (p) { return !p.isBot; });
-  room.driverId = next ? next.id : (humanFallback ? humanFallback.id : (nonspec.length ? nonspec[0].id : room.owner_id));
-  if (before !== room.driverId) { updateRoom(room); }
-}
+/* [v2.68·عزل] tryResolveRematch/promoteQueued/markOnline/markOffline/
+   isOnline/reassignDriver انتقلت حرفياً إلى rooms/shared.js — تُدار عبر المحور. */
 
 /* [CORS DTSG-005 v2.58] قائمة صريحة للأصول الموثوقة — منع عكس أي نطاق خارجي عشوائي.
    [SEC 2026-09-23] القائمة القديمة كانت تقبل أي *.pages.dev وأي *.workers.dev
@@ -1079,18 +885,15 @@ const server = http.createServer((req, res) => {
 
     /* بثّ حالة الغرفة الحالية للمنضمّ المتأخر */
     if (me) {
-      for (const rid in rooms) {
-        const r = rooms[rid];
-        if (r.players.some(function (p) { return p.id === me.id; })) {
-          markOnline(r, me.id);
-          sendSSE(res, 'room:update', serializeRoom(r));
+      roomHub.roomsOfUser(me.id).forEach(function (r) {
+        roomHub.io.markOnline(r, me.id);
+        sendSSE(res, 'room:update', roomHub.io.serializeRoom(r));
           /* [Resilience + v2.67·H3] أعد بناء حالة الجولة للعائد — سجل الحركات
              يُبثّ كلما وُجد (لا حصرها على playing) وإن كان ترقيم العميل متقادماً */
           if (r.moveHistory && r.moveHistory.length && (isNaN(sinceRev) || sinceRev < (r.rev || 0))) {
             sendSSE(res, 'room:replay', { room_id: r.id, history: r.moveHistory });
           }
-        }
-      }
+      });
     }
 
     req.on('close', () => {
@@ -1098,10 +901,7 @@ const server = http.createServer((req, res) => {
       if (idx !== -1) sseClients.splice(idx, 1);
       /* [Resilience] انقطاع لاعب → تحديث الاتصال وإعادة تعيين السائق */
       if (me) {
-        for (const rid in rooms) {
-          const r = rooms[rid];
-          if (r.players.some(function (p) { return p.id === me.id; })) markOffline(r, me.id);
-        }
+        roomHub.roomsOfUser(me.id).forEach(function (r) { roomHub.io.markOffline(r, me.id); });
       }
     });
     return;
@@ -2065,448 +1865,109 @@ const server = http.createServer((req, res) => {
         return;
       }
 
-      /* ── الغرف ── */
+      /* ── الغرف [v2.68·عزل] ──
+         كل عملية تُوجَّه عبر المحور (rooms/index.js) إلى مدير لعبة الغرفة:
+         إنشاء/انضمام/حركات/تسويات/دردشة — كل لعبة بمعزل عن الأخريات، والتحقق
+         (مقاعد/حركات/حالة) وفق تعريف اللعبة من games/registry.js.
+         عقود الاستجابات مطابقة حرفياً لما كانت عليه (توافق كامل للعملاء). */
       if (pathname === '/api/rooms' && req.method === 'GET') {
-        const list = Object.values(rooms).filter(function (r) { return r.status === 'waiting' && r.visibility !== 'private'; }).map(function (r) {
-          return { id: r.id, code: r.code, game_id: r.game_id, owner_name: r.owner_name, max_players: r.max_players, players_count: r.players.length, status: r.status, bet: r.bet || 0, room_type: r.room_type || null, expires_at: r.expires_at != null ? Number(r.expires_at) : null, visibility: r.visibility === 'private' ? 'private' : 'public' };
-        });
-        json({ ok: true, rooms: list });
+        json({ ok: true, rooms: roomHub.waitingList() });
         return;
       }
       if (pathname === '/api/rooms' && req.method === 'POST') {
         /* إنشاء غرفة — الرهان مدفوع إلزامياً (لا غرف مجانية) */
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        /* [Auth] المشرفون (admin/super) لا يفتحون غرفاً كلاعبين ولا يراهنون */
-        if (me.role !== 'user') { json({ ok: false, message: 'المشرفون لا يمكنهم الدخول كلاعبين أو المراهنة' }, 403); return; }
-        /* [Rooms-unified] نوع واحد فقط: percentage — رسم 5% من رهان الرابح في كل جولة.
-           غرف الساعة أُلغيت بطلب المستخدم (2026-09-11). يُقبل الحقل للتوافق مع العملاء القدامى. */
-        const room_type = 'percentage';
-        const bet = Number(data.bet);
-        if (isNaN(bet) || bet <= 0) { json({ ok: false, error: 'bet_required' }, 400); return; }
-        const visibility = (data.visibility === 'private') ? 'private' : 'public';   /* [B-rooms] عامة/خاصة */
-        /* [R14-Settle] قائمة الألعاب المسموح بها في الغرف (مطابقة لـ Rooms.roomGameIds في الواجهة) */
-        const ROOM_GAMES_ALLOWED = { rp: 1, pn: 1, pr: 1, rn: 1, rm: 1, rd: 1, dm: 1, ch: 1, bg: 1, do: 1, bl8: 1, blbb: 1, blgv: 1, blsn: 1, blca: 1, un: 1, bl: 1 };   /* [BGDO] الطاولة bg + الضومنة do · [v2.67·H2] أُضيف أونو un والبلوت bl — كانتا مرفوضتين 400 «لعبة غير مدعومة في الغرف» رغم أن الواجهة تدعمهما بالكامل (السبب الجذري الموثّق لخلل فتح اللعبتين) · [BJ-ghost] بلاك جاك أُزيلت — حُذف معرفها */
-        const gid = data.game_id || 'rm';
-        if (!ROOM_GAMES_ALLOWED[gid]) { json({ ok: false, message: 'لعبة غير مدعومة في الغرف' }, 400); return; }
-        const maxp = Math.max(2, Math.min(8, parseInt(data.max_players, 10) || 4));
-        const rid = 'r' + (nextRoomId++);
-        try { db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('next_room_id', ?)").run(String(nextRoomId)); } catch (e) {}   /* [v2.67] حفظ رتابة المعرّفات فوراً */
-        const code = crypto.randomBytes(3).toString('hex').toUpperCase();
-        const room = {
-          id: rid, code: code, game_id: gid,
-          owner_id: me.id, owner_name: me.username,
-          max_players: maxp, status: 'waiting', bet: bet, room_type: room_type,
-          visibility: visibility,
-          expires_at: null,   /* [Rooms-unified] لا حد زمني — الرسم 5% على كل جولة */
-          players: [{ id: me.id, username: me.username, ready: false, spectate: false, seat: 0 }],
-          moveHistory: [], dedupSeen: {}, driverId: me.id, online: {},
-          room_state: {}, chat: [],
-          rev: 0, escrow: null, lastActivity: {},   /* [v2.67] مصالحة + إيداعات + نشاط (منظّف الأشباح) */
-          /* [RS-GameOpts] إعدادات اللعبة (نمط 4 لاعبين، هدف، مؤقت...) تُبث للجميع
-             وتبقى عبر الانقطاع/الاستئناف */
-          game_opts: (data.game_opts && typeof data.game_opts === 'object') ? data.game_opts : null
-        };
-        rooms[rid] = room;
-        markOnline(room, me.id);   /* [Resilience] المنشئ متصل */
-        json({ ok: true, room: serializeRoom(room) });
+        const rCreate = roomHub.create(data.game_id || 'rm', me, data);
+        json(rCreate.body, rCreate.status);
         return;
       }
       if (pathname === '/api/rooms/join') {
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        /* [Auth] المشرفون (admin/super) لا ينضمون كلاعبين ولا يراهنون */
-        if (me.role !== 'user') { json({ ok: false, message: 'المشرفون لا يمكنهم الدخول كلاعبين أو المراهنة' }, 403); return; }
-        const code = String(data.code || '').toUpperCase();
-        const room = Object.values(rooms).find(function (r) { return r.code === code; });
-        if (!room) { json({ ok: false, message: 'رمز الغرفة غير موجود' }, 404); return; }
-        /* [B-rooms] غرفة ساعة منتهية في الانتظار → لا انضمام جديد (تُحلّ) */
-        if (sweepExpiredRoom(room)) { json({ ok: false, message: 'انتهت صلاحية الغرفة' }, 410); return; }
-        if (room.status === 'playing' && !room.players.some(function (p) { return p.id === me.id; })) {
-          json({ ok: false, message: 'اللعبة بدأت بالفعل' }, 400); return;
-        }
-        let p = room.players.find(function (x) { return x.id === me.id; });
-        if (!p) {
-          const nonSpec = room.players.filter(function (x) { return !x.spectate; }).length;
-          if (nonSpec >= room.max_players) {
-            /* أضف كمشاهد إن امتلأت */
-            p = { id: me.id, username: me.username, ready: true, spectate: true, seat: room.players.length };
-          } else {
-            p = { id: me.id, username: me.username, ready: false, spectate: !!data.spectate, seat: nonSpec };
-          }
-          room.players.push(p);
-        }
-        markOnline(room, me.id);   /* [Resilience] اللاعب متصل (SSE فعّال) */
-        updateRoom(room);
-        json({ ok: true, room: serializeRoom(room) });
+        const rJoin = roomHub.joinByCode(me, data);
+        json(rJoin.body, rJoin.status);
         return;
       }
       if (pathname === '/api/rooms/leave') {
-        const room = rooms[data.room_id];
-        if (room) {
-          /* [B-rooms] انتهاء صلاحية غرفة الساعة عند المغادرة: قيد اللعب تُعلَّم فقط */
-          sweepExpiredRoom(room);
-        }
-        if (room && rooms[data.room_id]) {
-          /* [Req6] المُنشئ لا يغلق الغرفة حتى ينتهي الرهان الجاري */
-          if (room.status === 'playing' && room.owner_id === (me && me.id)) {
-            json({ ok: false, message: 'لا يمكن إغلاق الغرفة حتى انتهاء الرهان الجاري — انتظر نهاية المباراة' }, 400);
-            return;
-          }
-          /* [v2.67·مال] مغادرة أثناء جولة غير مسوّاة → استرداد إيداع المغادر
-             (كان يُحرق رهانه بالكامل) */
-          if (room.status === 'playing' && !room.settled && room.escrow) refundEscrow(room, me && me.id);
-          room.players = room.players.filter(function (p) { return p.id !== (me && me.id); });
-          delete room.blindPicks;   /* [v2.27] مغادرة أثناء زوج أعمى ⇒ تُبطل الاختيارات المعلقة كلها */
-          /* إزالة أي طلب انضمام خاص بالمغادر */
-          if (room.joinQueue) room.joinQueue = room.joinQueue.filter(function (r) { return r.id !== (me && me.id); });
-          if (room.players.length === 0 || room.owner_id === (me && me.id)) {
-            /* خروج المالك يحلّ الغرفة */
-            broadcastRoom(room, 'room:update', null);
-            delete rooms[room.id];
-          } else {
-            promoteQueued(room); /* [Spectator] املأ المقعد الشاغر من الطابور */
-            tryResolveRematch(room); /* [Req3] مغادرة مشارك = رفض → قد يحلّ التصويت */
-            updateRoom(room);
-          }
-        }
-        json({ ok: true });
+        const rLeave = roomHub.exec('leave', me, data);
+        json(rLeave.body, rLeave.status);
         return;
       }
       if (pathname === '/api/rooms/ready') {
-        const room = rooms[data.room_id];
-        if (room && me) {
-          /* [B-rooms] فحص انتهاء صلاحية غرفة الساعة عند أي حدث غرفة (جولة منتهية → حُلّت فوراً) */
-          if (sweepExpiredRoom(room)) { json({ ok: false, message: 'انتهت صلاحية الغرفة' }, 410); return; }
-          const p = room.players.find(function (x) { return x.id === me.id; });
-          if (p) p.ready = !!data.ready;
-          updateRoom(room);
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rReady = roomHub.exec('ready', me, data);
+        json(rReady.body, rReady.status);
         return;
       }
       if (pathname === '/api/rooms/start') {
-        /* [Auth] المشرفون (admin/super) لا يبدؤون جولات كلاعبين ولا يراهنون */
-        if (me && me.role !== 'user') { json({ ok: false, message: 'المشرفون لا يمكنهم الدخول كلاعبين أو المراهنة' }, 403); return; }
-        const room = rooms[data.room_id];
-        if (room && me && room.owner_id === me.id) {
-          /* [B-rooms] لا بدء جولة جديدة في غرفة ساعة منتهية الصلاحية */
-          if (sweepExpiredRoom(room)) { json({ ok: false, message: 'انتهت صلاحية الغرفة' }, 410); return; }
-          const bet = Number(room.bet) || 0;
-          /* [B10] اقتطاع الرهان من كل لاعب غير متفرّج (وليس بوتّاً) عند بدء المباراة */
-          const payers = room.players.filter(function (p) { return !p.spectate && users[p.id]; });
-          let insufficient = null;
-          for (const p of payers) {
-            if ((users[p.id].gold || 0) < bet) { insufficient = users[p.id].username; break; }
-          }
-          if (insufficient) { json({ ok: false, error: 'insufficient_funds', user: insufficient }, 400); return; }
-          payers.forEach(function (p) {
-            const u = users[p.id];
-            u.gold = (u.gold || 0) - bet;
-            try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-          });
-          /* [v2.67·مال] إيداعات الجولة: يُسجَّل ما دفعه كل لاعب فعلاً — لاسترداده
-             عند المغادرة/الإلغاء ولتسوية دقيقة بمبالغ حقيقية فقط (المُرقّى من الطابور
-             لا يدخل في حساب الرهان لأنه لم يدفع شيئاً) */
-          room.escrow = {};
-          payers.forEach(function (p) { room.escrow[p.id] = bet; });
-          room.status = 'playing';
-          room.settled = null;   /* [B-settle] جولة جديدة قابلة للتسوية (مسار endBet→start) */
-          updateRoom(room);
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rStart = roomHub.exec('start', me, data);
+        json(rStart.body, rStart.status);
         return;
       }
       if (pathname === '/api/rooms/spectate') {
-        const room = rooms[data.room_id];
-        if (room && me) {
-          /* [B-rooms] فحص انتهاء صلاحية غرفة الساعة عند أي حدث غرفة */
-          if (sweepExpiredRoom(room)) { json({ ok: false, message: 'انتهت صلاحية الغرفة' }, 410); return; }
-          let p = room.players.find(function (x) { return x.id === me.id; });
-          if (!p) { p = { id: me.id, username: me.username, ready: true, spectate: false, seat: room.players.length }; room.players.push(p); }
-          /* [B10] لا يجوز الترقّي من مشاهد إلى لاعب والمقاعد ممتلئة */
-          if (!data.spectate && p.spectate) {
-            const nonSpec = room.players.filter(function (x) { return !x.spectate && x.id !== me.id; }).length;
-            if (nonSpec >= room.max_players) {
-              json({ ok: false, message: 'المقاعد ممتلئة — يمكنك المشاهدة فقط' }, 400);
-              return;
-            }
-          }
-          p.spectate = !!data.spectate;
-          if (data.spectate) p.ready = true;
-          updateRoom(room);
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rSpec = roomHub.exec('spectate', me, data);
+        json(rSpec.body, rSpec.status);
         return;
       }
-      /* [Spectator] طلب انضمام متفرج: يُضاف للطابور ويُرقّى فوراً إن وُجد مقعد شاغر */
       if (pathname === '/api/rooms/joinRequest') {
-        const room = rooms[data.room_id];
-        if (room && me) {
-          /* [B-rooms] فحص انتهاء الصلاحية عند أي حدث غرفة */
-          if (sweepExpiredRoom(room)) { json({ ok: false, message: 'انتهت صلاحية الغرفة' }, 410); return; }
-          let p = room.players.find(function (x) { return x.id === me.id; });
-          if (!p) { p = { id: me.id, username: me.username, ready: true, spectate: true, seat: room.players.length }; room.players.push(p); }
-          if (p.spectate) {
-            if (!room.joinQueue) room.joinQueue = [];
-            if (!room.joinQueue.some(function (r) { return r.id === me.id; })) {
-              room.joinQueue.push({ id: me.id, username: me.username, ts: Date.now() });
-            }
-            promoteQueued(room);
-            updateRoom(room);
-          }
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rJr = roomHub.exec('joinRequest', me, data);
+        json(rJr.body, rJr.status);
         return;
       }
-      /* [Req6] انتهاء الرهان: المُنشئ يُعلن نهاية المباراة فتعود الغرفة للانتظار ويصبح الإغلاق ممكناً */
       if (pathname === '/api/rooms/endBet') {
-        const room = rooms[data.room_id];
-        if (room && me && room.owner_id === me.id && room.status === 'playing') {
-          /* [v2.67·مال] إنهاء الجولة بلا تسوية → استرداد الإيداعات (كانت تُحرق كلها) */
-          if (!room.settled && room.escrow) refundAllEscrow(room);
-          room.status = 'waiting';
-          room.players.forEach(function (p) { if (!p.spectate) p.ready = false; });
-          /* [B-rooms] انتهت الساعة → حُلّ الغرفة بعد انتهاء الجولة الجارية */
-          if (dissolveIfExpired(room)) { json({ ok: true, room: null }); return; }
-          updateRoom(room);
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rEnd = roomHub.exec('endBet', me, data);
+        json(rEnd.body, rEnd.status);
         return;
       }
-
-      /* [Req3] بدء تصويت المباراة الجديدة عند نهاية المباراة (المُنشئ) */
-      /* [MP-AI] المضيف يضيف لاعباً آلياً لملء مقعد (لاعب آلي يلعب وفق القواعد) */
-      /* [Settle] تسوية رهان فلات دوچ بين لاعبَين: يُقتطع من الخاسر ويُضاف للرابح
-         بعد اقتطاع رسم الرهان (BET_FEE_RATE). للمالك فقط (نتيجة حتمية). */
-      /* [B-settle] تسوية رهان المباريات الحتمية (ضاما/شطرنج — العميل يعرف الفائز): للمضيف فقط.
-         result: 'w0'..'w3' فاز صاحب order[seat] (وسّعناها من w0/w1 — كانت ترفض مقاعد
-         2-3 فتكسر تسوية الروندا FFA بثلاثة لاعبين) | 'draw' تعادل.
-         الرهانات اقتُطعت عند /api/rooms/start — هنا تُوزَّع فقط:
-         draw → استرجاع كامل بلا رسوم؛ wN → الرابح يأخذ pot كاملاً بعد رسم 5% (غرف percentage فقط) */
+      /* [B-settle] تسوية رهان المباريات الحتمية (المقاعد w0-w3 / draw) — للمضيف */
       if (pathname === '/api/rooms/settleRound') {
-        const room = rooms[data.room_id];
-        if (process.env.DM_TEST_MODE === '1') console.log('[settleRound]', JSON.stringify({ room: data.room_id, result: data.result, owner: me && me.id, game: room && room.game_id }));
-        if (!room) { json({ ok: false, message: 'الغرفة غير موجودة' }, 404); return; }
-        if (!me || room.owner_id !== me.id) { json({ ok: false, message: 'غير مصرّح — للمضيف فقط' }, 403); return; }
-        if (room.status !== 'playing') { json({ ok: false, message: 'لا جولة جارية للتسوية' }, 400); return; }
-        if (room.settled) { if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] dup-rejected', data.room_id); json({ ok: false, message: 'تمت تسوية هذه الجولة مسبقاً' }, 400); return; }
-        const result = data.result;
-        /* [R14-Settle] w0-w3: مقاعد 0-3 (غرف 2-4 لاعبين) + draw */
-        const seatMatch = /^w([0-3])$/.exec(result);
-        if (!seatMatch && result !== 'draw') { json({ ok: false, message: 'نتيجة غير صالحة' }, 400); return; }
-        const order = serializeRoom(room).order;   /* غير المتفرجين حسب المقعد (بشر + بوتّات) */
-        if (seatMatch && Number(seatMatch[1]) >= order.length) { json({ ok: false, message: 'مقعد غير موجود' }, 400); return; }
-        if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] proceeding', data.room_id, 'result', result, 'order', JSON.stringify(order));
-        const pot = Number(room.bet) || 0;   /* رهان كل لاعب — اقتُطع عند البدء */
-        /* اللاعبون البشريون الحقيقيون (البوتّات بلا رصيد تُتجاهل في الحساب) */
-        const humans = order.filter(function (pid) { return users[pid]; })
-          .map(function (pid) { return users[pid]; });
-        /* [v2.67·مال] المال الفعلي على الطاولة = الإيداعات المسجّلة الفعلية فقط
-           (تعادل ما دُفع عند البدء) — مع رجوع لرهان الغرفة للجولات التي بدأت
-           قبل هذا الإصدار (بلا سجل إيداع) حفاظاً على التوافق */
-        const escrowOf = function (u) { return Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : pot); };
-        let fee = 0;
-        if (result === 'draw') {
-          /* استرجاع كامل لكل لاعب بشري بلا رسوم — بمبلغ إيداعه الفعلي */
-          if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] DRAW refund', data.room_id, JSON.stringify(humans.map(function (u) { return u.username; })));
-          humans.forEach(function (u) {
-            const back = escrowOf(u);
-            u.gold = (u.gold || 0) + back;
-            try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-          });
-        } else {
-          const wIdx = Number(seatMatch[1]);
-          const winner = order[wIdx] != null ? users[order[wIdx]] : null;
-          if (!winner) { if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] bot-winner rejected', data.room_id); json({ ok: false, message: 'الرابح لاعب آلي أو غير موجود — لا تسوية' }, 400); return; }
-          /* المال الفعلي على الطاولة: إيداعات البشريين الحاضرين فقط (لا مال من فراغ) */
-          const stake = humans.reduce(function (s, u) { return s + escrowOf(u); }, 0);
-          /* الرسم: 5% من رهان الرابح في كل الجولات (نظام موحد — لا غرف ساعة بعد الآن) */
-          fee = r2(pot * BET_FEE_RATE);   /* [Decimal] تقريب منزلتين (نظام سام v2.21) */
-          if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] WIN payout', data.room_id, winner.username, 'stake', stake, 'fee', fee);
-          winner.gold = (winner.gold || 0) + (stake - fee);
-          try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
-        }
-        room.escrow = {};   /* [v2.67·مال] الجولة سُوّيت — الإيداعات توزّعت فتُمسح */
-        room.settled = true;   /* منع تكرار التسوية للجولة نفسها */
-        const shape = function (u) { return u ? { id: u.id, username: u.username, gold: u.gold } : null; };
-        const wSeat = seatMatch ? Number(seatMatch[1]) : -1;
-        const winnerOut = (wSeat >= 0) ? shape(users[order[wSeat]]) : null;
-        const loserOut = (wSeat === 0) ? shape(users[order[1]]) : (wSeat === 1 ? shape(users[order[0]]) : null);   /* بلا خاسر محدد في FFA متعدد المقاعد */
-        const refunds = (result === 'draw') ? humans.map(function (u) { return shape(u); }) : [];
-        const payout = (result === 'draw') ? pot : r2((humans.length * pot) - fee);
-        const payload = {
-          ok: true, result: result, pot: pot, fee: fee,
-          winner: winnerOut, loser: loserOut, refunds: refunds,
-          dissolved: false, payout: payout
-        };
-        /* بثّ التسوية لكل أعضاء الغرفة (لاعبين + متفرجين) — العميل يزامن الأرصدة ويغلق عند dissolved */
-        broadcastRoom(room, 'room:settle', payload);
-        /* غرفة الساعة منتهية الصلاحية → تُحلّ بعد التسوية مباشرة */
-        if (dissolveIfExpired(room)) payload.dissolved = true;
-        json(payload);
+        const rSettle = roomHub.exec('settleRound', me, data);
+        json(rSettle.body, rSettle.status);
         return;
       }
-      /* [RDC-team] تسوية رهان روندا 2ضد2 (فرق): تُقسَّم أرباح الرهان بين
-         أعضاء الفريق الفائز (لكل فائز حصته بالتساوي من رهانات البشر).
-         result: 't0' فاز فريق المقاعد 0 و2 | 't1' فريق المقاعد 1 و3.
-         البوتّات بلا رصيد تُتجاهل في الحساب؛ الرسم 5% لغرف percentage فقط. */
+      /* [RDC-team + v2.68] تسوية الفرق (t0/t1) — مقاعد زوجية (2 أو 4): الفريق = مقعد % 2 */
       if (pathname === '/api/rooms/settleTeamRound') {
-        const room = rooms[data.room_id];
-        if (!room) { json({ ok: false, message: 'الغرفة غير موجودة' }, 404); return; }
-        if (!me || room.owner_id !== me.id) { json({ ok: false, message: 'غير مصرّح — للمضيف فقط' }, 403); return; }
-        if (room.status !== 'playing') { json({ ok: false, message: 'لا جولة جارية للتسوية' }, 400); return; }
-        if (room.settled) { json({ ok: false, message: 'تمت تسوية هذه الجولة مسبقاً' }, 400); return; }
-        const result = data.result;
-        if (result !== 't0' && result !== 't1') { json({ ok: false, message: 'نتيجة غير صالحة' }, 400); return; }
-        const order = serializeRoom(room).order;   /* ترتيب مقاعد محرك الروندا */
-        if (order.length !== 4) { json({ ok: false, message: 'تسوية الفرق لـ 4 مقاعد فقط' }, 400); return; }
-        const bet = Number(room.bet) || 0;
-        const winSeats = (result === 't0') ? [0, 2] : [1, 3];   /* teamId = مقعد % 2 */
-        const loseSeats = (result === 't0') ? [1, 3] : [0, 2];
-        const humanOf = function (pid) { return (pid != null && users[pid]) ? users[pid] : null; };
-        const winners = winSeats.map(function (i) { return humanOf(order[i]); }).filter(Boolean);
-        const losers = loseSeats.map(function (i) { return humanOf(order[i]); }).filter(Boolean);
-        if (!winners.length) { json({ ok: false, message: 'الفريق الفائز آلي بالكامل — لا تسوية' }, 400); return; }
-        const humansAll = order.map(function (pid) { return humanOf(pid); }).filter(Boolean);
-        /* [v2.67·مال] المال الفعلي على الطاولة = الإيداعات الفعلية فقط
-           (رجوع لرهان الغرفة للجولات التي بدأت قبل هذا الإصدار) */
-        const stake = humansAll.reduce(function (s, u) { return s + Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : bet); }, 0);
-        /* الرسم: 5% من رهان كل رابح (نظام موحد) */
-        const fee = r2(bet * BET_FEE_RATE * winners.length);
-        const net = r2(stake - fee);
-        const share = r2(net / winners.length);
-        let remainder = net - share * winners.length;
-        winners.forEach(function (u) {
-          const add = share + (remainder > 0 ? 1 : 0);
-          if (remainder > 0) remainder--;
-          u.gold = (u.gold || 0) + add;
-          try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-          u._rdShare = add;
-        });
-        room.escrow = {};   /* [v2.67·مال] الجولة سُوّيت — الإيداعات توزّعت فتُمسح */
-        room.settled = true;
-        const shape = function (u) {
-          return u ? { id: u.id, username: u.username, gold: u.gold, share: u._rdShare || 0 } : null;
-        };
-        const payload = {
-          ok: true, result: result, pot: bet, fee: fee, payout: net, teamSplit: true,
-          winners: winners.map(shape), losers: losers.map(shape), refunds: [],
-          dissolved: false
-        };
-        broadcastRoom(room, 'room:settle', payload);
-        if (dissolveIfExpired(room)) payload.dissolved = true;
-        json(payload);
+        const rTeam = roomHub.exec('settleTeamRound', me, data);
+        json(rTeam.body, rTeam.status);
         return;
       }
+      /* [Settle-legacy] التسوية القديمة بالأسماء (روندا الكلاسيكية) — للمضيف */
       if (pathname === '/api/rooms/settle') {
-        const room = rooms[data.room_id];
-        const isHost = room && me && room.owner_id === me.id;
-        if (!isHost || !data.loser || !data.winner) { json({ ok: false, message: 'غير مصرّح' }, 403); return; }
-        const amt = parseInt(data.amount, 10);
-        if (isNaN(amt) || amt <= 0) { json({ ok: false, message: 'مبلغ غير صالح' }, 400); return; }
-        const loser = Object.values(users).find(function (u) { return u.username === data.loser; });
-        const winner = Object.values(users).find(function (u) { return u.username === data.winner; });
-        if (!loser || !winner) { json({ ok: false, message: 'لاعب غير موجود' }, 400); return; }
-        if ((loser.gold || 0) < amt) { json({ ok: false, message: 'رصيد الخاسر غير كافٍ' }, 400); return; }
-        /* الرسم الموحد: 5% من المبلغ المحوّل */
-        const fee = Math.round(amt * BET_FEE_RATE);
-        loser.gold = (loser.gold || 0) - amt;
-        winner.gold = (winner.gold || 0) + (amt - fee);
-        /* [server-tx] تسوية الغرفة في سجل المعاملات DB (win للفائز / bet للخاسر) */
-        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(loser.gold, loser.id); } catch (e) {}
-        try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
-        logTx(winner, 'win', amt - fee, { game_id: room.game_id, counterparty_id: loser.id, counterparty_name: loser.username, balance_after: winner.gold });
-        logTx(loser, 'bet', amt, { game_id: room.game_id, counterparty_id: winner.id, counterparty_name: winner.username, note: 'خسارة جولة', balance_after: loser.gold });
-        json({ ok: true, fee: fee, loser: { username: loser.username, gold: loser.gold }, winner: { username: winner.username, gold: winner.gold } });
+        const rLegacy = roomHub.exec('settleLegacy', me, data);
+        json(rLegacy.body, rLegacy.status);
         return;
       }
-      /* [Timeout] انتهاء مهلة المتخمّن: يُصبح متفرجاً ويُرقّى متفرج من الطابور لمقعده */
+      /* [Timeout] انتهاء مهلة المتخمّن: يُصبح متفرجاً ويُرقّى متفرج من الطابور */
       if (pathname === '/api/rooms/timeoutSeat') {
-        const room = rooms[data.room_id];
-        const isHost = room && me && room.owner_id === me.id;
-        if (!isHost || data.playerId == null) { json({ ok: false, message: 'غير مصرّح' }, 403); return; }
-        const p = room.players.find(function (x) { return String(x.id) === String(data.playerId) && !x.spectate; });
-        if (p) { p.spectate = true; p.ready = true; }
-        promoteQueued(room);
-        updateRoom(room);
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rTs = roomHub.exec('timeoutSeat', me, data);
+        json(rTs.body, rTs.status);
         return;
       }
-      /* [Policy 2026-09-16] أُزيل الآليون من الغرف: الغرف حصرية للرهان واللعب
-         وجه لوجه بين البشر؛ التدريب ضد الآلي مجاني خارج الغرف وبلا تسجيل. */
+      /* [Policy 2026-09-16] أُزيل الآليون من الغرف: حصرية للاعبين البشر */
       if (pathname === '/api/rooms/addBot' || pathname === '/api/rooms/removeBot') {
         json({ ok: false, message: 'الغرف حصرية للاعبين البشر — التدريب ضد الآلي من شاشة اللعبة' }, 403);
         return;
       }
+      /* [Req3] بدء تصويت المباراة الجديدة + التصويت */
       if (pathname === '/api/rooms/rematch/start') {
-        const room = rooms[data.room_id];
-        const mePart = room && me && room.players.some(function (p) { return p.id === me.id && !p.spectate; });
-        if (mePart && !room.rematch) {
-          /* [B-rooms] انتهت الساعة: في الانتظار تُحلّ فوراً؛ والجاري جولته تُعلَّم فقط وتُحلّ عند حلّ التصويت */
-          if (sweepExpiredRoom(room)) { json({ ok: true, room: null }); return; }
-          const parts = room.players.filter(function (p) { return !p.spectate; });
-          const names = {};
-          parts.forEach(function (p) { names[p.id] = p.username; });
-          room.rematch = { participants: parts.map(function (p) { return p.id; }), votes: {}, names: names, ts: Date.now() };
-          room.status = 'waiting';           /* انتهى الرهان → يُسمح بالإغلاق (بند 6) */
-          updateRoom(room);
-          /* مهلة أمان 60ث: من لم يقرّر يُعدّ رافضاً ثم الحلّ */
-          const rid = room.id;
-          setTimeout(function () {
-            const r = rooms[rid];
-            if (r && r.rematch && !r.rematch.resolved) {
-              r.rematch.participants.forEach(function (id) { if (!r.rematch.votes[id]) r.rematch.votes[id] = 'refuse'; });
-              if (tryResolveRematch(r)) updateRoom(r);
-              /* [B-rooms] صلاحية منتهية بعد رفض المباراة الجديدة → حُلّ الغرفة */
-              if (r.rematch && r.rematch.resolved && !r.rematch.rematch) dissolveIfExpired(r);
-            }
-          }, 60000);
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rRms = roomHub.exec('rematchStart', me, data);
+        json(rRms.body, rRms.status);
         return;
       }
-      /* [Req3] تصويت مشارك: موافقة/رفض المباراة الجديدة */
       if (pathname === '/api/rooms/rematch/vote') {
-        const room = rooms[data.room_id];
-        if (room && me && room.rematch && !room.rematch.resolved && room.rematch.participants.indexOf(me.id) !== -1) {
-          room.rematch.votes[me.id] = (data.vote === 'agree') ? 'agree' : 'refuse';
-          if (tryResolveRematch(room)) updateRoom(room); else updateRoom(room);
-          /* [B-rooms] انتهت الساعة مع رفض المباراة الجديدة (لا جولة جارية) → حُلّ الغرفة */
-          if (room.rematch && room.rematch.resolved && !room.rematch.rematch && rooms[room.id]) {
-            if (dissolveIfExpired(room)) { json({ ok: true, room: null }); return; }
-          }
-        }
-        json({ ok: true, room: room ? serializeRoom(room) : null });
+        const rRmv = roomHub.exec('rematchVote', me, data);
+        json(rRmv.body, rRmv.status);
         return;
       }
-
-      /* [Req7] بثّ رمز تعبيري/تفاعل لكل أعضاء الغرفة (لاعبين + متفرجين) */
+      /* [Req7/Req8] التفاعل والرسائل الصوتية */
       if (pathname === '/api/rooms/react') {
-        const room = rooms[data.room_id];
-        if (room && me) {
-          const emoji = String(data.emoji || '').slice(0, 16);
-          broadcastRoom(room, 'room:react', { room_id: room.id, emoji: emoji, from_id: me.id, from_name: me.username, ts: Date.now() });
-        }
-        json({ ok: true });
+        const rReact = roomHub.exec('react', me, data);
+        json(rReact.body, rReact.status);
         return;
       }
-
-      /* [Req8] بثّ رسالة صوتية (≤10ث) لكل أعضاء الغرفة */
       if (pathname === '/api/rooms/voice') {
-        if (isMuted(me)) { json({ ok: false, message: 'موقوف عن التعليق الصوتي', muted_until: me.muted_until }, 403); return; }
-        const room = rooms[data.room_id];
-        if (room && me) {
-          let audio = String(data.audio || '');
-          /* حدّ أمان: لا تقبل رسائل صوتية أكبر من ~700KB */
-          if (audio.length > 980000) audio = '';
-          const dur = Math.max(0, Math.min(10, parseInt(data.dur, 10) || 0));
-          if (audio) broadcastRoom(room, 'room:voice', { room_id: room.id, audio: audio, dur: dur, from_id: me.id, from_name: me.username, ts: Date.now() });
-        }
-        json({ ok: true });
+        const rVoice = roomHub.exec('voice', me, data);
+        json(rVoice.body, rVoice.status);
         return;
       }
 
-      /* [v2.67·اختبار] مقبض دورة منظّف الأشباح — باب اختباري حصراً في DM_TEST_MODE=1
-         (نفس حراسة باب qa-admin-secret في v2.59). الإنتاج: 403. */
+      /* [v2.67·اختبار] مقبض دورة منظّف الأشباح — باب اختبار حصراً في DM_TEST_MODE=1 */
       if (pathname === '/api/__test/ghost-sweep' && req.method === 'POST') {
         if (process.env.DM_TEST_MODE !== '1') { json({ ok: false, error: 'forbidden' }, 403); return; }
         try {
@@ -2517,88 +1978,25 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      /* [v2.68·عزل] الحركة: توجيه لمدير لعبة الغرفة — قائمة بيضاء للأكشنات
+         + ملكية الحالة (السائق) + base_rev ضد الكتابة المتقادمة.
+         العقد القديم محفوظ: {ok, room} وroom:move يبث للجميع مع rev */
       if (pathname === '/api/rooms/move') {
-        const room = rooms[data.room_id];
-        /* [v2.67·C1] الحركة تتطلب دخولاً وعضوية في الغرفة — كانت مفتوحة لأي واصل
-           يعرف معرف الغرفة فيمكنه حقن حركات في مباريات غيره */
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        if (!room) { json({ ok: false, message: 'الغرفة غير موجودة' }, 404); return; }
-        if (!room.players.some(function (p) { return p.id === me.id; })) { json({ ok: false, message: 'لست عضواً في هذه الغرفة' }, 403); return; }
-        if (room.lastActivity) room.lastActivity[me.id] = Date.now();   /* [v2.67] نشاط لمنظّف الأشباح */
-        room.rev = (room.rev || 0) + 1;   /* [v2.67·H3] ترقيم النسخة مع كل حركة */
-          /* [v2.27 blindResult] اختيار أعمى زوجي (pn/rp): القيمة لا تُبث أبداً.
-             كل مختار يستقبل 'blind' بلا قيمة (الخصم اختار)، وعند اكتمال زوج
-             اللاعبين النشطين يُبث 'blindResult' بخريطة dirs معاً — عدالة وجهاً لوجه.
-             (كانت القيمة تُبث فوراً فيقرأها الخصم قبل اختياره — الفجوة الموثقة في GITHUB_SYNC) */
-          if (data.action === 'blind') {
-            if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-            const inRoom = room.players.some(function (p) { return p.id === me.id && !p.spectate; });
-            if (!inRoom) { json({ ok: false, message: 'لست لاعباً نشطاً في الغرفة' }, 403); return; }
-            if (!room.blindPicks) room.blindPicks = {};
-            const pv = (data.data && data.data.d !== undefined) ? data.data.d : (data.data || {});
-            room.blindPicks[me.id] = pv;
-            broadcastRoom(room, 'room:move', { room_id: room.id, action: 'blind', data: {}, from_id: me.id, rev: room.rev });
-            const active = room.players.filter(function (p) { return !p.spectate; });
-            if (active.length >= 2 && active.every(function (p) { return room.blindPicks[p.id] !== undefined; })) {
-              const dirs = {};
-              active.forEach(function (p) { dirs[p.id] = room.blindPicks[p.id]; });
-              delete room.blindPicks;   /* الجولة التالية تبدأ نظيفة */
-              broadcastRoom(room, 'room:move', { room_id: room.id, action: 'blindResult', data: { dirs: dirs }, from_id: null, rev: room.rev });
-            }
-            json({ ok: true, room: serializeRoom(room) });
-            return;
-          }
-          if (data.state !== undefined && data.state !== null) room.room_state = data.state;
-          const payload = data.data || {};
-          /* [Resilience] تسجيل تاريخ الحركات لإعادة بناء حالة العائد */
-          if (data.action === 'rmove' && payload && payload.action) {
-            const dedupKey = payload.dedup;
-            if (dedupKey) {
-              if (!room.dedupSeen) room.dedupSeen = {};
-              if (room.dedupSeen[dedupKey]) { json({ ok: true, room: serializeRoom(room) }); return; }  /* مكرَّر — تجاهله */
-              room.dedupSeen[dedupKey] = 1;
-            }
-            if (!room.moveHistory) room.moveHistory = [];
-            room.moveHistory.push(payload);
-            if (room.moveHistory.length > 2000) room.moveHistory.shift();
-          }
-          broadcastRoom(room, 'room:move', { room_id: room.id, action: data.action, data: payload, from_id: me.id, rev: room.rev });   /* [v2.67·H3] rev في كل حركة */
-          json({ ok: true, room: serializeRoom(room) });
+        const rMove = roomHub.exec('move', me, data);
+        json(rMove.body, rMove.status);
         return;
       }
       const chatMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/chat$/);
       if (chatMatch && req.method === 'GET') {
-        /* [v2.67·C1] سجل دردشة الغرفة لأعضائها المصادقين فقط — كان مكشوفاً للعالم
-           بلا أي مصادقة (أي واصل يقرأ محادثات اللاعبين برقم الغرفة) */
-        const room = rooms[chatMatch[1]];
-        if (!me || !room) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        if (!room.players.some(function (p) { return p.id === me.id; })) { json({ ok: false, message: 'لست عضواً في هذه الغرفة' }, 403); return; }
-        const msgs = room.chat.slice(-100);
-        json({ ok: true, messages: msgs });
+        /* [v2.67·C1] سجل دردشة الغرفة لأعضائها المصادقين فقط */
+        const rChatGet = roomHub.exec('getChat', me, { room_id: chatMatch[1] });
+        json(rChatGet.body, rChatGet.status);
         return;
       }
       if (pathname === '/api/rooms/chat') {
-        /* [v2.67·C1] إرسال الدردشة يتطلب دخولاً وعضوية — كان يقبل رسائل «زائر» مجهولة */
-        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
-        if (isMuted(me)) { json({ ok: false, message: 'موقوف عن المراسلة', muted_until: me.muted_until }, 403); return; }
-        const room = rooms[data.room_id];
-        if (!room) { json({ ok: false, message: 'الغرفة غير موجودة' }, 404); return; }
-        if (!room.players.some(function (p) { return p.id === me.id; })) { json({ ok: false, message: 'لست عضواً في هذه الغرفة' }, 403); return; }
-        if (room.lastActivity) room.lastActivity[me.id] = Date.now();   /* [v2.67] نشاط لمنظّف الأشباح */
-          const msg = {
-            room_id: data.room_id, text: data.text || '',
-            from_id: me.id, from_name: me.username,
-            to_id: data.to != null ? Number(data.to) : null,
-            to_name: '', created_at: Date.now()
-          };
-          if (data.to != null) {
-            const to = room.players.find(function (x) { return x.id === Number(data.to); });
-            if (to) msg.to_name = to.username;
-          }
-          room.chat.push(msg);
-          if (room.chat.length > 200) room.chat.shift();
-          broadcastRoom(room, 'room:chat', msg);
-          json({ ok: true, msg: msg });
+        /* [v2.67·C1] إرسال الدردشة يتطلب دخولاً وعضوية */
+        const rChat = roomHub.exec('chat', me, data);
+        json(rChat.body, rChat.status);
         return;
       }
 

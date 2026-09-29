@@ -8,9 +8,21 @@
 
   var _source = null;
   var _started = false;
-  var _gameHandler = null;   // معالج room:move للعبة النشطة
-  var _startHandler = null;  // معالج بدء اللعب (status=playing)
-  var _updateHandler = null; // [Req3] معالج تحديث حالة الغرفة (لتحديث واجهة التصويت)
+  var _gameHandler = null;   // معالج room:move للعبة النشطة (توافق)
+  var _startHandler = null;  // معالج بدء اللعب (توافق)
+  var _updateHandler = null; // [Req3] معالج تحديث حالة الغرفة (توافق)
+  /* [v2.68·عزل] سجل لكل لعبة على حدة: لا فتحة واحدة تُستبدل مع كل لعبة تُفتح —
+     كل لعبة تسجّل معالجاتها بمفتاح معرّفها فتبقى معزولة عن الأخريات */
+  var _gameHandlers = {};    // gid -> معالج الحركة
+  var _startHandlers = {};   // gid -> معالج البدء
+  var _updateHandlers = {};  // gid -> معالج التحديث
+  var _pendingStart = {};    // gid -> غرفة معلّقة التسليم حتى تسجيل معالج البدء
+  var _startFallbackTi = {}; // gid -> مؤقّت شبكة أمان البدء
+  var _moveBuffer = {};      // gid -> [حركات مؤقتة] حتى تسجيل معالج اللعبة
+  var _MOVE_BUF_MAX = 300;   // سقف التخزين المؤقت (يُسقط الأقدم إن تجاوز)
+  var _lastReplayAt = 0;     // [v2.68] خفض وتيرة طلبات المصالحة (لا عاصفة)
+  var _lastReplayReqAt = 0;  // [v2.68] خنق requestReplay نفسه (حلقات إعادة الاتصال)
+  var _replayTmr = null;      // [v2.68] نافذة الرحمة قبل إغلاق قناة SSE
   var _messages = [];        // رسائل الغرفة (جماعية + فردية مستلمة)
   var _pendingReplay = null;  // [Resilience] تاريخ الحركات لإعادة بناء الحالة عند العودة
   var _recipient = null;     // { id, name } — المستلم الفردي الحالي (null = الجميع)
@@ -31,14 +43,37 @@
     roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين + [BJ-ghost] بلاك جاك أُزيلت من المنصة — حُذف خيارها الوهمي من القائمة */
 
     isGameSupported: function (id) { return !!Rooms.roomGameIds[id]; },
-    /* [Persist] طلب إعادة بناء الجولة: إعادة فتح قناة WS للغرفة — الخادم يعيد
-       hello + room:replay فيُعاد تشغيل سجل الحركات على اللوحة الجديدة */
-    requestReplay: function () {
-      try { if (typeof window !== 'undefined' && typeof window.__liveWatchRoom === 'function') window.__liveWatchRoom(true); return; } catch (e) {}
-      /* [v3-FixH3] وضع الهاتف/localhost: لا يوجد جسر WS (معطّل في isSSEMode) —
-         إعادة فتح قناة SSE يجعل الخادم يرسل hello + room:replay فور اتصالها
-         للاعب العائد ⇒ إعادة بناء اللوحة كاملة (كانت معطلة تماماً في نشر الهاتف) */
-      try { Rooms.reopenSse(); } catch (e) {}
+    /* [v2.68·إصلاح جوهري] طلب إعادة بناء الجولة: جسر WS إن وُجد، وإلا فتح
+       قناة SSE مرة واحدة فقط — الخادم يرسل hello + room:replay فور اتصالها.
+       كان المسار الاحتياطي ينادي reopenSse التي تنادي requestReplay مجدداً
+       ⇒ دوران متبادل لا نهائي (~10آلاف EventSource لكل طلب مصالحة — يبتلعه
+       try/catch بصمت): عاصفة اتصالات تشرح تأخير المزامنة وضياع أحداث init
+       على خادم الهاتف (isSSEMode يشمل casino-phone/trycloudflare/…). */
+    requestReplay: function (force) {
+      /* [v2.68·خنق] نداء فعلي واحد لكل 1.2ث كحد أقصى (ما لم يُطلب force):
+         ألعاب كانت تطلب المصالحة عند كل room:update فتدور بحلقة إعادة اتصال
+         لا نهائية (مئات القنوات) تُغلق القناة قبل وصول room:replay الذي يتبع
+         room:update على الاتصال نفسه فيضيع سجل الحركات إلى الأبد — لوحة
+         الضيف لا تُبنى والمزامنة تتأخر ثواني. بالخنق تبقى القناة مفتوحة
+         فتُعالج hello ثم room:update ثم room:replay بالترتيب. */
+      var now = Date.now();
+      if (!force && now - (_lastReplayReqAt || 0) < 1200) return;
+      _lastReplayReqAt = now;
+      try { if (typeof window !== 'undefined' && typeof window.__liveWatchRoom === 'function') { window.__liveWatchRoom(true); return; } } catch (e) {}
+      /* [v2.68·نافذة رحمة] لا نغلق القناة الحالية فوراً: حركة init الحية قد
+         تكون في طريقها إليها الآن (المضيف يبثها بعد استجابة البدء) — إغلاق
+         القناة قبل وصولها يضيعها إلى الأبد ولوحة الضيف لا تُبنى. نؤجل الإغلاق
+         350ms: تصل الحركة فتُبنى اللوحة، ثم تُعاد الفتحة إن بقيت الحاجة
+         (لاتحاد متأخر) فتجلب room:replay كاملاً. جدولة واحدة — لا تراكم. */
+      if (_replayTmr) return;
+      _replayTmr = setTimeout(function () {
+        _replayTmr = null;
+        try {
+          if (_source) { _source.close(); _source = null; }
+        } catch (e) {}
+        _started = false;
+        try { Rooms.joinSse(); } catch (e) {}
+      }, 350);
     },
     /* [Persist] حفظ عضوية الغرفة محلياً — تنجو من تجديد الصفحة وانقطاع النت */
     _persistRoom: function (room) {
@@ -61,11 +96,15 @@
     /* ═══════ SSE (أحداث الغرف فقط — نفس /api/live) ═══════ */
     /* [v3-FixH2] إعادة فتح قناة SSE بعد دخول متأخر: القناة القديمة فُتحت قبل
        الجلسة فتبقى مجهولة الهوية ولا تصلها أحداث الغرف (جاهز/بدء/حركات). */
+    /* [v2.68·إصلاح] بلا نداء requestReplay في النهاية — كان دوراناً متبادلاً
+       (reopenSse → requestReplay → reopenSse…) ينشئ آلاف الاتصالات لكل نداء.
+       إعادة الاتصال نفسها تجلب hello + room:update + room:replay من الخادم؛
+       وفي وضع WS نعيد المشاهدة عبر الجسر مباشرة */
     reopenSse: function () {
       try { if (_source) { _source.close(); _source = null; } } catch (e) {}
       _started = false;
       Rooms.joinSse();
-      try { Rooms.requestReplay(); } catch (e) {}
+      try { if (typeof window !== 'undefined' && typeof window.__liveWatchRoom === 'function') window.__liveWatchRoom(true); } catch (e) {}
     },
     joinSse: function () {
       if (_started || typeof EventSource === 'undefined') return;
@@ -108,6 +147,15 @@
 
     _onUpdate: function (room) {
       var prev = Rooms.state;
+      /* [v2.68·مصالحة] حارس الطزاجة: استجابات API المتأخرة (ready/join/spectate)
+         تحمل لقطات أقدم من بثّ SSE الأسرع — كانت اللقطة المتقادمة تطمس حالة
+         أحدث (مثال موثّق: ردّ ready بـrev7:waiting يصل بعد بثّ rev8:playing بـ70ms
+         فيُنهي الجولة وهمياً via onRoomRoundEnded ويُفكك الغرفة عند الجميع =
+         الانحراف الدائم). أي تحديث أقدم من المعروف يُتجاهَل — والسجل المرجعي
+         الخادمي هو الحقيقة. */
+      if (room && prev && typeof room.rev === 'number' && typeof prev.rev === 'number' && room.rev < prev.rev) {
+        return;
+      }
       var prevStatus = prev ? prev.status : null;
       Rooms.state = room;
       Rooms._persistRoom(room);   /* [Persist] */
@@ -129,26 +177,75 @@
         /* [RS-GameOpts] إعدادات اللعبة المخزنة في الغرفة تُطبق عند كل العملاء قبل البدء */
         if (room.game_opts) { try { Rooms._applyGameOpts(room.game_id, room.game_opts); } catch (e) {} }
         Rooms.closeModal();
-        /* [إصلاح] اللاعب خارج صفحة اللعبة عند البدء (مثلاً في الرئيسية) — افتحها أولاً
-           ثم أطلق المعالج بعد أن تسجّله اللعبة أثناء فتحها */
+        /* [v2.68] تسليم حدثي لا سباق زمني ثابت: openGame يرسم اللعبة ويستدعي
+           initFn() بشكل متزامن — واللعبة تسجّل معالج بدئها داخل initFn، فيُطلق
+           المعالج فوراً من setStartHandler نفسها. إن تأخر التسجيل (تحميل بطيء
+           على الهاتف) تُعلَّق الغرفة وتُسلَّم لحظة التسجيل — بعد أن كان
+           setTimeout(400) يطلق أعمى فتضيع البداية عن اللاعب الثاني. */
         if (typeof openGame === 'function' && window._currentGameId !== room.game_id) {
           openGame(room.game_id);
-          setTimeout(function () { if (_startHandler) _startHandler(room); }, 400);
-        } else if (_startHandler) {
-          _startHandler(room);   /* [Req3] يُبقى المعالج لإعادة إطلاقه عند المباراة الجديدة */
         }
+        Rooms._deliverStart(room.game_id, room);
       }
       /* غادرت الغرفة (حُذفت أو طردت) */
       if (!room) { Rooms.reset(); Rooms.render(); return; }
       Rooms.render();
-      if (_updateHandler) { try { _updateHandler(room); } catch (e) {} }   /* [Req3] تحديث واجهة التصويت */
+      var uh = (room && room.game_id && _updateHandlers[room.game_id]) || _updateHandler;
+      if (uh) { try { uh(room); } catch (e) {} }   /* [Req3] تحديث واجهة التصويت */
+    },
+    /* [v2.68] تسليم حدث البدء للعبة: فوراً إن سُجّل معالجها، وإلا يُعلَّق
+       ويسلَّم لحظة التسجيل (شبكة أمان 2.5ث للعبة لا تسجّل معالجاً قط) */
+    _deliverStart: function (gid, room) {
+      if (!gid || !room) return;
+      if (_startHandlers[gid]) {
+        _pendingStart[gid] = null;
+        if (_startFallbackTi[gid]) { clearTimeout(_startFallbackTi[gid]); _startFallbackTi[gid] = null; }
+        try { _startHandlers[gid](room); } catch (e) { if (window.console) console.error('[rooms] start', e); }
+        return;
+      }
+      _pendingStart[gid] = room;
+      if (_startFallbackTi[gid]) clearTimeout(_startFallbackTi[gid]);
+      _startFallbackTi[gid] = setTimeout(function () {
+        _startFallbackTi[gid] = null;
+        var pend = _pendingStart[gid];
+        var hh = _startHandlers[gid];
+        _pendingStart[gid] = null;
+        if (hh && pend) { try { hh(pend); } catch (e) {} }
+      }, 2500);
+    },
+    /* [v2.68] تخزين مؤقت للحركات حتى تسجيل معالج اللعبة — كانت تُسقط نهائياً
+       إذا لم تكن صفحة اللعبة مفتوحة، فتضيع حركة init ولا تُبنى لوحة اللاعب
+       الثاني أبداً. الآن: تُحفظ بترتيبها وتُدفَع كلها عند التسجيل. */
+    _bufferMove: function (gid, d) {
+      if (!gid) return;
+      if (!_moveBuffer[gid]) _moveBuffer[gid] = [];
+      var buf = _moveBuffer[gid];
+      buf.push(d);
+      if (buf.length > _MOVE_BUF_MAX) buf.shift();
+    },
+    _flushMoves: function (gid) {
+      if (!gid || !_moveBuffer[gid] || !_moveBuffer[gid].length) return;
+      var h = _gameHandlers[gid];
+      if (!h) return;
+      var buf = _moveBuffer[gid];
+      _moveBuffer[gid] = [];
+      for (var i = 0; i < buf.length; i++) {
+        try { h(buf[i]); } catch (e) { if (window.console) console.error('[rooms] flush', e); }
+      }
     },
     _onMove: function (d) {
-      /* [Persist] اللاعب خارج صفحة لعبة الغرفة (تصفح لعبة أخرى/الرئيسية):
-         لا نمرر الحركة لواجهة غير موجودة — سجل الخادم يحفظها، وعند العودة
-         يعاد بناء الجولة كاملة عبر room:replay. */
-      if (Rooms.state && Rooms.state.game_id && window._currentGameId !== Rooms.state.game_id) return;
-      if (_gameHandler) _gameHandler(d);
+      /* [v2.68·عزل] التوجيه بمفتاح لعبة الغرفة النشطة: معالج اللعبة نفسها
+         حصراً — ومعالجات بقية الألعاب لا تُستدعى ولا تُستبدل */
+      var gid = Rooms.state ? Rooms.state.game_id : null;
+      if (!gid) return;
+      var h = _gameHandlers[gid];
+      if (!h || window._currentGameId !== gid) {
+        /* الصفحة الحالية ليست لعبة الغرفة (أو معالجها لم يسجّل بعد) — خزّن
+           مؤقتاً بلا إسقاط؛ سجل الخادم يبقى المرجع والدفع عند التسجيل/العودة */
+        Rooms._bufferMove(gid, d);
+        return;
+      }
+      try { h(d); } catch (e) { if (window.console) console.error('[rooms] move', e); }
     },
     /* رسالة غرفة جديدة (جماعية أو فردية واردة) */
     _onChat: function (msg) {
@@ -767,9 +864,37 @@
     },
 
     /* تسجيل معالجات اللعبة النشطة (تستدعيها اللعبة عند فتحها) */
-    setGameHandler: function (fn) { _gameHandler = fn; },
-    setStartHandler: function (fn) { _startHandler = fn; },
-    setUpdateHandler: function (fn) { _updateHandler = fn; },   /* [Req3] */
+    /* [v2.68·عزل] التسجيل بمفتاح اللعبة: setGameHandler(fn) بلا مفتاح يسجّل
+       للعبة المفتوحة حالياً (توافق كامل مع جسور الألعاب الـ17) — ويسجّل أيضاً
+       للفتحة العامة للتوافق. عند التسجيل تُدفَع الحركات المخزّنة مؤقتاً. */
+    setGameHandler: function (fn, gid) {
+      var g = gid || (typeof window !== 'undefined' ? window._currentGameId : null);
+      if (g) {
+        _gameHandlers[g] = fn;
+        Rooms._flushMoves(g);   /* حركات وصلت قبل تسجيل اللعبة — ادفعها الآن بترتيبها */
+      }
+      _gameHandler = fn;
+    },
+    /* [v2.68·عزل] تسجيل معالج البدء: إن كانت هناك بداية معلّقة لهذه اللعبة
+       (وصلت واللعبة لم تسجّل بعد) تُسلَّم فوراً — لا سباق 400ms */
+    setStartHandler: function (fn, gid) {
+      var g = gid || (typeof window !== 'undefined' ? window._currentGameId : null);
+      if (g) {
+        _startHandlers[g] = fn;
+        var pend = _pendingStart[g];
+        if (pend) {
+          _pendingStart[g] = null;
+          if (_startFallbackTi[g]) { clearTimeout(_startFallbackTi[g]); _startFallbackTi[g] = null; }
+          try { fn(pend); } catch (e) { if (window.console) console.error('[rooms] start-pending', e); }
+        }
+      }
+      _startHandler = fn;   /* [Req3] يُبقى المعالج لإعادة إطلاقه عند المباراة الجديدة */
+    },
+    setUpdateHandler: function (fn, gid) {
+      var g = gid || (typeof window !== 'undefined' ? window._currentGameId : null);
+      if (g) _updateHandlers[g] = fn;
+      _updateHandler = fn;
+    },   /* [Req3] */
     /* [Resilience] استهلاك تاريخ الحركات المعلّق لإعادة بناء الحالة */
     consumePendingReplay: function () { var h = _pendingReplay; _pendingReplay = null; return h; },
     hasPendingReplay: function () { return !!_pendingReplay; },
@@ -834,8 +959,14 @@
           Rooms._onUpdate(r.data.room);
           setTimeout(function () { Rooms.requestReplay(); }, 700);
         } else {
-          Rooms.state = r.data.room;
-          Rooms._persistRoom(r.data.room);   /* [Persist] */
+          /* [v2.68·مصالحة] نفس حارس الطزاجة: ردّ الانضمام متأخراً عن بثّ أحدث لا يطمس الحالة */
+          var curJ = Rooms.state;
+          var staleJ = !!(curJ && curJ.id === r.data.room.id && typeof curJ.rev === 'number' &&
+                          typeof r.data.room.rev === 'number' && r.data.room.rev < curJ.rev);
+          if (!staleJ) {
+            Rooms.state = r.data.room;
+            Rooms._persistRoom(r.data.room);   /* [Persist] */
+          }
           /* فتح اللعبة إن لم تكن مفتوحة */
           var gid = r.data.room.game_id;
           if (typeof openGame === 'function' && window._currentGameId !== gid) openGame(gid);
@@ -926,7 +1057,12 @@
     sendMove: function (action, data, state) {
       if (!Rooms.state) return false;
       var payload = { room_id: Rooms.state.id, action: action, data: data || {} };
-      if (state !== undefined && state !== null) payload.state = state;
+      if (state !== undefined && state !== null) {
+        payload.state = state;
+        /* [v2.68] الطزاجة: نرفق آخر ترقيم نسخة نعرفه — الخادم يرفض كتابة
+           الحالة المتقادمة (آخر كاتب يفوز كان يحرق الحالة المرجعية) */
+        payload.base_rev = (typeof Rooms.state.rev === 'number') ? Rooms.state.rev : 0;
+      }
       API.post('/api/rooms/move', payload).then(function (r) {
         if (!r.ok) {
           toast((r.data && r.data.message) || T('ui.roomError'), 'err');
@@ -936,6 +1072,17 @@
            لا نطمس joinQueue/players المتغيّرة عبر بثّ SSE الحيّ بلقطة قديمة */
         if (r.data && r.data.room && Rooms.state && Rooms.state.id === r.data.room.id) {
           Rooms.state.room_state = r.data.room.room_state;
+          if (typeof r.data.room.rev === 'number') Rooms.state.rev = r.data.room.rev;
+        }
+        /* [v2.68] رفض الخادم كتابة حالتنا (متقادمة/بلا ملكية) ⇒ مصالحة فورية:
+           إعادة فتح القناة يجلب hello + room:replay فتُبنى اللوحة من سجل الخادم.
+           (مقيّدة بفاصل 1.5ث كي لا تتحول لعاصفة عند رفضات متتالية) */
+        if (r.data && r.data.state_rejected) {
+          var now = Date.now();
+          if (now - _lastReplayAt > 1500) {
+            _lastReplayAt = now;
+            try { Rooms.requestReplay(); } catch (e) {}
+          }
         }
       });
       return true;
@@ -1369,6 +1516,17 @@
       Rooms._persistRoom(null);   /* [Persist] */
       _messages = [];
       _recipient = null;
+      /* [v2.68·عزل] تنظيف سجل الألعاب: معالجات وبدايات معلّقة وحركات مخزّنة
+         ومؤقّتات شبكة الأمان — لا تتسرب حالة لعبة إلى جلسة غرفة جديدة */
+      _gameHandlers = {};
+      _startHandlers = {};
+      _updateHandlers = {};
+      _pendingStart = {};
+      Object.keys(_startFallbackTi).forEach(function (g) {
+        if (_startFallbackTi[g]) { clearTimeout(_startFallbackTi[g]); _startFallbackTi[g] = null; }
+      });
+      _startFallbackTi = {};
+      _moveBuffer = {};
       /* [B-rooms] إزالة مؤقّت العدّاد التنازلي عند مغادرة الغرفة */
       if (Rooms._cdTi) { clearInterval(Rooms._cdTi); Rooms._cdTi = null; }
       /* [Req7] إزالة ودجت الرموز/الرسائل عند مغادرة الغرفة */

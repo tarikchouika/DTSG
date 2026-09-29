@@ -246,8 +246,12 @@ const gold = async (p) => await goldOf(p);
     ok(mvOut.status === 403, 'حركة من غير عضو ← 403 (حقن الحركات مقفول)');
     const mvP2 = await req('POST', '/api/rooms/move', { room_id: roomId, action: 'x', data: {} }, P2.cookie);
     ok(mvP2.status === 403, 'حركة من لاعب خارج الغرفة (لم ينضم) ← 403');
-    const mvP1 = await req('POST', '/api/rooms/move', { room_id: roomId, action: 'x', data: {} }, P1.cookie);
-    ok(mvP1.status === 200 && mvP1.json.ok, 'حركة العضو المصادق ← 200');
+    /* [v2.68·عزل] حركة العضو بأكشن معتمد لهذه اللعبة ← 200 (غرفة rm ⇒ rmove) */
+    const mvP1 = await req('POST', '/api/rooms/move', { room_id: roomId, action: 'rmove', data: { action: 'init', data: {}, by: 1, seq: 1 } }, P1.cookie);
+    ok(mvP1.status === 200 && mvP1.json.ok, 'حركة العضو المصادق بأكشن معتمد ← 200');
+    /* [v2.68·عزل] حقن حركة لعبة أخرى (unmove) في غرفة رامي ← 400 (كانت تُمرَّر عمياء) */
+    const mvInject = await req('POST', '/api/rooms/move', { room_id: roomId, action: 'unmove', data: {} }, P1.cookie);
+    ok(mvInject.status === 400, 'حركة أونو في غرفة رامي ← 400 مرفوضة (عزل الألعاب)');
     await req('POST', '/api/rooms/leave', { room_id: roomId }, P1.cookie);
   }
 

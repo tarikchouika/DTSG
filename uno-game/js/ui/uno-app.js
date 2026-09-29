@@ -1077,10 +1077,21 @@
           if (!entry || entry.spectate) return;
           const bet = Number(rs.bet) || 0;
           const isHost = String(rs.owner_id) === String(meId);
-          if (bet > 0 && !rs.settled && isHost && typeof root.Rooms.settleTeam === 'function') {
-            /* الفريق الفائز حسب المقعد (فردي: كل لاعب فريقه — فرقي: المقاعد المتقابلة) */
-            const winTeam = (typeof NS.teamOf === 'function') ? NS.teamOf(s.matchWinner) : (s.matchWinner === 0 ? 0 : 1);
-            try { root.Rooms.settleTeam(winTeam === 0 ? 't0' : 't1'); } catch (e) {}
+          if (bet > 0 && !rs.settled && isHost) {
+            /* [v2.68·عزل] التسوية وفق نمط اللعبة: فرق (4 مقاعد، الفريق = مقعد%2)
+               ⇒ settleTeam؛ فردي (2-3 مقاعد) ⇒ settleRound بالمقعد الفائز —
+               كانت أونو ترسل t0/t1 دائماً والخادم يشترط 4 مقاعد فتفشل تسوية
+               الغرف الثنائية وتعلق إيداعاتها (عطل أونو المخفي الموثّق) */
+            const teamMode = !!(s.cfg && s.cfg.teams);
+            try {
+              if (teamMode && typeof root.Rooms.settleTeam === 'function') {
+                const winTeam = (typeof NS.teamOf === 'function') ? NS.teamOf(s.matchWinner) : (s.matchWinner === 0 ? 0 : 1);
+                root.Rooms.settleTeam(winTeam === 0 ? 't0' : 't1');
+              } else if (typeof root.Rooms.roomSettle === 'function') {
+                const seat = Number(s.matchWinner) || 0;
+                root.Rooms.roomSettle('w' + seat);
+              }
+            } catch (e) {}
           }
           self.later(function () { try { if (typeof root.Rooms.startRematch === 'function') root.Rooms.startRematch(); } catch (e) {} }, 900);
         } catch (e) {}

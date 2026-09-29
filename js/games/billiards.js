@@ -178,7 +178,7 @@ function initBilliards() {
   blBuildGvOpts();
   blBuildTimerOpts();
   blUpdateHint();
-  blRegisterRooms();
+  billiardsRegisterRooms();   /* [v2.68·عزل] الاسم المُنفصَر — لا يبسط فوق جسر البلوت */
 }
 
 /* ── [V19.5] مؤقت الدور: 30..300 ثانية — عند انتهائه تُنفَّذ ضربة آلية كي لا يتجمد اللعب ── */
@@ -1808,7 +1808,9 @@ function blMeId() {
 /* بدء الغرفة: المقاعد والرهان والتفرّج (نمط chessRoomStart) */
 function blRoomStart(room) {
   if (!room || !BILLIARDS) return;
-  if (!/^bl/.test(String(room.game_id || ''))) return;
+  /* [v2.68·عزل] مطابقة تامة لمعرفات البلياردو الخمسة — كان الفحص /^bl/ يلتقط
+     معرف البلوت 'bl' فتبدأ البلياردو داخل غرفة بلوت (تلوث متبادل) */
+  if (!/^(bl8|blbb|blgv|blsn|blca)$/.test(String(room.game_id || ''))) return;
   if (room.status !== 'playing') return;
   var order = (room.order && room.order.length) ? room.order.slice() : [];
   if (!order.length) return;
@@ -1880,7 +1882,12 @@ function blApplyReplay(d) {
   if (BILLIARDS.over) blEndFrame();
 }
 
-function blRegisterRooms() {
+/* [v2.68·عزل] اسم مُنفصَر: كان الجسر يعرّف blRegisterRooms العالمية فتبسط تعريفه
+   فوق دالة جسر البلوت (baloot-bridge.js) لأن هذا الملف يُحمّل بعده في index.html
+   — فيستدعي initBaloot نسخة البلياردو فتُختطف معالجات مفتاح 'bl' بمعالجات
+   البلياردو وغرف البلوت لا تُبنى أبداً (السبب الجذري الموثّق لخلل غرفة البلوت).
+   الآن: لكل لعبة اسمها الخاص — والبلياردو يسجّل بمفتاح لعبته من _currentGameId */
+function billiardsRegisterRooms() {
   if (typeof Rooms === 'undefined' || !Rooms || typeof Rooms.setGameHandler !== 'function') return;
   Rooms.setGameHandler(blRoomMove);
   Rooms.setStartHandler(blRoomStart);

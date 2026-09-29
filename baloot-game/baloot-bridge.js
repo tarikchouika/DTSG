@@ -62,9 +62,11 @@ function BL_applyReplay(d) {
 
 function blRegisterRooms() {
   if (typeof Rooms === 'undefined' || !Rooms || typeof Rooms.setGameHandler !== 'function') return;
-  Rooms.setGameHandler(BL_roomMove);
-  Rooms.setStartHandler(BL_roomStart);
-  if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(BL_roomUpdate);
+  /* [v2.68·عزل] تسجيل صريح بمفتاح البلوت: معالجاتها تُخزّن باسم 'bl'
+     فلا تُستبدل بمعالجات لعبة أخرى (أونو/بلياردو...) تُفتح بعدها/قبلها */
+  Rooms.setGameHandler(BL_roomMove, 'bl');
+  Rooms.setStartHandler(BL_roomStart, 'bl');
+  if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(BL_roomUpdate, 'bl');
   /* إعادة بناء معلّقة (لاعب عائد بعد انقطاع) */
   if (typeof Rooms.hasPendingReplay === 'function' && Rooms.hasPendingReplay()) {
     const rp = Rooms.consumePendingReplay();
