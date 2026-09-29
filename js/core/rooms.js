@@ -34,7 +34,11 @@
     /* [Persist] طلب إعادة بناء الجولة: إعادة فتح قناة WS للغرفة — الخادم يعيد
        hello + room:replay فيُعاد تشغيل سجل الحركات على اللوحة الجديدة */
     requestReplay: function () {
-      try { if (typeof window !== 'undefined' && typeof window.__liveWatchRoom === 'function') window.__liveWatchRoom(true); } catch (e) {}
+      try { if (typeof window !== 'undefined' && typeof window.__liveWatchRoom === 'function') window.__liveWatchRoom(true); return; } catch (e) {}
+      /* [v3-FixH3] وضع الهاتف/localhost: لا يوجد جسر WS (معطّل في isSSEMode) —
+         إعادة فتح قناة SSE يجعل الخادم يرسل hello + room:replay فور اتصالها
+         للاعب العائد ⇒ إعادة بناء اللوحة كاملة (كانت معطلة تماماً في نشر الهاتف) */
+      try { Rooms.reopenSse(); } catch (e) {}
     },
     /* [Persist] حفظ عضوية الغرفة محلياً — تنجو من تجديد الصفحة وانقطاع النت */
     _persistRoom: function (room) {
@@ -55,6 +59,14 @@
     },
 
     /* ═══════ SSE (أحداث الغرف فقط — نفس /api/live) ═══════ */
+    /* [v3-FixH2] إعادة فتح قناة SSE بعد دخول متأخر: القناة القديمة فُتحت قبل
+       الجلسة فتبقى مجهولة الهوية ولا تصلها أحداث الغرف (جاهز/بدء/حركات). */
+    reopenSse: function () {
+      try { if (_source) { _source.close(); _source = null; } } catch (e) {}
+      _started = false;
+      Rooms.joinSse();
+      try { Rooms.requestReplay(); } catch (e) {}
+    },
     joinSse: function () {
       if (_started || typeof EventSource === 'undefined') return;
       _started = true;

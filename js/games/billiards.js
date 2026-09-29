@@ -1850,7 +1850,7 @@ function blRoomStart(room) {
 function blApplyReplay(d) {
   if (!BILLIARDS || !d || !d.history || !d.history.length) return;
   var room = (typeof Rooms !== 'undefined' && Rooms.state) ? Rooms.state : null;
-  if (!room || room.status !== 'playing' || !/^bl/.test(String(room.game_id || ''))) return;
+  if (!room || room.status !== 'playing' || !/^(blbb|blgv|blsn|blca)$/.test(String(room.game_id || ''))) return;
   if (BILLIARDS.G && BILLIARDS.G.S.history.length >= d.history.length) return;  /* متزامن حيّاً */
   billiardsStart('room');
   for (var i = 0; i < d.history.length; i++) {
@@ -1884,7 +1884,17 @@ function blRegisterRooms() {
   if (typeof Rooms === 'undefined' || !Rooms || typeof Rooms.setGameHandler !== 'function') return;
   Rooms.setGameHandler(blRoomMove);
   Rooms.setStartHandler(blRoomStart);
-  if (typeof window !== 'undefined') window.applyRoomReplay = blApplyReplay;
+  /* [v3-FixChain] تسلسل آمن بدل الاستبدال الصارم: كنا نبتلع replay كل الألعاب
+     الأخرى — وفحص البادئة /^bl/ كان يلتقط البلوت 'bl' خطأً (البلياردو: blbb/blgv/blsn/blca) */
+  if (typeof window !== 'undefined') {
+    var _prevReplay_bl = window.applyRoomReplay;
+    window.applyRoomReplay = function (d) {
+      var room = (typeof Rooms !== 'undefined' && Rooms.state) ? Rooms.state : null;
+      var isBill = room && room.status === 'playing' && /^(blbb|blgv|blsn|blca)$/.test(String(room.game_id || ''));
+      if (isBill) { try { blApplyReplay(d); return; } catch (e) {} }
+      if (typeof _prevReplay_bl === 'function') { try { _prevReplay_bl(d); } catch (e) {} }
+    };
+  }
   /* وصل room:replay قبل فتح اللعبة → استهلكه الآن */
   try {
     if (typeof Rooms.consumePendingReplay === 'function') {

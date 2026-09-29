@@ -959,7 +959,14 @@ const ParchisiApp = {
         Rooms.setUpdateHandler(() => ParchisiApp.syncRoomSeats());
       }
     }
-    if (typeof window !== 'undefined') window.applyRoomReplay = (d) => ParchisiApp.applyRoomReplay(d);
+    /* [v3-FixChain] تسلسل آمن بدل الاستبدال الصارم */
+    if (typeof window !== 'undefined') {
+      var _prevReplay_pr = window.applyRoomReplay;
+      window.applyRoomReplay = (d) => {
+        if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'pr') { ParchisiApp.applyRoomReplay(d); return; }
+        if (typeof _prevReplay_pr === 'function') { try { _prevReplay_pr(d); } catch (e) {} }
+      };
+    }
     /* [SYNC-FIX] العودة من الخلفية: rAF كان متوقفاً والمشي متكدس — قفز فوري للمواضع النهائية */
     if (typeof document !== 'undefined' && !window.__prVisBound) {
       window.__prVisBound = true;

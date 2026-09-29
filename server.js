@@ -39,6 +39,86 @@ const MIME_TYPES = {
   '.wav': 'audio/wav'
 };
 
+/* ═══════ [v2.67·H1+] ذاكرة الملفات الساكنة الساخنة + ترويسات تخزين مؤقت ═══════
+   عواصف الدخول (scrypt غير المحجِب) تعمل على طاقم خيوط libuv نفسه الذي عليه
+   fs.stat/createReadStream للملفات الساكنة — عند 40 دخولاً متزامناً تشبعت
+   الخيوط الأربعة فتأخر طلب «/» خلفها 765ms (قياس حي). الحل:
+   1) الملفات الصغيرة الساخنة تُقدَّم من الذاكرة بلا لمس طاقم الخيوط إطلاقاً،
+      مع إعادة تحقق من القرص مرة واحدة كل 5 ثوانٍ لكل ملف (amortized).
+   2) ETag + Cache-Control: أصول index.html المرقّمة ‎?v=‎ تُخزَّن يوماً كاملاً
+      عند العميل (المرقّم لا يتغير محتواه دون تغيير الرقم) والبقية ساعة،
+      و304 للنسخة غير المبدّلة — فتنخفض ضغطات الخادم أصلاً عند العائدين.
+   الحد: ملف ≤ 256KB ومجموع ≤ 48MB (هاتف) — الأكبر يُبَث كما كان دائماً. */
+const STATIC_MEM = new Map();               /* filePath -> {mtimeMs, size, buf, at} */
+const STATIC_MEM_FILE_MAX = 256 * 1024;
+const STATIC_MEM_TOTAL_MAX = 48 * 1024 * 1024;
+const STATIC_REVALIDATE_MS = 5000;
+let __staticMemBytes = 0;
+function staticMemPut(filePath, stats, buf) {
+  try {
+    const old = STATIC_MEM.get(filePath);
+    if (old) __staticMemBytes -= old.buf.length;
+    STATIC_MEM.set(filePath, { mtimeMs: Math.floor(stats.mtimeMs), size: stats.size, buf: buf, at: Date.now() });
+    __staticMemBytes += buf.length;
+    while (__staticMemBytes > STATIC_MEM_TOTAL_MAX && STATIC_MEM.size > 1) {
+      const k = STATIC_MEM.keys().next().value;   /* الأقدم إدراجاً يُطرح أولاً */
+      __staticMemBytes -= STATIC_MEM.get(k).buf.length;
+      STATIC_MEM.delete(k);
+    }
+  } catch (e) {}
+}
+function staticHeadersFor(filePath, etag, versioned) {
+  return {
+    'Content-Type': MIME_TYPES[path.extname(filePath).toLowerCase()] || 'application/octet-stream',
+    'Cache-Control': versioned ? 'public, max-age=86400' : 'public, max-age=3600',
+    'ETag': etag,
+    'X-Content-Type-Options': 'nosniff'
+  };
+}
+function serveStaticFile(filePath, req, res, pathname) {
+  const versioned = /[?&]v=/.test(String(req.url || ''));
+  /* 1) ذاكرة حديثة → تقديم فوري بلا طاقم خيوط إطلاقاً (هذا جوهر الإصلاح) */
+  const mem = STATIC_MEM.get(filePath);
+  if (mem && (Date.now() - mem.at) < STATIC_REVALIDATE_MS) {
+    const etag = 'W/"' + mem.size + '-' + mem.mtimeMs + '"';
+    const hdrs = staticHeadersFor(filePath, etag, versioned);
+    if (req.headers['if-none-match'] === etag) { res.writeHead(304, hdrs); res.end(); return; }
+    res.writeHead(200, Object.assign({ 'Content-Length': mem.buf.length }, hdrs));
+    res.end(req.method === 'HEAD' ? undefined : mem.buf);
+    return;
+  }
+  /* 2) ذاكرة متقادمة أو غائبة → تحقق واحد من القرص ثم حدِّث وقدِّم */
+  fs.stat(filePath, (err, stats) => {
+    if (err || !stats.isFile()) {
+      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('404 Not Found: ' + pathname);
+      return;
+    }
+    const etag = 'W/"' + stats.size + '-' + Math.floor(stats.mtimeMs) + '"';
+    const hdrs = staticHeadersFor(filePath, etag, versioned);
+    if (req.headers['if-none-match'] === etag) {
+      if (mem) { mem.at = Date.now(); mem.mtimeMs = Math.floor(stats.mtimeMs); mem.size = stats.size; }
+      res.writeHead(304, hdrs); res.end(); return;
+    }
+    if (stats.size <= STATIC_MEM_FILE_MAX) {
+      fs.readFile(filePath, function (e2, buf) {
+        if (e2 || !buf) {   /* فشل قراءة → بث من القرص احتياطاً */
+          res.writeHead(200, hdrs);
+          fs.createReadStream(filePath).pipe(res);
+          return;
+        }
+        staticMemPut(filePath, stats, buf);
+        res.writeHead(200, Object.assign({ 'Content-Length': buf.length }, hdrs));
+        res.end(req.method === 'HEAD' ? undefined : buf);
+      });
+      return;
+    }
+    /* 3) ملف كبير → بث من القرص كما كان دائماً */
+    res.writeHead(200, Object.assign({ 'Content-Length': stats.size }, hdrs));
+    fs.createReadStream(filePath).pipe(res);
+  });
+}
+
 /* ═══════ تخزين الحسابات: SQLite (نفس باك-أند المنصة القديم royalcoin.db) ═══════ */
 const { DatabaseSync } = require('node:sqlite');
 const DB_DIR = path.join(__dirname, 'data');
@@ -178,6 +258,26 @@ function verifyPassword(password, saltHex, expectedHash) {
   const b = Buffer.from(expectedHash, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
+/* [v2.67·H1] فحص كلمة المرور غير المحجِب: scrypt في طاقم libuv بدل scryptSync الذي
+   كان يجمّد حلقة الأحداث ~300ms لكل محاولة (قياس خط الأساس: تسجيل الدخول 32rps
+   وحده — جوهر «المعالجة التسلسلية» التي خنقت المنصة تحت الحمل). الناتج مطابق
+   حرفياً لنفس المخطط (N=16384,r=8,p=1) فلا تغيير في الهاشات المخزّنة. */
+const DUMMY_SCRYPT_SALT = '00000000000000000000000000000000';
+function verifyPasswordAsync(password, saltHex, expectedHash) {
+  return new Promise(function (resolve) {
+    try {
+      const salt = Buffer.from(saltHex || DUMMY_SCRYPT_SALT, 'hex');
+      crypto.scrypt(password, salt, 64, function (err, hash) {
+        if (err || !hash) { resolve(false); return; }
+        try {
+          const a = Buffer.from(hash.toString('hex'), 'hex');
+          const b = Buffer.from(String(expectedHash || ''), 'hex');
+          resolve(a.length === b.length && crypto.timingSafeEqual(a, b));
+        } catch (e) { resolve(false); }
+      });
+    } catch (e) { resolve(false); }
+  });
+}
 
 /* ═══════ [2FA] TOTP (RFC 6238) — node:crypto فقط (HMAC-SHA1, 30s, 6 أرقام, base32) ═══════ */
 const BASE32_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
@@ -247,6 +347,14 @@ const users = {};               // userId -> {id, username, passHash, passSalt, 
 const sessions = {};            // sid -> userId
 const rooms = {};               // roomId -> room object
 let nextRoomId = 1;
+/* [v2.67] معرّفات رتيبة لا تُعاد بعد إعادة التشغيل: عدّاد محفوظ في جدول meta —
+   العميل المتقادم الذي يعيد الاتصال بعد إعادة تشغيل الخادم كان يبتلع سجل غرفة
+   جديدة تحمل المعرف نفسه فيعرض اللعبة الخاطئة (r15 القديمة تُستبدل بر15 جديدة) */
+try {
+  db.exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)');
+  const _nrid = db.prepare("SELECT value FROM meta WHERE key = 'next_room_id'").get();
+  if (_nrid && parseInt(_nrid.value, 10) > 0) nextRoomId = parseInt(_nrid.value, 10);
+} catch (e) {}
 /* [Payments 2026-09-16] المحفظة/الدفع/السحب فوق SQLite المحلية — بلا D1 (تصحيح المالك) */
 const pay = require('./server-payments.js');
 pay.initPaymentsTables(db);
@@ -382,12 +490,43 @@ setInterval(() => {
   try { db.prepare('DELETE FROM messages WHERE created_at < ?').run(Date.now() - 24 * 3600 * 1000); } catch (e) {}
 }, 5 * 60 * 1000);
 
-/* [B-rooms] sweeper غرف الساعة كل 60ث: المنتهية في الانتظار تُحلّ، والجاري جولتها تُعلَّم فقط */
-setInterval(() => {
+/* [B-rooms] sweeper غرف الساعة كل 60ث + [v2.67] منظّف اللاعبين الأشباح:
+   من انقطع بلا حضور SSE ولا نشاط 3 دقائق أثناء جولة جارية يُغادر تلقائياً
+   مع استرداد إيداعه — كانت الغرف تعلّق بلاعبين بلا متصفح يحجزون المقاعد
+   ويمنعون إغلاق الغرفة إلى الأبد. مدة السماح قابلة للضبط لل اختبار
+   (DTSG_GHOST_GRACE_MS). */
+const GHOST_GRACE_MS = (parseInt(process.env.DTSG_GHOST_GRACE_MS, 10) > 0) ? parseInt(process.env.DTSG_GHOST_GRACE_MS, 10) : (3 * 60 * 1000);
+function ghostSweepPass(forceGraceMs) {
+  const grace = (Number(forceGraceMs) > 0) ? Number(forceGraceMs) : GHOST_GRACE_MS;
   Object.values(rooms).forEach(function (room) {
-    try { sweepExpiredRoom(room); } catch (e) {}
+    try {
+      sweepExpiredRoom(room);
+      if (room.status === 'playing' && !room.settled) {
+        const cutoff = Date.now() - grace;
+        let changed = false;
+        room.players.filter(function (p) { return !p.spectate && users[p.id]; }).forEach(function (p) {
+          const lastSeen = Math.max((room.lastActivity && room.lastActivity[p.id]) || 0, 0);
+          if (!hasLiveSse(p.id) && lastSeen < cutoff) {
+            refundEscrow(room, p.id);
+            room.players = room.players.filter(function (x) { return x.id !== p.id; });
+            changed = true;
+          }
+        });
+        if (changed) {
+          if (room.players.filter(function (x) { return !x.spectate; }).length === 0) { dissolveRoom(room); }
+          else { promoteQueued(room); updateRoom(room); }
+        }
+      }
+    } catch (e) {}
   });
-}, 60 * 1000);
+}
+global.__DTSG_GHOST_SWEEP = ghostSweepPass;   /* مقبض اختبار: دورة تنظيف واحدة عند الطلب */
+setInterval(ghostSweepPass, 60 * 1000);
+/* [v2.67] حضور حقيقي = اتصال SSE مفتوح فعلاً للهوية — خريطة room.online تُملأ
+   أيضاً عند الإنشاء/الانضمام (بلا قناة) فلا تصلح وحدها لكشف الأشباح */
+function hasLiveSse(uid) {
+  return sseClients.some(function (c) { return c.userId != null && c.userId === uid; });
+}
 
 /* ═══════ [Group-Removal] أزيلت الجولات الجماعية (كينو/كراش) من المنتج — 2026-09-27.
    هذه التسوية تُبقى فقط لاسترداد أي رهانات معلقة من جولات قديمة قائمة في القاعدة
@@ -518,6 +657,7 @@ function serializeRoom(room) {
     expires_at: room.expires_at != null ? Number(room.expires_at) : null,   /* [B-rooms] نهاية صلاحية غرف الساعة */
     visibility: room.visibility === 'private' ? 'private' : 'public',       /* [B-rooms] عامة/خاصة */
     settled: !!room.settled,   /* [B-settle] هل حُلّت الجولة الجارية */
+    rev: room.rev || 0,   /* [v2.67·H3] ترقيم النسخة — العميل يقارنه ليعرف إن فاته شيء ويطلب المصالحة */
     expired: !!room.expired,   /* [B-rooms] انتهت مدة الساعة والجولة الجارية آخر جولة */
     players: room.players.map(function (p) {
       return { id: p.id, username: p.username, ready: !!p.ready, spectate: !!p.spectate, seat: p.seat, isBot: !!p.isBot };
@@ -552,7 +692,7 @@ function broadcastRoom(room, event, payload) {
     if (c.userId != null && memberIds.has(c.userId)) sendSSE(c.res, event, payload);
   });
 }
-function updateRoom(room) { broadcastRoom(room, 'room:update', serializeRoom(room)); }
+function updateRoom(room) { room.rev = (room.rev || 0) + 1; broadcastRoom(room, 'room:update', serializeRoom(room)); }   /* [v2.67·H3] كل تعديل حالة يرفع ترقيم النسخة rev للمصالحة */
 
 /* ═══════ [B-rooms] غرف الساعة: انتهاء المدة والحلّ بعد الجولة الجارية ═══════ */
 /* هل انتهت صلاحية غرفة الساعة؟ (الغرف النسبية بلا حدّ زمني) */
@@ -560,8 +700,32 @@ function roomTimeUp(room) { return !!(room && room.room_type === 'hour' && room.
 /* حُلّ الغرفة: بثّ room:update بقيمة null ثم حذفها (يغلقها عند الجميع) */
 function dissolveRoom(room) {
   if (!room || !rooms[room.id]) return;
+  /* [v2.67·مال] إغلاق غرفة وجولتها غير مسوّاة → استرداد الإيداعات المتبقية
+     (كانت تُحرق مع الغرفة عند انتهاء الساعة أو انسحاب الجميع) */
+  if (room.status === 'playing' && !room.settled) refundAllEscrow(room);
   broadcastRoom(room, 'room:update', null);
   delete rooms[room.id];
+}
+/* [v2.67·مال] استرداد إيداع رهان لاعب (مغادرة/انقطاع/إغلاق بلا تسوية) —
+   بلا سجل win/bet تطبيقاً لمسار تعادل settleRound نفسه (استرجاع صامت للرصيد) */
+function refundEscrow(room, uid) {
+  try {
+    if (!room || !room.escrow || uid == null) return 0;
+    const amt = Number(room.escrow[uid] || 0);
+    if (!(amt > 0)) return 0;
+    room.escrow[uid] = 0;
+    const u = users[uid];
+    if (u) {
+      u.gold = (u.gold || 0) + amt;
+      try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+    }
+    return amt;
+  } catch (e) { return 0; }
+}
+function refundAllEscrow(room) {
+  if (!room || !room.escrow) return;
+  Object.keys(room.escrow).forEach(function (uid) { refundEscrow(room, Number(uid)); });
+  room.escrow = {};
 }
 /* انتهاء الصلاحية عند أي حدث غرفة: إن كانت الغرفة في الانتظار تُحلّ فوراً؛
    وإن كانت جولة جارية تُعلَّم فقط expired=true وتُحلّ عند أول نهاية جولة (endBet/settle/rematch/vote) */
@@ -665,6 +829,25 @@ function tryResolveRematch(room) {
       if (agreed.indexOf(p.id) !== -1) { p.spectate = false; p.ready = true; }
       else { p.spectate = true; p.ready = true; }
     });
+    /* [v2.67·مال] الجولة الجديدة تُقتطع رهاناتها فعلاً (كانت تُوزَّع أرباح بلا
+       اقتطاع — ضخ نقود عبر إعادة المباراة المتكرّرة). من لا يملك رهانه يتحول
+       متفرجاً ويعود المقعد شاغراً. */
+    const bet = Number(room.bet) || 0;
+    room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
+      const u = users[p.id];
+      if (u && (u.gold || 0) >= bet) {
+        if (bet > 0) {
+          u.gold = (u.gold || 0) - bet;
+          try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+        }
+      } else {
+        p.spectate = true; p.ready = true;   /* لا يملك الرهان → متفرج */
+      }
+    });
+    room.escrow = {};
+    room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
+      if (users[p.id]) room.escrow[p.id] = bet;
+    });
     var seat = 0;
     room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) { p.seat = seat++; });
     room.status = 'playing';          /* انتظار→لعب يُطلق إعادة التهيئة عند الجميع */
@@ -703,6 +886,8 @@ function promoteQueued(room) {
 function markOnline(room, uid) {
   if (!room) return;
   if (!room.online) room.online = {};
+  if (!room.lastActivity) room.lastActivity = {};
+  room.lastActivity[uid] = Date.now();   /* [v2.67] الاتصال نشاط موثّق لمنظّف الأشباح */
   room.online[uid] = (room.online[uid] || 0) + 1;
   /* [Resilience] إن كان السائق الحالي غير متصل (انقطع الجميع ثم عاد أحدهم) → نوّط له */
   if (room.driverId != null && !isOnline(room, room.driverId)) {
@@ -881,6 +1066,9 @@ const server = http.createServer((req, res) => {
       'Connection': 'keep-alive'
     });
     const me = getUser(req);
+    /* [v2.67·H3] ‎?since=rev — العميل يرسل آخر ترقيم لديه؛ إن كان أقدم من حالة
+       الغرفة فنبثّ التحديث + سجل الحركات كاملاً (room:replay) لإعادة البناء */
+    const sinceRev = parseInt(parsedUrl.query && parsedUrl.query.since, 10);
     const helloData = {
       online: 42 + sseClients.length,
       /* الدردشة العامة أزيلت؛ لا نرسل سجل رسائل في SSE. */
@@ -896,8 +1084,9 @@ const server = http.createServer((req, res) => {
         if (r.players.some(function (p) { return p.id === me.id; })) {
           markOnline(r, me.id);
           sendSSE(res, 'room:update', serializeRoom(r));
-          /* [Resilience] أعد بناء حالة الجولة الجارية للاعب العائد */
-          if (r.status === 'playing' && r.moveHistory && r.moveHistory.length) {
+          /* [Resilience + v2.67·H3] أعد بناء حالة الجولة للعائد — سجل الحركات
+             يُبثّ كلما وُجد (لا حصرها على playing) وإن كان ترقيم العميل متقادماً */
+          if (r.moveHistory && r.moveHistory.length && (isNaN(sinceRev) || sinceRev < (r.rev || 0))) {
             sendSSE(res, 'room:replay', { room_id: r.id, history: r.moveHistory });
           }
         }
@@ -1028,28 +1217,34 @@ const server = http.createServer((req, res) => {
         }
 
         const existing = Object.values(users).find(function (u) { return u.username.toLowerCase() === username.toLowerCase(); });
-        /* [DTSG-007 SEC] رسالة خطأ موحدة 401 تمنع تخمين وحصاد أسماء المستخدمين */
-        if (!existing || (existing.passHash && !verifyPassword(password, existing.passSalt, existing.passHash))) {
-          recordFailedLogin(clientIp, username);
-          json({ ok: false, message: 'بيانات الدخول غير صحيحة — اسم المستخدم أو كلمة المرور خاطئة' }, 401);
-          return;
-        }
-        if (existing.banned) { json({ ok: false, message: 'تم حظر هذا الحساب' }, 403); return; }
-
-        /* [2FA v2.58] إذا كانت المصادقة الثنائية مفعّلة يلزم رمز TOTP صالح قبل إصدار الجلسة.
-           يُصدَر رمز مؤقت (two_fa_token) مقيد بالهوية — يثبّت أن كلمة المرور فُحصت هنا الآن. */
-        if (existing.twofaEnabled) {
-          if (!data.totp || !totpVerify(existing.totpSecret, data.totp)) {
-            const tk = issuePending2fa(existing.id, clientIp);
-            json({ twofa_required: true, userId: existing.id, two_fa_token: tk });
+        /* [v2.67·H1 + DTSG-007] التحقق غير المحجِب لحدثة الأحداث + زمن موحّد لوجود
+           الاسم وغيابه (scrypt وهمي بنفس الكلفة عند الاسم غير الموجود) — رسالة 401
+           الموحّدة نفسها. الهجوم بالتخمين لم يعد يوقف بقية المنصة. */
+        const saltFor = existing ? existing.passSalt : DUMMY_SCRYPT_SALT;
+        const hashFor = existing ? existing.passHash : '00'.repeat(64);
+        verifyPasswordAsync(password, saltFor, hashFor).then(function (okPass) {
+          if (!existing || (existing.passHash && !okPass)) {
+            recordFailedLogin(clientIp, username);
+            json({ ok: false, message: 'بيانات الدخول غير صحيحة — اسم المستخدم أو كلمة المرور خاطئة' }, 401);
             return;
           }
-        }
-        clearFailedLogin(clientIp, username);
-        try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), existing.id); } catch (e) {}
-        existing.last_seen = Math.floor(Date.now() / 1000);
-        startSession(res, existing);
-        json({ ok: true, user: publicUser(existing) });
+          if (existing.banned) { json({ ok: false, message: 'تم حظر هذا الحساب' }, 403); return; }
+
+          /* [2FA v2.58] إذا كانت المصادقة الثنائية مفعّلة يلزم رمز TOTP صالح قبل إصدار الجلسة.
+             يُصدَر رمز مؤقت (two_fa_token) مقيد بالهوية — يثبّت أن كلمة المرور فُحصت هنا الآن. */
+          if (existing.twofaEnabled) {
+            if (!data.totp || !totpVerify(existing.totpSecret, data.totp)) {
+              const tk = issuePending2fa(existing.id, clientIp);
+              json({ twofa_required: true, userId: existing.id, two_fa_token: tk });
+              return;
+            }
+          }
+          clearFailedLogin(clientIp, username);
+          try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), existing.id); } catch (e) {}
+          existing.last_seen = Math.floor(Date.now() / 1000);
+          startSession(res, existing);
+          json({ ok: true, user: publicUser(existing) });
+        });
         return;
       }
       if (pathname === '/api/admin/register') {
@@ -1890,11 +2085,12 @@ const server = http.createServer((req, res) => {
         if (isNaN(bet) || bet <= 0) { json({ ok: false, error: 'bet_required' }, 400); return; }
         const visibility = (data.visibility === 'private') ? 'private' : 'public';   /* [B-rooms] عامة/خاصة */
         /* [R14-Settle] قائمة الألعاب المسموح بها في الغرف (مطابقة لـ Rooms.roomGameIds في الواجهة) */
-        const ROOM_GAMES_ALLOWED = { rp: 1, pn: 1, pr: 1, rn: 1, rm: 1, rd: 1, dm: 1, ch: 1, bg: 1, do: 1, bl8: 1, blbb: 1, blgv: 1, blsn: 1, blca: 1 };   /* [BGDO] الطاولة bg + الضومنة do غرفتان ثنائيتان + [BJ-ghost] بلاك جاك أُزيلت — حُذف معرفها */
+        const ROOM_GAMES_ALLOWED = { rp: 1, pn: 1, pr: 1, rn: 1, rm: 1, rd: 1, dm: 1, ch: 1, bg: 1, do: 1, bl8: 1, blbb: 1, blgv: 1, blsn: 1, blca: 1, un: 1, bl: 1 };   /* [BGDO] الطاولة bg + الضومنة do · [v2.67·H2] أُضيف أونو un والبلوت bl — كانتا مرفوضتين 400 «لعبة غير مدعومة في الغرف» رغم أن الواجهة تدعمهما بالكامل (السبب الجذري الموثّق لخلل فتح اللعبتين) · [BJ-ghost] بلاك جاك أُزيلت — حُذف معرفها */
         const gid = data.game_id || 'rm';
         if (!ROOM_GAMES_ALLOWED[gid]) { json({ ok: false, message: 'لعبة غير مدعومة في الغرف' }, 400); return; }
         const maxp = Math.max(2, Math.min(8, parseInt(data.max_players, 10) || 4));
         const rid = 'r' + (nextRoomId++);
+        try { db.prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('next_room_id', ?)").run(String(nextRoomId)); } catch (e) {}   /* [v2.67] حفظ رتابة المعرّفات فوراً */
         const code = crypto.randomBytes(3).toString('hex').toUpperCase();
         const room = {
           id: rid, code: code, game_id: gid,
@@ -1905,6 +2101,7 @@ const server = http.createServer((req, res) => {
           players: [{ id: me.id, username: me.username, ready: false, spectate: false, seat: 0 }],
           moveHistory: [], dedupSeen: {}, driverId: me.id, online: {},
           room_state: {}, chat: [],
+          rev: 0, escrow: null, lastActivity: {},   /* [v2.67] مصالحة + إيداعات + نشاط (منظّف الأشباح) */
           /* [RS-GameOpts] إعدادات اللعبة (نمط 4 لاعبين، هدف، مؤقت...) تُبث للجميع
              وتبقى عبر الانقطاع/الاستئناف */
           game_opts: (data.game_opts && typeof data.game_opts === 'object') ? data.game_opts : null
@@ -1954,6 +2151,9 @@ const server = http.createServer((req, res) => {
             json({ ok: false, message: 'لا يمكن إغلاق الغرفة حتى انتهاء الرهان الجاري — انتظر نهاية المباراة' }, 400);
             return;
           }
+          /* [v2.67·مال] مغادرة أثناء جولة غير مسوّاة → استرداد إيداع المغادر
+             (كان يُحرق رهانه بالكامل) */
+          if (room.status === 'playing' && !room.settled && room.escrow) refundEscrow(room, me && me.id);
           room.players = room.players.filter(function (p) { return p.id !== (me && me.id); });
           delete room.blindPicks;   /* [v2.27] مغادرة أثناء زوج أعمى ⇒ تُبطل الاختيارات المعلقة كلها */
           /* إزالة أي طلب انضمام خاص بالمغادر */
@@ -2003,6 +2203,11 @@ const server = http.createServer((req, res) => {
             u.gold = (u.gold || 0) - bet;
             try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
           });
+          /* [v2.67·مال] إيداعات الجولة: يُسجَّل ما دفعه كل لاعب فعلاً — لاسترداده
+             عند المغادرة/الإلغاء ولتسوية دقيقة بمبالغ حقيقية فقط (المُرقّى من الطابور
+             لا يدخل في حساب الرهان لأنه لم يدفع شيئاً) */
+          room.escrow = {};
+          payers.forEach(function (p) { room.escrow[p.id] = bet; });
           room.status = 'playing';
           room.settled = null;   /* [B-settle] جولة جديدة قابلة للتسوية (مسار endBet→start) */
           updateRoom(room);
@@ -2056,6 +2261,8 @@ const server = http.createServer((req, res) => {
       if (pathname === '/api/rooms/endBet') {
         const room = rooms[data.room_id];
         if (room && me && room.owner_id === me.id && room.status === 'playing') {
+          /* [v2.67·مال] إنهاء الجولة بلا تسوية → استرداد الإيداعات (كانت تُحرق كلها) */
+          if (!room.settled && room.escrow) refundAllEscrow(room);
           room.status = 'waiting';
           room.players.forEach(function (p) { if (!p.spectate) p.ready = false; });
           /* [B-rooms] انتهت الساعة → حُلّ الغرفة بعد انتهاء الجولة الجارية */
@@ -2093,26 +2300,32 @@ const server = http.createServer((req, res) => {
         /* اللاعبون البشريون الحقيقيون (البوتّات بلا رصيد تُتجاهل في الحساب) */
         const humans = order.filter(function (pid) { return users[pid]; })
           .map(function (pid) { return users[pid]; });
+        /* [v2.67·مال] المال الفعلي على الطاولة = الإيداعات المسجّلة الفعلية فقط
+           (تعادل ما دُفع عند البدء) — مع رجوع لرهان الغرفة للجولات التي بدأت
+           قبل هذا الإصدار (بلا سجل إيداع) حفاظاً على التوافق */
+        const escrowOf = function (u) { return Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : pot); };
         let fee = 0;
         if (result === 'draw') {
-          /* استرجاع كامل لكل لاعب بشري بلا رسوم */
+          /* استرجاع كامل لكل لاعب بشري بلا رسوم — بمبلغ إيداعه الفعلي */
           if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] DRAW refund', data.room_id, JSON.stringify(humans.map(function (u) { return u.username; })));
           humans.forEach(function (u) {
-            u.gold = (u.gold || 0) + pot;
+            const back = escrowOf(u);
+            u.gold = (u.gold || 0) + back;
             try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
           });
         } else {
           const wIdx = Number(seatMatch[1]);
           const winner = order[wIdx] != null ? users[order[wIdx]] : null;
           if (!winner) { if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] bot-winner rejected', data.room_id); json({ ok: false, message: 'الرابح لاعب آلي أو غير موجود — لا تسوية' }, 400); return; }
-          /* المال الفعلي على الطاولة: رهانات البشريين فقط (رهان الخصم البوتّي لا يُخلق من فراغ) */
-          const stake = humans.length * pot;
+          /* المال الفعلي على الطاولة: إيداعات البشريين الحاضرين فقط (لا مال من فراغ) */
+          const stake = humans.reduce(function (s, u) { return s + escrowOf(u); }, 0);
           /* الرسم: 5% من رهان الرابح في كل الجولات (نظام موحد — لا غرف ساعة بعد الآن) */
           fee = r2(pot * BET_FEE_RATE);   /* [Decimal] تقريب منزلتين (نظام سام v2.21) */
           if (process.env.DM_TEST_MODE === '1') console.log('[settleRound] WIN payout', data.room_id, winner.username, 'stake', stake, 'fee', fee);
           winner.gold = (winner.gold || 0) + (stake - fee);
           try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
         }
+        room.escrow = {};   /* [v2.67·مال] الجولة سُوّيت — الإيداعات توزّعت فتُمسح */
         room.settled = true;   /* منع تكرار التسوية للجولة نفسها */
         const shape = function (u) { return u ? { id: u.id, username: u.username, gold: u.gold } : null; };
         const wSeat = seatMatch ? Number(seatMatch[1]) : -1;
@@ -2154,8 +2367,9 @@ const server = http.createServer((req, res) => {
         const losers = loseSeats.map(function (i) { return humanOf(order[i]); }).filter(Boolean);
         if (!winners.length) { json({ ok: false, message: 'الفريق الفائز آلي بالكامل — لا تسوية' }, 400); return; }
         const humansAll = order.map(function (pid) { return humanOf(pid); }).filter(Boolean);
-        /* المال الفعلي على الطاولة = رهانات البشريين فقط */
-        const stake = humansAll.length * bet;
+        /* [v2.67·مال] المال الفعلي على الطاولة = الإيداعات الفعلية فقط
+           (رجوع لرهان الغرفة للجولات التي بدأت قبل هذا الإصدار) */
+        const stake = humansAll.reduce(function (s, u) { return s + Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : bet); }, 0);
         /* الرسم: 5% من رهان كل رابح (نظام موحد) */
         const fee = r2(bet * BET_FEE_RATE * winners.length);
         const net = r2(stake - fee);
@@ -2168,6 +2382,7 @@ const server = http.createServer((req, res) => {
           try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
           u._rdShare = add;
         });
+        room.escrow = {};   /* [v2.67·مال] الجولة سُوّيت — الإيداعات توزّعت فتُمسح */
         room.settled = true;
         const shape = function (u) {
           return u ? { id: u.id, username: u.username, gold: u.gold, share: u._rdShare || 0 } : null;
@@ -2290,9 +2505,27 @@ const server = http.createServer((req, res) => {
         return;
       }
 
+      /* [v2.67·اختبار] مقبض دورة منظّف الأشباح — باب اختباري حصراً في DM_TEST_MODE=1
+         (نفس حراسة باب qa-admin-secret في v2.59). الإنتاج: 403. */
+      if (pathname === '/api/__test/ghost-sweep' && req.method === 'POST') {
+        if (process.env.DM_TEST_MODE !== '1') { json({ ok: false, error: 'forbidden' }, 403); return; }
+        try {
+          const graceMs = parseInt(data && data.grace_ms, 10) || GHOST_GRACE_MS;
+          global.__DTSG_GHOST_SWEEP(graceMs);
+          json({ ok: true });
+        } catch (e) { json({ ok: false }, 500); }
+        return;
+      }
+
       if (pathname === '/api/rooms/move') {
         const room = rooms[data.room_id];
-        if (room) {
+        /* [v2.67·C1] الحركة تتطلب دخولاً وعضوية في الغرفة — كانت مفتوحة لأي واصل
+           يعرف معرف الغرفة فيمكنه حقن حركات في مباريات غيره */
+        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
+        if (!room) { json({ ok: false, message: 'الغرفة غير موجودة' }, 404); return; }
+        if (!room.players.some(function (p) { return p.id === me.id; })) { json({ ok: false, message: 'لست عضواً في هذه الغرفة' }, 403); return; }
+        if (room.lastActivity) room.lastActivity[me.id] = Date.now();   /* [v2.67] نشاط لمنظّف الأشباح */
+        room.rev = (room.rev || 0) + 1;   /* [v2.67·H3] ترقيم النسخة مع كل حركة */
           /* [v2.27 blindResult] اختيار أعمى زوجي (pn/rp): القيمة لا تُبث أبداً.
              كل مختار يستقبل 'blind' بلا قيمة (الخصم اختار)، وعند اكتمال زوج
              اللاعبين النشطين يُبث 'blindResult' بخريطة dirs معاً — عدالة وجهاً لوجه.
@@ -2304,13 +2537,13 @@ const server = http.createServer((req, res) => {
             if (!room.blindPicks) room.blindPicks = {};
             const pv = (data.data && data.data.d !== undefined) ? data.data.d : (data.data || {});
             room.blindPicks[me.id] = pv;
-            broadcastRoom(room, 'room:move', { room_id: room.id, action: 'blind', data: {}, from_id: me.id });
+            broadcastRoom(room, 'room:move', { room_id: room.id, action: 'blind', data: {}, from_id: me.id, rev: room.rev });
             const active = room.players.filter(function (p) { return !p.spectate; });
             if (active.length >= 2 && active.every(function (p) { return room.blindPicks[p.id] !== undefined; })) {
               const dirs = {};
               active.forEach(function (p) { dirs[p.id] = room.blindPicks[p.id]; });
               delete room.blindPicks;   /* الجولة التالية تبدأ نظيفة */
-              broadcastRoom(room, 'room:move', { room_id: room.id, action: 'blindResult', data: { dirs: dirs }, from_id: null });
+              broadcastRoom(room, 'room:move', { room_id: room.id, action: 'blindResult', data: { dirs: dirs }, from_id: null, rev: room.rev });
             }
             json({ ok: true, room: serializeRoom(room) });
             return;
@@ -2329,27 +2562,32 @@ const server = http.createServer((req, res) => {
             room.moveHistory.push(payload);
             if (room.moveHistory.length > 2000) room.moveHistory.shift();
           }
-          broadcastRoom(room, 'room:move', { room_id: room.id, action: data.action, data: payload, from_id: me ? me.id : null });
+          broadcastRoom(room, 'room:move', { room_id: room.id, action: data.action, data: payload, from_id: me.id, rev: room.rev });   /* [v2.67·H3] rev في كل حركة */
           json({ ok: true, room: serializeRoom(room) });
-        } else {
-          json({ ok: false, message: 'الغرفة غير موجودة' }, 404);
-        }
         return;
       }
       const chatMatch = pathname.match(/^\/api\/rooms\/([^/]+)\/chat$/);
       if (chatMatch && req.method === 'GET') {
+        /* [v2.67·C1] سجل دردشة الغرفة لأعضائها المصادقين فقط — كان مكشوفاً للعالم
+           بلا أي مصادقة (أي واصل يقرأ محادثات اللاعبين برقم الغرفة) */
         const room = rooms[chatMatch[1]];
-        const msgs = room ? room.chat.slice(-100) : [];
+        if (!me || !room) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
+        if (!room.players.some(function (p) { return p.id === me.id; })) { json({ ok: false, message: 'لست عضواً في هذه الغرفة' }, 403); return; }
+        const msgs = room.chat.slice(-100);
         json({ ok: true, messages: msgs });
         return;
       }
       if (pathname === '/api/rooms/chat') {
+        /* [v2.67·C1] إرسال الدردشة يتطلب دخولاً وعضوية — كان يقبل رسائل «زائر» مجهولة */
+        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
         if (isMuted(me)) { json({ ok: false, message: 'موقوف عن المراسلة', muted_until: me.muted_until }, 403); return; }
         const room = rooms[data.room_id];
-        if (room) {
+        if (!room) { json({ ok: false, message: 'الغرفة غير موجودة' }, 404); return; }
+        if (!room.players.some(function (p) { return p.id === me.id; })) { json({ ok: false, message: 'لست عضواً في هذه الغرفة' }, 403); return; }
+        if (room.lastActivity) room.lastActivity[me.id] = Date.now();   /* [v2.67] نشاط لمنظّف الأشباح */
           const msg = {
             room_id: data.room_id, text: data.text || '',
-            from_id: me ? me.id : null, from_name: me ? me.username : 'زائر',
+            from_id: me.id, from_name: me.username,
             to_id: data.to != null ? Number(data.to) : null,
             to_name: '', created_at: Date.now()
           };
@@ -2361,9 +2599,6 @@ const server = http.createServer((req, res) => {
           if (room.chat.length > 200) room.chat.shift();
           broadcastRoom(room, 'room:chat', msg);
           json({ ok: true, msg: msg });
-        } else {
-          json({ ok: false, message: 'الغرفة غير موجودة' }, 404);
-        }
         return;
       }
 
@@ -2394,16 +2629,9 @@ const server = http.createServer((req, res) => {
   filePath = path.join(__dirname, filePath.replace(/^\//, ''));
   if (!filePath.startsWith(__dirname)) { res.writeHead(403); res.end('Forbidden'); return; }
 
-  fs.stat(filePath, (err, stats) => {
-    if (err || !stats.isFile()) {
-      res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-      res.end('404 Not Found: ' + pathname);
-      return;
-    }
-    const ext = path.extname(filePath).toLowerCase();
-    res.writeHead(200, { 'Content-Type': MIME_TYPES[ext] || 'application/octet-stream' });
-    fs.createReadStream(filePath).pipe(res);
-  });
+  /* [v2.67·H1+] التقديم عبر الذاكرة الساخنة + ETag/304 + ترويسات التخزين
+     (التفصيل في تعريف serveStaticFile أعلى الملف) */
+  serveStaticFile(filePath, req, res, pathname);
 });
 
 /* ── [Group] تشغيل حلقتي جولات كينو وكراش الجماعية ── */
@@ -2424,6 +2652,11 @@ if (process.env.DM_TEST_MODE === '1') {
     console.warn('═══════════════════════════════════════════════════════════════════════');
   }
 }
+
+/* [v2.67·H1] مواءمة keep-alive مع نفق Cloudflare (60s): عمر اتصال أطول من
+   الطرف البعيد يمنع عواصف إعادة الاتصال التي كانت تضاعف زمن كل طلب */
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
 
 server.listen(PORT, '0.0.0.0', () => {
   console.log('DTSG (Digital Traditional Skills Games) Live Server running at http://0.0.0.0:' + PORT);

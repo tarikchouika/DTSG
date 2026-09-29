@@ -147,6 +147,8 @@ function authLogin() {
     if (submit) submit.disabled = false;
     if (r.ok && r.data && r.data.user) {
       applyAuthUser(r.data.user);
+      /* [v3-FixH2] القناة SSE فُتحت قبل الدخول (مجهولة) — أعد فتحها بالجلسة */
+      try { if (typeof Rooms !== 'undefined' && Rooms.reopenSse) Rooms.reopenSse(); } catch (e) {}
       closeAuthModal();
       toast(T('auth.welcome') + ' ' + username + ' 👋', 'ok');
     } else if (r.ok && r.data && r.data.twofa_required) {
@@ -178,6 +180,8 @@ function authRegister() {
     if (submit) submit.disabled = false;
     if (r.ok && r.data && r.data.user) {
       applyAuthUser(r.data.user);
+      /* [v3-FixH2] إعادة فتح قناة SSE بعد إنشاء الجلسة */
+      try { if (typeof Rooms !== 'undefined' && Rooms.reopenSse) Rooms.reopenSse(); } catch (e) {}
       closeAuthModal();
       toast(T('auth.accountCreated') + ' 🎉', 'ok');
     } else {

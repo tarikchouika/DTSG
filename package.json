@@ -1,10 +1,10 @@
 {
   "name": "digital-traditional-skills-games",
-  "version": "2.66.0",
+  "version": "2.67.0",
   "description": "DTSG — Digital Traditional Skills Games — منصة الألعاب التراثية والمهارات التقليدية (Vanilla JS + Node.js SSE)",
   "private": true,
   "scripts": {
-    "start": "node --experimental-sqlite server.js",
+    "start": "UV_THREADPOOL_SIZE=${UV_THREADPOOL_SIZE:-8} node --experimental-sqlite server.js",
     "dev": "node --experimental-sqlite server.js"
   },
   "dependencies": {

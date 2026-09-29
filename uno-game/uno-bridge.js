@@ -95,13 +95,17 @@ function cleanupUno() {
 (function () {
   /* applyRoomReplay: أونو يتعامل مع un وينادي المعالج السابق لبقية الألعاب */
   const prev = window.applyRoomReplay;
-  window.applyRoomReplay = function (history, room_id) {
+  window.applyRoomReplay = function (d, room_id) {
     const app = window.UnoApp;
     const rs = app && app._roomState ? app._roomState() : null;
     const isUn = (rs && rs.game_id === 'un') ||
       (room_id && rs && String(rs.id) === String(room_id) && rs.game_id === 'un');
-    if (isUn) { try { app.applyReplay(history); return; } catch (e) {} }
-    if (typeof prev === 'function') return prev(history, room_id);
+    /* [v3-FixChain] يصل إما الحزمة الكاملة {history:[...]} أو المصفوفة — نوحّد الشكل */
+    var hist = (d && d.history) ? d.history : d;
+    if (isUn) { try { app.applyReplay(hist); return; } catch (e) {} }
+    /* [v3-FixChain] نمرر الكائن الأصلي كما هو: الجسور التالية (البلوت) تقرأ d.history —
+       تمرير المصفوفة كان يجعل d.history=undefined ⇒ سجل فارغ ⇒ تجاهل تام لإعادة البناء */
+    if (typeof prev === 'function') return prev((d && d.history) ? d : hist, room_id);
   };
 
   /* onRoomRoundEnded: أونو يستدعي معالجته إن كان صاحب الغرفة */

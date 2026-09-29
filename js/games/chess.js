@@ -2126,7 +2126,11 @@ function chessRegisterRooms() {
   Rooms.setGameHandler(chessRoomMove);
   Rooms.setStartHandler(chessRoomStart);
   if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(function () {});
-  if (typeof window !== 'undefined') window.applyRoomReplay = chessApplyReplay;
+var _prevReplay_chessApplyReplay = window.applyRoomReplay;
+  window.applyRoomReplay = function (d) {
+    if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'ch') { try { chessApplyReplay(d); return; } catch (e) {} }
+    if (typeof _prevReplay_chessApplyReplay === 'function') { try { _prevReplay_chessApplyReplay(d); } catch (e) {} }
+  };
   if (Rooms.state && Rooms.state.game_id === 'ch' && Rooms.state.status === 'playing') {
     var rp = (typeof Rooms.hasPendingReplay === 'function' && Rooms.hasPendingReplay()) ? Rooms.consumePendingReplay() : null;
     Rooms._rejoinLive = true;   /* [Persist] عودة لجولة جارية — الرهان خُصم عند بدايتها */

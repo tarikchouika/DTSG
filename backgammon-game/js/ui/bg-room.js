@@ -547,7 +547,12 @@
         }
       });
     }
-    root.applyRoomReplay = applyReplay;
+    /* [v3-FixChain] تسلسل آمن بدل الاستبدال الصارم */
+    var _prevReplay_bg = root.applyRoomReplay;
+    root.applyRoomReplay = function (d) {
+      if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'bg') { applyReplay(d); return; }
+      if (typeof _prevReplay_bg === 'function') { try { _prevReplay_bg(d); } catch (e) {} }
+    };
     /* [Resilience] استئناف مباراة جارية عند فتح اللعبة (عائد بعد انقطاع/مشاهد متأخر):
        ندخل وضع الغرفة أولاً ثم نطبّق سجل الإعادة المعلّق بالترتيب الصحيح. */
     if (root.Rooms.state && root.Rooms.state.game_id === 'bg' && root.Rooms.state.status === 'playing') {

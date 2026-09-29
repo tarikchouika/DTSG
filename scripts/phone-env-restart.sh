@@ -56,6 +56,7 @@ chmod 600 "$ENV_FILE" 2>/dev/null || true
 say "2) إعادة تشغيل pm2 بالبيئة الكاملة"
 command -v pm2 >/dev/null 2>&1 || die "pm2 غير متاح."
 set -a; . "$ENV_FILE"; set +a
+export UV_THREADPOOL_SIZE="${UV_THREADPOOL_SIZE:-8}"   # [v2.67·H1+] طاقم خيوط libuv أوسع: scrypt الدخول وبث الملفات يتشاركان الطاقم — قابل للتجاوز من .env.local
 IFS=',' read -r -a APPS <<< "$PM2_APPS"
 RUNNING="$(pm2 jlist 2>/dev/null || echo '[]')"
 for app in "${APPS[@]}"; do

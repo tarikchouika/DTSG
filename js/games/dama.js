@@ -1486,7 +1486,11 @@ function damaRegisterRooms() {
   Rooms.setGameHandler(damaRoomMove);
   Rooms.setStartHandler(damaRoomStart);
   if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(function () { damaRenderSpectators(); });
-  if (typeof window !== 'undefined') window.applyRoomReplay = damaApplyReplay;
+var _prevReplay_damaApplyReplay = window.applyRoomReplay;
+  window.applyRoomReplay = function (d) {
+    if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'dm') { try { damaApplyReplay(d); return; } catch (e) {} }
+    if (typeof _prevReplay_damaApplyReplay === 'function') { try { _prevReplay_damaApplyReplay(d); } catch (e) {} }
+  };
   /* [Resilience] استئناف مباراة جارية عند فتح اللعبة (عائد بعد انقطاع/مشاهد متأخر):
      ندخل وضع الغرفة أولاً (mode='room' + لوحة أولية) ثم نطبّق سجل الإعادة المعلّق.
      قد تصل room:update + room:replay قبل فتح اللعبة فيبقى _pendingReplay معلّقاً
