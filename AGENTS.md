@@ -35,7 +35,7 @@ bash scripts/phone-env-restart.sh     # يقرأ .env.local → يعيد الت�
 1. `curl -s http://127.0.0.1:3000/api/payments/methods` ⇒ `binance_pay_id` غير فارغ · وسيلة `live`.
 2. `curl -s https://api.telegram.org/bot$SUPPORT_BOT_TOKEN/getWebhookInfo` ⇒ بلا `last_error`.
 3. `tests/_support_bot_test.js` · `_private_chat_test.js` · `_voucher_bot_scope_test.js` · `_financial_bot_test.js`.
-   [v2.69] عقد مال الغرف: `node tests/_bet_settle_v269_test.js` (45) · `node tests/_rooms_v267_test.js` (36) —
+   [v2.70] عقد مال الغرف: `node tests/_bet_settle_v269_test.js` (46) · `node tests/_rm_guard_settle_v270_test.js` (16) · `node tests/_rooms_v267_test.js` (36) —
    تُشغَّل على خادم معزول: `QA_BASE=http://127.0.0.1:3971/ node tests/_bet_settle_v269_test.js` (القاعدة 13).
 4. `[v2.66] بوت المالية (dtsgfinancials_bot)`: `node tests/_financial_bot_test.js` + `_financial_bot_db_test.js` ·
    `curl -s http://127.0.0.1:3000/api/financials/status` ⇒ `ok:true` ·

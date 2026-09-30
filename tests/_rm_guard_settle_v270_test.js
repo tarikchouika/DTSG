@@ -4,15 +4,16 @@
    يعيد إنتاج الأعطال الخمسة المُبلَّغة من المالك ويتحقق من إصلاحاتها:
      أ) [حرس الدور] في دور الخصم: نقر المجرف من الصفحة الأخرى لا يضيف ورقة
         لأحد (كانت تُضاف ليد صاحب الدور) — ramiAssertMyTurn.
-     ب) [حرس المرسل] حركة مفبركة باسم مقعد الخصم تُرفض عند التطبيق
-        (_netMoveAuthentic) والحركة الصحيحة من صاحب المقعد تُقبل.
+     ب) [حرس المرسل] حركة تنسب إلى مقعد الخصم لكن مرسِلها غيره تُرفض عند التطبيق
+        (_netMoveAuthentic). الحالة المقابلة (المقعد من مرسله نفسه) ليست
+        محكوماً: تمرير حسب isSpectator فلا تعني الحارس.
      ج) [التسوية الخادمية] نهاية مباراة رامي في الغرفة ⇒ settleRound فعلاً:
         room.settled + الأرصدة (رابح +19 من جرة 20) + سجل نظيف
         (خاسر صف bet واحد · رابح bet+win).
      د) [إعدادات رامي] اختيار «سامبل» يبقى محفوظاً بعد إعادة بناء الخيارات.
      هـ) [إعدادات بلوت] خيار عدد اللاعبين واحد صادق (4 — زوج ضد زوج).
-   تشغيل:  QA_BASE=http://localhost:3971/ node tests/_rm_guard_settle_v270_test.js
-           (خادم معزول DM_TEST_MODE=1 — القاعدة 13 في AGENTS.md)
+   تشغيل:  QA_BASE=http://127.0.0.1:3971/ node tests/_rm_guard_settle_v270_test.js
+           (خادم معزول DM_TEST_MODE=1 — القاعدة 13؛ يحتاج node_modules/Playwright)
    ═══════════════════════════════════════════════════════════════════ */
 'use strict';
 const SB = require('./_safe_base.js');
@@ -60,13 +61,11 @@ async function hands(page) {
   const la = await api(null, 'POST', '/api/login', { username: 'g7a_' + tag, password: 'pw123456' });
   const lb = await api(null, 'POST', '/api/login', { username: 'g7b_' + tag, password: 'pw123456' });
   const gold0 = { a: la.json.user.gold, b: lb.json.user.gold };
-  const cr = await api(la.cookie, 'POST', '/api/rooms', { game_id: 'rm', max_players: 2, bet: 10, game_opts: { mode: 'talaj', target: 'single', timer: 90 } });
-  ok(cr.status === 200 && cr.json.ok, 'إنشاء غرفة رامي');
-  const rid = cr.json.room.id, code = cr.json.room.code;
-  await api(lb.cookie, 'POST', '/api/rooms/join', { code });
-  const st = await api(la.cookie, 'POST', '/api/rooms/start', { room_id: rid });
-  ok(st.json.room.status === 'playing', 'بدء الجولة (اقتطاع 10 من كل طرف)');
 
+  /* [v2.70.1·تصحيح] الصفحتان تفتحان قبل بدء الجولة لا بعده: الواجهة لا تفتح غرفة
+     جارية تلقائياً عند التحميل (لا مسار استعادة على البدء — اللاعب يدخلها من قائمة
+     الغرف) ⇒ بناء اللعبة بعد `start` في صفحة لم تفتح قناة SSE لا يحدث أبداً،
+     وينهار الاختبار عند «بنيت اللعبة» قبل أي فحص. */
   const ctxA = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ar-MA' });
   const ctxB = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ar-MA' });
   await ctxA.addCookies([{ name: 'sid', value: la.cookie.replace(/^sid=/, ''), url: BASE }]);
@@ -76,6 +75,17 @@ async function hands(page) {
   pA.on('pageerror', e => errs.a.push(String(e.message)));
   pB.on('pageerror', e => errs.b.push(String(e.message)));
   await Promise.all([pA.goto(BASE + '/', { waitUntil: 'domcontentloaded' }), pB.goto(BASE + '/', { waitUntil: 'domcontentloaded' })]);
+  await Promise.all([pA, pB].map(p => p.waitForFunction(
+    () => typeof AUTH !== 'undefined' && AUTH.user && typeof Rooms !== 'undefined', { timeout: 20000 }
+  ).catch(() => {})));
+  await sleep(1200);   /* قناة SSE قبل أي حدث غرفة */
+
+  const cr = await api(la.cookie, 'POST', '/api/rooms', { game_id: 'rm', max_players: 2, bet: 10, game_opts: { mode: 'talaj', target: 'single', timer: 90 } });
+  ok(cr.status === 200 && cr.json.ok, 'إنشاء غرفة رامي');
+  const rid = cr.json.room.id, code = cr.json.room.code;
+  await api(lb.cookie, 'POST', '/api/rooms/join', { code });
+  const st = await api(la.cookie, 'POST', '/api/rooms/start', { room_id: rid });
+  ok(st.json.room.status === 'playing', 'بدء الجولة (اقتطاع 10 من كل طرف)');
   ok(await waitGame(pA) && await waitGame(pB), 'بنيت اللعبة عند الطرفين');
 
   const uidA = la.json.user.id, uidB = lb.json.user.id;

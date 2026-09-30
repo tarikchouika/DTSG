@@ -1,9 +1,13 @@
 #!/bin/bash
-# ═══ عدّاء الانحدار الكامل لغرف DTSG (v2.69.1) ═══
+# ═══ عدّاء الانحدار الكامل لغرف DTSG (v2.70.1) ═══
 # يشغّل خادماً معزولاً في نسخة منفصلة (بيانات مستقلة) ويجري كل اختبارات
 # الغرف/المال المحورية، ثم يطبع المجموع.
 #
 #   bash tests/_run_regression_rooms.sh
+#
+# [v2.70.1] يُربط node_modules بالنسخة المعزولة (QA_NODE_MODULES، افتراضياً
+# $REPO/node_modules) وإلا فشلت أجنحة المتصفح/المحرك بـMODULE_NOT_FOUND وهي
+# ليست انحداراً؛ وأُضيف جناح v270 (حرس الدور/المُرسِل + التسوية الخادمية).
 #
 # ⚠️ [v2.69.1] السلامة: الإصدار الأول من هذا السكربت كان يقلع الخادم على المنفذ
 # 3000 ومن داخل المستودع — أي كان يفتح قاعدة الإنتاج data/royalcoin.db ويجعل
@@ -56,6 +60,19 @@ tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads \
     --exclude=.env.local --exclude=.env --exclude=data --exclude=backups -cf - . \
   | tar -xf - -C "$QA_DIR"
 
+# ── 2-ب) node_modules: اختبارات المتصفح/المحرك تحتاجها، والنسخة لا تنسخها ──
+# [v2.70.1] بدون هذا تفشل الأجنحة الخمسة بMODULE_NOT_FOUND (خطأ بيئة لا انحدار):
+# النسخة المعزولة تُستثنى من النسخ والقائمة، وrequire() لا يصعد من /tmp إلى المستودع.
+QA_MODULES="${QA_NODE_MODULES:-$REPO/node_modules}"
+if [ -d "$QA_MODULES" ]; then
+  ln -sfn "$QA_MODULES" "$QA_DIR/node_modules"
+  export NODE_PATH="$QA_MODULES"
+  echo "── node_modules: $QA_MODULES (مربوط بالنسخة)"
+else
+  echo "⚠ لا توجد $QA_MODULES — أجنحة المتصفح/المحرك ستُبلَّغ MODULE_NOT_FOUND."
+  echo "  remedy:  npm install            (أو)  QA_NODE_MODULES=/path/to/node_modules bash $0"
+fi
+
 # ── 3) خادم الاختبار ──
 cd "$QA_DIR"
 env PORT="$QA_PORT" DM_TEST_MODE=1 DTSG_GHOST_GRACE_MS=1 USD_GOLD_RATE=100 \
@@ -63,6 +80,7 @@ env PORT="$QA_PORT" DM_TEST_MODE=1 DTSG_GHOST_GRACE_MS=1 USD_GOLD_RATE=100 \
     DM_SEED_SUPER_PW=QaTest12345 TELEGRAM_ADMIN_CHAT_ID=999000001 SUPPORT_SUPER_TG=999000001 \
     node server.js > /tmp/dtsg_regression.log 2>&1 &
 SRV=$!
+trap 'kill $SRV 2>/dev/null || true' EXIT INT TERM
 for i in $(seq 1 20); do
   curl -sf "http://127.0.0.1:$QA_PORT/api/health" >/dev/null 2>&1 && break
   sleep 0.5
@@ -93,6 +111,7 @@ run "زر المغادرة الساكن"            "tests/_leave_btn_static_tes
 run "v267 غرف المال والمزامنة"       "tests/_rooms_v267_test.js"
 run "v268 عزل الألعاب"               "tests/_rooms_isolation_v268_test.js"
 run "v269 تسوية الرهان والمغادرة"    "tests/_bet_settle_v269_test.js"
+run "v270 حرس الدور والتسوية"        "tests/_rm_guard_settle_v270_test.js"
 run "امتثال v263"                    "tests/_v263_compliance_test.js"
 run "تسوية ضاما"                     "tests/_dama_settle_test.js"
 run "تسوية روندا"                    "tests/_rn_settle_test.js"
