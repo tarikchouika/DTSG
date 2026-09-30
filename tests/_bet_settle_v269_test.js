@@ -19,7 +19,8 @@
           node tests/_bet_settle_v269_test.js
    ═════════════════════════════════════════════════════════════════════ */
 'use strict';
-const BASE = 'http://127.0.0.1:3000';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE;
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
 const FEE = 0.05;

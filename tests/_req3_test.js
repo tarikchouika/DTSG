@@ -4,10 +4,23 @@ process.chdir(require('path').resolve(__dirname, '..'));
    - موافقة+رفض = لا مباراة جديدة. الموافقة+المغادرة = لا مباراة جديدة.
    - موافقة الجميع = مباراة جديدة بالموافقين برهان المُنشئ (بذرة جديدة). */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE_SLASH;
 const U = Date.now().toString().slice(-5);
 async function wait(p, fn, t=15000, arg){const s=Date.now();let e;while(Date.now()-s<t){try{const r=await p.evaluate(fn,arg);if(r)return r;}catch(x){e=x;}await p.waitForTimeout(200);}throw new Error('timeout'+(e?' '+e.message:''));}
-async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{username:u,password:'pw123456'}}).then(r=>r.json()).catch(()=>{});await ctx.request.post(BASE+'api/login',{data:{username:u,password:'pw123456'}});const pg=await ctx.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg._errs=errs;await pg.goto(BASE,{waitUntil:'domcontentloaded'});await wait(pg,()=>!!(typeof AUTH!=='undefined'&&AUTH.user&&typeof Rooms!=='undefined'));await pg.waitForTimeout(800);return pg;}
+async function setup(ctx,u){
+  await ctx.request.post(BASE+'api/register',{data:{username:u,password:'pw123456'}}).then(r=>r.json()).catch(()=>{});
+  await ctx.request.post(BASE+'api/login',{data:{username:u,password:'pw123456'}});
+  const pg=await ctx.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg._errs=errs;
+  await pg.goto(BASE,{waitUntil:'domcontentloaded'});
+  /* [v2.69.1] بعض نسخ Playwright لا تُنقل كوكي الاستجابة من ctx.request إلى
+     سياق المتصفح ⇒ تبقى الصفحة زائرة (AUTH.user=null) ويضيع تهيئة الغرفة.
+     تسجيل الدخول من داخل الصفحة يضمن كوكياً في المتصفح في كل البيئات. */
+  await pg.evaluate(async(a)=>{await fetch(a.b+'api/login',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({username:a.u,password:'pw123456'})});},{b:BASE,u:u});
+  await pg.reload({waitUntil:'domcontentloaded'});
+  await wait(pg,()=>!!(typeof AUTH!=='undefined'&&AUTH.user&&typeof Rooms!=='undefined'));
+  await pg.waitForTimeout(800);return pg;
+}
 
 (async()=>{
   let pass=0,fail=0;const ok=(c,m)=>{if(c){pass++;console.log('  ✓ '+m);}else{fail++;console.log('  ✗ '+m);};};
@@ -18,8 +31,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const players=[A,B]; if(C) players.push(C);
     for(const p of players) await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await cA.request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});
-    const rj=(await rr.json())||{};
+    const rj=await A.evaluate(async()=>{const r=await fetch('api/rooms',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({game_id:'rm',max_players:2,bet:5})});return await r.json().catch(()=>({}));});
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);
     await wait(A,()=>!!(Rooms.state&&Rooms.state.code));
     const code=await A.evaluate(()=>Rooms.state.code);
@@ -62,7 +74,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const A=await setup(await cA,'rfo'+U+Math.random().toString().slice(2,5)),B=await setup(await cB,'rfp'+U+Math.random().toString().slice(2,5));
     for(const p of[A,B])await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});const rj=(await rr.json())||{};
+    const rj=await A.evaluate(async()=>{const q=await fetch('api/rooms',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({game_id:'rm',max_players:2,bet:5})});return await q.json().catch(()=>({}));});
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);await wait(A,()=>!!Rooms.state.code);const code=await A.evaluate(()=>Rooms.state.code);
     await B.evaluate(c=>Rooms.joinRoom(c),code);
     await A.evaluate(()=>Rooms.setReady(true));await B.evaluate(()=>Rooms.setReady(true));
@@ -86,7 +98,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const A=await setup(await cA,'ro'+U+Math.random().toString().slice(2,5)),B=await setup(await cB,'rp'+U+Math.random().toString().slice(2,5));
     for(const p of[A,B])await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});const rj=(await rr.json())||{};
+    const rj=await A.evaluate(async()=>{const q=await fetch('api/rooms',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({game_id:'rm',max_players:2,bet:5})});return await q.json().catch(()=>({}));});
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);await wait(A,()=>!!Rooms.state.code);const code=await A.evaluate(()=>Rooms.state.code);
     await B.evaluate(c=>Rooms.joinRoom(c),code);
     await A.evaluate(()=>Rooms.setReady(true));await B.evaluate(()=>Rooms.setReady(true));
@@ -115,7 +127,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const A=await setup(await cA,'lo'+U+Math.random().toString().slice(2,5)),B=await setup(await cB,'lp'+U+Math.random().toString().slice(2,5));
     for(const p of[A,B])await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});const rj=(await rr.json())||{};
+    const rj=await A.evaluate(async()=>{const q=await fetch('api/rooms',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({game_id:'rm',max_players:2,bet:5})});return await q.json().catch(()=>({}));});
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);await wait(A,()=>!!Rooms.state.code);const code=await A.evaluate(()=>Rooms.state.code),rid=await A.evaluate(()=>Rooms.state.id);
     await B.evaluate(c=>Rooms.joinRoom(c),code);
     await A.evaluate(()=>Rooms.setReady(true));await B.evaluate(()=>Rooms.setReady(true));
@@ -125,7 +137,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     await A.evaluate(()=>Rooms.startRematch());
     await wait(A,()=>!!(Rooms.state.rematch&&!Rooms.state.rematch.resolved),8000);
     await A.evaluate(()=>Rooms.voteRematch('agree'));
-    await (await cB).request.post(BASE+'api/rooms/leave',{data:{room_id:rid}}); // B يغادر = رفض
+    await B.evaluate(async(r)=>{await fetch('api/rooms/leave',{method:'POST',headers:{'content-type':'application/json'},credentials:'include',body:JSON.stringify({room_id:r})});},rid); // B يغادر = رفض
     const resolved=await wait(A,()=>(Rooms.state.rematch&&Rooms.state.rematch.resolved)?Rooms.state.rematch:null,8000);
     ok(resolved&&!resolved.rematch,'موافقة+مغادرة ⇒ لا مباراة جديدة');
     await b4.close();

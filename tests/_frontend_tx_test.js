@@ -32,7 +32,7 @@ global.document = {
   documentElement: { style: { setProperty: () => {} }, setAttribute: () => {}, getAttribute: () => null }
 };
 /* العناصر التي تلمسها الدوال المختبرة */
-['pg-transactions', 'txTransfers', 'txRounds', 'gameHistory', 'ticketsSearch', 'ticketsSheet', 'ticketsOverlay', 'ticketsBtn', 'ticketsGrip', 'adminBox', 'adminContent', 'txUser', 'txType', 'txTableBox', 'trList', 'adminStatUsers', 'adminStatOnline', 'adminStatPlays', 'adminStatCoins', 'gamePageBody', 'gamePageIcon', 'gamePageName', 'goldD', 'tcGame', 'tcMsg', 'tcModal', 'trModal', 'trTo', 'trAmt', 'trMsg', 'coordMsgs', 'coordInput', 'coordSend', 'accountInfo', 'roomsList', 'tourneyList', 'lbList'].forEach(id => predef[id] = true);
+['pg-transactions', 'txTransfers', 'txRounds', 'gameHistory', 'ticketsSearch', 'ticketsSheet', 'ticketsOverlay', 'ticketsBtn', 'ticketsGrip', 'adminBox', 'adminContent', 'txUser', 'txType', 'txTableBox', 'trList', 'adminStatUsers', 'adminStatOnline', 'adminStatPlays', 'adminStatCoins', 'gamePageBody', 'gamePageName', 'goldD', 'tcGame', 'tcMsg', 'tcModal', 'trModal', 'trTo', 'trAmt', 'trMsg', 'coordMsgs', 'coordInput', 'coordSend', 'accountInfo', 'roomsList', 'tourneyList', 'lbList'].forEach(id => predef[id] = true);
 global.window = global;
 global.location = { hash: '', hostname: 'localhost' };
 global.navigator = { maxTouchPoints: 0 };

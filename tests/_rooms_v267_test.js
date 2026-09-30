@@ -15,7 +15,8 @@
           node tests/_rooms_v267_test.js
    ═════════════════════════════════════════════════════════════════════ */
 'use strict';
-const BASE = "http://127.0.0.1:3000";
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE;
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
 
@@ -286,17 +287,26 @@ const gold = async (p) => await goldOf(p);
   {
     /* أنشئ غرفة ثم افتح الخادم مرة ثانية على منفذ آخر بنفس القاعدة:
        عدّاد meta يمنع إعادة استخدام المعرفات بعد إعادة التشغيل */
+    /* [v2.69.1] الفتح للقراءة قد يُرفض (قاعدة WAL مشغولة) ⇒ نعيد فتحها للكتابة
+       على النسخة المعزولة، ونُظهر سبب الفشل بدل ابتلاعه صامتاً (كان يُظهر «0»
+       فيتشخّص كأن العدّاد مفقود بينما هو فقط لم يُقرأ). */
     const { DatabaseSync } = require('node:sqlite');
-    let metaNext = 0;
-    try {
-      const db2 = new DatabaseSync(require('path').join(__dirname, '..', 'data', 'royalcoin.db'), { readOnly: true });
-      const row = db2.prepare("SELECT value FROM meta WHERE key = 'next_room_id'").get();
-      metaNext = row ? parseInt(row.value, 10) : 0;
-      db2.close();
-    } catch (e) {}
+    const dbPath = require('path').join(__dirname, '..', 'data', 'royalcoin.db');
+    let metaNext = 0, metaErr = null;
+    for (const opt of [{ readOnly: true }, {}]) {
+      try {
+        const db2 = new DatabaseSync(dbPath, opt);
+        const row = db2.prepare("SELECT value FROM meta WHERE key = 'next_room_id'").get();
+        metaNext = row ? parseInt(row.value, 10) : 0;
+        db2.close();
+        metaErr = null;
+        break;
+      } catch (e) { metaErr = e.message; }
+    }
     const cr = await req('POST', '/api/rooms', { game_id: 'rm', max_players: 2, bet: 3 }, (await newUser('id_' + tag)).cookie);
     const newId = parseInt((cr.json.room.id || 'r0').slice(1), 10);
-    ok(newId >= metaNext && metaNext > 0, 'معرّف الغرفة الجديدة ≥ آخر عدّاد محفوظ في meta (' + newId + ' ≥ ' + metaNext + ') — لا وراثة معرفات');
+    ok(newId >= metaNext && metaNext > 0, 'معرّف الغرفة الجديدة ≥ آخر عدّاد محفوظ في meta (' + newId + ' ≥ ' + metaNext +
+      (metaErr ? ' — تعذّرت قراءة meta: ' + metaErr : '') + ') — لا وراثة معرفات');
     await req('POST', '/api/rooms/leave', { room_id: cr.json.room.id }, null);
   }
 

@@ -5,7 +5,8 @@ process.chdir(require('path').resolve(__dirname, '..'));
    3) Penalty: تسديدة كاملة (صافرة → طيران → لافتة نتيجة) بلا أخطاء + عناصر الاستاد
    4) نقاط cf/hl المحذوفة = 404 */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE_SLASH;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function wait(p, fn, t = 12000, label) {
   const s = Date.now(); let e;

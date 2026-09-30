@@ -13,7 +13,8 @@ const http = require('http');
 const assert = require('assert');
 const crypto = require('crypto');
 
-const BASE = 'http://127.0.0.1:3000';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE;
 
 function req(path, options = {}) {
   return new Promise((resolve, reject) => {

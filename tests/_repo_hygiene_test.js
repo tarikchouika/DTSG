@@ -79,5 +79,18 @@ const literal = scripts.filter(f => {
 });
 literal.length === 0 ? ok('كل السكربتات تأخذ المفاتيح من متغيّرات البيئة') : bad('مفاتيح مكتوبة في: ' + literal.join(' · '));
 
+console.log('\n═══ 5) أوضاع الملفات (لا-bit تنفيذي في المستودع) ═══');
+/* [v2.69 حارس] v2.63.1 أصلح أوضاع الملفات جذرياً (chmod 644 + update-index
+   --chmod=-x + core.fileMode=true)، لكن v2.69.0 أعاد 543 ملفاً إلى 100755
+   — ومنها ملفات المعرفة المشتركة — فيتلوّث كل diff بعده. عُرف المستودع:
+   كل شيء 644، والسكربتات تُنفَّذ بـ`bash script.sh` لا `./script.sh`. */
+const execFiles = require('child_process')
+  .execSync('git ls-files -s', { encoding: 'utf8' })
+  .split('\n')
+  .filter(l => l.startsWith('100755 '))
+  .map(l => l.replace(/^100755 [0-9a-f]+ 0\t/, ''));
+if (execFiles.length === 0) ok('لا ملف متتبَّع بصلاحية التنفيذ (644 للجميع)');
+else bad(execFiles.length + ' ملفاً بصلاحية تنفيذ (يجب 644): ' + execFiles.slice(0, 12).join(' · ') + (execFiles.length > 12 ? ' …' : ''));
+
 console.log('\n═══ النتيجة: ' + pass + ' ناجح / ' + fail + ' فاشل ═══');
 process.exit(fail ? 1 : 0);

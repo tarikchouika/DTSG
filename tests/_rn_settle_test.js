@@ -1,7 +1,8 @@
 /* FLAT DOG (rn) settle/timeout integration: fee math, owner-only auth,
    insufficient balance, seat-swap + queue promotion. Hits the live server on :3000. */
 const http = require('http');
-const BASE = { host: 'localhost', port: 3000 };
+const SB = require('./_safe_base.js');
+const BASE = { host: SB.host, port: SB.port };
 
 function req(method, path, body, cookie) {
   return new Promise((resolve) => {

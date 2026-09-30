@@ -3,7 +3,8 @@ process.chdir(require('path').resolve(__dirname, '..'));
    [Policy 2026-09-16] التدريب ضد الآلي مجاني: الرصيد لا يتغير إطلاقاً،
    result overlay shows correct text, and a Flying King offers multi-square slides. */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE_SLASH;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function wait(p, fn, t = 12000, a) { const s = Date.now(); let e; while (Date.now() - s < t) { try { const r = await p.evaluate(fn, a); if (r) return r; } catch (x) { e = x; } await p.waitForTimeout(150); } throw new Error('timeout ' + (e ? e.message : '')); }
 

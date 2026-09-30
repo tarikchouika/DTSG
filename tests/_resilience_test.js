@@ -4,7 +4,8 @@ process.chdir(require('path').resolve(__dirname, '..'));
    (ب) دور اللاعب المنقطع يتقدّم (السائق يلعب آلياً عنه بعد المهلة).
    (ج) انقطاع المالك/السائق → إعادة تعيين السائق للاعب المتبقي. */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE_SLASH;
 
 async function wait(page, fn, timeout, arg) {
   timeout = timeout || 15000;

@@ -1,7 +1,8 @@
 /* FLAT DOG (rn) MP bet negotiation: selector proposes increase, dealer accepts/refuses,
    selector confirms → round starts with agreed coin stake. */
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
+const BASE = require('./_safe_base.js').BASE_SLASH;
 async function wait(page, fn, timeout, arg) {
   timeout = timeout || 15000; const start = Date.now();
   while (Date.now() - start < timeout) { try { const r = await page.evaluate(fn, arg); if (r) return r; } catch (e) {} await page.waitForTimeout(200); }
