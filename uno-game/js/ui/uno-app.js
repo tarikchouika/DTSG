@@ -710,20 +710,27 @@
       if (pid == null) return true;
       const rs = this._roomState();
       if (!rs || !rs.players) return false;
-      return rs.players.some((p) => String(p.id) === String(pid) && !p.spectate);
+      /* [v2.69] isBot/leftRound = لا جهاز خلف المقعد — السائق يتولّاه آلياً */
+      return rs.players.some((p) => String(p.id) === String(pid) && !p.spectate && !p.isBot);
     },
     _recomputeRoomIdentity: function () {
       const meId = this.unMyId();
       this._roomSeat = -1;
       this._isSpectator = true;
       const rs = this._roomState();
-      this._isDriver = !!(rs && meId != null && String(rs.owner_id) === String(meId));
+      /* [v2.69] السائق الخادمي (driverId — يُعاد تعيينه عند انقطاع المالك)
+      هو مرجع الحركة/التولّي الآلي؛ المالك احتياط إن لم يحدّد الخادم سائقاً */
+      this._isDriver = !!(rs && meId != null && (
+        (rs.driverId != null && String(rs.driverId) === String(meId)) ||
+        (rs.driverId == null && String(rs.owner_id) === String(meId))));
       if (!rs || !rs.players || meId == null) return;
       for (let i = 0; i < rs.players.length; i++) {
         const p = rs.players[i];
         if (String(p.id) === String(meId)) {
           this._isSpectator = !!p.spectate;
-          if (!p.spectate) this._roomSeat = i;
+          /* [v2.69] مقعد موسوم آلياً (مغادرة/غيب): لا يستعيد التحكم — لا عبث
+             بحركة مقعد يقودها السائق الآلي الآن */
+          if (!p.spectate && !p.isBot) this._roomSeat = i;
           break;
         }
       }
@@ -1076,8 +1083,10 @@
           }
           if (!entry || entry.spectate) return;
           const bet = Number(rs.bet) || 0;
-          const isHost = String(rs.owner_id) === String(meId);
-          if (bet > 0 && !rs.settled && isHost) {
+          /* [v2.69·آلي] المالك أو السائق أو أي لاعب نشط يسوّي من جهته —
+             الخادم يقبل الأول ويمنع التكرار (room.settled): لا تعليق للتسوية
+             على جهاز المالك الغائب (جذر «لا يُضاف للرابح») */
+          if (bet > 0 && !rs.settled) {
             /* [v2.68·عزل] التسوية وفق نمط اللعبة: فرق (4 مقاعد، الفريق = مقعد%2)
                ⇒ settleTeam؛ فردي (2-3 مقاعد) ⇒ settleRound بالمقعد الفائز —
                كانت أونو ترسل t0/t1 دائماً والخادم يشترط 4 مقاعد فتفشل تسوية

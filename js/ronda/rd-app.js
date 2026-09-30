@@ -1650,9 +1650,10 @@
         if (!entry || entry.spectate) return;
         const order = rs.order || [];
         const bet = Number(rs.bet) || 0;
-        const isHost = String(rs.owner_id) === String(meId);
         const wTeam = (ev && ev.winnerTeamId != null) ? Number(ev.winnerTeamId) : 0;
-        if (bet > 0 && !rs.settled && isHost) {
+        /* [v2.69·آلي] أي لاعب نشط يسوّي من جهته — الخادم يقبل الأول ويمنع
+           التكرار (room.settled): لا تعليق للتسوية على جهاز المالك الغائب */
+        if (bet > 0 && !rs.settled) {
           const cfg = App._roomCfg();
           /* [RDC-ffa] فردي (2 أو 3 لاعبين، أو 4 بوضع ffa): الفائز يأخذ الكل — 'w0'/'w1'/'w2'/'w3'.
              في FFA كل لاعب فريق مستقل → winnerTeamId = مقعد الفائز مباشرة */

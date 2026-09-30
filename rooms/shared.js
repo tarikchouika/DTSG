@@ -15,7 +15,7 @@
 
 /* ينشئ الطبقة المشتركة فوق سياق الخادم (users/db/sseClients/...) */
 function createSharedRoomIO(ctx) {
-  const { users, db, sseClients } = ctx;
+  const { users, db, sseClients, logTx } = ctx;
 
   function sendSSE(res, event, data) {
     try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) {}
@@ -54,7 +54,7 @@ function createSharedRoomIO(ctx) {
       rev: room.rev || 0,
       expired: !!room.expired,
       players: room.players.map(function (p) {
-        return { id: p.id, username: p.username, ready: !!p.ready, spectate: !!p.spectate, seat: p.seat, isBot: !!p.isBot };
+        return { id: p.id, username: p.username, ready: !!p.ready, spectate: !!p.spectate, seat: p.seat, isBot: !!p.isBot, leftRound: !!p.leftRound };
       }),
       order: nonspec.map(function (p) { return p.id; }),
       room_state: room.room_state || {},
@@ -85,6 +85,21 @@ function createSharedRoomIO(ctx) {
     if (room.status === 'playing' && !room.settled) refundAllEscrow(room);
     broadcastRoom(room, 'room:update', null);
     ctx.removeRoom(room);
+  }
+
+  /* ═══════ [v2.69·عودة] عودة لاعب غائب أثناء جولة جارية ═══════
+     الانقطاع/إغلاق المتصفح/تحديث الصفحة ليست مغادرة (توجيه المالك):
+     منظّف الأشباح يوسم المقعد isBot مؤقتاً ويكمل عنه السائق آلياً — لحظة
+     عودته (SSE hello/حركة/دردشة) نزيل الوسم فيستأنف مقعده كأنه لم يغب.
+     الوسم leftRound (مغادرة صريحة بتأكيد) لا يُرفع أبداً — خسر الجولة. */
+  function resumeIfGhost(room, uid) {
+    try {
+      if (!room || uid == null || room.status !== 'playing') return false;
+      const p = room.players.find(function (x) { return x.id === uid; });
+      if (!p || !p.isBot || p.leftRound || p.spectate) return false;
+      p.isBot = false;
+      return true;
+    } catch (e) { return false; }
   }
 
   /* [v2.67·مال] استرداد إيداع رهان لاعب — استرجاع صامت للرصيد */
@@ -146,6 +161,8 @@ function createSharedRoomIO(ctx) {
           if (bet > 0) {
             u.gold = (u.gold || 0) - bet;
             try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+            /* [v2.69·مال] سجل اقتطاع رهان المباراة المعادة — كمسار البدء نفسه */
+            try { if (logTx) logTx(u, 'bet', bet, { game_id: room.game_id, note: 'رهان إعادة مباراة', balance_after: u.gold }); } catch (e) {}
           }
         } else {
           p.spectate = true; p.ready = true;
@@ -168,9 +185,13 @@ function createSharedRoomIO(ctx) {
     return true;
   }
 
-  /* ═══════ [Spectator] ترقية طابور الانضمام ═══════ */
+  /* ═══════ [Spectator] ترقية طابور الانضمام ═══════
+     [v2.69·ثبات المقاعد] أثناء جولة جارية لا ترقية إطلاقاً — المقاعد
+     محجوزة للاعبين الأصليين (ومن غادره حلّ محله آلي): الترقية كانت تغيّر
+     order منتصف الجولة فتنزاح مقاعد التسوية (w0-w3) إلى لاعبين خاطئين. */
   function promoteQueued(room) {
     if (!room || !room.joinQueue || !room.joinQueue.length) return;
+    if (room.status === 'playing' && !room.settled) return;
     for (;;) {
       const nonSpec = room.players.filter(function (p) { return !p.spectate; }).length;
       if (nonSpec >= room.max_players) break;
@@ -196,6 +217,8 @@ function createSharedRoomIO(ctx) {
     if (!room.lastActivity) room.lastActivity = {};
     room.lastActivity[uid] = Date.now();
     room.online[uid] = (room.online[uid] || 0) + 1;
+    /* [v2.69·عودة] الغائب عاد أثناء الجولة — يستأنف مقعده فوراً */
+    if (resumeIfGhost(room, uid)) updateRoom(room);
     if (room.driverId != null && !isOnline(room, room.driverId)) {
       var me = room.players.find(function (p) { return p.id === uid && !p.spectate; });
       if (me) { var before = room.driverId; room.driverId = uid; if (before !== uid) updateRoom(room); }
@@ -233,7 +256,8 @@ function createSharedRoomIO(ctx) {
     isOnline: isOnline,
     markOnline: markOnline,
     markOffline: markOffline,
-    reassignDriver: reassignDriver
+    reassignDriver: reassignDriver,
+    resumeIfGhost: resumeIfGhost
   };
 }
 

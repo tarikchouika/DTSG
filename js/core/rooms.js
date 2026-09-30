@@ -143,6 +143,22 @@
       _source.addEventListener('room:settle', function (e) {
         try { Rooms._onSettle(JSON.parse(e.data)); } catch (err) { console.error('[rooms] settle', err); }
       });
+      /* [v2.69·مغادرة] لاعب غادر منتصف الجولة صراحةً: مقعده صار آلياً —
+         إشعار مرئي للباقين + مزامنة رصيد المغادر إن كنت أنا هو */
+      _source.addEventListener('room:leave', function (e) {
+        try {
+          var d = JSON.parse(e.data);
+          if (!d) return;
+          var u = me();
+          if (d.user_id != null && u && d.user_id == u.id) {
+            /* أنا المغادر: الغرفة لم تعد لي — خسرت الجولة وإيداعها */
+            Rooms._refreshGold();
+            toast(T('rm.youLeftLost') || 'غادرت الجولة — خسرت رهانها', 'err');
+          } else if (d.username) {
+            toast('🤖 ' + esc(d.username) + ' — ' + (T('rm.leftAiTook') || 'غادر، أتمّ الجولة لاعب آلي'), 'warn');
+          }
+        } catch (err) { console.error('[rooms] leave', err); }
+      });
     },
 
     _onUpdate: function (room) {
@@ -1026,6 +1042,22 @@
       _startHandler = null;
       API.post('/api/rooms/leave', { room_id: id }).catch(function () {});
     },
+    /* [v2.69·مغادرة = خسارة] مغادرة صريحة بتأكيد المستخدم أثناء جولة جارية:
+       الخادم يوسم مقعدي آلياً ويصادر إيداعه في الجرة (وفي الثنائيات يسوّي
+       فوراً للخصم الباقي) — هذه هي المغادرة الوحيدة المعتبَرة خسارة.
+       إقفال المتصفح/الانقطاع/التحديث لا يمرّان هنا (العضوية تبقى). */
+    leaveForfeit: function () {
+      if (!Rooms.state) return Promise.resolve();
+      var id = Rooms.state.id;
+      var wasPlaying = Rooms.state.status === 'playing';
+      Rooms.state = null;
+      Rooms._persistRoom(null);
+      _gameHandler = null;
+      _startHandler = null;
+      return API.post('/api/rooms/leave', { room_id: id }).then(function () {
+        if (wasPlaying) Rooms._refreshGold();
+      }).catch(function () {});
+    },
     setReady: function (ready) {
       if (!Rooms.state) return;
       API.post('/api/rooms/ready', { room_id: Rooms.state.id, ready: !!ready }).then(function (r) {
@@ -1388,23 +1420,30 @@
       }
     },
 
-    /* [B-settle] إعلان نتيجة الجولة من اللعبة (المضيف فقط) — تُستدعى من لعبة ضاما */
+    /* [B-settle] إعلان نتيجة الجولة من اللعبة — [v2.69·آلي] المالك أو السائق
+       أو أي لاعب نشط: أول تقرير يسوّي (الخادم يمنع التكرار بroom.settled) —
+       كانت محصورة في المالك فتموت التسوية بغيبته = جذر «لا يُضاف للرابح» */
     roomSettle: function (result) {
       if (!Rooms.state) return;
       var u = me();
-      if (!u || Rooms.state.owner_id !== u.id) return;
+      if (!u) return;
       API.post('/api/rooms/settleRound', { room_id: Rooms.state.id, result: result }).then(function (r) {
-        if (!r.ok) toast((r.data && r.data.message) || T('ui.roomError'), 'err');
+        if (!r.ok && r.data && r.data.message && r.data.message.indexOf('مسبقاً') === -1) {
+          toast(r.data.message || T('ui.roomError'), 'err');
+        }
       });
     },
     /* [RDC-team] تسوية روندا 2ضد2: تقسيم أرباح الرهان بين الفريق الفائز (خادمياً).
-       result: 't0' = فاز فريق المقاعد 0,2 | 't1' = فاز فريق المقاعد 1,3 */
+       result: 't0' = فاز فريق المقاعد 0,2 | 't1' = فاز فريق المقاعد 1,3
+       [v2.69·آلي] نفس فتح التصريح: المالك أو السائق أو أي لاعب نشط */
     settleTeam: function (result) {
       if (!Rooms.state) return;
       var u = me();
-      if (!u || Rooms.state.owner_id !== u.id) return;
+      if (!u) return;
       API.post('/api/rooms/settleTeamRound', { room_id: Rooms.state.id, result: result }).then(function (r) {
-        if (!r.ok) toast((r.data && r.data.message) || T('ui.roomError'), 'err');
+        if (!r.ok && r.data && r.data.message && r.data.message.indexOf('مسبقاً') === -1) {
+          toast(r.data.message || T('ui.roomError'), 'err');
+        }
       });
     },
 

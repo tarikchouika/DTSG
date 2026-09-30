@@ -7,7 +7,7 @@ const { chromium } = require('playwright');
 const BASE = 'http://localhost:3000/';
 const U = Date.now().toString().slice(-5);
 async function wait(p, fn, t=15000, arg){const s=Date.now();let e;while(Date.now()-s<t){try{const r=await p.evaluate(fn,arg);if(r)return r;}catch(x){e=x;}await p.waitForTimeout(200);}throw new Error('timeout'+(e?' '+e.message:''));}
-async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{username:u,password:'p'}}).then(r=>r.json()).catch(()=>{});await ctx.request.post(BASE+'api/login',{data:{username:u,password:'p'}});const pg=await ctx.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg._errs=errs;await pg.goto(BASE,{waitUntil:'domcontentloaded'});await wait(pg,()=>!!(typeof AUTH!=='undefined'&&AUTH.user&&typeof Rooms!=='undefined'));await pg.waitForTimeout(800);return pg;}
+async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{username:u,password:'pw123456'}}).then(r=>r.json()).catch(()=>{});await ctx.request.post(BASE+'api/login',{data:{username:u,password:'pw123456'}});const pg=await ctx.newPage();const errs=[];pg.on('pageerror',e=>errs.push(e.message));pg._errs=errs;await pg.goto(BASE,{waitUntil:'domcontentloaded'});await wait(pg,()=>!!(typeof AUTH!=='undefined'&&AUTH.user&&typeof Rooms!=='undefined'));await pg.waitForTimeout(800);return pg;}
 
 (async()=>{
   let pass=0,fail=0;const ok=(c,m)=>{if(c){pass++;console.log('  ✓ '+m);}else{fail++;console.log('  ✗ '+m);};};
@@ -18,7 +18,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const players=[A,B]; if(C) players.push(C);
     for(const p of players) await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await cA.request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2}});
+    const rr=await cA.request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});
     const rj=(await rr.json())||{};
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);
     await wait(A,()=>!!(Rooms.state&&Rooms.state.code));
@@ -62,7 +62,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const A=await setup(await cA,'rfo'+U+Math.random().toString().slice(2,5)),B=await setup(await cB,'rfp'+U+Math.random().toString().slice(2,5));
     for(const p of[A,B])await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2}});const rj=(await rr.json())||{};
+    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});const rj=(await rr.json())||{};
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);await wait(A,()=>!!Rooms.state.code);const code=await A.evaluate(()=>Rooms.state.code);
     await B.evaluate(c=>Rooms.joinRoom(c),code);
     await A.evaluate(()=>Rooms.setReady(true));await B.evaluate(()=>Rooms.setReady(true));
@@ -86,7 +86,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const A=await setup(await cA,'ro'+U+Math.random().toString().slice(2,5)),B=await setup(await cB,'rp'+U+Math.random().toString().slice(2,5));
     for(const p of[A,B])await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2}});const rj=(await rr.json())||{};
+    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});const rj=(await rr.json())||{};
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);await wait(A,()=>!!Rooms.state.code);const code=await A.evaluate(()=>Rooms.state.code);
     await B.evaluate(c=>Rooms.joinRoom(c),code);
     await A.evaluate(()=>Rooms.setReady(true));await B.evaluate(()=>Rooms.setReady(true));
@@ -115,7 +115,7 @@ async function setup(ctx,u){await ctx.request.post(BASE+'api/register',{data:{us
     const A=await setup(await cA,'lo'+U+Math.random().toString().slice(2,5)),B=await setup(await cB,'lp'+U+Math.random().toString().slice(2,5));
     for(const p of[A,B])await p.evaluate(()=>openGame('rm'));
     await wait(A,()=>!!window.RamiAdapter);
-    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2}});const rj=(await rr.json())||{};
+    const rr=await(await cA).request.post(BASE+'api/rooms',{data:{game_id:'rm',max_players:2,bet:5}});const rj=(await rr.json())||{};
     await A.evaluate(r=>{Rooms.state=r;Rooms.render();},rj.room);await wait(A,()=>!!Rooms.state.code);const code=await A.evaluate(()=>Rooms.state.code),rid=await A.evaluate(()=>Rooms.state.id);
     await B.evaluate(c=>Rooms.joinRoom(c),code);
     await A.evaluate(()=>Rooms.setReady(true));await B.evaluate(()=>Rooms.setReady(true));

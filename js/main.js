@@ -616,12 +616,10 @@ function openGame(id) {
   if (typeof window.SessionResume !== 'undefined') {
     try { window.SessionResume.onGameOpen(id); } catch (e) {}
   }
-  /* زر «العب مع صديق» فقط للألعاب المدعومة (rp/pn/pr) */
+  /* [v2.69] زر «العب مع صديق» فقط للألعاب المدعومة (rp/pn/pr) */
   if (typeof Rooms !== 'undefined' && Rooms.syncBtn) Rooms.syncBtn();
-  /* رأس صفحة اللعبة */
-  const iconEl = document.getElementById('gamePageIcon');
+  /* رأس صفحة اللعبة — [v2.69] بلا أيقونة (بتوجيه المالك): الاسم فقط */
   const nameEl = document.getElementById('gamePageName');
-  if (iconEl) iconEl.textContent = g.em;
   if (nameEl) nameEl.textContent = gname(g);
   const bodyEl = document.getElementById('gamePageBody');
   if (!bodyEl) return;
@@ -744,6 +742,14 @@ function confirmLeaveGame() {
   if (emEl) emEl.textContent = g ? g.em : '\u{1F3AE}';
   if (nmEl) nmEl.textContent = g ? gname(g) : '';
   setGameLeaveAccent(g);
+  /* [v2.69·مغادرة = خسارة] جولة رهان جارية: أظهر تحذير الخسارة — اقتطاعُ الرهان
+     وقع عند البدء، والمغادرة الصريحة الآن تصادره للرابح ويحل محلي آلي */
+  const lossLine = document.getElementById('leaveLossLine');
+  const roundLive = !!(typeof Rooms !== 'undefined' && Rooms.state &&
+    Rooms.state.status === 'playing' && !Rooms.state.settled);
+  if (lossLine) { if (roundLive) lossLine.removeAttribute('hidden'); else lossLine.setAttribute('hidden', ''); }
+  const cbtn = document.getElementById('leaveConfirmBtn');
+  if (cbtn) cbtn.classList.toggle('gl-confirm-loss', !!roundLive);
   mw.classList.add('show');
   const stay = document.getElementById('leaveStayBtn');
   if (stay) { try { stay.focus(); } catch (e) {} }  /* التركيز على «البقاء» — لا خروج بزر Enter المفاجئ */
@@ -754,6 +760,14 @@ function closeLeaveModal() {
 }
 function doLeaveGame() {
   closeLeaveModal();
+  /* [v2.69·مغادرة = خسارة] جولة غرفة جارية: هذه مغادرة صريحة بتأكيد —
+     الخادم يوسم مقعدي آلياً ويصادر إيداعي (الثنائيات تُسوّى فوراً للخصم).
+     إقفال المتصفح/الانقطاع/التحديث لا يمرّان هنا البتة (العضوية تبقى حية). */
+  const roundLive = !!(typeof Rooms !== 'undefined' && Rooms.state &&
+    Rooms.state.status === 'playing' && !Rooms.state.settled);
+  if (roundLive && typeof Rooms.leaveForfeit === 'function') {
+    Rooms.leaveForfeit();
+  }
   closeGamePage();
 }
 function closeGamePage() {

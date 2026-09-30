@@ -376,13 +376,12 @@
   }
 
   /* ══════════ نهاية المباراة في الغرفة ══════════ */
-  /* [B-settle] تسوية رهان غرفة الطاولة خادمياً: المضيف فقط يُعلن النتيجة
+  /* [B-settle] تسوية رهان غرفة الطاولة خادمياً [v2.69·آلي]: أي لاعب نشط
+     يُعلن النتيجة — الخادم يقبل الأول ويمنع التكرار (room.settled)
      (result: 'w0' فاز صاحب order[0] | 'w1' فاز order[1] | 'draw'). */
   function settle(winner) {
     if (typeof root.Rooms === 'undefined' || !root.Rooms || typeof root.Rooms.roomSettle !== 'function') return;
     if (!root.Rooms.state || root.Rooms.state.game_id !== 'bg' || root.Rooms.state.settled) return;
-    const u = (typeof root.AUTH !== 'undefined' && root.AUTH && root.AUTH.user) || null;
-    if (!u || root.Rooms.state.owner_id !== u.id) return;   /* المضيف فقط */
     const result = (winner === 0) ? 'w0' : (winner === 1 ? 'w1' : 'draw');
     try { root.Rooms.roomSettle(result); } catch (e) {}
   }

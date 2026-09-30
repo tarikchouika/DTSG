@@ -15,7 +15,7 @@
           node tests/_rooms_v267_test.js
    ═════════════════════════════════════════════════════════════════════ */
 'use strict';
-const BASE = 'http://localhost:3000';
+const BASE = "http://127.0.0.1:3000";
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
 
@@ -126,7 +126,7 @@ const gold = async (p) => await goldOf(p);
     await req('POST', '/api/rooms/leave', { room_id: roomId }, A.cookie);
   }
 
-  console.log('── [مال] الإيداع والاسترداد عند المغادرة ──');
+  console.log('── [مال] الإيداع والمغادرة=الخسارة [v2.69] ──');
   {
     const P1 = await newUser('m1_' + tag), P2 = await newUser('m2_' + tag);
     const g1a = await gold(P1), g2a = await gold(P2);
@@ -138,14 +138,18 @@ const gold = async (p) => await goldOf(p);
     await req('POST', '/api/rooms/start', { room_id: roomId }, P1.cookie);
     const g1b = await gold(P1), g2b = await gold(P2);
     ok(g1b === g1a - 25 && g2b === g2a - 25, 'البدء اقتطع الرهان من اللاعبَين (إيداع)');
-    /* مغادرة الضيف أثناء الجولة → استرداده */
-    await req('POST', '/api/rooms/leave', { room_id: roomId }, P2.cookie);
-    const g2c = await gold(P2);
-    ok(g2c === g2a, 'مغادرة الضيف أثناء جولة غير مسوّاة استردت رهانه كاملاً (كان يُحرق)');
-    /* المضيف ينهي بلا تسوية → استرداده */
+    /* [v2.69·توجيه المالك] مغادرة الضيف أثناء الجولة الثنائية = خسارة فورية:
+       لا استرداد — تسوية آنية للمضيف الباقي بالجرة كاملة بعد الرسم.
+       (سلوك v2.67 «الاسترداد عند المغادرة» أُلغي بتوجيه المالك 2026-09-30) */
+    const lv = await req('POST', '/api/rooms/leave', { room_id: roomId }, P2.cookie);
+    const g2c = await gold(P2), g1c = await gold(P1);
+    ok(g2c === g2a - 25, 'مغادرة الضيف = خسارة رهانه كاملاً [v2.69] (لا استرداد)');
+    ok(lv.json && lv.json.result === 'w0' && g1c === Math.round((g1a - 25 + 50 - 25 * 0.05) * 100) / 100,
+       'تسوية فورية للمالك الباقي: الجرة كاملة بعد الرسم (50-1.25) [v2.69]');
+    /* الجولة حُسمت عند المغادرة — endBet بعدها لا يضيف شيئاً (settled) */
     const end = await req('POST', '/api/rooms/endBet', { room_id: roomId }, P1.cookie);
-    const g1c = await gold(P1);
-    ok(g1c === g1a, 'إنهاء الجولة بلا تسوية استرد إيداع المضيف (كان يُحرق)');
+    const g1d = await gold(P1);
+    ok(g1d === g1c, 'endBet بعد التسوية الفورية لا يغيّر رصيداً (الجولة محسومة)');
     await req('POST', '/api/rooms/leave', { room_id: roomId }, P1.cookie);
   }
 
@@ -255,7 +259,7 @@ const gold = async (p) => await goldOf(p);
     await req('POST', '/api/rooms/leave', { room_id: roomId }, P1.cookie);
   }
 
-  console.log('── [أشباح] المنظّف يغادر المنقطع مع استرداده ──');
+  console.log('── [أشباح] غياب الجميع: استرداد وحلّ [v2.69: الانقطاع ≠ مغادرة] ──');
   {
     const P1 = await newUser('gh1_' + tag), P2 = await newUser('gh2_' + tag);
     const g1a = await gold(P1), g2a = await gold(P2);
@@ -265,12 +269,14 @@ const gold = async (p) => await goldOf(p);
     await req('POST', '/api/rooms/ready', { room_id: roomId, ready: true }, P2.cookie);
     await req('POST', '/api/rooms/ready', { room_id: roomId, ready: true }, P1.cookie);
     await req('POST', '/api/rooms/start', { room_id: roomId }, P1.cookie);
-    /* لا اتصال SSE لأي طرف + مهلة سماح 1ms عبر مقبض الاختبار ← دورة التنظيف */
+    /* لا اتصال SSE لأي طرف + مهلة سماح 1ms عبر مقبض الاختبار ← دورة التنظيف
+       [v2.69] الجميع آليون ولا أحد حي: استرداد الجميع (لا خاسر) وحلّ الغرفة —
+       المنقطع الواحد لوحده يوسم isBot ويكمل عنه السائق ويعود لمقعه (اختبار v269) */
     await sleep(80);
     const swept = await req('POST', '/api/__test/ghost-sweep', { grace_ms: 1 });
     ok(swept.status === 200 && swept.json && swept.json.ok, 'مقبض دورة التنظيف يعمل (باب اختبار DM_TEST_MODE)');
     const g1b = await gold(P1), g2b = await gold(P2);
-    ok(g1b === g1a && g2b === g2a, 'المنقطعون بلا حضور استُردت إيداعاتهم وغادروا (المنظّف)');
+    ok(g1b === g1a && g2b === g2a, 'غياب الجميع معاً: استرداد شامل بلا خسارة لأحد (الجولة بلا نتيجة)');
     /* الغرفة حُلّت: مسار ready يعيد room=null للغرفة المحذوفة */
     const rd = await req('POST', '/api/rooms/ready', { room_id: roomId, ready: true }, P1.cookie);
     ok(rd.json && rd.json.room == null, 'الغرفة الفارغة أُغلقت تلقائياً بعد رحيل الأشباح (حُلّت فعلاً — لا مجرد اختفاء من القائمة العامة)');

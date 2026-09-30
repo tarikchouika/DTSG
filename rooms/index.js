@@ -68,7 +68,11 @@ function createRoomHub(ctx) {
     registerRoom: function (room) {
       byId.set(room.id, room);
       byCode.set(room.code, room);
-    }
+    },
+    /* [v2.69] حذف نظيف من فهرس المحور والمدير معاً — كان مدير اللعبة
+       يحذف من خريطته فقط فتبقى الغرفة الميتة في فهرس المحور (byId/byCode)
+       وتظهر في roomsOfUser عند عودة المستخدم كغرفة شبح */
+    removeRoom: removeRoom
   });
 
   /* ── مدير لكل لعبة مسجّلة في السجل ── */

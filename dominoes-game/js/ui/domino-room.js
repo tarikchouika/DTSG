@@ -432,8 +432,7 @@
   function settle(winner) {
     if (typeof root.Rooms === 'undefined' || !root.Rooms || typeof root.Rooms.roomSettle !== 'function') return;
     if (!root.Rooms.state || root.Rooms.state.game_id !== 'do' || root.Rooms.state.settled) return;
-    const u = (typeof root.AUTH !== 'undefined' && root.AUTH && root.AUTH.user) || null;
-    if (!u || root.Rooms.state.owner_id !== u.id) return;   /* المضيف فقط */
+    /* [v2.69·آلي] أي لاعب نشط يُعلن النتيجة — الخادم يقبل الأول ويمنع التكرار */
     const result = (winner === 0) ? 'w0' : (winner === 1 ? 'w1' : 'draw');
     try { root.Rooms.roomSettle(result); } catch (e) {}
   }

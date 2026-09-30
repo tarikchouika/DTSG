@@ -71,7 +71,7 @@
   <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg10">
   <link rel="stylesheet" href="css/07-responsive.css?v=dtsg8">
   <link rel="stylesheet" href="css/08-rami.css?v=dtsg7">
-  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg9">
+  <link rel="stylesheet" href="css/09-chrome.css?v=dtsg10">
   <link rel="stylesheet" href="css/10-dama.css?v=dtsg6">
   <link rel="stylesheet" href="css/12-chess.css?v=dtsg7">
   <link rel="stylesheet" href="css/11-game-theme.css?v=dtsg6">
@@ -376,12 +376,13 @@
         <section class="page" id="pg-game" aria-labelledby="gamePageName">
           <div class="gp-head">
             <div class="gp-head-left">
-              <!-- [Leave 2026-09-23] زر مغادرة اللعبة: واضح، ذهبي بهوية المنصة + هالة هوية كل لعبة، ولا يخرج إلا بتأكيد -->
+              <!-- [v2.69] زر مغادرة اللعبة: رمز فقط (بلا نص — بتوجيه المالك)، ذهبي
+                   بهوية كل لعبة، ولا يخرج إلا بتأكيد؛ أثناء جولة جارية = خسارة الرهان -->
               <button class="btn gl-leave-head" id="gameLeaveBtnHead" onclick="confirmLeaveGame()" aria-label="مغادرة اللعبة" title="مغادرة اللعبة" data-gid="">
-                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i><span class="gl-txt" data-i18n="g.leaveShort">مغادرة</span>
+                <i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i>
               </button>
+              <!-- [v2.69] أُزيلت أيقونة اللعبة من الهيدر (بتوجيه المالك) — الاسم فقط -->
               <div class="ptitle" id="gamePageTitle">
-                <div class="ibox" id="gamePageIcon"><i class="fa-solid fa-dice" aria-hidden="true"></i></div>
                 <span id="gamePageName" class="gp-name-text"></span>
               </div>
             </div>
@@ -692,6 +693,8 @@
       </div>
       <div class="mbody leave-body">
         <div class="leave-game-chip" id="leaveGameChip"><span id="leaveGameEm">🎮</span><b id="leaveGameName"></b></div>
+        <!-- [v2.69] جولة رهان جارية: تحذير صريح — المغادرة الآن = خسارة الرهان -->
+        <p class="leave-msg leave-loss" id="leaveLossLine" data-i18n="g.leaveLossMsg" hidden>⚠️ مغادرة اللعبة الآن تعني خسارة الجولة ورهانها — سيُكمل مكانك لاعب آلي.</p>
         <p class="leave-msg" id="leaveMsg"><span data-i18n="g.leaveMsg">هل أنت متأكد من أنك تريد مغادرة اللعبة؟</span></p>
         <div class="leave-actions">
           <button class="btn gl-stay" id="leaveStayBtn" onclick="closeLeaveModal()"><i class="fa-solid fa-gamepad" aria-hidden="true"></i> <span data-i18n="g.leaveCancel">البقاء في اللعبة</span></button>
@@ -733,7 +736,7 @@
   <script src="js/core/audio.js?v=dtsg7"></script>
   <script src="js/core/utils.js?v=dtsg7"></script>
   <script src="js/core/fx.js?v=dtsg7"></script>
-  <script src="js/i18n/translations.js?v=dtsg20"></script>
+  <script src="js/i18n/translations.js?v=dtsg21"></script>
   <script src="js/rules/game-rules.js?v=dtsg9"></script>
   <script src="js/games/catalog.js?v=dtsg8"></script>
   <script src="js/games/ronda.js?v=unified14"></script>
@@ -744,7 +747,7 @@
   <script src="js/ronda/rd-i18n.js?v=rdc6"></script>
   <script src="js/ronda/rd-html.js?v=rdc6"></script>
   <script src="js/ronda/rd-renderer.js?v=rdc6"></script>
-  <script src="js/ronda/rd-app.js?v=rdc6"></script>
+  <script src="js/ronda/rd-app.js?v=rdc7"></script>
   <script src="js/games/rondacard.js?v=rdc6"></script>
   <!-- [BG] الطاولة + [DO] الضومنة: مشروعان مستقلان محكومان بعقد المنصة -->
   <!-- [BG] الطاولة + [DO] الضومنة: مشروعان مستقلان محكومان بعقد المنصة
@@ -774,7 +777,7 @@
   <script src="baloot-game/js/ui/baloot-i18n.js?v=bl3"></script>
   <script src="baloot-game/js/ui/baloot-renderer.js?v=bl3"></script>
   <script src="baloot-game/js/ui/baloot-html.js?v=bl4"></script>
-  <script src="baloot-game/js/ui/baloot-app.js?v=bl7"></script>
+  <script src="baloot-game/js/ui/baloot-app.js?v=bl8"></script>
   <script src="baloot-game/baloot-bridge.js?v=bl3"></script>
   <!-- [UN] أونو: مشروع مستقل محكوم بعقد المنصة (نمط البلوت) -->
   <script src="uno-game/js/engine/uno-core.js?v=un1"></script>
@@ -783,7 +786,7 @@
   <script src="uno-game/js/ui/uno-i18n.js?v=un1"></script>
   <script src="uno-game/js/ui/uno-renderer.js?v=un1"></script>
   <script src="uno-game/js/ui/uno-html.js?v=un2"></script>
-  <script src="uno-game/js/ui/uno-app.js?v=un4"></script>
+  <script src="uno-game/js/ui/uno-app.js?v=un5"></script>
   <script src="uno-game/uno-bridge.js?v=un2"></script>
   <script src="js/games/parchisi.js?v=dtsg13"></script>
   <script src="js/games/rami.js?v=dtsg20"></script>
@@ -793,8 +796,8 @@
   <script src="js/games/billiards-rules.js?v=dtsg6"></script>
   <script src="js/games/billiards.js?v=dtsg23"></script>
   <script src="js/games/engines.js?v=dtsg14"></script>
-  <script src="js/core/rooms.js?v=dtsg9"></script>
-  <script src="js/main.js?v=dtsg19"></script>
+  <script src="js/core/rooms.js?v=dtsg10"></script>
+  <script src="js/main.js?v=dtsg20"></script>
   <script src="js/core/live.js?v=dtsg11"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>

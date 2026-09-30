@@ -1038,7 +1038,8 @@
       if (pid == null) return true;
       const rs = this._roomState();
       if (!rs || !rs.players) return false;
-      return rs.players.some((p) => String(p.id) === String(pid) && !p.spectate);
+      /* [v2.69] isBot/leftRound = لا جهاز خلف المقعد — السائق يتولّاه آلياً */
+      return rs.players.some((p) => String(p.id) === String(pid) && !p.spectate && !p.isBot);
     },
 
     _recomputeRoomIdentity: function () {
@@ -1046,14 +1047,20 @@
       this._roomSeat = -1;
       this._isSpectator = true;
       const rs = this._roomState();
-      this._isDriver = !!(rs && meId != null && String(rs.owner_id) === String(meId));
+      /* [v2.69] السائق الخادمي (driverId — يُعاد تعيينه عند انقطاع المالك)
+      هو مرجع الحركة/التولّي الآلي؛ المالك احتياط إن لم يحدّد الخادم سائقاً */
+      this._isDriver = !!(rs && meId != null && (
+        (rs.driverId != null && String(rs.driverId) === String(meId)) ||
+        (rs.driverId == null && String(rs.owner_id) === String(meId))));
       if (!rs || !rs.players || meId == null) return;
       const wasSeat = this._roomSeat;
       for (let i = 0; i < rs.players.length; i++) {
         const p = rs.players[i];
         if (String(p.id) === String(meId)) {
           this._isSpectator = !!p.spectate;
-          if (!p.spectate) {
+          /* [v2.69] مقعد موسوم آلياً (مغادرة/غيب): لا يستعيد التحكم — لا عبث
+             بحركة مقعد يقودها السائق الآلي الآن */
+          if (!p.spectate && !p.isBot) {
             this._roomSeat = i;
             /* ترقية متفرج→لاعب في منتصف جولة: يد مشبوثة حتى التوزيعة القادمة */
             if (wasSeat === -1 && NS.state && NS.state.phase !== 'matchEnd' && NS.state.hands[i].length > 0) {
@@ -1455,8 +1462,9 @@
           }
           if (!entry || entry.spectate) return;
           const bet = Number(rs.bet) || 0;
-          const isHost = String(rs.owner_id) === String(meId);
-          if (bet > 0 && !rs.settled && isHost && typeof root.Rooms.settleTeam === 'function') {
+          /* [v2.69·آلي] أي لاعب نشط يسوّي من جهته — الخادم يقبل الأول ويمنع
+             التكرار (room.settled): لا تعليق للتسوية على جهاز المالك الغائب */
+          if (bet > 0 && !rs.settled && typeof root.Rooms.settleTeam === 'function') {
             try { root.Rooms.settleTeam(s.matchWinner === 0 ? 't0' : 't1'); } catch (e) {}
           }
           this.later(() => { try { if (typeof root.Rooms.startRematch === 'function') root.Rooms.startRematch(); } catch (e) {} }, 900);

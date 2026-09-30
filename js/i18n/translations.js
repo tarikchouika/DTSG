@@ -613,6 +613,10 @@ const TR = {
   'g.leaveMsg': [ 'هل أنت متأكد من أنك تريد مغادرة اللعبة؟', 'Voulez-vous vraiment quitter la partie ?', 'Are you sure you want to leave the game?', 'واخا متأكد؟ بغيتي تخرج من اللعبة؟' ],
   'g.leaveConfirm': [ 'نعم، مغادرة', 'Oui, quitter', 'Yes, leave', 'إيه، نخرج' ],
   'g.leaveCancel': [ 'البقاء في اللعبة', 'Rester en jeu', 'Stay in the game', 'بقى فاللعبة' ],
+  /* [v2.69·مغادرة = خسارة] تحذير الجولة الجارية — الرهان يُصادر للمغادر */
+  'g.leaveLossMsg': [ '⚠️ مغادرة اللعبة الآن تعني خسارة الجولة ورهانها — سيُكمل مكانك لاعب آلي.', '⚠️ Quitter maintenant = perdre ce tour et sa mise — un joueur IA vous remplacera.', '⚠️ Leaving now means losing this round and its bet — an AI player will take your seat.', '⚠️ إلا خرجتي دابا كتخسر الجولة ورهانها — غادي يكمل مكانك لاعب آلي.' ],
+  'rm.youLeftLost': [ 'غادرت الجولة — خسرت رهانها', 'Vous avez quitté le tour — mise perdue', 'You left the round — bet lost', 'خرجتي من الجولة — خسرتي الرهان' ],
+  'rm.leftAiTook': [ 'غادر، أتمّ الجولة لاعب آلي', 'est parti·e — une IA termine le tour', 'left — an AI is finishing the round', 'خرج — لاعب آلي غادي يكمل الجولة' ],
   'g.pick': [ 'اختر', 'Choisissez', 'Pick', 'عزل' ],
   'g.play': [ 'العب', 'Jouer', 'Play', 'لعب' ],
   'g.round': [ 'الجولة', 'Tour', 'Round', 'الجولة' ],

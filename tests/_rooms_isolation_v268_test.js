@@ -12,7 +12,7 @@
           node tests/_rooms_isolation_v268_test.js
    ═════════════════════════════════════════════════════════════════════ */
 'use strict';
-const BASE = 'http://localhost:3000';
+const BASE = "http://127.0.0.1:3000";
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
 

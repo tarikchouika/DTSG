@@ -1008,8 +1008,9 @@ function pnMatchEnd() {
   if (typeof SND.rpsWin === 'function') { try { SND[iWon ? 'rpsWin' : 'rpsLose'](); } catch (e) {} }
   var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
   var isOwner = Rooms.state && me && Rooms.state.owner_id === me.id;
-  /* [RoomSettle] الرهان وجهاً لوجه: المضيف فقط يوزّع القدح (الخصم تم عند البدء) */
-  if (isOwner && typeof Rooms.roomSettle === 'function') {
+  /* [v2.69·آلي] أي لاعب نشط يوزّع القدح — الخادم يقبل الأول ويمنع التكرار
+     (كان المضيف حصراً فتموت التسوية بغيابه) */
+  if (typeof Rooms.roomSettle === 'function') {
     try { Rooms.roomSettle(winSeat === 0 ? 'w0' : 'w1'); } catch (e) {}
   }
   /* [Rematch-vote] فتح تصويت المباراة الجديدة فور النهاية — نفس نظام البلياردو:

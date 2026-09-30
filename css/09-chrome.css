@@ -394,17 +394,18 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
     0 0 22px color-mix(in srgb, var(--ga, #d9b45c) 80%, transparent);
 }
 
-/* زر المغادرة في شريط اللعبة (خارج ملء الشاشة): حبّة ذهبية واضحة بعنوان نصي */
+/* زر المغادرة في شريط اللعبة (خارج ملء الشاشة): [v2.69] حبّة ذهبية رمزية
+   فقط (بلا نص — بتوجيه المالك): دائرية بحجم موحّد في كل المقاسات */
 #pg-game .gp-head .gl-leave-head {
   height: clamp(36px, 9vw, 44px);
-  padding: 0 clamp(10px, 2.6vw, 14px);
-  border-radius: 999px;
+  width: clamp(36px, 9vw, 44px);
+  padding: 0;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   font-weight: 800;
-  font-size: clamp(.78rem, 2.4vw, .92rem);
+  font-size: clamp(.95rem, 3vw, 1.15rem);
   color: #241b04;
   background:
     linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 45%),
@@ -436,9 +437,9 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 #pg-game .gp-head .gl-leave-head:hover i { color: #1a1301; }
 #pg-game .gp-head .gl-leave-head:active { transform: scale(.93); }
 #pg-game .gp-head .gl-leave-head:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+/* [v2.69] قاعدة رمزية موحّدة — بقايا قاعدة الشاشات الضيقة النصية تُهمل */
 @media (max-width: 380px) {
-  #pg-game .gp-head .gl-leave-head .gl-txt { display: none; }
-  #pg-game .gp-head .gl-leave-head { padding: 0; width: clamp(36px, 9vw, 44px); border-radius: 50% !important; }
+  #pg-game .gp-head .gl-leave-head { padding: 0; }
 }
 
 /* مودال تأكيد المغادرة: فوق كل طبقات الألعاب (billiards z-index 14500) */
@@ -495,6 +496,30 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 }
 #leaveModal .gl-confirm i { color: #241b04; filter: none; }
 #leaveModal .gl-confirm:hover { transform: translateY(-2px); }
+/* [v2.69·مغادرة = خسارة] جولة رهان جارية: تحذير أحمر صريح + زر تأكيد بنفس
+   النبرة — المستخدم يعرف أن المغادرة الآن تصادر رهانه قبل أن يؤكد */
+#leaveModal .leave-loss {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  color: #ffb4a8;
+  background: rgba(191, 42, 27, .14);
+  border: 1px solid rgba(231, 76, 60, .45);
+  font-weight: 800;
+  line-height: 1.75;
+}
+#leaveModal .leave-loss + .leave-msg { margin-top: 8px; }
+#leaveModal .gl-confirm.gl-confirm-loss {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,0) 45%),
+    linear-gradient(160deg, #e88a7a, #d64533 42%, #a52a1c);
+  border-color: rgba(255, 205, 197, .65);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.4) inset,
+    0 -3px 6px rgba(90, 10, 0, .5) inset,
+    0 4px 12px rgba(0,0,0,.4),
+    0 0 12px rgba(231, 76, 60, .5);
+}
 
 /* ═══════════════════ 4) RESUME BANNER (استئناف الجولة) ═══════════════════ */
 .resume-banner {

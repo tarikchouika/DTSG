@@ -30,7 +30,11 @@ ok('الزر العائم لا يغيّر #gameFsExit المجمّد', html.incl
 sec('2) منطق main.js');
 ok('confirmLeaveGame معرّفة', main.includes('function confirmLeaveGame()'));
 ok('closeLeaveModal معرّفة', main.includes('function closeLeaveModal()'));
-ok('doLeaveGame يغلق الصفحة بعد التأكيد', /function doLeaveGame\(\)\s*\{\s*closeLeaveModal\(\);\s*closeGamePage\(\);/.test(main));
+ok('doLeaveGame يغلق الصفحة بعد التأكيد', /function doLeaveGame\(\)\s*\{\s*closeLeaveModal\(\);[\s\S]{0,700}closeGamePage\(\);/.test(main));
+ok('[v2.69] جولة جارية: المغادرة تمرّ بleaveForfeit (مغادرة = خسارة)', main.includes('Rooms.leaveForfeit'));
+ok('[v2.69] تحذير خسارة الرهان يظهر عند جولة جارية', main.includes("getElementById('leaveLossLine')"));
+ok('[v2.69] زر الهيدر رمزي فقط — بلا نص مغادرة (gl-txt أُزيل)', !/gl-txt/.test(html));
+ok('[v2.69] أيقونة اللعبة أُزيلت من الهيدر (لا gamePageIcon)', !/gamePageIcon/.test(html) && !/gamePageIcon/.test(main));
 ok('التركيز الابتدائي على «البقاء» (لا خروج بمفتاح Enter)', main.includes("leaveStayBtn") && main.includes('stay.focus()'));
 ok('setGameLeaveAccent تضبط --ga و data-gid', main.includes('setProperty(\'--ga\'') && main.includes("setAttribute('data-gid'"));
 ok('خريطة هوية كل عائلة ألعاب (GAME_LEAVE_ACCENTS)', main.includes('GAME_LEAVE_ACCENTS') && main.includes('rami:') && main.includes('blsn:'));
@@ -50,12 +54,14 @@ ok('ترجمة الدارجة المغربية للرسالة', tr.includes('و�
 
 sec('4) هوية بصرية + تحديث الكاش');
 ok('CSS الزر العائم بجانب #gameFsExit (ليس فوقه ولا تحته)', css.includes('#gameLeaveBtn {') && css.includes('right: calc(10px + clamp(30px, 7vw, 36px) + 6px) !important') && css.includes('top: 10px !important'));
-ok('CSS الزر الذهبي في الشريط (gl-leave-head)', css.includes('.gl-leave-head'));
+ok('CSS الزر الذهبي الرمزي في الشريط (gl-leave-head دائري)', css.includes('.gl-leave-head') && /\.gl-leave-head \{[\s\S]{0,220}border-radius: 50%/.test(css));
+ok('[v2.69] CSS تحذير الخسارة + زر التأكيد الأحمر', css.includes('.leave-loss') && css.includes('.gl-confirm-loss'));
 ok('CSS المودال فوق طبقات الألعاب (z-index 16000)', css.includes('#leaveModal { z-index: 16000; }'));
 ok('حلقة هوية كل لعبة --ga في الزر والمودال', /--ga/.test(css) && css.split('--ga').length > 6);
-ok('نسخة translations.js مرفوعة (dtsg17)', html.includes('js/i18n/translations.js?v=dtsg17'));
-ok('نسخة main.js مرفوعة (dtsg17)', html.includes('js/main.js?v=dtsg17'));
-ok('نسخة 09-chrome.css مرفوعة (dtsg9)', html.includes('css/09-chrome.css?v=dtsg9'));
+ok('نسخة translations.js مرفوعة (dtsg21)', html.includes('js/i18n/translations.js?v=dtsg21'));
+ok('نسخة main.js مرفوعة (dtsg20)', html.includes('js/main.js?v=dtsg20'));
+ok('نسخة 09-chrome.css مرفوعة (dtsg10)', html.includes('css/09-chrome.css?v=dtsg10'));
+ok('نسخة rooms.js مرفوعة (dtsg10)', html.includes('js/core/rooms.js?v=dtsg10'));
 
 console.log('\n═══ النتيجة: ' + pass + ' نجح / ' + fail + ' فشل ═══');
 process.exit(fail === 0 ? 0 : 1);

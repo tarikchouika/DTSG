@@ -35,7 +35,7 @@ async function setup(ctx, username) {
 
   for (const p of [A, B, C]) await p.evaluate(() => openGame('rm'));
   await wait(A, () => !!(window.RamiAdapter && typeof window.RM_roomMove === 'function'), 10000);
-  const rres = await ctxA.request.post(BASE + 'api/rooms', { data: { game_id: 'rm', max_players: 2 } });
+  const rres = await ctxA.request.post(BASE + 'api/rooms', { data: { game_id: 'rm', max_players: 2, bet: 5 } });
   const rj2 = (await rres.json().catch(() => ({}))) || {};
   await A.evaluate((r) => { Rooms.state = r; Rooms.render(); }, rj2.room);
   await wait(A, () => !!(Rooms.state && Rooms.state.code), 8000);
@@ -73,22 +73,27 @@ async function setup(ctx, username) {
   ok(await wait(B, () => document.querySelectorAll('.room-voice-bubble').length > 0, 8000), 'الرسالة الصوتية وصلت اللاعب');
   ok(await wait(C, () => document.querySelectorAll('.room-voice-bubble').length > 0, 8000), 'الرسالة الصوتية وصلت المتفرج');
 
-  console.log('\n[بند 6: قفل غرفة المُنشئ حتى انتهاء الرهان]');
-  // المضيف يحاول المغادرة أثناء الرهان → مرفوض
+  console.log('\n[بند 6: مغادرة المُنشئ أثناء الرهان = خسارة الجولة — توجيه المالك v2.69]');
+  // [v2.69] المغادرة الصريحة أثناء جولة جارية مسموحة للجميع (حتى المُنشئ):
+  // مقعده يُوسم آلياً + إيداعه مصهور + في الثنائيات تسوية فورية للخصم الباقي.
+  // (قاعدة v2.67 «لا إغلاق حتى انتهاء الرهان» أُلغيت بتوجيه المالك 2026-09-30)
+  const gB0 = await B.evaluate(() => AUTH.user.gold);
   const lv1 = await ctxA.request.post(BASE + 'api/rooms/leave', { data: { room_id: rid } });
   const lv1j = (await lv1.json().catch(() => ({}))) || {};
-  ok(lv1j.ok === false, 'المُنشئ لا يستطيع الإغلاق أثناء الرهان (مرفوض)');
-  // اللاعب (غير المُنشئ) يستطيع المغادرة أثناء الرهان (يحرّر مقعداً)
-  // (نتحقق أن الغرفة لا تزال قائمة لأن المضيف لم يغادر)
+  ok(lv1.status() === 200 && lv1j.ok === true, 'المُنشئ يستطيع المغادرة أثناء الرهان (مغادرة = خسارة)');
+  ok(lv1j.result === 'w1', 'ثنائية: مغادرة المُنشئ ⇒ تسوية فورية للخصم الباقي (w1)');
+  const goldUp = await wait(B, (g0) => (typeof AUTH.user.gold === 'number' && AUTH.user.gold > g0), 8000, gB0).catch(() => false);
+  ok(!!goldUp, 'رصيد الخصم الباقي زاد فور مغادرة المُنشئ (الجرة بعد الرسم)');
+  // الغرفة باقية حية — الخصم الباقي فيها والمُنشئ حُلّ محله مقعد آلي ثم أُسقط
   const still = await A.evaluate((id) => !!(Rooms.state && Rooms.state.id === id), rid);
-  ok(still, 'الغرفة لا تزال قائمة بعد محاولة الإغلاق المرفوضة');
-  // endBet → تعود للانتظار → الإغلاق ممكن
-  const eb = await ctxA.request.post(BASE + 'api/rooms/endBet', { data: { room_id: rid } });
+  ok(still, 'الغرفة لا تزال قائمة بعد مغادرة المُنشئ (الجولة تُكمل)');
+  // endBet (من المالك الجديد — الملكية انتقلت للباقي بعد المغادرة) → انتظار + إسقاط الآليين
+  const eb = await ctxB.request.post(BASE + 'api/rooms/endBet', { data: { room_id: rid } });
   const ebj = (await eb.json().catch(() => ({}))) || {};
   ok(ebj.ok && ebj.room && ebj.room.status === 'waiting', 'endBet يعيد الغرفة للانتظار (انتهاء الرهان)');
-  const lv2 = await ctxA.request.post(BASE + 'api/rooms/leave', { data: { room_id: rid } });
+  const lv2 = await ctxB.request.post(BASE + 'api/rooms/leave', { data: { room_id: rid } });
   const lv2j = (await lv2.json().catch(() => ({}))) || {};
-  ok(lv2j.ok === true, 'المُنشئ يستطيع الإغلاق بعد انتهاء الرهان');
+  ok(lv2j.ok === true, 'اللاعب الباقي يستطيع الإغلاق بعد انتهاء الرهان');
 
   const ea = A._errs, eb_ = B._errs, ec = C._errs;
   ok(ea.length === 0 && eb_.length === 0 && ec.length === 0, 'لا أخطاء JS (' + (ea.length + eb_.length + ec.length) + ')');

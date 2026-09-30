@@ -488,11 +488,14 @@ setInterval(() => {
   try { db.prepare('DELETE FROM messages WHERE created_at < ?').run(Date.now() - 24 * 3600 * 1000); } catch (e) {}
 }, 5 * 60 * 1000);
 
-/* [B-rooms] sweeper غرف الساعة كل 60ث + [v2.67] منظّف اللاعبين الأشباح:
-   من انقطع بلا حضور SSE ولا نشاط 3 دقائق أثناء جولة جارية يُغادر تلقائياً
-   مع استرداد إيداعه — كانت الغرف تعلّق بلاعبين بلا متصفح يحجزون المقاعد
-   ويمنعون إغلاق الغرفة إلى الأبد. مدة السماح قابلة للضبط لل اختبار
-   (DTSG_GHOST_GRACE_MS). */
+/* [B-rooms] sweeper غرف الساعة كل 60ث + [v2.69] رعاية الغائبين أثناء الجولة:
+   من انقطع بلا حضور SSE ولا نشاط 3 دقائق أثناء جولة جارية يُوسم مقعده isBot
+   (بلا leftRound — انقطاع/إغلاق/تحديث الصفحة ليست مغادرة بتوجيه المالك)
+   فيكمل عنه السائق آلياً، ويستعيد مقعده لحظة عودته (shared.resumeIfGhost).
+   كان يُحذف من الغرفة ويُسترد إيداعه منتصف الجولة ⇒ انزياح مقاعد التسوية
+   (w0-w3 تشير إلى لاعبين خاطئين) = جذر «الرهان لا يُسوّى للرابح».
+   إن صار كل اللاعبين النشطين آليين (لا أحد حي): استرداد الجميع وحلّ الغرفة.
+   مدة السماح قابلة للضبط لل اختبار (DTSG_GHOST_GRACE_MS). */
 const GHOST_GRACE_MS = (parseInt(process.env.DTSG_GHOST_GRACE_MS, 10) > 0) ? parseInt(process.env.DTSG_GHOST_GRACE_MS, 10) : (3 * 60 * 1000);
 function ghostSweepPass(forceGraceMs) {
   const grace = (Number(forceGraceMs) > 0) ? Number(forceGraceMs) : GHOST_GRACE_MS;
@@ -503,16 +506,26 @@ function ghostSweepPass(forceGraceMs) {
         const cutoff = Date.now() - grace;
         let changed = false;
         room.players.filter(function (p) { return !p.spectate && users[p.id]; }).forEach(function (p) {
+          if (p.isBot) return;   /* موسوم سلفاً — مغادر أو غائب سابق */
           const lastSeen = Math.max((room.lastActivity && room.lastActivity[p.id]) || 0, 0);
           if (!hasLiveSse(p.id) && lastSeen < cutoff) {
-            roomHub.io.refundEscrow(room, p.id);
-            room.players = room.players.filter(function (x) { return x.id !== p.id; });
+            /* [v2.69] وسم آلي بلا حذف وبلا استرداد — الإيداع يبقى في الجرة
+               والعودة تستعيد المقعد (الانقطاع ليس مغادرة) */
+            p.isBot = true;
+            p.ready = true;
             changed = true;
           }
         });
         if (changed) {
-          if (room.players.filter(function (x) { return !x.spectate; }).length === 0) { roomHub.io.dissolveRoom(room); }
-          else { roomHub.io.promoteQueued(room); roomHub.io.updateRoom(room); }
+          const actives = room.players.filter(function (x) { return !x.spectate; });
+          const anyHumanAlive = actives.some(function (x) { return !x.isBot; });
+          if (actives.length && !anyHumanAlive) {
+            /* لا أحد حي لتكمل الجولة — dissolveRoom يسترد إيداعات الجوة غير
+               المسوّاة ويبث room:update=null ويحذف من فهرس المحور والمدير */
+            roomHub.io.dissolveRoom(room);
+          } else {
+            roomHub.io.updateRoom(room);
+          }
         }
       }
     } catch (e) {}
