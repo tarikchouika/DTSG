@@ -61,7 +61,8 @@ const BASE = require('./_safe_base.js').BASE;   // أو { host, port }
 
 ```bash
 # خادم معزول (يقلع نسخة بقاعدة مستقلة) ثم الاختبارات
-QA_BASE=http://127.0.0.1:3971/ node tests/_bet_settle_v269_test.js
+QA_BASE=http://127.0.0.1:3971/ node tests/_bet_settle_v269_test.js   # 46 — عقد المال v2.70 (رسم 5% من الجرة)
+  QA_BASE=http://localhost:3971/ node tests/_rm_guard_settle_v270_test.js  # 16 — متصفحان: حرس الدور/المرسل + تسوية رامي + إعدادات الغرف
 ```
 
 اختبارات تستخدم `QA_BASE`: `_rooms_v267_test` · `_rooms_isolation_v268_test` · `_bet_settle_v269_test` ·

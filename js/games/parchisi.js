@@ -2000,7 +2000,8 @@ const ParchisiApp = {
         try { window.BotsLedger.record('pr', botDelta); } catch (e) {}
       }
     }
-    if (typeof recordRound === 'function') {
+    if (typeof recordRound === 'function' && !this.roomMode) {
+      /* [v2.70] التذاكر للفردي فقط — سجل غرف البرجيس المالي هو transactions */
       recordRound(win, paid, win
         ? ('فزت بالـ Parchisi 🏆' + (paid > 0 ? ' +' + paid : ''))
         : 'خسرت الـ Parchisi');
@@ -2009,7 +2010,28 @@ const ParchisiApp = {
     this.draw();
     setTimeout(() => this.stopLoop(), 1600);
     if (this.roomMode) {
-      /* الغرف: إشعار فقط — نظام الغرف يتكفّل بالمباراة الجديدة */
+      /* [v2.70·مال] تسوية خادمية لجولة الغرفة — كانت برجيس تنتهي بلا أي
+         تسوية (لا دفع محلياً لأن roomMode يحجبه ولا نداء roomSettle)
+         فتتجمد إيداعات الجولة. أول تقرير من أي لاعب نشط يوزّع الجرة
+         (فردي: w{مقعد} · فرق: t{فريق}) ناقص رسم 5% خادمياً. */
+      if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.status === 'playing' &&
+          !Rooms.state.settled && !this.isSpectator && typeof Rooms.roomSettle === 'function') {
+        try {
+          if (e.teams) {
+            if (typeof Rooms.settleTeam === 'function') Rooms.settleTeam('t' + (e.winnerTeam === 0 ? 0 : 1));
+          } else {
+            Rooms.roomSettle('w' + e.winner);
+          }
+        } catch (err) {}
+      }
+      /* [v2.70] بدء تصويت المباراة الجديدة من أي مشارك — لم يكن أحد يبدؤه
+         في برجيس فتبقى الغرفة معلقة بعد النهاية */
+      if (typeof Rooms !== 'undefined' && Rooms.state && typeof Rooms.startRematch === 'function' &&
+          !this.isSpectator && typeof AUTH !== 'undefined' && AUTH.user &&
+          Rooms.state.players && Rooms.state.players.some(function (p) { return String(p.id) === String(AUTH.user.id) && !p.spectate; })) {
+        try { Rooms.startRematch(); } catch (err) {}
+      }
+      /* الغرف: إشعار فقط — المال عبر التسوية الخادمية أعلاه */
       const msgEl = document.getElementById('parchisiMessage');
       if (msgEl) msgEl.textContent = label;
       toast(label, win ? 'ok' : 'info');

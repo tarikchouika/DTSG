@@ -4720,54 +4720,70 @@ class RamiUIAdapter {
 
     /* [Req6/Req3] عند انتهاء المباراة: المُنشئ يبدأ تصويت المباراة الجديدة (ويُعلن انتهاء الرهان) */
     /* [Resilience] أي مشارك يبدأ تصويت المباراة الجديدة (الخادم ينشئ مرة واحدة؛ يتحمّل غياب المُنشئ) */
-    if (isMatchOver && this.multiplayer && typeof Rooms !== 'undefined' && Rooms.state && typeof AUTH !== 'undefined' && AUTH.user && Rooms.state.players.some(function (p) { return String(p.id) === String(AUTH.user.id) && !p.spectate; })) {
-      try { Rooms.startRematch(); } catch (e) {}
-    }
+    /* [v2.70·ترتيب] التصويت صار بعد التسوية لا قبلها: rematchStart يحوّل الغرفة
+       إلى waiting فوراً فلو سبق التسوية لَرُدّت («لا جولة جارية») وتضيع جرة
+       الجولة — الأدنى يُنفَّذ عبر _rematchAfterSettle أدناه بعد هبوط التسوية */
+    this._rematchEligible = !!(isMatchOver && this.multiplayer && typeof Rooms !== 'undefined' && Rooms.state &&
+      typeof AUTH !== 'undefined' && AUTH.user && Rooms.state.players &&
+      Rooms.state.players.some(function (p) { return String(p.id) === String(AUTH.user.id) && !p.spectate; }));
 
     const result = this.game.getMatchResult();
 
-    /* [V29] تحويل أرباح الجولة إلى حساب الفائز (مرة واحدة فقط عند نهاية الجولة) */
+    /* [V29→v2.70] تسوية جولة الغرفة عبر الخادم (المسار الموحّد settleRound):
+       كانت رامي تدفع «الجرة» للرابح محلياً في متصفحه فقط (وهم يُمحوه
+       authSync لأن رصيد الخادم هو المرجع) بلا أي اقتطاع رسم، بينما
+       إيداعات الغرفة تتجمد بلا تسوية — بتوجيه المالك: «الكسور لا تقتطع
+       للمراهنين و تدفع على حساب المنصة للرابح». الآن: أول تقرير من أي
+       لاعب نشط يسوّي الخادم (w{seat} أو draw) ويوزع الجرة ناقص 5%،
+       ويُسجل bet/win/refund في transactions (عقد المال §2). */
     if (isMatchOver && !this.game._payoutDone) {
       this.game._payoutDone = true;
-      const bet = window.RAMI_BET || 50;
-      const pot = bet * this.game.playerCount;
-      const winner = result.winners && result.winners.length ? result.winners[0] : null;
-      if (winner && !winner.isBot) {
-        /* [Training 2026-09-16] لا أرباح رصيد في التدريب */
-        if (!(window.TRAINING && window.TRAINING.on)) {
-          if (typeof ST !== 'undefined' && typeof ST.gold === 'number') {
-            ST.gold += pot;
-            if (typeof wallet === 'function') { try { wallet(); } catch (e) {} }
-            if (typeof save === 'function') { try { save(); } catch (e) {} }
-          }
-          _ramiToast('🏆 ربحت الجولة — تم إضافة ' + pot + ' 🪙 إلى حسابك!', 'ok');
-        } else {
-          _ramiToast('🏆 ' + (_ramiT('dama.youWin') || 'ربحت الجولة') + ' — 🎓 ' + (_ramiT('ui.trainingFree') || 'تدريب مجاني'), 'ok');
+      let settlePromise = null;
+      if (this.multiplayer && !this.isSpectator &&
+          typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.status === 'playing' &&
+          !Rooms.state.settled && typeof Rooms.roomSettle === 'function') {
+        const winRes = result.winners || [];
+        let settleResult = 'draw';
+        if (winRes.length === 1) settleResult = 'w' + winRes[0].id;
+        else if (winRes.length > 1) {
+          /* فائزون متعددون: أفضل بشري واحد وإلا تعادل (استرداد + تقاسم) */
+          const human = winRes.find(function (w) { return !w.isBot; });
+          settleResult = human ? ('w' + human.id) : 'draw';
         }
+        try { settlePromise = Rooms.roomSettle(settleResult); } catch (e) {}
+      }
+      /* [v2.70·ترتيب] تصويت المباراة الجديدة بعد هبوط التسوية (أو فشلها) —
+         الخادم ينشئ التصويت مرة واحدة فلا ضرر من تعدد المستدعين */
+      if (this._rematchEligible && typeof Rooms !== 'undefined' && typeof Rooms.startRematch === 'function') {
+        Promise.resolve(settlePromise)
+          .then(function () { try { Rooms.startRematch(); } catch (e) {} })
+          .catch(function () { try { Rooms.startRematch(); } catch (e) {} });
       }
       /* [BotsLedger v2.28] فردي فقط: دلتا المنصة = الرهان − الوعاء عند فوز بشري، +الرهان عند فوز بوت */
       if (!this.multiplayer && typeof window !== 'undefined' && window.BotsLedger) {
-        try { window.BotsLedger.record('rm', (winner && !winner.isBot) ? bet - pot : bet); } catch (e) {}
+        const winner0 = result.winners && result.winners.length ? result.winners[0] : null;
+        try { window.BotsLedger.record('rm', (winner0 && !winner0.isBot) ? (window.RAMI_BET || 50) - (window.RAMI_BET || 50) * this.game.playerCount : (window.RAMI_BET || 50)); } catch (e) {}
       }
     }
 
-    /* [V30] تسجيل الجولة المنتهية بشكل دائم في سجل رهانات اللعبة + سجل الحساب.
-       نهاية الجولة قانوناً = نهاية المباراة (MATCH_END). عندئذٍ تُسجَّل مرة واحدة:
-       - استدعاء SessionResume.onResolve() ينهي حالة «الجولة قيد التقدم».
-       - recordRound يكتبها في السجل المحلي + يرسلها للخادم. */
+    /* [V30] تسجيل الجولة في سجل رهانات اللعبة — فردي/تدريب فقط:
+       جولات الغرف سجلها المالي هو transactions الخادمي (صف bet عند البدء
+       + win/refund عند التسوية) والتذاكر كانت تكررها في السجل المدموج. */
     if (isMatchOver && !this.game._roundRecorded) {
       this.game._roundRecorded = true;
       const winner = result.winners && result.winners.length ? result.winners[0] : null;
       const humanWon = !!(winner && !winner.isBot);
-      const bet = window.RAMI_BET || 50;
-      const pot = bet * this.game.playerCount;
-      try {
-        /* [TicketFix] betOverride صريح: window.GB لا يغيّر رابطة let GB في engines.js —
-           كانت التذكرة تسجّل رهان 10 الافتراضي بدل رهان الجولة الفعلي */
-        if (typeof recordRound === 'function') {
-          recordRound(humanWon, humanWon ? pot : 0, 'رامي', bet);
-        }
-      } catch (e) { /* تجاهل */ }
+      if (!this.multiplayer) {
+        const bet = window.RAMI_BET || 50;
+        const pot = bet * this.game.playerCount;
+        try {
+          /* [TicketFix] betOverride صريح: window.GB لا يغيّر رابطة let GB في engines.js —
+             كانت التذكرة تسجّل رهان 10 الافتراضي بدل رهان الجولة الفعلي */
+          if (typeof recordRound === 'function') {
+            recordRound(humanWon, humanWon ? pot : 0, 'رامي', bet);
+          }
+        } catch (e) { /* تجاهل */ }
+      }
     }
     /* [Persist] نهاية المباراة: مسح الجولة المحفوظة (اكتملت وتسجّلت) —
        نهاية شوط فقط: تحديث الحفظ ليتابع الشوط التالي من حيث توقّف */
@@ -5557,6 +5573,9 @@ function ramiAction(type, cardId) {
   if (!game || checkRamiBusy()) return;
   const player = game.roundManager.getCurrentPlayer();
   if (!player || player.isBot) return;
+  /* [v2.70·حرس الدور] وضع الغرفة: لا فعل إلا لصاحب الدور نفسه —
+     كانت الحركة تُبنى بمعرّف صاحب الدور الحالي أياً كان الناقر */
+  if (!ramiAssertMyTurn()) return;
   /* لا نبني ولا ننفذ حركة الإنهاء من النقرة الأولى */
   if (type === 'finish' && !requireRamiConfirm('finish')) return;
 
@@ -5908,6 +5927,8 @@ function ramiPilePointerDown(e) {
   if (checkRamiBusy()) return;
   const curP = adapter.game.roundManager.getCurrentPlayer();
   if (!curP || curP.isBot) return;
+  /* [v2.70·حرس الدور] لا سحب من المجرف/المرموق/الفوجوك في دور الخصم */
+  if (!ramiAssertMyTurn()) return;
   const el = (e.target && e.target.closest) ? e.target.closest('[data-ramidraw]') : null;
   if (!el) return;
   const kind = el.getAttribute('data-ramidraw');
@@ -6306,6 +6327,22 @@ function ramiMyPlayerId() {
   var ad = (typeof window !== 'undefined') ? (window.RamiAdapter || window.RAMI_ADAPTER) : null;
   return ad ? (ad.myPlayerId || 0) : 0;
 }
+/* [v2.70·حرس الدور] هل يملك المستخدم الحالي الدورَ في وضع الغرفة؟
+   جذر الخلل المُبلَّغ: أي لاعب كان يستطيع النقر على ورق التوزيع أو المرموق
+   في دور خصمه فتُبنى الحركة بمعرّف «صاحب الدور الحالي» وتُضاف الورقة
+   ليد الخصم. المدخل الوحيد المشروع لفعل اللعب هو أن يكون الدور لي.
+   في اللعب الفردي/التدريب (بلا غرفة) يبقى السلوك كما كان. */
+function ramiAssertMyTurn() {
+  var ad = (typeof window !== 'undefined') ? (window.RamiAdapter || window.RAMI_ADAPTER) : null;
+  if (!ad || !ad.multiplayer || ad.isSpectator) return true;      /* فردي أو متفرج (المتفرج محجوب سلفاً) */
+  var game = RAMI_STATE || (typeof window !== 'undefined' ? window.RAMI_STATE : null);
+  if (!game || !game.roundManager || typeof game.roundManager.getCurrentPlayer !== 'function') return false;
+  var cp = game.roundManager.getCurrentPlayer();
+  if (!cp || cp.isBot) return false;
+  if (String(cp.id) === String(ad.myPlayerId || 0)) return true;
+  _ramiToast(_ramiT('rami.notYourTurn', 'ليس دورك الآن — انتظر انتهاء خصمك'), 'warn');
+  return false;
+}
 /* معرّف المستخدم الحالي للمقارنة مع مصدر الحركة (تجاهل صدى حركاتي) */
 function ramiMyUserId() {
   if (typeof AUTH !== 'undefined' && AUTH.user) return AUTH.user.id != null ? AUTH.user.id : AUTH.user.username;
@@ -6493,6 +6530,9 @@ RamiUIAdapter.prototype._netBuildGame = function (cfg, seed, playerCount, botSea
 RamiUIAdapter.prototype._netEmit = function (action, data) {
   if (!this.multiplayer) return;
   if (typeof Rooms === 'undefined' || !Rooms || typeof Rooms.sendMove !== 'function') return;
+  /* [v2.70·حرس] السائق يبث init ولا يطبّقه على نفسه (صدى) — نضبط _netOrder
+     عنده هنا أيضاً كي تمتلك كل الأطراف مرجع مقاعد/مستخدمين موحّداً */
+  if (action === 'init' && data && data.order) this._netOrder = (data.order || []).map(String);
   this._netSeq = (this._netSeq || 0) + 1;
   var payload = { action: action, data: data, by: ramiMyUserId(), seq: this._netSeq, ts: Date.now() };
   try {
@@ -6508,6 +6548,9 @@ RamiUIAdapter.prototype._netApplyMove = function (d) {
   var action = d.action;
   if (action === 'init') {
     var data = d.data || {};
+    /* [v2.70·حرس] ترتيب المقاعد (معرفات المستخدمين) — مرجع التحقق من ملكية
+       الحركة: حركة لاعب مقعد X لا يقبلها إلا اتصال المستخدم صاحب المقعد X */
+    this._netOrder = (data.order || []).map(String);
     this.myPlayerId = this._netResolveSeat(data.order);
     /* [Spectator] تحديث الوضع عند بدء كل مباراة: من رُقّي يصبح لاعباً */
     this.isSpectator = (this.myPlayerId === -1);
@@ -6519,6 +6562,13 @@ RamiUIAdapter.prototype._netApplyMove = function (d) {
   var g = this.game;
   var data = d.data || {};
   if (typeof g.normalizeTurnPhase === 'function') g.normalizeTurnPhase();
+
+  /* [v2.70·حرس المرسل] حركات اللاعب (سحب/رمي/افتتاح/إنهاء/إسناد) لا تُطبّق
+     إلا إن جاءت من اتصال المستخدم صاحب ذلك المقعد — كانت أي كليل يستطيع
+     بث حركة باسم خصمه (نفس جذر السحب في دور الغير من الجانب الشبكي).
+     استثناءات: init/nextRound/autoTimeout — للسائق حقها الصريح. */
+  var PLAYER_ACTIONS = { draw: 1, discard: 1, open: 1, finish: 1, addToMeld: 1 };
+  if (PLAYER_ACTIONS[action] && !this._netMoveAuthentic(d, data)) return;
 
   switch (action) {
     case 'draw':
@@ -6570,6 +6620,28 @@ RamiUIAdapter.prototype._netApplyMove = function (d) {
   } else {
     this._processTurn();
   }
+};
+
+/* [v2.70·حرس] هل جاءت حركة اللاعب من صاحب مقعدها فعلاً؟ (بلا مرسل: تسامح توافق قديم)
+   السائق له حق النيابة عن المقاعد الآلية (الأشباح/المغادرين) — تشغيلُها من مهامه،
+   أما التحدث باسم مقعد بشري حي فمرفوض من الجميع بمن فيهم السائق نفسه. */
+RamiUIAdapter.prototype._netMoveAuthentic = function (d, data) {
+  try {
+    if (!d || d.by == null || !data || data.playerId == null) return true;
+    var order = this._netOrder;
+    if (!order || !order.length) return true;   /* بلا تهيئة بعد — لا حكم */
+    var seat = Number(data.playerId);
+    if (!(seat >= 0 && seat < order.length)) return false;
+    if (String(d.by) === String(order[seat])) return true;
+    var room = (typeof Rooms !== 'undefined' && Rooms.state) ? Rooms.state : null;
+    var driverId = room && room.driverId != null ? String(room.driverId) : null;
+    if (driverId != null && String(d.by) === driverId && room && room.players) {
+      var seatPlayer = room.players.filter(function (p) { return !p.spectate; })
+        .sort(function (a, b) { return (a.seat || 0) - (b.seat || 0); })[seat];
+      return !!(seatPlayer && seatPlayer.isBot);
+    }
+    return false;
+  } catch (e) { return true; }
 };
 
 /* [Resilience] إعادة بناء الحالة الجارية من تاريخ الحركات عند العودة للاعب المنقطع.

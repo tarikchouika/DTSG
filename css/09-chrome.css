@@ -285,6 +285,8 @@ body.app-fs-on .main { padding-top: 0 !important; }
   top: 0;
   left: 0;
   right: 0;
+  height: var(--vvh, 100vh);
+  /* [v2.70·نوكيا] البديل 100vh — 100dvh كان يُبطل الإعلان قبل ضبط JS لِ-vvh */
   height: var(--vvh, 100dvh);
   padding: 0;
   margin: 0;
@@ -737,6 +739,8 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 #roomSettingsModal .modal {
   width: min(92vw, 560px);
   max-width: 560px;
+  max-height: 92vh;
+  /* [v2.70·نوكيا] بدائل vh قبل dvh */
   max-height: min(92dvh, 92vh);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, .5);
@@ -780,6 +784,8 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
   /* [Fix] تملأ الصفحة الشاشة حتى أسفلها بلا فراغ نافي (كانت calc(100dvh-160px)
      تترك فجوة سفلية ~60px تظهر كـ«شريط أسود»). نعتمد إزاحة رأس التطبيق
      الفعلية (~106px على سطح المكتب/التابليت). */
+  height: calc(100vh - 106px);
+  /* [v2.70·نوكيا] بدائل vh قبل dvh (كان dvh وحده يُبطل الارتفاع في المتصفحات القديمة) */
   height: calc(100dvh - 106px);
   /* شريط تمرير احتياطي إن ضاقت الشاشة (لاندسكيب قصير) كي يبقى المحتوى
      والمرسل ظاهرين وممكن الوصول إليهما */
@@ -876,7 +882,7 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 
 /* ═══ استجابة: تكديس اللوحين على الجوال + توسيط مودالات ═══ */
 @media (max-width: 768px) {
-  #pg-friends { height: calc(100dvh - 100px); }
+  #pg-friends { height: calc(100vh - 100px); height: calc(100dvh - 100px); }
   .friends-panes { flex-direction: column; }
   #friendList { flex: 0 0 auto; max-width: none; max-height: 42vh; }
   .friends-conv { min-height: 50vh; }

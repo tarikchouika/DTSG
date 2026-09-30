@@ -84,6 +84,9 @@
     },
     isActive: function () { return !!(Rooms.state && Rooms.state.status === 'playing'); },
     maxFor: function (id) { return Rooms.roomGameIds[id] || 2; },
+    /* [v2.70] مقاعد حتمية — مرآة exactSeats في games/registry.js الخادمي
+       (البلوت 4 حصراً: محركه فرق 2ضد2 يرفض البناء بأقل). أبقِهما متطابقين. */
+    exactSeats: { bl: 4 },
     /* إظهار/إخفاء زر «العب مع صديق» حسب اللعبة المفتوحة */
     syncBtn: function () {
       var show = Rooms.isGameSupported(window._currentGameId);
@@ -655,33 +658,55 @@
       var box = document.getElementById('rsGameOpts');
       if (!box) return;
       var defs = Rooms._gameOptsDefs(gid).slice();
+      /* [v2.70] حفظ القيم الحالية قبل أي إعادة بناء — إعادة بناء القائمة كانت
+         تُرجع كل خانة لقيمتها الافتراضية (def) فيضيع اختيار المستخدم:
+         اختيار «سامبل» في رامي كان يرتد فوراً إلى «طالاج» (خلل مُبلّغ من
+         المالك: «نوع سامبل غير قابل للتحديد») ومؤقت الدور كذلك يُصفَّر. */
+      var prevVals = {};
+      for (var pv = 0; pv < defs.length; pv++) {
+        var pvEl = document.getElementById('rsOpt_' + defs[pv].key);
+        if (pvEl) prevVals[defs[pv].key] = pvEl.value;
+      }
+      for (var d0 = 0; d0 < defs.length; d0++) {
+        if (prevVals[defs[d0].key] != null &&
+            defs[d0].opts.some(function (o) { return String(o[0]) === String(prevVals[defs[d0].key]); })) {
+          defs[d0].def = prevVals[defs[d0].key];
+        }
+      }
       /* [Targets-Match] رامي: أهداف القائمة تتبع الوضع المختار — نفس نافذة اللعبة
-         حرفياً (rami._targetOptions). عند إعادة البناء بسبب تغيير الوضع: يُحفظ
-         الهدف المختار إن ظل ضمن القائمة الجديدة وإلا يعود لافتراضي «شوط واحد». */
+         حرفياً (rami._targetOptions). الوضع المختار الآن محفوظ من الخطوة أعلاه. */
       if (gid === 'rm') {
-        var prevMode = document.getElementById('rsOpt_mode');
-        var prevTarget = document.getElementById('rsOpt_target');
-        var modeV = prevMode ? ((prevMode.value === 'simple') ? 'simple' : 'talaj') : 'talaj';
-        var keepTarget = prevTarget ? prevTarget.value : null;
+        var modeV = (defs && defs.length && defs.some(function (d) { return d.key === 'mode' && String(d.def) === 'simple'; })) ? 'simple' : 'talaj';
         var tDef = null;
         for (var ti = 0; ti < defs.length; ti++) if (defs[ti].key === 'target') { tDef = defs[ti]; break; }
         if (tDef) {
           var nums = (modeV === 'simple') ? [201, 301, 401, 501, 701, 801] : [301, 401, 501, 701, 801, 901, 1001];
           tDef.opts = [['single', T('rami.singleRound') || 'رهان على شوط واحد']];
           nums.forEach(function (n) { tDef.opts.push([String(n), String(n)]); });
-          if (keepTarget && tDef.opts.some(function (o) { return String(o[0]) === String(keepTarget); })) {
-            tDef.def = keepTarget;
+          if (prevVals.target != null && tDef.opts.some(function (o) { return String(o[0]) === String(prevVals.target); })) {
+            tDef.def = prevVals.target;
           }
         }
       }
-      /* [RS-GameOpts] الألعاب الجماعية (سعة > 2): خانة تحديد عدد اللاعبين
-         (تُضاف تلقائياً فقط إن لم تعرّفها اللعبة بنفسها — الروندا تفرض 2 أو 4) */
+      /* [v2.70·مقاعد حتمية] الألعاب التي تشترط عدد لاعبين بعينه (البلوت 4 —
+         زوج ضد زوج، المحرك يرفض البناء بأقل): خانة عدد اللاعبين تُعرض
+         بخيارها الوحيد الصحيح بدل قائمة 2/3/4 كانت تُصحَّح خادمياً بصمت
+         فيبدو الخياران 2 و3 «معطلين» (خلل الإعدادات المُبلّغ من المالك). */
+      var exact = Rooms.exactSeats && Rooms.exactSeats[gid];
       var hasMaxp = defs.some(function (d) { return d.key === 'maxp'; });
       var cap = Rooms.maxFor(gid);
-      if (cap > 2 && !hasMaxp) {
+      if (exact != null && !hasMaxp && cap > 2) {
+        defs.unshift({
+          key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين',
+          opts: [[exact, exact + ' ' + (T('ui.players') || 'لاعبين') + (exact === 4 ? ' — ' + (T('blt.teamPair') || 'زوج ضد زوج') : '')]],
+          def: exact
+        });
+        hasMaxp = true;
+      } else if (cap > 2 && !hasMaxp) {
         var po = [];
         for (var n = 2; n <= cap; n++) po.push([n, String(n)]);
-        defs.unshift({ key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: po, def: cap });
+        defs.unshift({ key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين', opts: po, def: (prevVals.maxp != null && prevVals.maxp >= 2 && prevVals.maxp <= cap) ? parseInt(prevVals.maxp, 10) : cap });
+        hasMaxp = true;
       }
       if (!defs.length) { box.innerHTML = ''; return; }
       var html = '';
@@ -1377,11 +1402,12 @@
         wallet();
         if (myWin) {
           toast(T('rm.winRound') + ' (+' + fmt(myWin.share || 0) + ' 🪙)', 'ok');
-          try { if (typeof recordRound === 'function') recordRound(true, myWin.share || 0, T('rm.winRound'), d.pot || 0, Rooms.state && Rooms.state.game_id); } catch (e) {}
         } else if (myLose) {
           toast(T('rm.loseRound') + ' (-' + fmt(d.pot || 0) + ' 🪙)', 'err');
-          try { if (typeof recordRound === 'function') recordRound(false, 0, T('rm.loseRound'), d.pot || 0, Rooms.state && Rooms.state.game_id); } catch (e) {}
         }
+        /* [v2.70·سجل] لا recordRound لجولات الغرف: السجل المالي الموحّد هو
+           transactions (صف bet عند البدء + win/refund عند التسوية) — التذاكر
+           كانت تُظهر الجولة مرتين في السجل المدموج (تكرار مُبلّغ من المالك) */
         save();
         if (d.dissolved) {
           toast(T('rm.roomEnded'), 'info');
@@ -1397,15 +1423,13 @@
       if (isWinner) {
         if (typeof d.winner.gold === 'number') { AUTH.user.gold = d.winner.gold; ST.gold = d.winner.gold; }
         wallet();
-        toast(T('rm.winRound') + ' (+' + fmt(Math.max(0, (d.pot || 0) - (d.fee || 0))) + ' 🪙)', 'ok');
-        /* [Tickets] تسجيل الجولة فوزاً في سجل رهانات الجولات */
-        try { if (typeof recordRound === 'function') recordRound(true, Math.max(0, d.payout || 0), T('rm.winRound'), d.pot || 0, Rooms.state && Rooms.state.game_id); } catch (e) {}
+        /* [v2.70] المبلغ المعروض = ما وُضع في الرصيد فعلاً (payout) —
+           كان يُعرض pot-fee بقيم من رهان لاعب واحد فتظهر أرقام خاطئة */
+        toast(T('rm.winRound') + ' (+' + fmt(Math.max(0, (d.payout != null ? d.payout : (d.pot || 0) - (d.fee || 0)))) + ' 🪙)', 'ok');
       } else if (isLoser) {
         if (typeof d.loser.gold === 'number') { AUTH.user.gold = d.loser.gold; ST.gold = d.loser.gold; }
         wallet();
         toast(T('rm.loseRound') + ' (-' + fmt(Math.max(0, d.pot || 0)) + ' 🪙)', 'err');
-        /* [Tickets] تسجيل الجولة خسارةً في سجل رهانات الجولات */
-        try { if (typeof recordRound === 'function') recordRound(false, 0, T('rm.loseRound'), d.pot || 0, Rooms.state && Rooms.state.game_id); } catch (e) {}
       } else if (isRefund) {
         var mine = d.refunds.filter(function (r) { return r && r.id != null && r.id == uid; })[0];
         if (mine && typeof mine.gold === 'number') { AUTH.user.gold = mine.gold; ST.gold = mine.gold; wallet(); }
@@ -1427,10 +1451,13 @@
       if (!Rooms.state) return;
       var u = me();
       if (!u) return;
-      API.post('/api/rooms/settleRound', { room_id: Rooms.state.id, result: result }).then(function (r) {
+      /* [v2.70] يُرجع وعد الطلب كي تؤجل الألعاب تصويت المباراة الجديدة حتى
+         هبوط التسوية أولاً (ريماش قبل تسوية ⇒ status=waiting ⇒ تسوية مرفوضة) */
+      return API.post('/api/rooms/settleRound', { room_id: Rooms.state.id, result: result }).then(function (r) {
         if (!r.ok && r.data && r.data.message && r.data.message.indexOf('مسبقاً') === -1) {
           toast(r.data.message || T('ui.roomError'), 'err');
         }
+        return r;
       });
     },
     /* [RDC-team] تسوية روندا 2ضد2: تقسيم أرباح الرهان بين الفريق الفائز (خادمياً).

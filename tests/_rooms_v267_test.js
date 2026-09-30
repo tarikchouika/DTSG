@@ -145,8 +145,8 @@ const gold = async (p) => await goldOf(p);
     const lv = await req('POST', '/api/rooms/leave', { room_id: roomId }, P2.cookie);
     const g2c = await gold(P2), g1c = await gold(P1);
     ok(g2c === g2a - 25, 'مغادرة الضيف = خسارة رهانه كاملاً [v2.69] (لا استرداد)');
-    ok(lv.json && lv.json.result === 'w0' && g1c === Math.round((g1a - 25 + 50 - 25 * 0.05) * 100) / 100,
-       'تسوية فورية للمالك الباقي: الجرة كاملة بعد الرسم (50-1.25) [v2.69]');
+    ok(lv.json && lv.json.result === 'w0' && g1c === Math.round((g1a - 25 + 50 - 50 * 0.05) * 100) / 100,
+       'تسوية فورية للمالك الباقي: الجرة كاملة بعد الرسم (50-2.5) [v2.70: رسم الجرة كاملة]');
     /* الجولة حُسمت عند المغادرة — endBet بعدها لا يضيف شيئاً (settled) */
     const end = await req('POST', '/api/rooms/endBet', { room_id: roomId }, P1.cookie);
     const g1d = await gold(P1);
@@ -166,9 +166,9 @@ const gold = async (p) => await goldOf(p);
     await req('POST', '/api/rooms/start', { room_id: roomId }, P1.cookie);
     const st = await req('POST', '/api/rooms/settleRound', { room_id: roomId, result: 'w0' }, P1.cookie);
     const g1b = await gold(P1), g2b = await gold(P2);
-    /* الفائز: إيداعاه (40) ناقص رسم 5% من رهانه (1) = 39 ربحاً صافياً؛ صافيه 1000-20+39 */
-    ok(st.status === 200 && st.json.ok && st.json.payout === 39, 'التسوية وضعت payout = مجموع الإيداعات - الرسم (39)');
-    ok(g1b === g1a - 20 + 39, 'رصيد الفائز: -20 إيداع +39 توزيع = ' + (g1b - g1a) + ' (دقيق)');
+    /* [v2.70] الفائز: إيداعاهما (40) ناقص رسم 5% من الجرة كاملة (2) = 38؛ صافيه 1000-20+38 */
+    ok(st.status === 200 && st.json.ok && st.json.payout === 38, 'التسوية وضعت payout = مجموع الإيداعات - الرسم (38)');
+    ok(g1b === g1a - 20 + 38, 'رصيد الفائز: -20 إيداع +38 توزيع = ' + (g1b - g1a) + ' (دقيق)');
     ok(g2b === g2a - 20, 'رصيد الخاسر: خصم إيداعه فقط');
     /* التسوية المزدوجة مرفوضة */
     const dup = await req('POST', '/api/rooms/settleRound', { room_id: roomId, result: 'w0' }, P1.cookie);
@@ -220,7 +220,7 @@ const gold = async (p) => await goldOf(p);
     const g1d = await gold(P1), g2d = await gold(P2);
     ok(g1d === g1c + 10 && g2d === g2c + 10, 'جولة إعادة المباراة تسوّى بالإيداعات الجديدة');
     /* المحصلة بعد جولتين: الفائز ربح إيداع الخصم (10) ناقص رسم 0.5 = +9.5؛ الخاسر خسر رهانه */
-    ok(g1d === g1a + 9.5 && g2d === g2a - 10, 'المحصلة المالية بعد جولتين دقيقة 100% (فائز +9.5 بعد رسم، خاسر -10)');
+    ok(g1d === g1a + 9 && g2d === g2a - 10, 'المحصلة المالية بعد جولتين دقيقة 100% (فائز +9 بعد رسم الجرة، خاسر -10) [v2.70]');
     await req('POST', '/api/rooms/leave', { room_id: roomId }, P2.cookie);
     await req('POST', '/api/rooms/leave', { room_id: roomId }, P1.cookie);
   }

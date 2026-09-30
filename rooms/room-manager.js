@@ -110,14 +110,20 @@ function createRoomManager(gameId, io, ctx) {
       const winner = users[order[wSeat]];
       if (!winner) return { status: 400, body: { ok: false, message: 'الرابح غير موجود — لا تسوية' } };
       const stake = r2(humans.reduce(function (s, u) { return s + escrowOf(u); }, 0));
-      fee = r2(pot * ctx.BET_FEE_RATE);
+      /* [v2.70·مال] الرسم 5% من الجرة كاملة (مجموع رهانات المراهنين كافة) —
+         كان يُحسب من رهان لاعب واحد (pot = room.bet) ففي الغرف متعددة
+         اللاعبين تدفع المنصة الفارق من جيبتها للرابح (توجيه المالك:
+         «الكسور لا تقتطع للمراهنين و تدفع على حساب المنصة للرابح»). */
+      fee = r2(stake * ctx.BET_FEE_RATE);
       payout = r2(stake - fee);
       winner.gold = (winner.gold || 0) + payout;
       try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
       tx(winner, 'win', payout, { game_id: room.game_id, note: 'فوز جولة غرفة', balance_after: winner.gold });
+      /* [v2.70·سجل] لا صف bet للخاسرين هنا — صف الرهان سُجّل عند الاقتطاع
+         في بدء الجولة (عقد المال §2). كان يُسجّل ثانيةً عند التسوية فيظهر
+         الخاسر مقتطعاً مرتين في سجل المعاملات (خلل التكرار المُبلّغ). */
       humans.forEach(function (u) {
         if (u.id !== winner.id) {
-          tx(u, 'bet', escrowOf(u), { game_id: room.game_id, note: isLeftSeat(room, u.id) ? 'خسارة بمغادرة الجولة' : 'خسارة جولة', balance_after: u.gold });
           losersOut.push(shape(u));
         }
       });
@@ -432,6 +438,13 @@ function createRoomManager(gameId, io, ctx) {
       const mePart = room && me && room.players.some(function (p) { return p.id === me.id && !p.spectate; });
       if (mePart && !room.rematch) {
         if (S.sweepExpiredRoom(room)) return { status: 200, body: { ok: true, room: null } };
+        /* [v2.70·مال] جولة غير مسوّاة تُستبدل بريماش: المال لا يتبخر —
+           استرداد الإيداعات قبل بدء التصويت. إن سبقته تسوية صحيحة فلا
+           إيداعات أصلاً (escrow={} وsettled=true) فلا أثر لهذا الاسترداد.
+           (كان الريماش يستبدل escrow بلا تسوية ولا استرداد = اختفاء المال) */
+        if (room.status === 'playing' && !room.settled && room.escrow) {
+          S.refundAllEscrow(room, 'استرداد قبل إعادة المباراة (جولة غير مسوّاة)');
+        }
         /* الجولة انتهت — من غادر أو غاب لا يعود مقعداً: إسقاط الآليين أولاً */
         dropBots(room);
         const parts = room.players.filter(function (p) { return !p.spectate; });
@@ -671,7 +684,9 @@ function createRoomManager(gameId, io, ctx) {
       const leftHumans = humansAll.filter(function (x) { return isLeftSeat(room, x.pid); }).map(function (x) { return users[x.pid]; });
 
       const stake = r2(humansAll.reduce(function (s, x) { return s + escrowOf(users[x.pid]); }, 0));
-      const fee = r2(bet * ctx.BET_FEE_RATE * winHumans.length);
+      /* [v2.70·مال] الرسم 5% من الجرة كاملة (مجموع رهانات المقاعد كافة) —
+         كان رهاناً واحداً × عدد الرابحين فتتقلّص حصة المنصة كلما زاد اللاعبون */
+      const fee = r2(stake * ctx.BET_FEE_RATE);
       const net = r2(stake - fee);
       const share = r2(net / winHumans.length);
       let remainder = net - share * winHumans.length;
@@ -683,10 +698,9 @@ function createRoomManager(gameId, io, ctx) {
         u._rdShare = add;
         tx(u, 'win', add, { game_id: room.game_id, note: 'فوز جولة فرق (غرفة)', balance_after: u.gold });
       });
-      /* الخاسرون والمغادرون: سجل خسارة الرهان */
-      loseHumans.concat(leftHumans).forEach(function (u) {
-        tx(u, 'bet', escrowOf(u), { game_id: room.game_id, note: isLeftSeat(room, u.id) ? 'خسارة بمغادرة الجولة' : 'خسارة جولة فرق', balance_after: u.gold });
-      });
+      /* [v2.70·سجل] لا صف bet للخاسرين/المغادرين هنا — سُجّل عند الاقتطاع
+         في بدء الجولة (عقد المال §2). كان يُكرَّر عند التسوية فيظهر الخاسر
+         مقتطعاً مرتين في سجل المعاملات (خلل التكرار المُبلّغ). */
       room.escrow = {};
       room.settled = true;
       const shape = function (u) {

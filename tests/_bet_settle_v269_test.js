@@ -24,6 +24,12 @@ const BASE = require('./_safe_base.js').BASE;
 let pass = 0, fail = 0;
 const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? '  ✓ ' : '  ✗ ') + m); };
 const FEE = 0.05;
+/* [v2.70] عقد الرسم الجديد: 5% من الجرة كاملة (مجموع رهانات المراهنين كافة)
+   لا 5% من رهان لاعب واحد — الجرة 20 ⇒ الرسم 1 ⇒ payout 19 */
+/* [v2.70] عقد الرسم الجديد: 5% من الجرة كاملة (مجموع رهانات المراهنين كافة)
+   لا 5% من رهان لاعب واحد — الجرة 20 ⇒ الرسم 1 ⇒ payout 19 */
+/* [v2.70] عقد الرسم الجديد: 5% من الجرة كاملة (مجموع رهانات المراهنين كافة)
+   لا 5% من رهان لاعب واحد — الجرة 20 ⇒ الرسم 1 ⇒ payout 19 */
 
 async function req(method, path, body, cookie) {
   const r = await fetch(BASE + path, {
@@ -104,16 +110,18 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     await sleep(400);
     /* جسم ردّ المغادرة يحمل تسوية الجولة الثنائية كاملة */
     ok(lv.status === 200 && lv.json && lv.json.ok === true && lv.json.result === 'w0', 'مغادرة الضيف ⇒ تسوية فورية w0 (المالك الباقي رابح)');
-    ok(lv.json && near(lv.json.payout, 20 - 10 * FEE), 'الرابح يتسلم الجرة كاملة بعد الرسم (payout=19.5)');
+    ok(lv.json && near(lv.json.payout, 20 - 20 * FEE), 'الرابح يتسلم الجرة كاملة بعد الرسم (payout=19 — رسم 5% من الجرة)');
     ok(lv.json && near(lv.json.forfeited, 10), 'إيداع المغادر مصهور في الجرة (forfeited=10)');
     const gA1 = await goldOf(A), gB1 = await goldOf(B);
-    ok(near(gA1 - gA0, 20 - 10 * FEE - 10), 'صافي رصيد المالك +9.5 (دفع 10 · استلم 19.5)');
+    ok(near(gA1 - gA0, 20 - 20 * FEE - 10), 'صافي رصيد المالك +9 (دفع 10 · استلم 19)');
     ok(near(gB0 - gB1, 10), 'المغادر خسر رهانه كاملاً (10) — لا استرداد');
     ok(sinkA.some(e => e.event === 'room:leave' && e.data && e.data.lost === true), 'بث room:leave للباقين (علامة الخسارة)');
     ok(sinkA.some(e => e.event === 'room:settle' && e.data && e.data.result === 'w0'), 'بث room:settle للباقين');
     const txB = await req('GET', '/api/transfers', null, B.cookie);
-    const lossRow = txB.json && txB.json.transfers && txB.json.transfers.some(t => t.type === 'bet' && near(t.amount, 10) && /مغادرة/.test(t.note || ''));
-    ok(!!lossRow, 'خسارة المغادر مسجَّلة (bet · «خسارة بمغادرة الجولة»)');
+    const betRows = (txB.json && txB.json.transfers || []).filter(t => t.type === 'bet' && near(t.amount, 10));
+    ok(betRows.length === 1, 'المغادر صف bet واحد فقط (سُجِّل عند البدء — لا تكرار عند التسوية)');
+    const winRowsB = (txB.json && txB.json.transfers || []).filter(t => t.type === 'win');
+    ok(winRowsB.length === 0, 'المغادر الخاسر لا صف win إطلاقاً');
     sseA.abort();
   }
 
@@ -154,7 +162,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     const s1 = await req('POST', '/api/rooms/settleRound', { room_id: rid, result: 'w1' }, B.cookie);
     ok(s1.status === 200 && s1.json.ok === true && s1.json.result === 'w1', 'الضيف يسوّي الجولة بنفسه (كان حكراً على المالك)');
     const gA1 = await goldOf(A), gB1 = await goldOf(B);
-    ok(near(gB1 - gB0, 20 - 10 * FEE - 10) && near(gA0 - gA1, 10), 'التوزيع صحيح من تسوية الضيف (رابح +9.5 / خاسر -10)');
+    ok(near(gB1 - gB0, 20 - 20 * FEE - 10) && near(gA0 - gA1, 10), 'التوزيع صحيح من تسوية الضيف (رابح +9 / خاسر -10)');
     const s2 = await req('POST', '/api/rooms/settleRound', { room_id: rid, result: 'w0' }, A.cookie);
     ok(s2.status === 400, 'التسوية الثانية مرفوضة (room.settled يمنع الازدواج)');
     /* متفرج لا يسوّي */
@@ -212,8 +220,8 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     const sv = await req('POST', '/api/rooms/settleTeamRound', { room_id: rid, result: 't0' }, C.cookie);
     ok(sv.status === 200 && sv.json.ok === true, 'تسوية الفرق من الضيف النشط مقبولة');
     const gA1 = await goldOf(A), gB1 = await goldOf(B), gC1 = await goldOf(C), gD1 = await goldOf(D);
-    /* الرسم = bet*FEE*winners(1) = 0.5 · الصافي = 40-0.5 = 39.5 كاملة لـC */
-    ok(near(gC1 - gC0, 40 - 0.5 - 10), 'الزميل البشري الباقي +29.5 (دفع 10 · استلم 39.5) — نصيب المغادر يعود إليه');
+    /* [v2.70] الرسم = 40×5% = 2 · الصافي = 38 كاملة لـC */
+    ok(near(gC1 - gC0, 40 - 40 * FEE - 10), 'الزميل البشري الباقي +28 (دفع 10 · استلم 38) — نصيب المغادر يعود إليه');
     ok(near(gA0 - gA1, 10), 'المغادر خسر رهانه (لا مكسب له من فريق رابح)');
     ok(near(gB0 - gB1, 10) && near(gD0 - gD1, 10), 'الفريق الخاسر خسر رهانه كاملاً');
   }
@@ -236,7 +244,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     const sv = await req('POST', '/api/rooms/settleTeamRound', { room_id: rid, result: 't0' }, B.cookie);
     ok(sv.status === 200 && sv.json.ok === true && sv.json.result === 't1', 'فريق فائز كله مغادر ⇒ النتيجة تنقلب للفريق البشري الآخر (t1)');
     const gB1 = await goldOf(B), gD1 = await goldOf(D);
-    ok(near(gB1 - gB0, (40 - 1) / 2 - 10) && near(gD1 - gD0, (40 - 1) / 2 - 10), 'الفريق البشري الآخر +9.5 لكل (دفع 10 · استلم 19.5)');
+    ok(near(gB1 - gB0, (40 - 40 * FEE) / 2 - 10) && near(gD1 - gD0, (40 - 40 * FEE) / 2 - 10), 'الفريق البشري الآخر +9 لكل (دفع 10 · استلم 19)');
   }
 
   /* ═══ ح) تعادل مع مغادر ═══ */
@@ -290,7 +298,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     const lv = await req('POST', '/api/rooms/leave', { room_id: rid }, B.cookie);
     ok(lv.status === 200 && lv.json && lv.json.result === 'w0', 'مغادرة صريحة بعد العودة ⇒ خسارة فورية (w0)');
     const gA2 = await goldOf(A);
-    ok(near(gA2 - gA0, 20 - 10 * FEE - 10), 'المالك صافيه +9.5 (دفع 10 · استلم الجرة 19.5)');
+    ok(near(gA2 - gA0, 20 - 20 * FEE - 10), 'المالك صافيه +9 (دفع 10 · استلم الجرة 19)');
     sseA.abort(); sseB.abort();
   }
 

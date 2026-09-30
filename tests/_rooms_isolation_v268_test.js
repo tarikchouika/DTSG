@@ -181,7 +181,7 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     const st = await req('POST', '/api/rooms/settleTeamRound', { room_id: rid, result: 't1' }, A.cookie);
     ok(st.status === 200 && st.json.teamSplit === true, 'تسوية t1 في غرفة ثنائية ⇒ 200 (كانت 400 «لـ4 مقاعد فقط» فتعلق إيداعات أونو)');
     const g1 = await Promise.all([goldOf(A), goldOf(B)]);
-    ok(g1[1] === g0[1] + 9.5 && g1[0] === g0[0] - 10, 'المقعد 1 (t1): دفع 10 واستلم 19.5 (صافي +9.5 بعد رسم 0.5)؛ المقعد 0 خسر رهانه');
+    ok(g1[1] === g0[1] + 9 && g1[0] === g0[0] - 10, 'المقعد 1 (t1): دفع 10 واستلم 19 (صافي +9 بعد رسم الجرة 1) [v2.70]؛ المقعد 0 خسر رهانه');
     await req('POST', '/api/rooms/leave', { room_id: rid }, A.cookie);
     await req('POST', '/api/rooms/leave', { room_id: rid }, B.cookie);
   }

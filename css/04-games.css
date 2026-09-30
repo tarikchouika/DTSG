@@ -1455,6 +1455,11 @@ body.rami-game-open { overflow: hidden; }
 #pg-game.active {
   display: flex;
   flex-direction: column;
+  /* [v2.70·نوكيا] بدء 100vh قبل 100dvh: متصفحات WebView القديمة (شائعة في
+     هواتف نوكيا الاقتصادية، Chrome<108) لا تعرف dvh فتُسقط الإعلان كاملاً
+     وينكسر ارتفاع صفحة اللعبة في الوضعين معاً — الإعلانان المتتاليان يعطيان
+     الأولوية للقيمة الحديثة حيث تُدعم والقديمة حيث لا تُدعم */
+  height: calc(100vh - var(--pg-top, 0px));
   height: calc(100dvh - var(--pg-top, 0px));
   min-height: 0;
   overflow-y: auto;              /* تمرير لكشف سجل الجولات أسفل حاوية اللعبة */
@@ -1471,8 +1476,10 @@ body.rami-game-open { overflow: hidden; }
 /* حاوية اللعبة بارتفاع ثابت يملأ الشاشة تحت الشريط — لا تتقلّص مهما طال السجل */
 #pg-game.active #gamePageBody {
   /* --vvh = الارتفاع المرئي الفعلي (visualViewport) — أدقّ من dvh على الجوال
-     حيث يتغيّر بشريط العنوان، فلا يُقصّ أسفل الحاوية أبداً */
-  flex: 0 0 calc(var(--vvh, 100dvh) - var(--pg-top, 0px) - var(--gp-head-h, 64px));
+     حيث يتغيّر بشريط العنوان، فلا يُقصّ أسفل الحاوية أبداً.
+     [v2.70·نوكيا] البديل داخل var() صار 100vh — كان 100dvh فيُبطل الإعلان
+     كله في المتصفحات بلا دعم dvh قبل أن يضبط JS قيمة --vvh */
+  flex: 0 0 calc(var(--vvh, 100vh) - var(--pg-top, 0px) - var(--gp-head-h, 64px));
   min-height: 300px;
   overflow: hidden;
 }
@@ -2709,8 +2716,10 @@ body.rami-game-open { overflow: hidden; }
   justify-content: flex-start;
   align-items: center;
   width: 100vw;
+  /* [v2.70·نوكيا] بدائل vh قبل dvh (مت صفحات WebView القديمة لا تدعم dvh) */
   height: 100vh;
   height: 100dvh;
+  max-height: 100vh;
   max-height: 100dvh;
   overflow-y: auto;
   padding: calc(10px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));

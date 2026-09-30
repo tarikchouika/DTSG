@@ -24,8 +24,13 @@
    ⇒ لا تتجاوز اليد عرض الشاشة ولا تُقتطع من الأسفل حتى عند سحب 14 قطعة. */
 #dmStage {
   --dm-hand-count: 7;
-  --dm-tile-h: clamp(30px, min(23dvh, calc(((100vw - 32px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 100px);
+  /* [v2.70·نوكيا] قيمة vh أساسية + ترقية dvh داخل @supports (لا تسلسل
+     مباشراً للخصائص المخصصة — انفجار عند الاستخدام في WebView القديمة) */
+  --dm-tile-h: clamp(30px, min(23vh, calc(((100vw - 32px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 100px);
   --dm-hand-h: 34%;
+}
+@supports (height: 100dvh) {
+  #dmStage { --dm-tile-h: clamp(30px, min(23dvh, calc(((100vw - 32px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 100px); }
 }
 #dmStage .dm-hand .dm-htile,
 #dmStage .dm-opprow .dm-htile {
@@ -932,10 +937,14 @@ body.app-fs-on .game-fs-exit {
   #dmStage #dmSeat3 .dm-opptiles { grid-column: 2 !important; grid-row: 1 / span 3 !important; margin: 0 !important; }
 }
 
-/* وضع اللاندسكيب (الأفقي): إبعاد الشارات والأوراق إلى الحواف لتفريغ طاولة اللعب */
+/* وضع اللاندسكيب (الأفقي): إبعاد الشارات والأوراق إلى الحواف لتفريغ طاولة اللعب
+   [v2.70·نوكيا] بدائل vh ثم dvh بـ@supports */
 @media (orientation: landscape) {
   #dmStage {
-    --dm-tile-h: clamp(30px, min(24dvh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px);
+    --dm-tile-h: clamp(30px, min(24vh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px);
+  }
+  @supports (height: 100dvh) {
+    #dmStage { --dm-tile-h: clamp(30px, min(24dvh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px); }
   }
   #dmStage .dm-chain {
     top: 48px !important; bottom: 76px !important; left: 55px !important; right: 55px !important;
@@ -1086,7 +1095,11 @@ body.app-fs-on .game-fs-exit {
    ═══════════════════════════════════════════════════════════════════════════ */
 @media (orientation: landscape) {
   #dmStage {
-    --dm-tile-h: clamp(30px, min(24dvh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px);
+    /* [v2.70·نوكيا] بدائل vh ثم dvh بـ@supports */
+    --dm-tile-h: clamp(30px, min(24vh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px);
+  }
+  @supports (height: 100dvh) {
+    #dmStage { --dm-tile-h: clamp(30px, min(24dvh, calc(((100vw - 180px) / var(--dm-hand-count, 7) - 6px) * 1.85)), 88px); }
   }
   /* البنك داخل الطاولة التي تملأ #dmPlay، لذلك هذه إحداثيات الركن الحقيقي للشاشة. */
   #dmStage #dmTable > #dmBoneyard,

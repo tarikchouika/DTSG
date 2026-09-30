@@ -521,7 +521,10 @@ class RondaRenderer {
       } else {
         this._addLog('💔 ' + RL('youLose') + ' −' + fmt(this.core.bet) + ' 🪙', 'lose');
       }
-      if (typeof recordRound === 'function') {
+      /* [v2.70] التذاكر للفردي/التدريب فقط — سجل غرف الروندا المالي هو
+         transactions الخادمي (صف bet عند البدء + win عند التسوية) والتذاكر
+         كانت تُكرّر الجولة في السجل المدموج */
+      if (typeof recordRound === 'function' && !this.core.multiplayer) {
         recordRound(!!d.won, (d.won && typeof d.payout === 'number' && d.payout > 0) ? d.payout : 0,
           (d.won ? RL('youWin') : RL('youLose')));
       }
@@ -1409,36 +1412,25 @@ class RondaPlatformAdapter {
     if (this.renderer) this.renderer._onBetDecide({ accept: false, bet: this.room.bet });
   }
   _settle(d) {
-    /* [RondaBet] تسوية عادلة بين البشر: المتخمن يخاطر بالرهان ×1، الموزع يخاطر ×2 (رقم)
-       أو ×3 (رقم+رمز) — الخاسر يدفع رهانه كاملاً للرابح، ورسم المنصة 5% من الرابح
-       في غرف النسبة (يحسبه الخادم). لا خلق نقود من العدم. */
-    if (!this.room || !this.core.multiplayer || !this.room.isOwner) return;
+    /* [v2.70·مال] تسوية غرفة الروندا الكلاسيكية عبر المسار الموحّد (settleRound):
+       كانت ترسل حمولة قديمة (winner_id/loser_id/winner_stake) لا يفهمها
+       الخادم إطلاقاً — settleLegacy يتوقع أسماء ومبلغاً — فترتد 403 صامتة
+       ولا يُوزَّع رهان الجولة أبداً (الإيداع يتجمد حتى استرداد endBet).
+       الإيداع مقتطع بالتساوي عند البدء (كل مقعد رهان الغرفة) فالعقد الصحيح:
+       الفائز بالمقعد (w1 للمتخمّن · w0 للموزّع) يأخذ الجرة كاملة ناقص 5%. */
+    if (!this.room || !this.core.multiplayer) return;
     const winnerSide = d.winner;
-    if (!winnerSide || typeof API === 'undefined') return;
-    const mult = this.core.mode === 'number_only' ? 2 : 3;
-    const players = this.room.players || [];
-    const self = this;
-    const dealer = players.find(function (p) { return p.id === self.room.order[0]; });
-    const selector = players.find(function (p) { return p.id === self.room.order[1]; });
-    if (!dealer || !selector) return;
+    if (!winnerSide) return;
     /* البوتات بلا أرصدة — التسوية النقدية بين بشريين فقط */
-    if (String(dealer.id).indexOf('bot:') === 0 || String(selector.id).indexOf('bot:') === 0) return;
-    var winner, loser, wStake, lStake;
-    if (winnerSide === 'selector') { winner = selector; loser = dealer; wStake = this.room.bet; lStake = this.room.bet * mult; }
-    else { winner = dealer; loser = selector; wStake = this.room.bet * mult; lStake = this.room.bet; }
-    API.post('/api/rooms/settle', {
-      room_id: this.room.id, mode: 'ronda',
-      round_id: this.room.round + ':' + (this.room.seed || 0),
-      winner_id: winner.id, loser_id: loser.id,
-      winner_stake: wStake, loser_stake: lStake
-    }).then(function (r) {
-      var rd = (r && r.data) ? r.data : r;
-      if (rd && rd.ok && typeof ST !== 'undefined') {
-        var u = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
-        if (u && rd.winner && rd.winner.id === u.id) { ST.gold = rd.winner.gold; AUTH.user.gold = rd.winner.gold; save(); wallet(); }
-        else if (u && rd.loser && rd.loser.id === u.id) { ST.gold = rd.loser.gold; AUTH.user.gold = rd.loser.gold; save(); wallet(); }
-      }
-    }).catch(function () {});
+    const players = this.room.players || [];
+    const dealerId = this.room.order ? this.room.order[0] : null;
+    const selectorId = this.room.order ? this.room.order[1] : null;
+    if (String(dealerId).indexOf('bot:') === 0 || String(selectorId).indexOf('bot:') === 0) return;
+    const seat = (winnerSide === 'selector') ? 1 : 0;
+    if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.status === 'playing' &&
+        !Rooms.state.settled && typeof Rooms.roomSettle === 'function') {
+      try { Rooms.roomSettle('w' + seat); } catch (e) {}
+    }
   }
   destroy() {
     if (this.core) this.core.dead = true;

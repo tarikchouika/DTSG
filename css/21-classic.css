@@ -533,9 +533,16 @@
 #dmStage #dmPlay.dm-screen-active { display: flex !important; flex-direction: column; height: 100%; }
 #bwStage #bwPlay.bw-screen-active { height: 100%; min-height: 0; }
 
-/* ميزانية ارتفاع قطع اليد: لا تتجاوز ~26% من الشاشة ⇒ تبقى كاملة على الحافة */
+/* ميزانية ارتفاع قطع اليد: لا تتجاوز ~26% من الشاشة ⇒ تبقى كاملة على الحافة
+   [v2.70·نوكيا] قيمة vh أساسية + ترقية dvh داخل @supports (الخصائص المخصصة
+   لا تسقط إعلاناً غير مدعوم بل تنفجر عند الاستخدام في المتصفحات القديمة) */
 #dmStage {
-  --dm-tile-h: clamp(52px, 24dvh, 104px);
+  --dm-tile-h: clamp(52px, 24vh, 104px);
+}
+@supports (height: 100dvh) {
+  #dmStage { --dm-tile-h: clamp(52px, 24dvh, 104px); }
+}
+#dmStage {
   --dm-hand-h: 30%;
 }
 #dmStage .dm-table { flex: 1 1 auto !important; min-height: 0 !important; }

@@ -102,8 +102,10 @@ function createSharedRoomIO(ctx) {
     } catch (e) { return false; }
   }
 
-  /* [v2.67·مال] استرداد إيداع رهان لاعب — استرجاع صامت للرصيد */
-  function refundEscrow(room, uid) {
+  /* [v2.67·مال] استرداد إيداع رهان لاعب — استرجاع صامت للرصيد
+     [v2.70·سجل] يُسجَّل صف refund في transactions (عقد المال §2: كل مستردّ
+     له صف) — كانت الاستردادات تُنفَّذ بلا سجل فيظهر الرصيد ناقصاً في المحاسبة */
+  function refundEscrow(room, uid, note) {
     try {
       if (!room || !room.escrow || uid == null) return 0;
       const amt = Number(room.escrow[uid] || 0);
@@ -113,13 +115,16 @@ function createSharedRoomIO(ctx) {
       if (u) {
         u.gold = (u.gold || 0) + amt;
         try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+        if (logTx) {
+          try { logTx(u, 'refund', amt, { game_id: room.game_id, note: note || 'استرداد إيداع جولة غرفة', balance_after: u.gold }); } catch (e) {}
+        }
       }
       return amt;
     } catch (e) { return 0; }
   }
-  function refundAllEscrow(room) {
+  function refundAllEscrow(room, note) {
     if (!room || !room.escrow) return;
-    Object.keys(room.escrow).forEach(function (uid) { refundEscrow(room, Number(uid)); });
+    Object.keys(room.escrow).forEach(function (uid) { refundEscrow(room, Number(uid), note); });
     room.escrow = {};
   }
 
