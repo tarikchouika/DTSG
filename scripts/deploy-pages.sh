@@ -23,6 +23,13 @@ set -euo pipefail
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# [v2.71-gate-account] Never publish to the wrong account. Incident 2026-09-30: a full
+# publish went to a *different* Cloudflare account and wrangler reported SUCCESS while
+# the live site (dtsg.pages.dev) had not changed a single byte. The script trusted
+# wrangler's success line and never asked: which account? which live domain?
+# Now: the account is pinned below (EXPECT_ACCOUNT); the env var, `wrangler whoami`
+# and the LIVE site content are each verified before/after the upload.
+
 # [PhoneLink] تحديث من GitHub أولاً: يضمن أن أي نشر يحمل أحدث إصلاحات الفريق
 # (منع تكرار مشكلة «نشر نسخة قديمة»). BRANCH_SOURCE قابل للتغيير.
 # [v2.48.2-GUARD 2026-09-21] كان الافتراضي فرعاً في المستودع **القديم**
@@ -49,6 +56,8 @@ if git -C "$REPO" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   # (api.js، live-ws-bridge.js، _headers، api-url2.json)
   echo "── سأبني من شجرة العمل المحلية (المبنية على $BRANCH_SOURCE مع تعديلات النفق)"
 fi
+# [v2.71-gate-account] the platform's Cloudflare account — do not change silently
+EXPECT_ACCOUNT="758fcc827f3338772847c28391b6c6c3"
 OUT="${DMG_DEPLOY_DIR:-/tmp/dmc-deploy}"
 PROJECT="dtsg"                    # [Rebrand] يعطي النطاق https://dtsg.pages.dev (dmgames قديم)
 BRANCH="main"                     # فرع الإنتاج في Pages (تعديل لإنتاج مباشر)
@@ -117,6 +126,21 @@ fi
 : "${CLOUDFLARE_API_TOKEN:?لم يُضبط CLOUDFLARE_API_TOKEN}"
 export CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN
 
+# ── account gate: env var + wrangler's own answer (no publish on doubt) ──
+if [ "$CLOUDFLARE_ACCOUNT_ID" != "$EXPECT_ACCOUNT" ]; then
+  echo "STOP: CLOUDFLARE_ACCOUNT_ID=$CLOUDFLARE_ACCOUNT_ID is not the platform account."
+  echo "      expected: $EXPECT_ACCOUNT"
+  echo "      fix /root/.secrets/cloudflare.txt and rerun — do not force."
+  exit 4
+fi
+WHOAMI="$(npx -y wrangler@4 whoami 2>/dev/null || true)"
+if ! printf '%s' "$WHOAMI" | grep -q "$EXPECT_ACCOUNT"; then
+  echo "STOP: wrangler did not confirm account $EXPECT_ACCOUNT (token/account mismatch)."
+  printf '%s\n' "$WHOAMI" | sed 's/^/      /' | head -12
+  exit 4
+fi
+echo "OK: Cloudflare account confirmed: $EXPECT_ACCOUNT"
+
 echo "── التأكد من وجود مشروع Pages «$PROJECT»"
 if ! npx -y wrangler@4 pages project list 2>/dev/null | grep -q "$PROJECT"; then
   echo "── إنشاء المشروع $PROJECT (فرع الإنتاج: $BRANCH)"
@@ -126,4 +150,26 @@ fi
 echo "── رفع إلى Cloudflare Pages ($PROJECT / $BRANCH)"
 npx -y wrangler@4 pages deploy "$OUT" --project-name "$PROJECT" --branch "$BRANCH"
 
-echo "✔ تم النشر → https://$PROJECT.pages.dev"
+# ── post-upload gate: the LIVE domain must serve THIS build ──
+# [v2.71-gate-account] wrangler's "Deployment complete" says nothing about which
+# domain serves it. Compare the live build tag with package.json, else report failure.
+LIVE_URL="${DMG_LIVE_URL:-https://dtsg.pages.dev}"
+WANT_BUILD="$(node -p "require('$REPO/package.json').version" 2>/dev/null || echo '?')"
+echo "-- verifying $LIVE_URL (expect build v$WANT_BUILD)"
+LIVE_BUILD=""
+for i in 1 2 3 4 5 6; do
+  LIVE_BUILD="$(curl -sL -m 20 "$LIVE_URL/js/main.js" 2>/dev/null | grep -o "DTSG_BUILD = 'v[^']*'" | head -1 | sed "s/.*'v\\([^']*\\)'.*/\\1/")"
+  [ -n "$LIVE_BUILD" ] && [ "$LIVE_BUILD" = "$WANT_BUILD" ] && break
+  echo "   try $i: live serves '${LIVE_BUILD:-?}' — waiting for cache/propagation"
+  sleep 6
+done
+if [ "${LIVE_BUILD:-}" = "$WANT_BUILD" ]; then
+  echo "OK: live $LIVE_URL serves v$WANT_BUILD"
+else
+  echo "FAILED: live $LIVE_URL serves '${LIVE_BUILD:-?}', expected '$WANT_BUILD'."
+  echo "   The upload reached a non-live project/account. Do NOT retry blindly:"
+  echo "   npx wrangler@4 pages project list   # find the real production domain"
+  exit 5
+fi
+
+echo "DEPLOYED -> $LIVE_URL"
