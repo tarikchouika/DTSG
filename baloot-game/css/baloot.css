@@ -648,6 +648,11 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
 }
 .bl-m-final i { font-style: normal; color: var(--bl-t3); font-size: 0.6em; }
 .bl-m-final b:first-child { color: var(--bl-gold2); }
+/* [v2.72·فردي] قائمة نقاط كل لاعب بدل ثنائية 0—1 */
+.bl-m-final-solo { font-size: clamp(20px, 6vw, 28px); gap: 10px; flex-wrap: wrap; }
+.bl-m-solo { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.15; }
+.bl-m-solo small { font-size: 11px; font-weight: 700; color: var(--bl-t3); letter-spacing: 0.3px; }
+.bl-m-solo b.bl-gold { color: var(--bl-gold2); }
 .bl-m-payout { text-align: center; font-size: 14px; color: var(--bl-t2); margin-bottom: 8px; }
 .bl-m-payout b { font-family: var(--bl-font-display); font-size: 17px; }
 .bl-m-payout small { color: var(--bl-t3); }

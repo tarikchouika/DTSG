@@ -237,6 +237,76 @@ for (const level of [0, 1, 2]) {
   })());
 }
 
+/* ════ [v2.72] الفردي: 1ضد1 و1ضد2 و1ضد3 (توجيه المالك) ════ */
+{
+  const oldRand = Math.random;
+  const rnd = (seed) => { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; };
+  const runSolo = (players, solo, seed) => {
+    Math.random = rnd(seed);
+    NS.newMatch({ mode: 'ai', level: 2, target: 51, firstLead: 'left', mustBeat: false, kabotBonus: 30, players: players, solo: solo, seed: seed });
+    /* لقطة فورية بعد التوزيع (الحالة نفسها تتحوّر حتى نهاية المباراة) */
+    const s0 = { players: NS.state.players, hands: NS.state.hands.map((h) => h.slice()), teamScores: NS.state.teamScores.slice() };
+    let steps = 0, tricksOfN = 0, trickTotal = 0;
+    while (NS.state.phase !== 'matchEnd' && steps < 8000) {
+      steps++;
+      const s = NS.state;
+      if (s.phase === 'ashur' || s.phase === 'naming') NS.aiAct(s.turn);
+      else if (s.phase === 'play') {
+        const L = Core.legalMoves(s.hands[s.turn], s.trick, s.trump, false);
+        NS.play(s.turn, L[0]);
+        if (NS.state.phase === 'trickEnd') { trickTotal++; if (NS.state.trick.length === players) tricksOfN++; }
+      }
+      else if (s.phase === 'trickEnd') NS.nextTrickOrRoundEnd();
+      else if (s.phase === 'roundEnd') NS.nextRound();
+      else break;
+    }
+    Math.random = oldRand;
+    return { s0: s0, steps: steps, tricksOfN: tricksOfN, trickTotal: trickTotal, st: NS.state };
+  };
+
+  for (const players of [2, 3, 4]) {
+    const r = runSolo(players, true, 20261001 + players);
+    const s = r.st;
+    t('فردي ' + players + ' لاعبين: بناء ' + players + ' مقاعد و' + players + ' فرق',
+      r.s0.players === players && r.s0.hands.length === players && r.s0.teamScores.length === players);
+    t('فردي ' + players + ' لاعبين: 8 أوراق لكل لاعب',
+      r.s0.hands.every((h) => h.length === 8));
+    t('فردي ' + players + ' لاعبين: كل مقعد فريقه (teamOf=المقعد)', (function () {
+      NS.newMatch({ mode: 'ai', level: 2, target: 51, firstLead: 'left', mustBeat: false, kabotBonus: 30, players: players, solo: true, seed: 5 });
+      for (let i = 0; i < players; i++) if (NS.teamOf(i) !== i) return false;
+      return players < 2 || NS.sameTeam(0, 1) === false;
+    })());
+    t('فردي ' + players + ' لاعبين: الأكلة تكتمل بـ' + players + ' أوراق لا 4',
+      r.trickTotal > 0 && r.tricksOfN === r.trickTotal);
+    t('فردي ' + players + ' لاعبين: المباراة اكتملت بفائز فردي',
+      s.phase === 'matchEnd' && s.matchWinner >= 0 && s.matchWinner < players && s.teamScores[s.matchWinner] >= 51);
+  }
+
+  /* 4 لاعبين كلاسيكي بلا solo: فرقان فقط (توافق v2.71) */
+  NS.newMatch({ mode: 'ai', level: 2, target: 51, firstLead: 'left', mustBeat: false, kabotBonus: 30, players: 4, seed: 42 });
+  t('كلاسيكي 4 بلا solo: فرقان (0,2)/(1,3)',
+    NS.state.teamScores.length === 2 && NS.teamOf(0) === 0 && NS.teamOf(2) === 0 && NS.teamOf(1) === 1 && NS.teamOf(3) === 1);
+  t('كلاسيكي بلا players: الافتراضي 4 فرقان', (function () {
+    NS.newMatch({ mode: 'ai', level: 2, target: 51, firstLead: 'left', mustBeat: false, kabotBonus: 30, seed: 9 });
+    return NS.state.players === 4 && NS.state.teamScores.length === 2;
+  })());
+
+  /* بذرة فردي حتمية عند الطرفين */
+  const a = runSolo(2, true, 777), b = runSolo(2, true, 777);
+  t('فردي ثنائي: بذرة 777 نفس النتيجة عند الطرفين',
+    JSON.stringify(a.st.teamScores) === JSON.stringify(b.st.teamScores));
+
+  /* أشور ثلاثة فرق: الأعلى الصريح يبقى والآخران يُقطعان */
+  const rr = Core.scoreRound([30, 20, 20], [3, 2, 3], 0,
+    { 0: { value: 50 }, 1: { value: 20 }, 2: null }, [false, false, false], -1, 0);
+  t('أشور فردي ×3: 50 يبقى والاثنان مقطوعان',
+    rr.ashur[0] === 50 && rr.ashur[1] === 0 && rr.ashur[2] === 0 && rr.cut[1] === true && rr.cut[2] === false);
+  const rt = Core.scoreRound([30, 20, 20], [3, 2, 3], 0,
+    { 0: { value: 50 }, 1: { value: 50 }, 2: null }, [false, false, false], -1, 0);
+  t('أشور فردي ×3: تعادل القمة يُقطع الاثنان',
+    rt.ashur[0] === 0 && rt.ashur[1] === 0 && rt.cut[0] === true && rt.cut[1] === true);
+}
+
 console.log('\n════════════');
 console.log('النتيجة: ' + pass + ' نجح · ' + fail + ' فشل');
 process.exit(fail ? 1 : 0);

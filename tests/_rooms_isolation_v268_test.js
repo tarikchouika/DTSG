@@ -1,6 +1,6 @@
 /* ═════════════════════════════════════════════════════════════════════
    [v2.68] اختبارات عزل الألعاب ونظام الغرف لكل لعبة
-     1) [مقاعد] التصحيح وفق حاجة اللعبة: بلوت 4 بالضبط، أونو ≤4، شطرنج 2
+     1) [مقاعد] التصحيح وفق حاجة اللعبة: [v2.72] بلوت 2-4 (فردي عند 2-3)، أونو ≤4، شطرنج 2
      2) [بدء] لا بدء دون العدد المشترط (بلوت بثلاثة ⇒ 400)
      3) [عزل حركات] حركة لعبة أخرى في غرفة اللعبة ⇒ 400 (كانت تُمرَّر عمياء)
      4) [عزل حالة] blob تشخيصي يُقبل من الجميع؛ الحالة الحقيقية للسائق فقط
@@ -63,9 +63,13 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
   console.log('── [مقاعد] التصحيح وفق حاجة كل لعبة ──');
   {
     const H = await newUser('seat_' + tag);
+    /* [v2.72·توجيه المالك] البلوت صار يقبل 2-4 (فردي عند 2-3) — كان يُصحّح إلى 4 */
     const bl = await req('POST', '/api/rooms', { game_id: 'bl', max_players: 2, bet: 5 }, H.cookie);
-    ok(bl.status === 200 && bl.json.room.max_players === 4, 'بلوت بطلب 2 مقاعد ⇒ تُنشأ 4 بالضبط (المحرك يشترطها)');
+    ok(bl.status === 200 && bl.json.room.max_players === 2, 'بلوت بطلب 2 مقاعد ⇒ تُنشأ 2 (فردي — [v2.72] المحرك يقبلها)');
     await req('POST', '/api/rooms/leave', { room_id: bl.json.room.id }, H.cookie);
+    const bl9 = await req('POST', '/api/rooms', { game_id: 'bl', max_players: 9, bet: 5 }, H.cookie);
+    ok(bl9.status === 200 && bl9.json.room.max_players === 4, 'بلوت بطلب 9 ⇒ يُقصّ 4');
+    await req('POST', '/api/rooms/leave', { room_id: bl9.json.room.id }, H.cookie);
     const un = await req('POST', '/api/rooms', { game_id: 'un', max_players: 8, bet: 5 }, H.cookie);
     ok(un.status === 200 && un.json.room.max_players === 4, 'أونو بطلب 8 ⇒ تُقصّ 4');
     await req('POST', '/api/rooms/leave', { room_id: un.json.room.id }, H.cookie);
@@ -81,6 +85,8 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
   console.log('── [بدء] العدد المشترط وفق اللعبة ──');
   {
+    /* [v2.72·فردي] بلوت بثلاثة يبدأ الآن (فردي) — كان يُرفض في v2.68 (المحرك
+       القديم يشترط 4). ثم غرفة 4 لاعبين كلاسيكية تُختبر تسوية فرقها كما كان. */
     const A = await newUser('st1_' + tag), B = await newUser('st2_' + tag), C = await newUser('st3_' + tag), D = await newUser('st4_' + tag);
     const cr = await req('POST', '/api/rooms', { game_id: 'bl', max_players: 4, bet: 10 }, A.cookie);
     const rid = cr.json.room.id, code = cr.json.room.code;
@@ -90,21 +96,38 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
     await req('POST', '/api/rooms/ready', { room_id: rid, ready: true }, B.cookie);
     await req('POST', '/api/rooms/ready', { room_id: rid, ready: true }, C.cookie);
     const st3 = await req('POST', '/api/rooms/start', { room_id: rid }, A.cookie);
-    ok(st3.status === 400 && st3.json.error === 'not_enough_players' && st3.json.need === 4, 'بلوت بثلاثة ⇒ 400 «هذه اللعبة تتطلب 4 لاعبين» (كان يبدأ ثم يعلق المحرك)');
-    await req('POST', '/api/rooms/join', { code }, D.cookie);
-    await req('POST', '/api/rooms/ready', { room_id: rid, ready: true }, D.cookie);
-    const st4 = await req('POST', '/api/rooms/start', { room_id: rid }, A.cookie);
-    ok(st4.status === 200 && st4.json.room.status === 'playing', 'بلوت بأربعة ⇒ يبدأ (المحرك يبني)')
-    /* تسوية الفرق 4 مقاعد */
-    const g0 = await Promise.all([goldOf(A), goldOf(B), goldOf(C), goldOf(D)]);
-    const st = await req('POST', '/api/rooms/settleTeamRound', { room_id: rid, result: 't0' }, A.cookie);
-    ok(st.status === 200 && st.json.teamSplit === true, 'تسوية الفرق (بلوت 4): t0 تقسم بين المقاعدين 0 و2');
-    const g1 = await Promise.all([goldOf(A), goldOf(B), goldOf(C), goldOf(D)]);
-    ok(g1[0] > g0[0] && g1[2] > g0[2] && g1[1] === g0[1] && g1[3] === g0[3], 'الفريق الفائز (0,2) تقاضى والخاسر (1,3) لم يتغير');
+    ok(st3.status === 200 && st3.json.room.status === 'playing', 'بلوت بثلاثة ⇒ يبدأ الآن (فردي — [v2.72] توجيه المالك)');
+    /* فردي: تسوية بالمقعد — الرابح الفرد يأخذ الجرة بعد الرسم */
+    const g0f = await Promise.all([goldOf(A), goldOf(B), goldOf(C)]);
+    const sf = await req('POST', '/api/rooms/settleRound', { room_id: rid, result: 'w1' }, B.cookie);
+    ok(sf.status === 200 && sf.json.result === 'w1' && sf.json.winner, 'تسوية الفردية (بلوت 3): w1 بمقعد صحيح');
+    const g1f = await Promise.all([goldOf(A), goldOf(B), goldOf(C)]);
+    ok(g1f[1] > g0f[1] && g1f[0] === g0f[0] && g1f[2] === g0f[2], 'الفردي: الرابح تقاضى والخاسران بلا خصم إضافي (الاقتطاع عند البدء — عقد v2.71)');
     await req('POST', '/api/rooms/leave', { room_id: rid }, A.cookie);
     await req('POST', '/api/rooms/leave', { room_id: rid }, B.cookie);
     await req('POST', '/api/rooms/leave', { room_id: rid }, C.cookie);
-    await req('POST', '/api/rooms/leave', { room_id: rid }, D.cookie);
+    /* غرفة 4 لاعبين كلاسيكية (فرق): التسوية الفرقية كما كانت */
+    const cr4 = await req('POST', '/api/rooms', { game_id: 'bl', max_players: 4, bet: 10, game_opts: { maxp: 4, mode4: 'tt', target: 51 } }, A.cookie);
+    const rid4 = cr4.json.room.id, code4 = cr4.json.room.code;
+    await req('POST', '/api/rooms/join', { code: code4 }, B.cookie);
+    await req('POST', '/api/rooms/join', { code: code4 }, C.cookie);
+    await req('POST', '/api/rooms/join', { code: code4 }, D.cookie);
+    await req('POST', '/api/rooms/ready', { room_id: rid4, ready: true }, A.cookie);
+    await req('POST', '/api/rooms/ready', { room_id: rid4, ready: true }, B.cookie);
+    await req('POST', '/api/rooms/ready', { room_id: rid4, ready: true }, C.cookie);
+    await req('POST', '/api/rooms/ready', { room_id: rid4, ready: true }, D.cookie);
+    const st4 = await req('POST', '/api/rooms/start', { room_id: rid4 }, A.cookie);
+    ok(st4.status === 200 && st4.json.room.status === 'playing', 'بلوت بأربعة ⇒ يبدأ (المحرك يبني)');
+    /* تسوية الفرق 4 مقاعد */
+    const g0 = await Promise.all([goldOf(A), goldOf(B), goldOf(C), goldOf(D)]);
+    const st = await req('POST', '/api/rooms/settleTeamRound', { room_id: rid4, result: 't0' }, A.cookie);
+    ok(st.status === 200 && st.json.teamSplit === true, 'تسوية الفرق (بلوت 4): t0 تقسم بين المقاعدين 0 و2');
+    const g1 = await Promise.all([goldOf(A), goldOf(B), goldOf(C), goldOf(D)]);
+    ok(g1[0] > g0[0] && g1[2] > g0[2] && g1[1] === g0[1] && g1[3] === g0[3], 'الفريق الفائز (0,2) تقاضى والخاسر (1,3) لم يتغير');
+    await req('POST', '/api/rooms/leave', { room_id: rid4 }, A.cookie);
+    await req('POST', '/api/rooms/leave', { room_id: rid4 }, B.cookie);
+    await req('POST', '/api/rooms/leave', { room_id: rid4 }, C.cookie);
+    await req('POST', '/api/rooms/leave', { room_id: rid4 }, D.cookie);
   }
 
   console.log('── [عزل الحركات] حركة لعبة في غرفة لعبة أخرى ⇒ 400 ──');

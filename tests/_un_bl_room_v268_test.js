@@ -205,11 +205,12 @@ function unRealMove() {
 
     await H.evaluate(() => openGame('bl'));
     await PW.wait(H, () => !!(typeof BalootApp !== 'undefined' && window.BLGameNS), 10000);
-    await H.evaluate(() => Rooms.createRoom('bl', { bet: 20, max_players: 2 }));
+    /* [v2.72] البلوت يقبل 2-4 بعد توجيه المالك — نطلب 4 مباشرة (فرق 2ضد2) */
+    await H.evaluate(() => Rooms.createRoom('bl', { bet: 20, max_players: 4, game_opts: { maxp: 4, mode4: 'tt', target: 51 } }));
     const code = await PW.wait(H, () => (Rooms.state && Rooms.state.code) || null, 9000);
     ok(!!code, 'bl: غرفة أُنشئت (code=' + code + ')');
     const maxp = await H.evaluate(() => Rooms.state && Rooms.state.max_players);
-    ok(maxp === 4, 'bl: طُلب مقعدان وصُحِّح إلى 4 بالضبط (max_players=' + maxp + ')');
+    ok(maxp === 4, 'bl: [v2.72] غرفة رباعية فعلاً (max_players=' + maxp + ')');
 
     for (const G of [G1, G2, G3]) {
       await G.evaluate((c) => Rooms.joinRoom(c), code);

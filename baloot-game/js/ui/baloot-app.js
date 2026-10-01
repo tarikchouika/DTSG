@@ -17,12 +17,16 @@
   const R = root.BLRender;
   const T = root.BL_T;
   const FMT = root.BL_FMT;
+  /* [v2.72] تهريب HTML لأسماء المقاعد قبل إدراجها في القوالب (أسماء غرف من المستخدمين) */
+  const escB = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const SFX = root.BLAudio;
 
   const PREFS_KEY = 'baloot.prefs';
 
   const App = {
-    config: { mode: 'ai', level: 2, target: 152, firstLead: 'left', mustBeat: false, kabotBonus: 30, timer: 0 },
+    /* [v2.72] play: نمط الطاولة — 'tt' = 4 لاعبين فرق (الكلاسيكي) ·
+       '1v1'/'1v2'/'1v3' = فردي (لاعب واحد ضد 1/2/3 بوتات — توجيه المالك) */
+    config: { mode: 'ai', level: 2, target: 152, firstLead: 'left', mustBeat: false, kabotBonus: 30, timer: 0, play: 'tt' },
     game: null,
     betPlaced: 0,
 
@@ -191,7 +195,7 @@
       }
       
       // Auto Play
-      const meSeat = isRoom ? this.mySeat() : this._activeSeat();
+      const meSeat = this._activeSeat();   /* [v2.72：إصلاح كامن] mySeat() غير معرّف — كان يرمي داخل try/catch فيتعطل المؤقت في وضع الغرفة */
       const isHuman = this._isHuman(s, p);
       if (left <= 0 && isHuman && p === meSeat && (!isRoom || !this._isSpectator)) {
         if (!this._autoPlayedTurn || this._autoPlayedTurn !== p + s.phase + (s.phase === 'play' ? s.trick.length : 0)) {
@@ -255,11 +259,21 @@
       const show = (id, on) => { const el = this.$(id); if (el) el.style.display = on ? '' : 'none'; };
       show('blModeField', !roomish);
       show('blLevelField', mode === 'ai');
+      /* [v2.72] نمط الطاولة (فردي/فرق) في وضع البوت فقط — المحلي يبقى 4 فرق
+         والغرف تأخذ نمطها من إعدادات إنشاء الغرفة (maxp/mode4) */
+      show('blPlayTypeField', mode === 'ai');
       show('blTargetField', !roomish);
       show('blTableRulesField', !roomish);
       show('blStartBtn', !roomish);
       const desc = this.$('blModeDesc');
-      if (desc && !roomish) desc.textContent = T(mode === 'ai' ? 'blt.modeDesc.ai' : 'blt.modeDesc.local');
+      if (desc && !roomish) {
+        const bots = (this.config.play === '1v1') ? 1 : (this.config.play === '1v2') ? 2 : 3;
+        desc.textContent = mode === 'ai'
+          ? (this.config.play && this.config.play !== 'tt'
+            ? T('blt.modeDesc.solo').replace('{n}', String(bots))
+            : T('blt.modeDesc.ai'))
+          : T('blt.modeDesc.local');
+      }
       this._renderRoomMenu();
       this._refreshBalUI();
     },
@@ -273,6 +287,7 @@
           if (p.firstLead) this.config.firstLead = p.firstLead;
           if (typeof p.mustBeat === 'boolean') this.config.mustBeat = p.mustBeat;
           if (typeof p.kabotBonus === 'number') this.config.kabotBonus = p.kabotBonus;
+          if (p.play) this.config.play = p.play;
         }
       } catch (e) {}
     },
@@ -296,6 +311,7 @@
         });
       };
       seg('blModeSeg', 'data-mode', (v) => { this.config.mode = v; this._applyModeUI(); });
+      seg('blPlaySeg', 'data-play', (v) => { this.config.play = v; this._applyModeUI(); });
       seg('blLevelSeg', 'data-level', (v) => { this.config.level = parseInt(v, 10) || 0; });
       seg('blTargetSeg', 'data-target', (v) => { this.config.target = parseInt(v, 10) || 152; });
       seg('blTimerSeg', 'data-timer', (v) => { this.config.timer = parseInt(v, 10) || 0; });
@@ -324,6 +340,7 @@
         for (let i = 0; i < btns.length; i++) btns[i].classList.toggle('selected', btns[i].getAttribute(attr) === String(val));
       };
       mark('blModeSeg', 'data-mode', this.config.mode);
+      mark('blPlaySeg', 'data-play', this.config.play);
       mark('blLevelSeg', 'data-level', this.config.level);
       mark('blTargetSeg', 'data-target', this.config.target);
       mark('blTimerSeg', 'data-timer', this.config.timer);
@@ -364,6 +381,8 @@
     },
 
     /* ═══════════ بدء المباراة (ai/local — تعليمي بلا رهان) ═══════════ */
+    /* [v2.72] الفردي: '1v1'/'1v2'/'1v3' = لاعب واحد ضد بوتات (كل مقعد فريق) ·
+       'tt' = الكلاسيكي 4 لاعبين فريقين. المحلي (وجهاً لوجه) يبقى 4 فرق كلاسيكية. */
     startMatch: function () {
       this.betPlaced = 0;
       this._settled = false;
@@ -375,13 +394,18 @@
       this._overlayKind = null;
       this.clearTimers();
       this.hideOverlay();
+      const play = (this.config.mode === 'ai' && this.config.play) ? this.config.play : 'tt';
+      const players = (play === '1v1') ? 2 : (play === '1v2') ? 3 : 4;
+      const solo = play !== 'tt';
       NS.newMatch({
         mode: this.config.mode,
         level: this.config.level,
         target: this.config.target,
         firstLead: this.config.firstLead,
         mustBeat: this.config.mustBeat,
-        kabotBonus: this.config.kabotBonus
+        kabotBonus: this.config.kabotBonus,
+        players: players,
+        solo: solo
       });
       this._syncMute();
       this.showScreen('game');
@@ -524,14 +548,15 @@
     /* ── مؤثرات نهاية الأكلة ── */
     _onTrickEnd: function (s) {
       const winner = s.trickWinner;
-      const team = winner % 2;
+      const teamOfNow = (seat) => (typeof NS.teamOf === 'function') ? NS.teamOf(seat) : Core.teamOf(seat);
+      const team = teamOfNow(winner);
       const raw = s.trick.reduce((sum, p) => sum + Core.pointsOf(p.card, s.trump), 0);
       const pts = raw + 10;
       const zone = this.$('blTrickZone');
       const rc = zone ? zone.getBoundingClientRect() : null;
       const cx = rc ? rc.left + rc.width / 2 : (root.innerWidth || 400) / 2;
       const cy = rc ? rc.top + rc.height / 2 : (root.innerHeight || 700) * 0.42;
-      const myTeam = s.cfg.mode === 'local' ? team : (s.cfg.mode === 'room' ? Core.teamOf(this._roomSeat >= 0 ? this._roomSeat : 0) === team : team === 0);
+      const myTeam = s.cfg.mode === 'local' ? team : (s.cfg.mode === 'room' ? teamOfNow(this._roomSeat >= 0 ? this._roomSeat : 0) === team : team === 0);
       const floats = this.$('blFloats');
 
       if (myTeam) {
@@ -552,8 +577,8 @@
         this._fx && this._fx.burst(cx, cy, { count: 12, power: 240, color: 'red', kinds: ['spark', 'suit'] });
       }
 
-      /* بلوت أُعلن للتو */
-      for (let t = 0; t < 2; t++) {
+      /* بلوت أُعلن للتو [v2.72: لكل الفرق/المقاعد] */
+      for (let t = 0; t < s.baloot.length; t++) {
         if (s.baloot[t] && !this._prevBaloot[t]) {
           R.banner(this.$('blBanner'), '<b>' + T('blt.baloot') + '</b> <span class="bl-bannerpts">+20</span>', 'gold', 2000);
           SFX.ashur();
@@ -561,8 +586,8 @@
       }
       this._prevBaloot = s.baloot.slice();
 
-      /* كابوت */
-      if (s.tricksWon[team] === 8) {
+      /* كابوت [v2.72: أي فريق/مقعد يملك الأكلات الثمانية كلها] */
+      if (s.tricksWon.indexOf(8) !== -1) {
         R.banner(this.$('blBanner'), '<b>' + T('blt.kabot') + '</b>', 'kabot', 2200);
         SFX.kabot();
         this._fx && this._fx.burst(cx, cy, { count: 90, power: 560, kinds: ['coin', 'coin', 'spark', 'suit'] });
@@ -583,12 +608,25 @@
     },
 
     _renderHUD: function (s) {
+      /* [v2.72] الفردي: «لنا» = نقاط فريقي، «الخصم» = أقوى خصم (لكل مقعد
+         لوحة نقاطه الخاصة بجانب اسمه). الفرق: كما كان (فريق0/فريق1). */
       const us = this.$('blScoreUs'), them = this.$('blScoreThem');
-      if (us) us.textContent = FMT(s.teamScores[0]);
-      if (them) them.textContent = FMT(s.teamScores[1]);
       const subUs = this.$('blSubUs'), subThem = this.$('blSubThem');
-      if (subUs) subUs.textContent = FMT(s.teamScores[0]) + '/' + FMT(s.cfg.target);
-      if (subThem) subThem.textContent = FMT(s.teamScores[1]) + '/' + FMT(s.cfg.target);
+      const myTeam = this._myTeam(s);
+      let myScore = 0, foeScore = 0;
+      if (s.solo) {
+        myScore = (myTeam >= 0 && s.teamScores[myTeam] != null) ? s.teamScores[myTeam] : 0;
+        for (let t = 0; t < s.teamScores.length; t++) {
+          if (t !== myTeam && s.teamScores[t] > foeScore) foeScore = s.teamScores[t];
+        }
+      } else {
+        myScore = s.teamScores[0];
+        foeScore = s.teamScores[1];
+      }
+      if (us) us.textContent = FMT(myScore);
+      if (them) them.textContent = FMT(foeScore);
+      if (subUs) subUs.textContent = FMT(myScore) + '/' + FMT(s.cfg.target);
+      if (subThem) subThem.textContent = FMT(foeScore) + '/' + FMT(s.cfg.target);
       const rl = this.$('blRoundLbl');
       if (rl) rl.textContent = T('blt.roundOf', { r: s.roundNo });
       const pip = this.$('blTrumpPip'), txt = this.$('blTrumpTxt');
@@ -604,21 +642,48 @@
           txt.textContent = '\u2014';
         }
       }
-      /* [R12] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — في الوضعين */
-      const t0s = FMT(s.teamScores[0]), t1s = FMT(s.teamScores[1]);
-      const ts0 = this.$('blTeamScore0'), ts1 = this.$('blTeamScore1');
-      const ts2 = this.$('blTeamScore2'), ts3 = this.$('blTeamScore3');
-      if (ts0) ts0.textContent = t0s;
-      if (ts2) ts2.textContent = t0s;
-      if (ts1) ts1.textContent = t1s;
-      if (ts3) ts3.textContent = t1s;
+      /* [R12] شارة مجموع نقاط الفريق بجوار أيقونة كل لاعب — في الوضعين
+         [v2.72]: الفردي = نقاط اللاعب نفسه، الفرق = نقاط فريقه */
+      for (let k = 0; k < 4; k++) {
+        const ts = this.$('blTeamScore' + k);
+        if (!ts) continue;
+        const seat = this._uiToSeat(k);
+        if (seat < 0) { ts.textContent = ''; continue; }
+        const team = (typeof NS.teamOf === 'function') ? NS.teamOf(seat) : (seat % 2);
+        ts.textContent = FMT(s.teamScores[team] != null ? s.teamScores[team] : 0);
+      }
+    },
+    _myTeam: function (s) {
+      if (!s) return 0;
+      if (s.solo) {
+        const seat = this._activeSeat();
+        return seat >= 0 ? seat : 0;
+      }
+      const mode = s.cfg && s.cfg.mode;
+      if (mode === 'room') {
+        const rs = this._roomState();
+        return Core.teamOf(this._roomSeat >= 0 ? this._roomSeat : 0);
+      }
+      return 0;
     },
 
     _renderSeats: function (s) {
       const mode = s.cfg.mode;
-      const seats = { 1: '1', 2: '2', 3: '3' };
-      for (const k in seats) {
-        const seat = parseInt(k, 10);
+      /* [v2.72] العرض عبر خانات الواجهة (1 يمين · 2 أعلى · 3 يسار) مع إخفاء
+         الخانات بلا مقعد منطقي (فردي 2: يمين ويسار مخفيتان؛ 3: يسار فقط) */
+      const teamOfNow = (seat) => (typeof NS.teamOf === 'function') ? NS.teamOf(seat) : Core.teamOf(seat);
+      for (let k = 1; k <= 3; k++) {
+        const seat = this._uiToSeat(k);
+        const hide = seat < 0;
+        const plate = this.$('blPlate' + k);
+        if (plate) plate.style.display = hide ? 'none' : '';
+        const seatEl = plate ? plate.parentElement : this.$('blSeat' + k);
+        if (seatEl) seatEl.style.display = hide ? 'none' : '';
+        if (hide) {
+          const stack = this.$('blStack' + k);
+          if (stack) stack.innerHTML = '';
+          continue;
+        }
         const name = this.$('blName' + k);
         if (name) {
           const fn = this.seatName(seat);
@@ -629,12 +694,12 @@
         const sub = this.$('blSub' + k);
         if (sub) {
           if (mode === 'ai') {
-            sub.textContent = seat === 2 ? T('blt.partner') : T('blt.vsBot');
+            sub.textContent = (s.solo || seat !== 2) ? T('blt.vsBot') : T('blt.partner');
           } else if (mode === 'room') {
-            if (this._roomSeat >= 0) sub.textContent = Core.teamOf(seat) === Core.teamOf(this._roomSeat) ? T('blt.us') : T('blt.them');
+            if (this._roomSeat >= 0) sub.textContent = teamOfNow(seat) === teamOfNow(this._roomSeat) ? T('blt.us') : T('blt.them');
             else sub.textContent = T('blt.spectator');
           } else {
-            sub.textContent = Core.teamOf(seat) === 0 ? T('blt.us') : T('blt.them');
+            sub.textContent = teamOfNow(seat) === 0 ? T('blt.us') : T('blt.them');
           }
         }
         const badge = this.$('blBadge' + k);
@@ -643,11 +708,10 @@
           root.BLTranslateStatic(badge);
           badge.classList.toggle('active', s.turn === seat && (s.phase === 'play' || s.phase === 'ashur' || s.phase === 'naming') && !this._isHuman(s, seat));
         }
-        const plate = this.$('blPlate' + k);
         if (plate) {
           plate.classList.toggle('bl-turn', s.turn === seat && s.phase !== 'trickEnd' && s.phase !== 'roundEnd' && s.phase !== 'matchEnd');
-          plate.classList.toggle('bl-team0', Core.teamOf(seat) === 0);
-          plate.classList.toggle('bl-team1', Core.teamOf(seat) === 1);
+          plate.classList.toggle('bl-team0', teamOfNow(seat) === 0);
+          plate.classList.toggle('bl-team1', teamOfNow(seat) === 1);
           plate.classList.toggle('bl-off', mode === 'room' && !this._seatPresent(seat));
         }
         const stack = this.$('blStack' + k);
@@ -689,7 +753,9 @@
       let html = '';
       for (let i = 0; i < s.trick.length; i++) {
         const p = s.trick[i];
-        const o = OFF[p.seat];
+        /* [v2.72] الموضع عبر خانة الواجهة (فردي ثنائي: ورقة الخصم أعلى) */
+        const ui = this._uiSeatMap(p.seat);
+        const o = OFF[ui >= 0 ? ui : 0];
         const win = s.phase === 'trickEnd' && s.trickWinner === p.seat;
         html += '<div class="bl-trickcard bl-snap" data-seat="' + p.seat + '" style="' +
           '--tx:' + o.x + '%; --ty:' + o.y + 'px; --tr:' + o.r + 'deg; z-index:' + (10 + i) + '">' +
@@ -904,32 +970,49 @@
       const s = NS.state;
       if (!s || s.phase !== 'roundEnd' || !s.roundResult) return;
       const r = s.roundResult;
-      const row = (label, v0, v1, cut0, cut1) =>
-        '<tr><td class="bl-rt-label">' + label + '</td>' +
-        '<td class="bl-rt-us">' + (v0 === '' ? '—' : v0) + (cut0 ? ' <i class="bl-cutx">\u2715</i>' : '') + '</td>' +
-        '<td class="bl-rt-them">' + (v1 === '' ? '—' : v1) + (cut1 ? ' <i class="bl-cutx">\u2715</i>' : '') + '</td></tr>';
+      /* [v2.72] جدول معمّم: عمود لكل فريق (فرقان = التخطيط السابق بعينه؛
+         فردي = عمود لكل لاعب باسمه) */
+      const T = s.teamScores.length;
       const local = s.cfg.mode === 'local';
-      const usName = local ? this.seatName(0) : T('blt.us');
-      const themName = local ? this.seatName(1) : T('blt.them');
+      const colNames = [];
+      for (let t = 0; t < T; t++) {
+        colNames.push((local || T > 2) ? this.seatName(s.solo ? t : (t === 0 ? 0 : 1)) : (t === 0 ? T('blt.us') : T('blt.them')));
+      }
+      const row = (label, vals, cuts) => {
+        let tds = '';
+        for (let t = 0; t < T; t++) {
+          const v = vals[t];
+          const cut = cuts && cuts[t];
+          tds += '<td class="' + (t === 0 ? 'bl-rt-us' : 'bl-rt-them') + '">' +
+            (v === '' || v == null ? '\u2014' : v) + (cut ? ' <i class="bl-cutx">\u2715</i>' : '') + '</td>';
+        }
+        return '<tr><td class="bl-rt-label">' + label + '</td>' + tds + '</tr>';
+      };
+      const col = (fn) => { const out = []; for (let t = 0; t < T; t++) out.push(fn(t)); return out; };
       const trumpTxt = s.trump ? T('blt.trump') + ': ' + T('blt.suit.' + s.trump) : T('blt.sun');
       const room = s.cfg.mode === 'room';
       const nextLbl = room ? (this._isDriver ? T('blt.nextRound') : T('blt.voteNext')) : T('blt.continue');
+      const headCells = colNames.map((nm) => '<th>' + nm + '</th>').join('');
+      let body =
+        row(T('blt.tricks'), col((t) => r.tricksWon[t])) +
+        row(T('blt.cardPts'), col((t) => r.cardPts[t])) +
+        row(T('blt.lastTrickPts'), col((t) => r.lastTrickTeam === t ? '+10' : '')) +
+        row(T('blt.ashurPts'), col((t) => r.ashur[t] ? '+' + r.ashur[t] : ''), r.ashur.cut) +
+        row(T('blt.balootPts'), col((t) => r.baloot[t] ? '+20' : '')) +
+        (r.kabot >= 0 ? row(T('blt.kabotPts', { n: r.kabotBonus }), col((t) => r.kabot === t ? '+' + FMT(r.kabotBonus) : '')) : '') +
+        '<tr class="bl-rt-total"><td>' + T('blt.total') + '</td>' + col((t) => FMT(r.total[t])).map((v) => '<td>' + v + '</td>').join('') + '</tr>';
+      const scoresLine = T('blt.teamScore') + ': ' + col((t) =>
+        '<b' + (t === 0 ? ' class="bl-gold"' : '') + '>' + FMT(s.teamScores[t]) + '</b>').join(' \u2014 ') + ' / ' + FMT(s.cfg.target);
       this._overlayKind = 'roundEnd';
       this.showOverlay(
         '<div class="bl-modal bl-roundmodal">' +
           '<p class="bl-om-eyebrow">' + T('blt.roundEnd') + ' \u00b7 ' + trumpTxt + '</p>' +
           '<h2 class="bl-oh-title">' + T('blt.roundOf', { r: s.roundNo }) + '</h2>' +
-          '<table class="bl-rt"><thead><tr><th></th><th>' + usName + '</th><th>' + themName + '</th></tr></thead><tbody>' +
-          row(T('blt.tricks'), r.tricksWon[0], r.tricksWon[1]) +
-          row(T('blt.cardPts'), r.cardPts[0], r.cardPts[1]) +
-          row(T('blt.lastTrickPts'), r.lastTrickTeam === 0 ? '+10' : '', r.lastTrickTeam === 1 ? '+10' : '') +
-          row(T('blt.ashurPts'), r.ashur[0] ? '+' + r.ashur[0] : '', r.ashur[1] ? '+' + r.ashur[1] : '', r.ashur.cut[0], r.ashur.cut[1]) +
-          row(T('blt.balootPts'), r.baloot[0] ? '+20' : '', r.baloot[1] ? '+20' : '') +
-          (r.kabot >= 0 ? row(T('blt.kabotPts', { n: r.kabotBonus }), r.kabot === 0 ? '+' + FMT(r.kabotBonus) : '', r.kabot === 1 ? '+' + FMT(r.kabotBonus) : '') : '') +
-          '<tr class="bl-rt-total"><td>' + T('blt.total') + '</td><td>' + FMT(r.total[0]) + '</td><td>' + FMT(r.total[1]) + '</td></tr>' +
+          '<table class="bl-rt"><thead><tr><th></th>' + headCells + '</tr></thead><tbody>' +
+          body +
           '</tbody></table>' +
-          '<p class="bl-om-team">' + T('blt.teamScore') + ': <b class="bl-gold">' + FMT(s.teamScores[0]) + '</b> \u2014 <b>' + FMT(s.teamScores[1]) + '</b> / ' + FMT(s.cfg.target) + '</p>' +
-          (r.kabot >= 0 ? '<p class="bl-om-kabot">' + T('blt.kabot') + ' ' + T('blt.wonBy', { name: this.seatName(r.kabot % 2) }) + '</p>' : '') +
+          '<p class="bl-om-team">' + scoresLine + '</p>' +
+          (r.kabot >= 0 ? '<p class="bl-om-kabot">' + T('blt.kabot') + ' ' + T('blt.wonBy', { name: this.seatName(s.solo ? r.kabot : r.kabot % 2) }) + '</p>' : '') +
           (room && !this._isDriver ? '<p class="bl-om-wait">' + T('blt.waitPlayers') + '</p>' : '') +
           '<button class="bl-go" id="blNextRoundBtn">' + nextLbl + '</button>' +
         '</div>'
@@ -984,8 +1067,8 @@
         this._onRoomMatchEnd(s);
         return;
       }
-      /* ai/local: تعليمي — بلا رهان ولا تذاكر */
-      if (s.matchWinner === 0) SFX.matchWin();
+      /* ai/local: تعليمي — بلا رهان ولا تذاكر [v2.72: الفوز لفريقي مهما كان عدد الفرق] */
+      if (s.matchWinner === this._myTeam(s)) SFX.matchWin();
       else SFX.matchLose();
       this._refreshBalUI();
     },
@@ -995,14 +1078,25 @@
       if (!s || s.phase !== 'matchEnd') return;
       const room = s.cfg.mode === 'room';
       const local = s.cfg.mode === 'local';
-      const won = s.matchWinner === 0;
+      /* [v2.72] الفوز = فريقي أنا (فردي: مقعدي؛ فرق: فريقي الزوجي) */
+      const won = s.matchWinner === this._myTeam(s);
       const title = local ? T('blt.matchOver') : (room ? T('blt.matchOver') : (won ? T('blt.matchWin') : T('blt.matchLose')));
-      const winnerName = this.seatName(s.matchWinner);
+      /* [v2.72] خط النتيجة: فرقان = 0—1 كما كان · فردي = قائمة نقاط الجميع */
+      let finalLine;
+      if (s.teamScores.length === 2) {
+        finalLine = '<div class="bl-m-final"><b>' + FMT(s.teamScores[0]) + '</b><i>\u2014</i><b>' + FMT(s.teamScores[1]) + '</b></div>';
+      } else {
+        const cells = [];
+        for (let t = 0; t < s.teamScores.length; t++) {
+          cells.push('<span class="bl-m-solo"><b class="' + (t === s.matchWinner ? 'bl-gold' : '') + '">' + FMT(s.teamScores[t]) + '</b><small>' + escB(this.seatName(s.solo ? t : t)) + '</small></span>');
+        }
+        finalLine = '<div class="bl-m-final bl-m-final-solo">' + cells.join('') + '</div>';
+      }
       let html =
         '<div class="bl-modal bl-matchmodal ' + (won && !local && !room ? 'bl-won' : (room ? 'bl-roomended' : '')) + '">' +
         '<p class="bl-om-eyebrow">' + (room || local ? T('blt.matchOver') : title) + '</p>' +
         '<h2 class="bl-oh-title">' + (local || room ? T('blt.wonBy', { name: this.seatName(s.matchWinner) }) : title) + '</h2>' +
-        '<div class="bl-m-final"><b>' + FMT(s.teamScores[0]) + '</b><i>\u2014</i><b>' + FMT(s.teamScores[1]) + '</b></div>' +
+        finalLine +
         (room ? '<div class="bl-m-roomact" id="blRoomMatchActions"></div>' : '') +
         (local || room ? '' :
           '<p class="bl-m-note">' + T('blt.educational') + '</p>') +
@@ -1035,7 +1129,7 @@
     blMyId: function () { return (typeof root.blMyUserId === 'function') ? root.blMyUserId() : null; },
     _seatPresent: function (seat) {
       const pid = (this._roomOrder || [])[seat];
-      if (pid == null) return true;
+      if (pid == null) return false;
       const rs = this._roomState();
       if (!rs || !rs.players) return false;
       /* [v2.69] isBot/leftRound = لا جهاز خلف المقعد — السائق يتولّاه آلياً */
@@ -1148,30 +1242,39 @@
       this._toast(T('blt.room.ended'), 'info');
     },
 
-    /* السائق: بذرة موحّدة + بناء محلي + بثّ التهيئة */
+    /* السائق: بذرة موحّدة + بناء محلي + بثّ التهيئة
+       [v2.72] الغرفة تقبل 2-4 لاعبين (فردي عند 2-3، وبنمط mode4 عند 4) */
     _hostInitRoom: function (room) {
       const players = ((room && room.players) || []).filter((p) => !p.spectate).slice(0, 4);
-      if (players.length < 4) {
-        /* البلوت يشترط 4 لاعبين — الغرفة ما اكتملت (الواجهة تمنع البدء، وهذا احتياط) */
+      if (players.length < 2) {
+        /* البلوت يحتاج لاعبين اثنين على الأقل — الغرفة ما اكتملت (احتياط) */
         this._renderRoomWaiting();
         return;
       }
       const order = players.map((p) => String(p.id));
       const names = players.map((p) => String(p.username || p.id).slice(0, 14));
       const seed = ((Date.now() ^ ((Math.random() * 0xFFFFFFFF) >>> 0)) >>> 0) || 1;
+      /* نمط الغرفة: maxp/mode4 من إعدادات إنشائها — 4 لاعبين مع mode4=tt = فرق،
+         وما عدا ذلك فردي (توجيه المالك: 1ضد1 / 1ضد2 / 1ضد3) */
+      const rc = (root.BL_ROOM_CFG && typeof root.BL_ROOM_CFG === 'object') ? root.BL_ROOM_CFG : {};
+      const solo = players.length < 4 || String(rc.mode4 || 'tt') !== 'tt';
       this._buildRoomGame({
         seed: seed,
         target: this.config.target,
         order: order,
         names: names,
-        kabotBonus: this.config.kabotBonus
+        kabotBonus: this.config.kabotBonus,
+        players: players.length,
+        solo: solo
       });
       this._netEmit('init', {
         seed: seed,
         target: this.config.target,
         order: order,
         names: names,
-        kabotBonus: this.config.kabotBonus
+        kabotBonus: this.config.kabotBonus,
+        players: players.length,
+        solo: solo
       });
     },
 
@@ -1183,6 +1286,9 @@
       this._roomOrder = order;
       this._roomNames = names;
       this._recomputeRoomIdentity();
+      /* [v2.72] عدد اللاعبين 2-4 ونمط الفردية من التهيئة (فرق عند 4 بلا solo) */
+      const players = Math.max(2, Math.min(4, Math.floor(data.players) || order.length));
+      const solo = (data.solo != null) ? !!data.solo : players < 4;
       NS.newMatch({
         mode: 'room',
         level: 2,
@@ -1190,7 +1296,9 @@
         firstLead: 'left',
         mustBeat: false,
         kabotBonus: Number(data.kabotBonus) || 30,
-        seed: Number(data.seed) >>> 0
+        seed: Number(data.seed) >>> 0,
+        players: players,
+        solo: solo
       });
       NS.state.seatNames = names;
       this._settled = false;
@@ -1309,14 +1417,33 @@
       }, 1000);
     },
     _stopDriverTick: function () { if (this._driverT) { clearInterval(this._driverT); this._driverT = null; } },
+    /* [v2.72] خريطة المقعد المنطقي → خانة الواجهة (0 أسفل · 1 يمين · 2 أعلى · 3 يسار):
+       - أنا دائماً أسفل (وضع الغرفة: مقعدي يُحاك للأسفل).
+       - فردي ثنائي: الخصم أعلى (وجه لوجه).
+       - فردي ثلاثي: (أنا+1) يمين و(أنا+2) أعلى.
+       - أربعة فرق: تبديل بسيط كما كان + الخصم الرابع يسار.
+       - المقاعد خارج نطاق N تعيد -1 (تُخفى). */
     _uiSeatMap: function (logicalSeat) {
+      const s = NS.state;
+      const n = (s && s.players) || 4;
+      if (logicalSeat == null || logicalSeat >= n) return -1;
+      const me = this.roomMode ? this._roomSeat : (s && s.cfg && s.cfg.mode === 'local' ? -1 : 0);
+      if (me >= 0 && logicalSeat === me) return 0;
+      if (n === 2) return logicalSeat === me ? 0 : 2;
+      if (n === 3) return ((me >= 0 ? (logicalSeat - me + 3) % 3 : logicalSeat) === 1) ? 1 : 2;
+      /* n === 4 */
       if (this.roomMode && this._roomSeat >= 0) {
         if (logicalSeat === this._roomSeat) return 0;
-        // Simple swap for Baloot since the plates don't rotate yet, but we want the timer on the right plate.
         if (logicalSeat === 0) return this._roomSeat;
-        return logicalSeat;
       }
       return logicalSeat;
+    },
+    /* العكس: أي مقعد منطقي يُعرض في خانة الواجهة هذه (-1 = لا أحد) */
+    _uiToSeat: function (uiSeat) {
+      const s = NS.state;
+      const n = (s && s.players) || 4;
+      for (let i = 0; i < n; i++) if (this._uiSeatMap(i) === uiSeat) return i;
+      return -1;
     },
     roomUiTimerTick: function () {
       const isRoom = this.roomMode;
@@ -1361,7 +1488,7 @@
       }
       
       // Auto Play
-      const meSeat = isRoom ? this.mySeat() : this._activeSeat();
+      const meSeat = this._activeSeat();   /* [v2.72：إصلاح كامن] mySeat() غير معرّف — كان يرمي داخل try/catch فيتعطل المؤقت في وضع الغرفة */
       const isHuman = this._isHuman(s, p);
       if (left <= 0 && isHuman && p === meSeat && (!isRoom || !this._isSpectator)) {
         if (!this._autoPlayedTurn || this._autoPlayedTurn !== p + s.phase + (s.phase === 'play' ? s.trick.length : 0)) {
@@ -1446,7 +1573,9 @@
       this.tick();
     },
 
-    /* نهاية مباراة الغرفة: تسوية الفرق (سائق) + دعوة ريماتش */
+    /* نهاية مباراة الغرفة: تسوية وفق نمط اللعب + دعوة ريماتش
+       [v2.72] فرق (4 لاعبين بلا فردي) ⇒ settleTeam(t0/t1) ·
+       فردي (2-3 لاعبين أو 1ضد3) ⇒ settleRound بمقعد الفائز (نفس نمط أونو) */
     _onRoomMatchEnd: function (s) {
       if (this._matchSettled) return;
       this._matchSettled = true;
@@ -1464,8 +1593,17 @@
           const bet = Number(rs.bet) || 0;
           /* [v2.69·آلي] أي لاعب نشط يسوّي من جهته — الخادم يقبل الأول ويمنع
              التكرار (room.settled): لا تعليق للتسوية على جهاز المالك الغائب */
-          if (bet > 0 && !rs.settled && typeof root.Rooms.settleTeam === 'function') {
-            try { root.Rooms.settleTeam(s.matchWinner === 0 ? 't0' : 't1'); } catch (e) {}
+          if (bet > 0 && !rs.settled) {
+            const teamMode = !!(s.cfg && s.players === 4 && !s.solo);
+            try {
+              if (teamMode && typeof root.Rooms.settleTeam === 'function') {
+                root.Rooms.settleTeam(s.matchWinner === 0 ? 't0' : 't1');
+              } else if (typeof root.Rooms.roomSettle === 'function') {
+                /* فردي: فريق الفائز = مقعده نفسه (teamOf=المقعد) */
+                const seat = (typeof NS.teamOf === 'function') ? NS.teamOf(s.matchWinner) : Number(s.matchWinner) || 0;
+                root.Rooms.roomSettle('w' + Math.max(0, Math.min(3, seat)));
+              }
+            } catch (e) {}
           }
           this.later(() => { try { if (typeof root.Rooms.startRematch === 'function') root.Rooms.startRematch(); } catch (e) {} }, 900);
         } catch (e) {}
@@ -1526,20 +1664,24 @@
       wire('blRM_Menu', () => { SFX.click(); this.toMenu(); });
     },
 
-    /* شاشة الانتظار داخل الغرفة (قبل البدء) */
+    /* شاشة الانتظار داخل الغرفة (قبل البدء) [v2.72: عدد مقاعد الغرفة نفسها] */
     _renderRoomWaiting: function () {
       this.showScreen('game');
       const rs = this._roomState();
       const players = ((rs && rs.players) || []).filter((p) => !p.spectate).slice(0, 4);
+      const maxp = Math.max(2, Math.min(4, (rs && rs.max_players) || players.length || 4));
       const names = ['\u2026', '\u2026', '\u2026', '\u2026'];
       for (let i = 0; i < players.length; i++) names[i] = String(players[i].username || '').slice(0, 14);
       for (let k = 0; k < 4; k++) {
+        const show = k < maxp;
+        const seatEl = this.$('blSeat' + k);
+        if (seatEl) seatEl.style.display = show ? '' : 'none';
         const n = this.$('blName' + k);
         if (n) n.textContent = names[k];
         const c = this.$('blCount' + k);
-        if (c) c.textContent = k === 0 && this._roomSeat >= 0 ? '—' : '8';
+        if (c) c.textContent = '8';
         const sub = this.$('blSub' + k);
-        if (sub) sub.textContent = k % 2 === (this._roomSeat >= 0 ? this._roomSeat % 2 : 0) ? T('blt.us') : T('blt.them');
+        if (sub) sub.textContent = k === 0 || k % 2 === (this._roomSeat >= 0 ? this._roomSeat % 2 : 0) ? T('blt.us') : T('blt.them');
         const st = this.$('blStack' + k);
         if (st) st.innerHTML = '';
       }
@@ -1560,7 +1702,7 @@
         '<div class="bl-roommenu">' +
         '<p class="bl-om-eyebrow">' + T('blt.room.title') + '</p>' +
         '<h2 class="bl-oh-title" dir="ltr">' + (rs.code || '') + '</h2>' +
-        '<p class="bl-rm-players">' + T('blt.room.players') + ': <b>' + (rs.players ? rs.players.filter((p) => !p.spectate).length : 0) + '/4</b></p>' +
+        '<p class="bl-rm-players">' + T('blt.room.players') + ': <b>' + (rs.players ? rs.players.filter((p) => !p.spectate).length : 0) + '/' + (Math.max(2, Math.min(4, rs.max_players || 4))) + '</b></p>' +
         (Number(rs.bet) > 0 ? '<p class="bl-rm-bet">' + T('blt.room.bet') + ': <b class="bl-gold">' + FMT(rs.bet) + ' \U0001FA99</b></p>' : '') +
         '<div class="bl-m-btns col">' +
         '<button class="bl-go" id="blRM_Game">' + T('blt.room.backGame') + '</button>' +

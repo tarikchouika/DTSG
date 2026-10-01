@@ -11,7 +11,7 @@
         room.settled + الأرصدة (رابح +19 من جرة 20) + سجل نظيف
         (خاسر صف bet واحد · رابح bet+win).
      د) [إعدادات رامي] اختيار «سامبل» يبقى محفوظاً بعد إعادة بناء الخيارات.
-     هـ) [إعدادات بلوت] خيار عدد اللاعبين واحد صادق (4 — زوج ضد زوج).
+     هـ) [إعدادات بلوت] [v2.72] قائمة 2/3/4 صادقة + نمط 4 لاعبين (فردي/فرق).
    تشغيل:  QA_BASE=http://127.0.0.1:3971/ node tests/_rm_guard_settle_v270_test.js
            (خادم معزول DM_TEST_MODE=1 — القاعدة 13؛ يحتاج node_modules/Playwright)
    ═══════════════════════════════════════════════════════════════════ */
@@ -214,7 +214,7 @@ async function hands(page) {
     ok(targets.indexOf('201') !== -1, 'قائمة أهداف سامبل صحيحة (تبدأ 201)');
   }
 
-  /* ═══ [هـ] إعدادات بلوت: خيار واحد صادق ═══ */
+  /* ═══ [هـ] إعدادات بلوت: [v2.72] قائمة 2-3-4 صادقة + نمط 4 لاعبين ═══ */
   console.log('── [هـ] إعدادات بلوت ──');
   {
     await pA.evaluate(() => {
@@ -227,8 +227,14 @@ async function hands(page) {
       const m = document.getElementById('rsOpt_maxp');
       return m ? Array.from(m.options).map(o => String(o.value)) : null;
     });
-    ok(Array.isArray(seatOpts) && seatOpts.length === 1 && seatOpts[0] === '4',
-      'خيار عدد اللاعبين في بلوت واحد صادق (4 — زوج ضد زوج) بدل قائمة 2/3/4 وهمية');
+    ok(Array.isArray(seatOpts) && seatOpts.join(',') === '2,3,4',
+      '[v2.72] قائمة اللاعبين في بلوت 2/3/4 صادقة (المحرك يقبلها فعلاً — توجيه المالك «1ضد1 و1ضد2 و1ضد3 فردي»)');
+    const modeOpts = await pA.evaluate(() => {
+      const m = document.getElementById('rsOpt_mode4');
+      return m ? Array.from(m.options).map(o => String(o.value)) : null;
+    });
+    ok(Array.isArray(modeOpts) && modeOpts.join(',') === 'ffa,tt',
+      '[v2.72] خيار نمط 4 لاعبين (فردي/فرق) موجود في بلوت — مثل روندا/أونو');
   }
 
   ok(errs.a.length === 0 && errs.b.length === 0, 'صفر أخطاء JS عند الطرفين' + (errs.a.length + errs.b.length ? ' — ' + (errs.a.concat(errs.b))[0].slice(0, 80) : ''));

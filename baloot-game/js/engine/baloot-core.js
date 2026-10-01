@@ -71,6 +71,22 @@
   const teamOf = (seat) => seat % 2; // 0 → (0,2) · 1 → (1,3)
   const sameTeam = (a, b) => (a % 2) === (b % 2);
 
+  /* [v2.72·توجيه المالك: «بلوت يقبل 1ضد1 و1ضد2 و1ضد3 فردي»] خريطة الفرق:
+       - 4 لاعبين بلا فردي: الفرقان الكلاسيكيان (0,2) ضد (1,3)
+       - وإلا (لاعبون < 4 أو نمط فردي صريح): كل مقعد فريق مستقل
+     الدالة الناتجة تُمرّر للمحرك (BLGameNS) ويستعملها بدل الثوابت. */
+  function makeTeamOf(players, solo) {
+    const n = Math.max(2, Math.min(4, Math.floor(players) || 4));
+    const ind = !!solo || n !== 4;
+    return ind
+      ? function (seat) { return seat; }
+      : function (seat) { return seat % 2; };
+  }
+  function makeSameTeam(players, solo) {
+    const teamOf = makeTeamOf(players, solo);
+    return function (a, b) { return teamOf(a) === teamOf(b); };
+  }
+
   /* ── حركات قانونية ─────────────────────────────────────────────────
      1) الزم اللون المطروح — 2) لا يوجد → اضرب هوكم إلزامياً
      3) لا هوكم → أي ورقة.  (mustBeat: إذا طُرح هوكم يلزم تغطيته إن أمكن) */
@@ -212,36 +228,53 @@
   }
 
   /* ══════════════════ حساب نتيجة الدور ══════════════════ */
-  /* cardPts [فريق0، فريق1] نقاط الأوراق · lastTrickTeam · ashur:
-     {team0: {value, seat} , team1: {...}} · baloot [bool, bool] ·
-     cfg: {kabotBonus, firstLead, mustBeat}                     */
+  /* cardPts[فريق] نقاط الأوراق · lastTrickTeam · ashur[فريق] = {value, seat} ·
+     baloot[فريق] · cfg: {kabotBonus, firstLead, mustBeat}
+     [v2.72] معمّم لأي عدد فرق T (فرقان كلاسيكيان أو N فرقاً فردية):
+     الأشور — الأعلى الصريح يبقى ويقطع كل أدنى منه (تعادل القمة يُقطع كلها). */
   function scoreRound(cardPts, tricksWon, lastTrickTeam, ashur, baloot, kabotTeam, kabotBonus) {
-    const total = [0, 0];
+    const T = Math.max(2, cardPts.length);
+    const total = new Array(T).fill(0);
     const detail = {
       cardPts: cardPts.slice(), tricksWon: tricksWon.slice(),
       lastTrickTeam: lastTrickTeam,
-      ashur: { 0: 0, 1: 0, cut: [false, false] },
-      baloot: { 0: baloot[0] ? 20 : 0, 1: baloot[1] ? 20 : 0 },
+      ashur: {}, baloot: {}, cut: [],
       kabot: kabotTeam, kabotBonus: kabotTeam >= 0 ? (kabotBonus || 0) : 0,
       total: total
     };
+    for (let t = 0; t < T; t++) {
+      detail.baloot[t] = baloot[t] ? 20 : 0;
+      detail.ashur[t] = 0;
+      detail.cut[t] = false;
+    }
     if (kabotTeam >= 0) {
       /* كابوت: الفائز يأخذ كل نقاط الدور (أوراق + يد + أشور الجميع) + المكافأة */
-      const allAshur = (ashur[0] ? ashur[0].value : 0) + (ashur[1] ? ashur[1].value : 0);
-      const cardAll = cardPts[0] + cardPts[1];
-      const allBaloot = (baloot[0] ? 20 : 0) + (baloot[1] ? 20 : 0);
+      let allAshur = 0, allBaloot = 0, cardAll = 0;
+      for (let t = 0; t < T; t++) {
+        allAshur += (ashur[t] ? ashur[t].value : 0);
+        allBaloot += detail.baloot[t];
+        cardAll += (cardPts[t] || 0);
+        detail.ashur[t] = ashur[t] ? ashur[t].value : 0;
+      }
       total[kabotTeam] = cardAll + 10 + allAshur + allBaloot + (kabotBonus || 0);
-      detail.ashur[0] = ashur[0] ? ashur[0].value : 0;
-      detail.ashur[1] = ashur[1] ? ashur[1].value : 0;
       return detail;
     }
-    /* الأشور: الأعلى يقطع الأدنى — يتبقى أشور فريق واحد فقط */
-    const a0 = ashur[0] ? ashur[0].value : 0;
-    const a1 = ashur[1] ? ashur[1].value : 0;
-    if (a0 > a1) { detail.ashur[0] = a0; detail.ashur.cut[1] = a1 > 0; }
-    else if (a1 > a0) { detail.ashur[1] = a1; detail.ashur.cut[0] = a0 > 0; }
-    for (let t = 0; t < 2; t++) {
-      total[t] = cardPts[t] + (lastTrickTeam === t ? 10 : 0) + detail.ashur[t] + detail.baloot[t];
+    /* الأشور: الأعلى الصريح يبقى — والباقي مقطوع (تعادل القمة ⇒ الجميع مقطوع) */
+    let bestVal = 0, bestTeam = -1, tieTop = false;
+    for (let t = 0; t < T; t++) {
+      const v = ashur[t] ? ashur[t].value : 0;
+      if (v > bestVal) { bestVal = v; bestTeam = t; tieTop = false; }
+      else if (v === bestVal && v > 0 && t !== bestTeam) tieTop = true;
+    }
+    if (bestTeam >= 0 && !tieTop && bestVal > 0) detail.ashur[bestTeam] = bestVal;
+    for (let t = 0; t < T; t++) {
+      const v = ashur[t] ? ashur[t].value : 0;
+      if (v > 0 && (t !== bestTeam || tieTop)) detail.cut[t] = true;
+    }
+    /* توافق رجعي: الشكل القديم ashur.cut[فريق] (المستهلكون قبل v2.72) */
+    detail.ashur.cut = detail.cut.slice();
+    for (let t = 0; t < T; t++) {
+      total[t] = (cardPts[t] || 0) + (lastTrickTeam === t ? 10 : 0) + detail.ashur[t] + detail.baloot[t];
     }
     return detail;
   }
@@ -252,7 +285,7 @@
   const Core = {
     SUITS: SUITS, RANKS: RANKS, cardId: cardId, makeDeck: makeDeck, shuffle: shuffle, rng: rng,
     rankLabel: rankLabel, pointsOf: pointsOf, power: power,
-    teamOf: teamOf, sameTeam: sameTeam,
+    teamOf: teamOf, sameTeam: sameTeam, makeTeamOf: makeTeamOf, makeSameTeam: makeSameTeam,
     legalMoves: legalMoves, isLegal: isLegal, trickWinnerIdx: trickWinnerIdx, sortHand: sortHand,
     serialRuns: serialRuns, serialValue: serialValue, quadCards: quadCards, detectAshur: detectAshur, hasBaloot: hasBaloot,
     handStrengthForSuit: handStrengthForSuit, strongestSuit: strongestSuit, sunStrength: sunStrength,

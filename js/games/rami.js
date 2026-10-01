@@ -3034,39 +3034,105 @@ class RamiUIAdapter {
     if (typeof this._fitSlotOverlaps === 'function') this._fitSlotOverlaps(document.getElementById('rami5SlotsContainer'));
   }
 
-  /* تداخل/تصغير محسوب لكل خانة: صف واحد بتراكب معتدل، وإن لم يكف تصغير تدريجي،
-     وإن طال التسلسل كثيراً التفاف لصفين. يضمن احتواء كل الأوراق داخل الفتحة بلا قصّ. */
+  /* [v2.72·توجيه المالك] مقاس موحّد ثابت + حاويات بحجم المحتوى:
+     كان لكل خانة معامل تصغير --sc خاص بها محسوباً من عرضها المتساوي
+     (flex:1) — فتتقلص أوراق الخانات الممتلئة وحدها وتتشوّه الأوراق عند
+     انتقالها بين المجموعات، والخانة المفرغة تبقى بحصتها كاملة.
+     المبادئ الثلاثة بتوجيه المالك حرفياً:
+       1) «تبقى الأوراق بنفس الحجم عند نقلها من مجموعة لمجموعة أخرى»:
+          المقاس --sc دالة في العدد الكلي للأوراق وحده — أقصى احتياج لأي
+          توزيع هو (0.5·T + 2.5)·cw (خمس خانات ممتلئة)، فأي إعادة توزيع
+          لا تمسّ المقاس إطلاقاً؛ يتغيّر فقط عند سحب/رمي ورقة.
+       2) «كل حاوية فارغة يتقلص حجمها مقابل اتساع المجموعة المستقبِلة»:
+          الفارغة صنف is-empty بحجم محتوى صفر — تنكمش حتى الصفر وتأخذ
+          من الفائض فقط (بحد أقصى 1.35·cw)، والممتلئة تأخذ flex-basis
+          بمقدار محتواها وتتقاسم الفائض نسبياً.
+       3) «لا يتشوه المظهر ولا يتقلص حجم الأوراق»: تداخل --ov لكل خانة
+          يتكيّف داخل عرضها (15%..50%)، والالتفاف لصفّين احتياط للحالات
+          القصوى (يد ضخمة عند الحد الأدنى للمقاس). */
   _fitSlotOverlaps(container) {
     if (!container) return;
     const cw = this._cardWpx();
-    const FMAX = 0.5; // أقصى نسبة تداخل قبل التصغير
+    const FMAX = 0.5;             // أقصى نسبة تداخل
+    const FMIN = 0.15;            // أدنى تداخل (تباعد مريح)
+    const MIN_SC = 0.5;           // أدنى مقاس موحّد قبل الالتفاف
     const boxes = container.querySelectorAll('.rami-slot-box');
-    const setVars = (box, sc, ov, wrap) => {
+    if (!boxes.length) return;
+
+    const counts = [];
+    for (let s = 0; s < boxes.length; s++) {
+      counts.push((this.handSlots && this.handSlots[s]) ? this.handSlots[s].length : 0);
+    }
+    const W = Math.max(60, (container.clientWidth || 0) - 4); /* padding 2×2 */
+    let gapPx = 4;
+    try {
+      const cs = window.getComputedStyle(container);
+      gapPx = parseFloat(cs.columnGap || cs.gap) || 4;
+    } catch (e) {}
+    const gaps = (boxes.length - 1) * gapPx;
+    const T = counts.reduce((a, b) => a + b, 0);
+    /* الاحتياج بوحدة عرض الورقة لصف من n ورقة بأقصى تداخل */
+    const rowNeed = (n) => (n <= 1) ? (n ? 1 : 0) : (0.5 * n + 0.5);
+
+    /* 1) المقاس الموحّد الثابت: من العدد الكلي فقط (أقصى توزيع = 5 ممتلئة) */
+    const refNeed = cw * (0.5 * T + 2.5) + gaps;
+    let sc = (refNeed > W) ? Math.max(MIN_SC, W / refNeed) : 1;
+
+    /* 2) الالتفاف للحالات القصوى فقط (المقاس بلغ الحد الأدنى ولا يتّسع) */
+    const rows = counts.map(() => 1);
+    const needAt = (s) => cw * sc * rowNeed(Math.ceil(counts[s] / rows[s]));
+    const totalNeed = () => counts.reduce((a, n, s) => a + (n ? needAt(s) : 0), 0);
+    if (sc <= MIN_SC + 1e-9 && totalNeed() + gaps > W) {
+      for (let round = 0; round < 2; round++) {
+        let heaviest = -1, heavyNeed = -1;
+        for (let s = 0; s < counts.length; s++) {
+          if (counts[s] >= 5 && rows[s] < 3 && needAt(s) > heavyNeed) {
+            heavyNeed = needAt(s); heaviest = s;
+          }
+        }
+        if (heaviest === -1) break;
+        rows[heaviest]++;
+        if (totalNeed() + gaps <= W) break;
+      }
+    }
+
+    /* 3) توزيع الفائض على الممتلئة نسبياً لحاجتها (الفارغة تأخذ الباقي فقط) */
+    const cardW = cw * sc;
+    const filledIdx = [];
+    let sumNeed = 0;
+    for (let s = 0; s < counts.length; s++) {
+      if (counts[s]) { filledIdx.push(s); sumNeed += needAt(s); }
+    }
+    const factor = (sumNeed > 0 && sumNeed < W - gaps) ? (W - gaps) / sumNeed : 1;
+
+    for (let s = 0; s < boxes.length; s++) {
+      const box = boxes[s];
+      const n = counts[s];
+      if (!n) {
+        box.classList.add('is-empty');
+        box.style.removeProperty('flex-basis');
+        box.style.setProperty('--sc', String(sc));
+        box.style.setProperty('--ov', '0px');
+        box.style.setProperty('--wrap', 'nowrap');
+        continue;
+      }
+      box.classList.remove('is-empty');
+      const perRow = Math.ceil(n / rows[s]);
+      let basis = needAt(s) * Math.max(1, factor);
+      /* سقف العرض: أوسع صورة عند أدنى تداخل (لا حاوية أعرض من محتواها المجتمع) */
+      const cap = perRow * cardW - (perRow > 1 ? FMIN * cardW * (perRow - 1) : 0);
+      if (basis > cap) basis = cap;
+      const minBox = cw * 1.35;
+      if (basis < minBox) basis = minBox;
+      let ov = 0;
+      if (perRow > 1) {
+        ov = (basis - perRow * cardW) / (perRow - 1);
+        ov = Math.max(-FMAX * cardW, Math.min(-FMIN * cardW, ov));
+      }
       box.style.setProperty('--sc', String(sc));
       box.style.setProperty('--ov', ov + 'px');
-      box.style.setProperty('--wrap', wrap);
-    };
-    for (let s = 0; s < boxes.length; s++) {
-      const n = (this.handSlots && this.handSlots[s]) ? this.handSlots[s].length : 0;
-      const box = boxes[s];
-      const avail = Math.max(24, (box.clientWidth || 60) - 2);
-      if (n <= 1) { setVars(box, 1, 0, 'nowrap'); continue; }
-      const need = (k, sc) => cw * sc * (k - FMAX * (k - 1));
-      if (need(n, 1) <= avail) {
-        // صف واحد بحجم كامل: تراكب يتراوح بين 15% و 50%
-        let ov = (avail - n * cw) / (n - 1);
-        ov = Math.max(-FMAX * cw, Math.min(-0.15 * cw, ov));
-        setVars(box, 1, ov, 'nowrap');
-      } else {
-        const sc1 = avail / (cw * (n - FMAX * (n - 1)));
-        if (sc1 >= 0.42) {
-          setVars(box, sc1, -FMAX * cw * sc1, 'nowrap');
-        } else {
-          const k2 = Math.ceil(n / 2);
-          const sc2 = Math.max(0.5, avail / (cw * (k2 - FMAX * (k2 - 1))));
-          setVars(box, sc2, -FMAX * cw * sc2, 'wrap');
-        }
-      }
+      box.style.setProperty('--wrap', rows[s] > 1 ? 'wrap' : 'nowrap');
+      box.style.setProperty('flex-basis', Math.round(basis) + 'px');
     }
   }
 

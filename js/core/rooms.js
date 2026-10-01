@@ -104,9 +104,10 @@
     },
     isActive: function () { return !!(Rooms.state && Rooms.state.status === 'playing'); },
     maxFor: function (id) { return Rooms.roomGameIds[id] || 2; },
-    /* [v2.70] مقاعد حتمية — مرآة exactSeats في games/registry.js الخادمي
-       (البلوت 4 حصراً: محركه فرق 2ضد2 يرفض البناء بأقل). أبقِهما متطابقين. */
-    exactSeats: { bl: 4 },
+    /* [v2.70] مقاعد حتمية — مرآة exactSeats في games/registry.js الخادمي.
+       [v2.72] البلوت أُزيل من هنا: غرفة البلوت تقبل 2-4 لاعبين (فردي عند 2-3
+       وفرق عند 4 بنمط mode4) — المحرك صار يقبل ذلك (توجيه المالك). */
+    exactSeats: {},
     /* إظهار/إخفاء زر «العب مع صديق» حسب اللعبة المفتوحة */
     syncBtn: function () {
       var show = Rooms.isGameSupported(window._currentGameId);
@@ -645,6 +646,12 @@
         timer90
       ];
       if (gid === 'bl') return [
+        /* [BL·v2.72] عدد اللاعبين 2-4 (فردي عند 2-3) + نمط 4 لاعبين
+           (فردي 1ضد3 أو فرق 2ضد2) — مثل روندا/أونو تماماً */
+        { key: 'maxp', label: T('rm.playersCount') || 'عدد اللاعبين',
+          opts: [[2, T('rdc.maxp.2') || '1 ضد 1 — 2'], [3, T('rdc.maxp.3') || '1 ضد 2 — 3'], [4, T('rdc.maxp.4') || '4 لاعبين']], def: 4 },
+        { key: 'mode4', label: T('rdc.mode4.label') || 'نمط 4 لاعبين',
+          opts: [['ffa', T('rdc.mode4.ffa') || '1 ضد 3 — فردي'], ['tt', T('rdc.mode4.tt') || '2 ضد 2 — فرق']], def: 'tt' },
         /* [BL] البلوت: هدف المباراة + مؤقت الدور (السائق يتولى المنقطع بعد المهلة) */
         { key: 'target', label: T('blt.target') || 'هدف الفوز', opts: [[51, '51'], [100, '100'], [150, '150'], [152, '152']], def: 51 },
         timer

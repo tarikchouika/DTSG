@@ -40,6 +40,17 @@
               '<p class="bl-mdesc" id="blModeDesc" data-bl-i18n="blt.modeDesc.ai">تعليمي ضد 3 أدمغة اصطناعية — بلا رهان</p>' +
             '</div>' +
 
+            /* [v2.72·توجيه المالك] نمط الطاولة: فردي 1ضد1/1ضد2/1ضد3 أو فرق 2ضد2 */
+            '<div class="bl-field" id="blPlayTypeField">' +
+              '<p class="bl-flabel" data-bl-i18n="blt.playType"></p>' +
+              '<div class="bl-seg" id="blPlaySeg">' +
+                '<button class="bl-segbtn" data-play="1v1" data-bl-i18n="blt.play.1v1"></button>' +
+                '<button class="bl-segbtn" data-play="1v2" data-bl-i18n="blt.play.1v2"></button>' +
+                '<button class="bl-segbtn" data-play="1v3" data-bl-i18n="blt.play.1v3"></button>' +
+                '<button class="bl-segbtn selected" data-play="tt" data-bl-i18n="blt.play.tt"></button>' +
+              '</div>' +
+            '</div>' +
+
             '<div class="bl-field" id="blLevelField">' +
               '<p class="bl-flabel" data-bl-i18n="blt.vsBot"></p>' +
               '<div class="bl-seg" id="blLevelSeg">' +

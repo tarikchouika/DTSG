@@ -16,56 +16,81 @@
     notify: function () { for (let i = 0; i < this._listeners.length; i++) { try { this._listeners[i](this.state); } catch (e) { if (root.console) console.error(e); } } },
 
     /* ═══════════ بداية مباراة ═══════════ */
-    /* cfg.seed (اختياري): بذرة حتمية لغرف الأونلاين — نفس التوزيع عند كل العملاء */
+    /* cfg.seed (اختياري): بذرة حتمية لغرف الأونلاين — نفس التوزيع عند كل العملاء
+       [v2.72·توجيه المالك: «بلوت يقبل 1ضد1 و1ضد2 و1ضد3 فردي»]:
+         cfg.players (2..4، الافتراضي 4) · cfg.solo (فردي = كل مقعد فريق مستقل).
+         4 لاعبين بلا solo = الفرقان الكلاسيكيان (0,2)/(1,3) — توافق تام مع v2.71.
+         التوزيع: 8 أوراق لكل لاعب دائماً (8 أكلات لكل دور مهما كان العدد —
+         نفس اقتصاد النقاط؛ ما تبقّى من الحزمة يبقى مغطّى بلا توزيع). */
     newMatch: function (cfg) {
       this._rng = (cfg && cfg.seed) ? Core.rng(cfg.seed) : null;
+      const players = Math.max(2, Math.min(4, Math.floor(cfg && cfg.players) || 4));
+      const teamFn = Core.makeTeamOf(players, cfg && cfg.solo);
+      const T = (players === 4 && !(cfg && cfg.solo)) ? 2 : players;
+      this._teamOf = teamFn;
+      this._sameTeam = function (a, b) { return teamFn(a) === teamFn(b); };
       this.state = {
-        cfg: cfg,                        /* {mode, level, target, firstLead, mustBeat, kabotBonus} */
+        cfg: cfg,                        /* {mode, level, target, firstLead, mustBeat, kabotBonus, players, solo} */
+        players: players,                /* عدد المقاعد (2..4) */
+        solo: !!(cfg && cfg.solo) || players !== 4,
         dealer: 0,
         roundNo: 0,
         phase: 'idle',
         turn: 0,
-        hands: [[], [], [], []],
+        hands: [],
         trump: null,                     /* 'S'|'H'|'D'|'C' أو null = صن */
         namedBy: -1,
         namedKind: null,                 /* 'suit' | 'sun' */
         trick: [],
-        cardPts: [0, 0],
-        tricksWon: [0, 0],
+        cardPts: new Array(T).fill(0),
+        tricksWon: new Array(T).fill(0),
         lastTrickTeam: -1,
-        ashurDeclared: [null, null],     /* لكل فريق: {value, seat, combo} */
-        baloot: [false, false],
+        ashurDeclared: new Array(T).fill(null), /* لكل فريق: {value, seat, combo} */
+        baloot: new Array(T).fill(false),
         roundResult: null,
-        teamScores: [0, 0],
+        teamScores: new Array(T).fill(0),
         matchWinner: -1,
         redeals: 0,
-        balootAnnounced: [false, false], /* أُعلن بلوت هذا الدور؟ (لواجهة البانر) */
+        balootAnnounced: new Array(T).fill(false), /* أُعلن بلوت هذا الدور؟ (لواجهة البانر) */
         seatNames: null                  /* تعيّن الواجهة */
       };
+      for (let i = 0; i < players; i++) this.state.hands.push([]);
       this.startRound();
+    },
+
+    /* خريطة الفرق الحالية (فردي: كل مقعد فريقه) — للواجهة والذكاء */
+    teamOf: function (seat) {
+      return this._teamOf ? this._teamOf(seat) : (seat % 2);
+    },
+    sameTeam: function (a, b) {
+      return this._sameTeam ? this._sameTeam(a, b) : (a % 2) === (b % 2);
     },
 
     /* ═══════════ بداية دور (توزيع) ═══════════ */
     startRound: function () {
       const s = this.state;
+      const N = s.players || 4;
+      const T = s.cardPts.length;
       s.roundNo++;
       const deck = Core.shuffle(Core.makeDeck(), this._rng || Math.random);
-      s.hands = [[], [], [], []];
-      for (let i = 0; i < 32; i++) s.hands[i % 4].push(deck[i]); // نظام 3-2-3 المكافئ
-      for (let t = 0; t < 4; t++) s.hands[t] = Core.sortHand(s.hands[t], null);
+      s.hands = [];
+      for (let i = 0; i < N; i++) s.hands.push([]);
+      /* 8 أوراق لكل لاعب (نظام 3-2-3 المكافئ) — الباقي من الحزمة مغطّى بلا توزيع */
+      for (let i = 0; i < 8 * N; i++) s.hands[i % N].push(deck[i]);
+      for (let t = 0; t < N; t++) s.hands[t] = Core.sortHand(s.hands[t], null);
       s.trick = [];
       s.trump = null;
       s.namedBy = -1;
       s.namedKind = null;
-      s.cardPts = [0, 0];
-      s.tricksWon = [0, 0];
+      s.cardPts = new Array(T).fill(0);
+      s.tricksWon = new Array(T).fill(0);
       s.lastTrickTeam = -1;
-      s.ashurDeclared = [null, null];
-      s.baloot = [false, false];
-      s.balootAnnounced = [false, false];
+      s.ashurDeclared = new Array(T).fill(null);
+      s.baloot = new Array(T).fill(false);
+      s.balootAnnounced = new Array(T).fill(false);
       s.roundResult = null;
       s.phase = 'ashur';
-      s.turn = (s.dealer + 1) % 4; // يسار الموزع يبدأ الإعلان
+      s.turn = (s.dealer + 1) % N; // يسار الموزع يبدأ الإعلان
       this.notify();
     },
 
@@ -73,7 +98,7 @@
     declareAshur: function (seat, combo) {
       const s = this.state;
       if (s.phase !== 'ashur' || s.turn !== seat) return false;
-      const team = Core.teamOf(seat);
+      const team = this.teamOf(seat);
       if (combo) {
         /* تحقق: التشكيلة موجودة فعلاً في اليد */
         const opts = Core.detectAshur(s.hands[seat]);
@@ -97,10 +122,10 @@
         s.namedBy = seat;
         s.namedKind = choice.kind;
         s.trump = choice.kind === 'suit' ? choice.suit : null;
-        for (let t = 0; t < 4; t++) s.hands[t] = Core.sortHand(s.hands[t], s.trump);
+        for (let t = 0; t < s.hands.length; t++) s.hands[t] = Core.sortHand(s.hands[t], s.trump);
         s.phase = 'play';
         s.trick = [];
-        s.turn = s.cfg.firstLead === 'namer' ? seat : (s.dealer + 1) % 4;
+        s.turn = s.cfg.firstLead === 'namer' ? seat : (s.dealer + 1) % (s.players || 4);
         this.notify();
         return true;
       }
@@ -112,16 +137,17 @@
 
     _advanceFrom: function (seat, phaseName) {
       const s = this.state;
-      const next = (seat + 1) % 4;
-      if (next === (s.dealer + 1) % 4 && phaseName === 'ashur') {
+      const N = s.players || 4;
+      const next = (seat + 1) % N;
+      if (next === (s.dealer + 1) % N && phaseName === 'ashur') {
         /* اكتملت دورة الأشور → التسمية */
         s.phase = 'naming';
-        s.turn = (s.dealer + 1) % 4;
+        s.turn = (s.dealer + 1) % N;
         return;
       }
-      if (next === (s.dealer + 1) % 4 && phaseName === 'naming') {
+      if (next === (s.dealer + 1) % N && phaseName === 'naming') {
         /* الكل قال بس → إعادة توزيع (الدور ينتقل يميناً) */
-        s.dealer = (s.dealer + 1) % 4;
+        s.dealer = (s.dealer + 1) % N;
         s.redeals++;
         this.startRound();
         return;
@@ -139,7 +165,7 @@
       if (idx === -1) return false;
       if (!Core.isLegal(hand, s.trick, s.trump, card, s.cfg.mustBeat)) return false;
 
-      const team = Core.teamOf(seat);
+      const team = this.teamOf(seat);
       /* بلوت: طرح K أو Q من هوكم مع تملك الاخرى → يُعلن لحظة اللعب (+20، لا يُقطع) */
       if (s.trump && card.suit === s.trump && (card.rank === 13 || card.rank === 12) &&
           !s.baloot[team] && Core.hasBaloot(hand, s.trump)) {
@@ -150,21 +176,22 @@
       hand.splice(idx, 1);
       s.trick.push({ seat: seat, card: card });
 
-      if (s.trick.length === 4) {
+      const N = s.players || 4;
+      if (s.trick.length === N) {
         const wIdx = Core.trickWinnerIdx(s.trick, s.trump);
         const winner = s.trick[wIdx].seat;
-        const wTeam = Core.teamOf(winner);
-        for (let i = 0; i < 4; i++) s.cardPts[wTeam] += Core.pointsOf(s.trick[i].card, s.trump);
+        const wTeam = this.teamOf(winner);
+        for (let i = 0; i < N; i++) s.cardPts[wTeam] += Core.pointsOf(s.trick[i].card, s.trump);
         s.tricksWon[wTeam]++;
         s.lastTrickTeam = wTeam;
         s.trickWinner = winner;
-        const allEmpty = s.hands[0].length === 0;
+        const allEmpty = s.hands.every((h) => h.length === 0);
         s.phase = 'trickEnd';
         s.roundOver = allEmpty;
         this.notify();
         return true;
       }
-      s.turn = (seat + 1) % 4;
+      s.turn = (seat + 1) % N;
       this.notify();
       return true;
     },
@@ -184,18 +211,28 @@
 
     finishRound: function () {
       const s = this.state;
-      const kabotTeam = s.tricksWon[0] === 8 ? 0 : (s.tricksWon[1] === 8 ? 1 : -1);
+      /* كابوت: فريق واحد أكل الأكلات الثمانية كلها (مقعد فردي أو فريق زوجي) */
+      let kabotTeam = -1;
+      for (let t = 0; t < s.tricksWon.length; t++) {
+        if (s.tricksWon[t] === 8) { kabotTeam = t; break; }
+      }
       s.roundResult = Core.scoreRound(
         s.cardPts, s.tricksWon, s.lastTrickTeam, s.ashurDeclared, s.baloot,
         kabotTeam, s.cfg.kabotBonus || 0
       );
-      for (let t = 0; t < 2; t++) s.teamScores[t] += s.roundResult.total[t];
-      if (s.teamScores[0] >= s.cfg.target || s.teamScores[1] >= s.cfg.target) {
-        s.matchWinner = s.teamScores[0] >= s.teamScores[1] ? 0 : 1;
-        /* إن تعادلا على الهدف في نفس الدور (نادر) — يفضّل من بلغ الهدف أولاً بالقيمة */
+      const T = s.teamScores.length;
+      for (let t = 0; t < T; t++) s.teamScores[t] += s.roundResult.total[t];
+      /* الفائز: الأعلى قيمة (عند تجاوز الهدف من أكثر من فريق في الدور نفسه) */
+      let winner = -1, top = -Infinity;
+      for (let t = 0; t < T; t++) {
+        if (s.teamScores[t] > top) { top = s.teamScores[t]; winner = t; }
+      }
+      const reached = s.teamScores.findIndex((x) => x >= s.cfg.target);
+      if (reached >= 0) {
+        s.matchWinner = (winner >= 0) ? winner : reached;
         s.phase = 'matchEnd';
       } else {
-        s.dealer = (s.dealer + 1) % 4;
+        s.dealer = (s.dealer + 1) % (s.players || 4);
         s.phase = 'roundEnd';
       }
       this.notify();
@@ -261,8 +298,9 @@
       if (level === 0) return legal[Math.floor(Math.random() * legal.length)];
 
       const trickPts = s.trick.reduce((sum, p) => sum + Core.pointsOf(p.card, s.trump), 0);
-      const lastTrick = s.hands[0].length === 1; // آخر أوراق الدور
-      const partnerSeat = (seat + 2) % 4;
+      const lastTrick = s.hands[seat].length === 1; // آخر أوراق الدور
+      /* [v2.72] لا شريك في الفردي: sameTeam عبر خريطة الفرق الحالية (فردي: مقعدي وحدي) */
+      const partnerSeat = this.sameTeam(seat, (seat + 2) % (s.players || 4)) ? (seat + 2) % (s.players || 4) : -1;
 
       if (!s.trick.length) {
         /* ── بطّاقة: أبدا بأضعف غير هوكم (احفظ هوكم) ── */
@@ -285,7 +323,7 @@
 
       const wIdx = Core.trickWinnerIdx(s.trick, s.trump);
       const winPow = Core.power(s.trick[wIdx].card, s.trump);
-      const partnerWinning = Core.sameTeam(s.trick[wIdx].seat, seat);
+      const partnerWinning = this.sameTeam(s.trick[wIdx].seat, seat);
       const beaters = legal.filter((c) => Core.power(c, s.trump) > winPow);
       const ledSuit = s.trick[0].card.suit;
       const trumpLed = s.trump && ledSuit === s.trump;

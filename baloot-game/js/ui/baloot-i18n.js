@@ -11,6 +11,12 @@
     'blt.tagline': ['أصالة الورق الخليجي — هوكم، صن، وأشور', 'L\u2019authentique jeu de cartes du Golfe — Hokm, Sun & Ashour', 'The Gulf card classic — Hokm, Sun & Ashour', 'عزيزة الورق الخليجية — هوكم وصن واشور'],
     'blt.mode.ai': ['ضد البوت', 'Contre l\u2019IA', 'vs AI', 'ضد البوت'],
     'blt.mode.local': ['4 لاعبين (محلي)', '4 joueurs (local)', '4 players (hot-seat)', '4 لاعيب (محلي)'],
+    /* [v2.72·فردي] نمط الطاولة — توجيه المالك: «بلوت يقبل 1ضد1 و1ضد2 و1ضد3 فردي» */
+    'blt.playType': ['نمط الطاولة', 'Format de jeu', 'Table format', 'نمط الطاولة'],
+    'blt.play.1v1': ['1 ضد 1 (فردي)', '1 contre 1 (solo)', '1 vs 1 (solo)', '1 ضد 1 (فردي)'],
+    'blt.play.1v2': ['1 ضد 2 (فردي)', '1 contre 2 (solo)', '1 vs 2 (solo)', '1 ضد 2 (فردي)'],
+    'blt.play.1v3': ['1 ضد 3 (فردي)', '1 contre 3 (solo)', '1 vs 3 (solo)', '1 ضد 3 (فردي)'],
+    'blt.play.tt': ['2 ضد 2 (فرق)', '2 contre 2 (\u00e9quipes)', '2 vs 2 (teams)', '2 ضد 2 (فرق)'],
     'blt.level.0': ['مبتدئ', 'D\u00e9butant', 'Beginner', 'مبتدئ'],
     'blt.level.1': ['متوسط', 'Moyen', 'Medium', 'وسط'],
     'blt.level.2': ['خبير', 'Expert', 'Expert', 'خبير'],
@@ -91,6 +97,8 @@
     'blt.trumpOf': ['هوكم: {t}', 'Coup : {t}', 'Trump: {t}', 'هوكم: {t}'],
     'blt.sunGame': ['دور صن', 'Manche Sun', 'Sun round', 'دور صن'],
     'blt.modeDesc.ai': ["تعليمي ضد 3 أدمغة اصطناعية — بلا رهان", "Tbdiri m3a 3 IA — bla mise", "Éducatif contre 3 IA — sans mise", "Educational vs 3 AI — no bet"],
+    /* [v2.72·فردي] وصف وضع الفردي — {n} = عدد الخصوم */
+    'blt.modeDesc.solo': ["فردي: أنت ضد {n} أدمغة اصطناعية — بلا رهان", "Solo : vous contre {n} IA — sans mise", "Solo: you vs {n} AI — no bet", "فردي: نتا ضد {n} ديال IA — بلا رهان"],
     'blt.modeDesc.local': ['أربعة لاعبين يتناوبون على نفس الجهاز', 'Quatre joueurs sur le m\u00eame appareil', 'Four players sharing one device', 'ربعات لاعيب يتقاسمو نفس الجهاز'],
     'blt.vsBot': ['البوت', 'IA', 'Bot', 'البوت'],
     'blt.educational': ["تعليمي — بلا رهان ولا تذاكر", "Tbdiri — bla mise wla tiquet", "Éducatif — sans mise ni ticket", "Educational — no bet, no ticket"],

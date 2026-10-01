@@ -98,9 +98,9 @@ export QA_BASE="http://127.0.0.1:$QA_PORT/"
 PASS=0; FAIL=0; FAILED_TESTS=""
 
 run () {
-  local name="$1"; local file="$2"
+  local name="$1"; local file="$2"; local cwd="${3:-$QA_DIR}"
   echo "════ $name ════"
-  if node "$file" > /tmp/dtsg_t.out 2>&1; then
+  if (cd "$cwd" && node "$file" > /tmp/dtsg_t.out 2>&1); then
     tail -3 /tmp/dtsg_t.out
     PASS=$((PASS+1))
   else
@@ -126,7 +126,7 @@ run "اللحاق catchup"                 "tests/_catchup_test.js"
 run "طلب 6/7/8"                      "tests/_req678_test.js"
 run "عزل عام"                        "tests/_isolate_test.js"
 run "أمن الملفات الساكن"             "tests/_security_static_test.js"
-run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"
+run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"
 run "v262 احترافي"                   "tests/_v262_pro_test.js"

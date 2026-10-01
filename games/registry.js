@@ -93,11 +93,12 @@ const REGISTRY = {
   /* ── أونو (un): 2-4 لاعبين (فرق اختياري) ── */
   un: game({ id: 'un', seats: { min: 2, max: 4 }, actions: ['unmove', 'blind'], stateOwner: 'driver' }),
 
-  /* ── البلوت (bl): 4 لاعبين بالضبط — فرق 2ضد2 (المحرك يرفض البناء بأقل:
-         baloot-app.js «البلوت يشترط 4 لاعبين») — جذر «تعذر فتح اللعبة» ── */
+  /* ── البلوت (bl): [v2.72·توجيه المالك] 2-4 لاعبين — فردي عند 2-3
+         (كل مقعد فريقه) وفرق عند 4 بنمط mode4=tt (زوج ضد زوج الكلاسيكي).
+         كان 4 بالضبط (v2.70) لأن المحرك القديم يرفض البناء بأقل — صار يقبل. ── */
   bl: game({
     id: 'bl',
-    seats: { exact: 4 },
+    seats: { min: 2, max: 4 },
     actions: ['blmove', 'blind'],
     teams: true,
     settle: 'team'
@@ -188,8 +189,10 @@ module.exports = {
 if (require.main === module) {
   const assert = require('assert');
   assert.strictEqual(roomGameIds().length, 17, '17 لعبة في السجل');
-  assert.strictEqual(getGame('bl').exactSeats, 4, 'البلوت 4 بالضبط');
-  assert.deepStrictEqual(resolveSeats('bl', 2).max_players, 4, 'بلوت بطلب 2 ⇒ يُصحَّح 4');
+  assert.strictEqual(getGame('bl').exactSeats, null, '[v2.72] البلوت لم يعد حتمي المقاعد');
+  assert.deepStrictEqual(resolveSeats('bl', 2).max_players, 2, '[v2.72] بلوت بمقعدين يُقبل');
+  assert.deepStrictEqual(resolveSeats('bl', 3).max_players, 3, '[v2.72] بلوت بثلاثة يُقبل');
+  assert.deepStrictEqual(resolveSeats('bl', 9).max_players, 4, 'بلوت بطلب 9 ⇒ يُقصّ 4');
   assert.deepStrictEqual(resolveSeats('un', 8).max_players, 4, 'أونو بطلب 8 ⇒ يُقصّ 4');
   assert.deepStrictEqual(resolveSeats('ch', 4).max_players, 2, 'شطرنج بطلب 4 ⇒ يُقصّ 2');
   assert.strictEqual(actionAllowed('un', 'unmove'), true);
@@ -203,7 +206,9 @@ if (require.main === module) {
   assert.strictEqual(sanitizeState('un', { game_id: 'un', status: 'playing' }) !== null, true);
   assert.strictEqual(canWriteState('bl', true, true), true);
   assert.strictEqual(canWriteState('bl', false, true), false, 'بلوت: غير السائق لا يكتب الحالة');
-  assert.strictEqual(enoughToStart('bl', 3), false, 'بلوت بثلاثة لا يبدأ');
+  assert.strictEqual(enoughToStart('bl', 2), true, '[v2.72] بلوت ثنائي يبدأ');
+  assert.strictEqual(enoughToStart('bl', 3), true, '[v2.72] بلوت ثلاثي يبدأ');
   assert.strictEqual(enoughToStart('bl', 4), true);
-  console.log('games/registry.js — self-test 18/18 ✓');
+  assert.strictEqual(enoughToStart('bl', 5), false, 'بلوت بخمسة لا يبدأ');
+  console.log('games/registry.js — self-test 21/21 ✓');
 }
