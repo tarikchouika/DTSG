@@ -4437,8 +4437,19 @@ class RamiUIAdapter {
     this._fitSeatLines();
   }
 
-  /* [V18] فرد هندسي: كل صف خصوم يملأ عرضه بتراكب موحّد، وكل ورقة يبقى منها ≥ 30% ظاهراً.
-     وتُكبَّر الأوراق حسب ارتفاع الصف المتاح (حسب مساحة الشاشة). */
+  /* [V18] فرد هندسي عمودي: تُكبَّر أوراق الخصوم حسب ارتفاع الصف المتاح.
+     [v2.72.1·توجيه المالك] المقاس الأفقي صار بخُطّ خانات اللاعب الرئيسي
+     (_fitSlotOverlaps) نفسه: «حجم الورقة (مجموعات أوراق الخصوم) لا يعتمد
+     على توزيعها إطلاقاً — المقاس دالة في العدد الكلي للأوراق فقط»،
+     والخانة الفارغة «تنكمش حتى الصفر مقابل اتساع المجموعة المستقبِلة».
+     المبادئ الثلاثة:
+       1) المقاس الموحّد --slot-sc دالة في العدد الكلي T وحده: أقصى احتياج
+          لأي توزيع (0.5·T+2.5)·cw — فنقل الأوراق بين المجموعات لا يمسّ
+          حجم الورقة إطلاقاً؛ يتغيّر فقط عند سحب/رمي ورقة.
+       2) الخانة الفارغة تنكمش حتى الصفر تماماً (صنف .empty = display:none)
+          — المساحة المحرَّرة تتّسع بها المجموعات الممتلئة.
+       3) كل خانة ممتلئة تأخذ flex-basis بمقدار محتواها وتتقاسم الفائض
+          نسبياً لحاجتها، فتتّسع المجموعة المستقبِلة للأوراق الجديدة. */
   _fitSeatLines() {
     if (typeof document === 'undefined') return;
     const cardW = this._cardWpx();
@@ -4446,7 +4457,7 @@ class RamiUIAdapter {
     for (const seat of seats) {
       const line = seat.querySelector('.rami-seat-line.line-slots');
       if (!line) continue;
-      /* 1) القياس العمودي: كبّر الورقة لملء ارتفاع الخانات (بعد خصم ارتفاع شريط HUD) */
+      /* 1) القياس العمودي (كما كان): دالة في ارتفاع الصف المتاح فقط */
       const hud = seat.querySelector('.rami-seat-hud');
       const seatH = seat.clientHeight;
       const hudH = hud ? hud.clientHeight : 0;
@@ -4455,21 +4466,69 @@ class RamiUIAdapter {
       let sc = (lineH > 4) ? Math.min(1.35, lineH / baseH) : 1;
       sc = Math.max(0.5, sc);
       line.style.setProperty('--seat-sc', sc.toFixed(3));
-      /* 2) تراكب داخل كل خانة: يملأ عرض الخانة، بحد أدنى 25% وحد أقصى 70% تغطية */
+
+      /* 2) [v2.72.1] المقاس الموحّد الأفقي: دالة في العدد الكلي وحده */
       const slots = line.querySelectorAll('.rami-opp-slot');
+      if (!slots.length) continue;
+      const counts = [];
       for (const slot of slots) {
-        const cards = slot.querySelectorAll('.mini-back, .mini-meld-wrap');
-        const N = cards.length;
-        if (N <= 1) { slot.style.setProperty('--slot-ov', '0px'); continue; }
-        const sample = cards[0].querySelector('.mini-back, .mini-meld') || cards[0];
-        const w = sample.getBoundingClientRect().width || cardW;
-        const avail = slot.clientWidth;
-        let ov = (w * N - avail) / (N - 1);
-        const maxOv = w * 0.7;
-        if (ov > maxOv) ov = maxOv;
-        if (ov < w * 0.25) ov = w * 0.25;
-        if (ov < 0) ov = 0;
-        slot.style.setProperty('--slot-ov', (-ov).toFixed(1) + 'px');
+        counts.push(slot.querySelectorAll('.mini-back, .mini-meld-wrap').length);
+      }
+      let baseW = 0.85, gapPx = cardW * 0.05;
+      try {
+        const cs = window.getComputedStyle(line);
+        const bw = parseFloat(cs.getPropertyValue('--seat-base-w'));
+        if (bw > 0) baseW = bw;
+        gapPx = parseFloat(cs.columnGap || cs.gap) || gapPx;
+      } catch (e) {}
+      const cw = cardW * baseW * sc; /* عرض ورقة الخصم قبل التصغير الأفقي */
+      const W = Math.max(60, (line.clientWidth || 0) - 2);
+      const T = counts.reduce(function (a, b) { return a + b; }, 0);
+      const FMIN = 0.15; /* أدنى تداخل — نفس ثوابت خانات اللاعب الرئيسي */
+      const FMAX = 0.5;  /* أقصى تداخل — نفس ثوابت خانات اللاعب الرئيسي */
+      const MIN_SC = 0.5;
+
+      /* ثابت الفواصل (عدد الخانات - 1) لا يتغيّر مع التوزيع — مطابقةً لنسق
+         اللاعب الرئيسي حرفياً: fit دالة في (T، العرض) فقط «إطلاقاً»، فلو
+         حسبنا فواصل الممتلئة وحدها لتغيّر المقاس مع عدد المجموعات */
+      const gaps = (slots.length - 1) * gapPx;
+      const refNeed = cw * (0.5 * T + 2.5) + gaps;
+      const fit = (refNeed > W) ? Math.max(MIN_SC, W / refNeed) : 1;
+      line.style.setProperty('--slot-sc', fit.toFixed(4));
+      const cw2 = cw * fit;
+
+      /* 3) الفائض للممتلئة نسبياً لحاجتها — والفارغة صفر تماماً
+         (فواصل العرض الفعلية هنا = الممتلئة-1 لأن الفارغة مخفية) */
+      const rowNeed = function (n) { return (n <= 1) ? (n ? 1 : 0) : (0.5 * n + 0.5); };
+      const needAt = function (n) { return cw2 * rowNeed(n); };
+      const realGaps = Math.max(0, Math.max(1, counts.filter(function (n) { return n > 0; }).length) - 1) * gapPx;
+      let sumNeed = 0;
+      for (let i = 0; i < counts.length; i++) { if (counts[i]) sumNeed += needAt(counts[i]); }
+      const factor = (sumNeed > 0 && sumNeed < W - realGaps) ? (W - realGaps) / sumNeed : 1;
+
+      for (let i = 0; i < slots.length; i++) {
+        const slot = slots[i];
+        const n = counts[i];
+        if (!n) {
+          /* الخانة الفارغة تنكمش حتى الصفر (display:none عبر .empty) */
+          slot.classList.add('empty');
+          slot.style.removeProperty('flex-basis');
+          slot.style.removeProperty('--slot-ov');
+          continue;
+        }
+        slot.classList.remove('empty');
+        let basis = needAt(n) * Math.max(1, factor);
+        /* سقف العرض: أوسع صورة عند أدنى تداخل (لا حاوية أعرض من محتواها) */
+        const cap = n * cw2 - (n > 1 ? FMIN * cw2 * (n - 1) : 0);
+        if (basis > cap) basis = cap;
+        if (basis < cw2) basis = cw2;
+        let ov = 0;
+        if (n > 1) {
+          ov = (basis - n * cw2) / (n - 1);
+          ov = Math.max(-FMAX * cw2, Math.min(-FMIN * cw2, ov));
+        }
+        slot.style.setProperty('--slot-ov', ov.toFixed(1) + 'px');
+        slot.style.setProperty('flex-basis', Math.round(basis) + 'px');
       }
     }
   }

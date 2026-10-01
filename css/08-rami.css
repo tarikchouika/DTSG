@@ -300,10 +300,11 @@
 }
 .rami-seat-line.line-h { flex-direction: row; flex-wrap: nowrap; gap: 0; }
 .mini-meld-wrap { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; min-width: 0; }
-/* [V18] أوراق الخصوم: حجم مقاس بـ --seat-sc */
+/* [V18] أوراق الخصوم: حجم مقاس بـ --seat-sc
+   [v2.72.1] × --slot-sc الموحّد (دالة في العدد الكلي وحده — انظر _fitSeatLines) */
 .rami-seat-line .mini-back {
-  width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1)) !important;
-  height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1)) !important;
+  width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1) * var(--slot-sc, 1)) !important;
+  height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1) * var(--slot-sc, 1)) !important;
   margin-inline-end: 0;
   border-width: 1px !important;
   border-color: rgba(242, 212, 137, 0.5) !important;
@@ -313,15 +314,20 @@
   margin-inline-end: 0;
 }
 
-/* [V19] خمس خانات ثابتة لكل خصم — مثل خانات اللاعب الرئيسي */
+/* [V19] خمس خانات ثابتة لكل خصم — مثل خانات اللاعب الرئيسي
+   [v2.72.1·توجيه المالك] نفس نسق اللاعب الرئيسي: توسيط المجموعات (لا
+   space-between)، والخانات بحجم محتواها لا حصصاً متساوية دائماً. */
 .rami-seat-line.line-slots {
   display: flex; flex-direction: row; flex-wrap: nowrap;
-  align-items: center; justify-content: space-between;
+  align-items: center; justify-content: center;
   gap: calc(var(--card-w) * 0.05);
   flex: 1 1 auto; min-width: 0;
 }
 .rami-opp-slot {
-  flex: 1 1 0; min-width: 0;
+  /* [v2.72.1] الحاوية بحجم محتواها (كانت flex:1 1 0 — كل الخانات متساوية
+     العرض دائماً فتُضغط أوراق الممتلئة): flex-basis/التداخل يحسبهما
+     _fitSeatLines بالمقاس الموحّد نفسه (--slot-sc) لكل الخانات. */
+  flex: 0 1 auto; min-width: 0;
   display: flex; align-items: center; justify-content: center;
   min-height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1));
   border: 1px dashed rgba(242, 212, 137, 0.30);
@@ -331,7 +337,10 @@
   overflow: hidden;
   transition: none;
 }
-.rami-opp-slot.empty { border-color: rgba(242, 212, 137, 0.10); }
+/* [v2.72.1·توجيه المالك] «الخانة الفارغة تنكمش حتى الصفر مقابل اتساع
+   المجموعة المستقبِلة» — عرض الخصوم عرضٌ صرف بلا تفاعل إسقاط، فالفارغة
+   تختفي كلياً (display:none) وتتحرر مساحتها بالكامل للمجموعات الممتلئة. */
+.rami-opp-slot.empty { display: none; }
 /* تراكب داخل الخانة الواحدة (يُحقنه JS كـ --slot-ov) */
 .rami-opp-slot .mini-back,
 .rami-opp-slot .mini-meld-wrap {
@@ -719,25 +728,26 @@
 .mini-meld .joker-lbl { display: none; }
 .mini-meld .joker-star { font-size: 0.26em; }
 
-/* بطاقات مصغّرة (الخصوم + المنزلات) — مكبّرة لملء المساحة */
-.mini-back { width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1)) !important; height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1)) !important; padding: 0 !important; flex: 0 0 auto; }
+/* بطاقات مصغّرة (الخصوم + المنزلات) — مكبّرة لملء المساحة 
+   [v2.72.1] المقاس × --slot-sc الموحّد (دالة في العدد الكلي للأوراق وحده) */
+.mini-back { width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1) * var(--slot-sc, 1)) !important; height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1) * var(--slot-sc, 1)) !important; padding: 0 !important; flex: 0 0 auto; }
 .mini-meld {
-  width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1)) !important;
-  height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1)) !important;
+  width: calc(var(--card-w) * var(--seat-base-w, 0.85) * var(--seat-sc, 1) * var(--slot-sc, 1)) !important;
+  height: calc(var(--card-w) * var(--seat-base-h, 1.33) * var(--seat-sc, 1) * var(--slot-sc, 1)) !important;
   padding: 1px !important; flex: 0 1 auto; min-width: 0;
 }
-.mini-meld .rcard-corner { font-size: 0.18em !important; }
-.mini-meld .rcard-glyph { font-size: 0.18em !important; }
-.mini-meld .rcard-big-glyph { font-size: 0.44em !important; }
-.mini-meld .joker-lbl { font-size: 0.12em !important; }
-.mini-meld .joker-star { font-size: 0.3em !important; }
+.mini-meld .rcard-corner { font-size: calc(0.18em * var(--slot-sc, 1)) !important; }
+.mini-meld .rcard-glyph { font-size: calc(0.18em * var(--slot-sc, 1)) !important; }
+.mini-meld .rcard-big-glyph { font-size: calc(0.44em * var(--slot-sc, 1)) !important; }
+.mini-meld .joker-lbl { font-size: calc(0.12em * var(--slot-sc, 1)) !important; }
+.mini-meld .joker-star { font-size: calc(0.3em * var(--slot-sc, 1)) !important; }
 
 /* [V18] الشاشات المتوسطة والعريضة: حجم أساسي أكبر لأوراق الخصوم (يُضبط بالمقاس --seat-sc) */
 @media (min-width: 601px) {
   .rami-seat-line { --seat-base-w: 1.0; --seat-base-h: 1.48; }
   .mini-back, .mini-meld { --seat-base-w: 1.0; --seat-base-h: 1.48; }
-  .mini-meld .rcard-corner, .mini-meld .rcard-glyph { font-size: 0.2em !important; }
-  .mini-meld .rcard-big-glyph { font-size: 0.5em !important; }
+  .mini-meld .rcard-corner, .mini-meld .rcard-glyph { font-size: calc(0.2em * var(--slot-sc, 1)) !important; }
+  .mini-meld .rcard-big-glyph { font-size: calc(0.5em * var(--slot-sc, 1)) !important; }
 }
 
 /* [V26] المنظر الأفقي (لاندسكيب): 4 خصوم في الزوايا حول مركز كبير */
