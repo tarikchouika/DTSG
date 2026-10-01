@@ -76,6 +76,17 @@ else
   echo "  remedy:  npm install            (أو)  QA_NODE_MODULES=/path/to/node_modules bash $0"
 fi
 
+# [v2.73.0] ‏aarch64: أجنحة المتصفح لا يمكنها الإقلاع على هذا الهاتف أصلاً.
+# ثنائي @sparticuz/chromium المتاح في npm مبني لـ x86-64، و CDN متصفحات
+# Playwright محجوب ⇒ MODULE_NOT_FOUND أو ENOENT عند الإطلاق. هذا قيد بيئة
+# معروف لا انحدار: يُقرأ تحذيرRunner نفسه ولا يُحسب نجاحاً ولا فشلاً.
+ARCH="$(uname -m)"
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+  echo "── تنبيه: المعمارية $ARCH — أجنحة المتصفح غير قابلة للإقلاع هنا"
+  echo "   (ثنائي chromium المتاح x86-64). MODULE_NOT_FOUND فيها قيد بيئة"
+  echo "   لا انحدار؛ باقي الأجنحة الخادمية هي المقياس."
+fi
+
 # ── 3) خادم الاختبار ──
 cd "$QA_DIR"
 env PORT="$QA_PORT" DM_TEST_MODE=1 DTSG_GHOST_GRACE_MS=1 USD_GOLD_RATE=100 \
@@ -95,11 +106,29 @@ echo "✔ خادم الاختبار يعمل على $QA_PORT (بيانات مع�
 QA_DB="$QA_DIR/data/royalcoin.db" node "$REPO/tests/_mkusers.js" >/dev/null 2>&1
 export QA_BASE="http://127.0.0.1:$QA_PORT/"
 
-PASS=0; FAIL=0; FAILED_TESTS=""
+PASS=0; FAIL=0; SKIP=0; FAILED_TESTS=""; SKIPPED_TESTS=""
+
+# [v2.73.0] أجنحة المتصفح تُحسم مسبقاً: إن لم يكن هناك متصفح قابل للإقلاع
+# على هذا المعمارية، فهي **تخطّي بيئة** لا انحدار. سابقاً كانت كل تُبلَّغ
+# MODULE_NOT_FOUND/ENOENT وتُحسب فشلاً — فكان العدّاد يقول «انحدار» بسبب جهاز.
+is_browser_suite () { grep -qE "require\('playwright'\)|_rd_pw\.js" "$QA_DIR/$1" 2>/dev/null; }
+BROWSER_OK=0
+if (cd "$QA_DIR" && node -e "
+  (async()=>{ const {chromium}=require('playwright');
+    const b=await chromium.launch({headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
+    await b.close(); })().catch(()=>process.exit(1));" >/dev/null 2>&1); then
+  BROWSER_OK=1
+fi
 
 run () {
   local name="$1"; local file="$2"; local cwd="${3:-$QA_DIR}"
   echo "════ $name ════"
+  if [ "$BROWSER_OK" = "0" ] && is_browser_suite "$file"; then
+    echo "   ⏭  متخطّى: أجنحة المتصفح لا تُقلَع على $(uname -m) — قيد بيئة لا انحدار."
+    SKIP=$((SKIP+1)); SKIPPED_TESTS="$SKIPPED_TESTS [$name]"
+    echo ""
+    return 0
+  fi
   if (cd "$cwd" && node "$file" > /tmp/dtsg_t.out 2>&1); then
     tail -3 /tmp/dtsg_t.out
     PASS=$((PASS+1))
@@ -118,6 +147,8 @@ run "v270 حرس الدور والتسوية"        "tests/_rm_guard_settle_v27
 run "v271 المغادرة الفورية والتذاكر"  "tests/_leave_settle_v271_test.js"
 run "v271 الاستعادة وإكمال الآلي"    "tests/_restore_bot_v271_test.js"
 run "v273 رهان الجولة بالمشاركة"     "tests/_rn_roundjoin_v273_test.js"
+run "v272 بلوت فردي 1ضد1/2/3"        "tests/_v272_solo_ui_test.js"
+run "v272.1 خانات أوراق الخصوم"      "tests/_v2721_opp_slots_test.js"
 run "امتثال v263"                    "tests/_v263_compliance_test.js"
 run "تسوية ضاما"                     "tests/_dama_settle_test.js"
 run "تسوية روندا"                    "tests/_rn_settle_test.js"
@@ -146,6 +177,7 @@ echo ""
 
 kill $SRV 2>/dev/null || true
 echo "════════════════════════════════"
-echo "المجموع: $PASS نجح · $FAIL فشل"
+echo "المجموع: $PASS نجح · $FAIL فشل · $SKIP متخطّى (بيئة)"
 [ -n "$FAILED_TESTS" ] && echo "الفاشلة:$FAILED_TESTS"
+[ -n "$SKIPPED_TESTS" ] && echo "المتخطّاة (لا متصفح على $(uname -m)):$SKIPPED_TESTS"
 exit $FAIL

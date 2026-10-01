@@ -32,7 +32,9 @@ function bad(l) { fail++; console.log('  ❌ ' + l); }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 (async () => {
-  const OUT = '/home/z/my-project/download/v2721-shots';
+  // [v2.73.0] كان مساراً مطلقاً لآلة التطوير (/home/z/...) ⇒ ينشئ مجلدات
+  // دخيلة خارج المستودع على أي جهاز آخر. الآن من متغير البيئة مع بديل /tmp.
+  const OUT = process.env.DTSG_SHOTS_DIR || '/tmp/dtsg-shots/v2721';
   fs.mkdirSync(OUT, { recursive: true });
   const browser = await PW.launchBrowser();
 

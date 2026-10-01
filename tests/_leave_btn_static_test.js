@@ -59,7 +59,7 @@ ok('[v2.69] CSS تحذير الخسارة + زر التأكيد الأحمر', c
 ok('CSS المودال فوق طبقات الألعاب (z-index 16000)', css.includes('#leaveModal { z-index: 16000; }'));
 ok('حلقة هوية كل لعبة --ga في الزر والمودال', /--ga/.test(css) && css.split('--ga').length > 6);
 ok('نسخة translations.js مرفوعة (dtsg21)', html.includes('js/i18n/translations.js?v=dtsg21'));
-ok('نسخة main.js مرفوعة (dtsg21)', html.includes('js/main.js?v=dtsg21'));  /* [v2.73] رسالة الشريط الإشهاري */
+ok('نسخة main.js مرفوعة (dtsg24)', html.includes('js/main.js?v=dtsg24'));  /* [v2.73.0] رفع بصمة البناء v2.71.0→v2.73.0 ⇒ لا بد من كسر الكاش */
 ok('نسخة 09-chrome.css مرفوعة (dtsg10)', html.includes('css/09-chrome.css?v=dtsg10'));
 ok('نسخة rooms.js مرفوعة (dtsg13)', html.includes('js/core/rooms.js?v=dtsg13'));  /* [v2.73] مرحلة المشاركة: مستمعا roundjoin/roundwithdraw */
 
