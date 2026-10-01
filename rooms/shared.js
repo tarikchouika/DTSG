@@ -35,6 +35,13 @@ function createSharedRoomIO(ctx) {
     broadcastRoom(room, 'room:update', serializeRoom(room));
   }
 
+  /* [v2.73·فلات دوغ] هل بالإيداع مال فعلي؟ (مرحلة المشاركة قد تجمع طرفاً واحداً
+     فقط — settled=true عندها والاسترداد القديم كان يشترط !settled فيضيع المال) */
+  function escrowHasFunds(room) {
+    if (!room || !room.escrow) return false;
+    return Object.keys(room.escrow).some(function (k) { return Number(room.escrow[k]) > 0; });
+  }
+
   /* ═══════ تسلسل الغرفة للعميل (الشكل العام الموحّد لكل الألعاب) ═══════ */
   function serializeRoom(room) {
     const nonspec = room.players.filter(function (p) { return !p.spectate; }).sort(function (a, b) { return a.seat - b.seat; });
@@ -59,6 +66,13 @@ function createSharedRoomIO(ctx) {
       order: nonspec.map(function (p) { return p.id; }),
       room_state: room.room_state || {},
       game_opts: room.game_opts || null,
+      /* [v2.73·فلات دوغ] مرحلة المشاركة الحالية: من المطلوب منه المصادقة ومن
+         صادق فعلاً — يبني عليها العائد/المتأخر لوحة «المشاركة أو الانسحاب» */
+      roundJoin: room.roundJoin ? {
+        required: (room.roundJoin.required || []).slice(),
+        joined: Object.keys(room.roundJoin.joined || {}),
+        bet: Number(room.bet) || 0
+      } : null,
       seats: { players: nonspec.length, max: room.max_players, free: Math.max(0, room.max_players - nonspec.length) },
       joinQueue: (room.joinQueue || []).map(function (r) { return { id: r.id, username: r.username, ts: r.ts }; }),
       driverId: room.driverId != null ? room.driverId : room.owner_id,
@@ -79,10 +93,12 @@ function createSharedRoomIO(ctx) {
   /* ═══════ [B-rooms] غرف الساعة ═══════ */
   function roomTimeUp(room) { return !!(room && room.room_type === 'hour' && room.expires_at != null && Date.now() > room.expires_at); }
 
-  /* حُلّ الغرفة: بثّ room:update بقيمة null ثم حذفها عبر المحور */
+  /* حُلّ الغرفة: بثّ room:update بقيمة null ثم حذفها عبر المحور
+     [v2.73] الاسترداد عند أي إيداع فعلي — لا يقتصر على !settled (مرحلة
+     المشاركة تجمع إيداعاً جزئياً وهي settled=true) */
   function dissolveRoom(room) {
     if (!room || !ctx.isRoomLive(room.id)) return;
-    if (room.status === 'playing' && !room.settled) refundAllEscrow(room);
+    if (room.status === 'playing' && escrowHasFunds(room)) refundAllEscrow(room);
     broadcastRoom(room, 'room:update', null);
     ctx.removeRoom(room);
   }
@@ -160,30 +176,43 @@ function createSharedRoomIO(ctx) {
         else { p.spectate = true; p.ready = true; }
       });
       const bet = Number(room.bet) || 0;
-      room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
-        const u = users[p.id];
-        if (u && (u.gold || 0) >= bet) {
-          if (bet > 0) {
-            u.gold = (u.gold || 0) - bet;
-            try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-            /* [v2.69·مال] سجل اقتطاع رهان المباراة المعادة — كمسار البدء نفسه */
-            try { if (logTx) logTx(u, 'bet', bet, { game_id: room.game_id, note: 'رهان إعادة مباراة', balance_after: u.gold }); } catch (e) {}
+      if (room.game_id !== 'rn') {
+        room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
+          const u = users[p.id];
+          if (u && (u.gold || 0) >= bet) {
+            if (bet > 0) {
+              u.gold = (u.gold || 0) - bet;
+              try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
+              /* [v2.69·مال] سجل اقتطاع رهان المباراة المعادة — كمسار البدء نفسه */
+              try { if (logTx) logTx(u, 'bet', bet, { game_id: room.game_id, note: 'رهان إعادة مباراة', balance_after: u.gold }); } catch (e) {}
+            }
+          } else {
+            p.spectate = true; p.ready = true;
           }
-        } else {
-          p.spectate = true; p.ready = true;
-        }
-      });
-      room.escrow = {};
-      room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
-        if (users[p.id]) room.escrow[p.id] = bet;
-      });
+        });
+        room.escrow = {};
+        room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) {
+          if (users[p.id]) room.escrow[p.id] = bet;
+        });
+      } else {
+        /* [v2.73·فلات دوغ] المباراة المعادة بلا اقتطاع — نفس عقد المشاركة:
+           الرهان يُجمع عند مصادقة كل لاعب على «المشاركة» في الجولة القادمة */
+        room.escrow = {};
+        room.roundJoin = null;
+        room.roundId = null;
+        room.room_state = {
+          mode: (room.room_state && room.room_state.mode) || null,
+          order: room.players.filter(function (p) { return !p.spectate; }).sort(function (a, b) { return a.seat - b.seat; }).map(function (p) { return p.id; }),
+          round: 0, seed: null, pick: null, phase: 'mode'
+        };
+      }
       var seat = 0;
       room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) { p.seat = seat++; });
       room.status = 'playing';
       room.rematch = null;
       room.moveHistory = [];
       room.dedupSeen = {};
-      room.settled = null;
+      room.settled = (room.game_id === 'rn') ? true : null;
     } else {
       rm.rematch = false; rm.agreed = agreed;
     }
@@ -273,6 +302,7 @@ function createSharedRoomIO(ctx) {
     broadcastRoom: broadcastRoom,
     updateRoom: updateRoom,
     serializeRoom: serializeRoom,
+    escrowHasFunds: escrowHasFunds,
     roomTimeUp: roomTimeUp,
     dissolveRoom: dissolveRoom,
     refundEscrow: refundEscrow,

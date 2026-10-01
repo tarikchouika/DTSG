@@ -114,7 +114,37 @@ function initFinancials(db) {
       ts INTEGER, actor_tg TEXT, action TEXT, detail TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_fin_audit_ts ON fin_audit(ts);
+    /* [v2.73] الشريط الإشهاري: رسالة المنصة الحالية (meta.platform_news)
+       — ينشئ الجدول إن غاب (المنصة تنشئه في محور الغرف على أي حال) */
+    CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
   `);
+  return true;
+}
+
+/* ═══ [v2.73] الشريط الإشهاري — رسالة إخبارية/إشهارية للمنصة ═══
+   يكتبها السوبر أدمن من هنا (/news) فتظهر في الشريط الإشهاري للمنصة عبر
+   /api/promotions (مصدر العروض والشريط الموحّد) — تُقرأ كل 5 دقائق أو عند
+   التحميل، بلا بيانات مستخدم إطلاقاً (نص عام قابل للعرض للجميع). */
+const NEWS_KEY = 'platform_news';
+const NEWS_MAX = 200;
+function newsGet() {
+  try {
+    const row = CTX.db.prepare('SELECT value FROM meta WHERE key = ?').get(NEWS_KEY);
+    if (!row || !row.value) return null;
+    const j = JSON.parse(row.value);
+    if (!j || !j.text || !String(j.text).trim()) return null;
+    return { text: String(j.text).trim().slice(0, NEWS_MAX), at: Number(j.at) || 0, by: j.by || null };
+  } catch (e) { return null; }
+}
+function newsSet(text, by) {
+  const clean = String(text || '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, NEWS_MAX);
+  if (!clean) return false;
+  CTX.db.prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)').run(NEWS_KEY,
+    JSON.stringify({ text: clean, at: now(), by: by || null }));
+  return true;
+}
+function newsClear() {
+  try { CTX.db.prepare('DELETE FROM meta WHERE key = ?').run(NEWS_KEY); } catch (e) {}
   return true;
 }
 function setCtx(db, users, sessions, hooks) {
@@ -367,6 +397,7 @@ const HELP =
   '⚡ <code>/charge &lt;مستخدم&gt; &lt;مبلغ&gt;</code> — شحن كوينز\n' +
   '⚙️ <code>/deduct &lt;مستخدم&gt; &lt;مبلغ&gt;</code> — خصم كوينز\n' +
   '🛠 <code>/setbalance &lt;مستخدم&gt; &lt;رصيد&gt;</code> — ضبط الرصيد\n' +
+  '📢 <code>/news &lt;رسالة&gt;</code> — رسالة إخبارية/إشهارية في شريط المنصة (<code>/news clear</code> للإزالة)\n' +
   '🧾 <code>/audit [عدد]</code> — آخر أفعال هذا البوت\n\n' +
   'أنواع /log: ' + LOG_TYPES.filter(Boolean).join(' · ');
 
@@ -658,6 +689,38 @@ async function cmdAudit(chat, n) {
   await send(chat, text);
 }
 
+/* [v2.73] رسالة الشريط الإشهاري — تُكتب من هنا وتظهر في شريط المنصة */
+async function cmdNews(chat, rest) {
+  const arg = String(rest || '').trim();
+  if (!arg) {
+    const cur = newsGet();
+    let text = '📢 <b>رسالة الشريط الإشهاري</b>\n\n';
+    if (cur) {
+      text += 'الرسالة الحالية:\n<blockquote>' + esc(cur.text) + '</blockquote>\n🕰 ' + ts(cur.at) + (ago(cur.at) ? ' (' + ago(cur.at) + ')' : '') + '\n';
+    } else {
+      text += 'لا رسالة معروضة حالياً.\n';
+    }
+    text += '\nالكتابة: <code>/news النص هنا</code> (حتى ' + NEWS_MAX + ' حرفاً)\n' +
+      'الإزالة: <code>/news clear</code>\n' +
+      'تظهر في الشريط الإشهاري بالصفحة الرئيسية خلال ٥ دقائق (أو عند التحديث).';
+    await send(chat, text, { reply_markup: MENU });
+    return;
+  }
+  if (/^(clear|حذف|مسح|off|none)$/i.test(arg)) {
+    newsClear();
+    audit(chat, 'news', 'إزالة رسالة الشريط الإشهاري');
+    await send(chat, '🗑 أُزيلت رسالة الشريط الإشهاري — سيتفرّغ الشريط خلال ٥ دقائق.', { reply_markup: MENU });
+    return;
+  }
+  if (!newsSet(arg, chat)) {
+    await send(chat, '❌ نص غير صالح — اكتب رسالة غير فارغة (حتى ' + NEWS_MAX + ' حرفاً).');
+    return;
+  }
+  audit(chat, 'news', 'رسالة شريط: ' + cut(arg, 80));
+  await send(chat, '📢 <b>نُشرت رسالة الشريط الإشهاري</b>\n\n<blockquote>' + esc(cut(arg, NEWS_MAX)) + '</blockquote>\n' +
+    'تظهر في شريط المنصة خلال ٥ دقائق — <code>/news</code> لعرضها و<code>/news clear</code> لإزالتها.', { reply_markup: MENU });
+}
+
 /* ── موافقة/رفض الطلبات (أزرار) — نفس دوال الداشبورد pay.adminApprove/adminReject ── */
 async function payAct(chat, act, txId) {
   const payMod = CTX.hooks && CTX.hooks.pay;
@@ -766,6 +829,9 @@ async function onMessage(msg) {
     return cmdSetBalance(chat, parts[1], parts[2]);
   }
   if (cmd === '/audit') return cmdAudit(chat, parseInt(parts[1], 10) || 10);
+  if (cmd === '/news' || cmd === '/ad' || cmd === '/advertise') {
+    return cmdNews(chat, line.replace(/^\S+\s*/, ''));
+  }
   await send(chat, '🤔 أمر غير معروف — /help للقائمة الكاملة.', { reply_markup: MENU });
 }
 
@@ -824,5 +890,6 @@ async function handleHttp(req, res, pathname, bodyStr, query) {
 module.exports = {
   initFinancials, setCtx, handleUpdate, handleHttp, isFinancialsPath, FIN_PATHS,
   statsData, pendingData, payTotals, gamesStats, mergedLog, moneyLogData, usersList, findUser,
-  _internals: { cmdStats, cmdPending, cmdPay, cmdUsers, cmdUser, cmdLog, cmdMoney, cmdGames, cmdTx, cmdCharge, cmdDeduct, cmdSetBalance, cmdAudit, payAct, superTg }
+  newsGet, newsSet, newsClear,
+  _internals: { cmdStats, cmdPending, cmdPay, cmdUsers, cmdUser, cmdLog, cmdMoney, cmdGames, cmdTx, cmdCharge, cmdDeduct, cmdSetBalance, cmdAudit, cmdNews, payAct, superTg }
 };

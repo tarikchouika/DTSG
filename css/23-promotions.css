@@ -241,6 +241,13 @@
 /* [Ticker] فواصل العروض داخل الشريط — نفس العملة الثابتة USD */
 .ticker .tk.promo { color: var(--gold2, #f2d489); }
 .ticker .tk.promo .w { color: #68e5ae; }
+/* [v2.73] رسالة السوپر أدمن الإخبارية/الإشهارية — أول الشريط وميّزة عاجية */
+.ticker .tk.promo.news {
+  color: #f8ecd0;
+  font-weight: 900;
+  text-shadow: 0 0 14px rgba(242, 212, 137, .45);
+}
+html[data-theme="radiant"] .ticker .tk.promo.news { color: #6b4f14; text-shadow: none; }
 
 /* الوضع المشع: الهوية نفسها، بدرجات عاجية واضحة بدل الألوان الداكنة */
 html[data-theme="radiant"] .home-offers {

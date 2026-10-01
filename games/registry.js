@@ -55,7 +55,10 @@ const REGISTRY = {
   rn: game({
     id: 'rn',
     seats: { min: 2, max: 4 },
-    actions: ['mode', 'pick', 'round', 'deal', 'betpropose', 'betdecide', 'betstart', 'betphase', 'blind'],
+    /* [v2.73·فلات دوغ] joinphase: مرحلة المشاركة بين الجولات — المتخمّن الموالي
+       (والموزّع) يُعرض عليهما المشاركة أو الانسحاب، والرهان يُقتطع عند النقر
+       على المشاركة فقط (توجيه المالك 2026-10-02 — عقد المال لكل جولة). */
+    actions: ['mode', 'pick', 'round', 'deal', 'betpropose', 'betdecide', 'betstart', 'betphase', 'joinphase', 'blind'],
     /* room_state الحقيقي: الترتيب/الجولة/الوضع/البذرة/الاختيار/الطور (ronda.js) */
     stateKeys: ['order', 'round', 'mode', 'seed', 'pick', 'phase'],
     stateOwner: 'driver'

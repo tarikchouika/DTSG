@@ -1451,11 +1451,24 @@ const server = http.createServer((req, res) => {
         return;
       }
       /* [Promotions 2026-09-22] مصدر واحد لبطاقات العروض والشريط الإشهاري.
-         لا يحتوي أي بيانات مستخدم، ويمكن تغييره لاحقاً من إعدادات المنصة. */
+         لا يحتوي أي بيانات مستخدم، ويمكن تغييره لاحقاً من إعدادات المنصة.
+         [v2.73·مال] news: رسالة إخبارية/إشهارية يكتبها السوبر أدمن من بوت
+         المالية (/news) — تُخزَّن في meta (platform_news) وتظهر في الشريط. */
       if (pathname === '/api/promotions' && req.method === 'GET') {
+        let news = null;
+        try {
+          const row = db.prepare("SELECT value FROM meta WHERE key = 'platform_news'").get();
+          if (row && row.value) {
+            const nj = JSON.parse(row.value);
+            if (nj && nj.text && String(nj.text).trim()) {
+              news = { text: String(nj.text).trim().slice(0, 200), at: Number(nj.at) || null };
+            }
+          }
+        } catch (e) {}
         json({
           ok: true,
           updated_at: new Date().toISOString().slice(0, 10),
+          news: news,
           /* المبالغ الأساسية بالدولار؛ التحويل ثابت: 1 USD = 10 MAD = 100 COIN. */
           currency: 'USD',
           rates: { usd_to_mad: 10, usd_to_coins: 100 },
@@ -2004,6 +2017,20 @@ const server = http.createServer((req, res) => {
       if (pathname === '/api/rooms/timeoutSeat') {
         const rTs = roomHub.exec('timeoutSeat', me, data);
         json(rTs.body, rTs.status);
+        return;
+      }
+      /* [v2.73·فلات دوغ] مصادقة المشاركة في الجولة القادمة — الاقتطاع هنا فقط
+         (توجيه المالك: لا يُقتطع مبلغ الرهان إلا بعد نقر اللاعب على المشاركة) */
+      if (pathname === '/api/rooms/roundJoin') {
+        const rJ = roomHub.exec('roundJoin', me, data);
+        json(rJ.body, rJ.status);
+        return;
+      }
+      /* [v2.73·فلات دوغ] الانسحاب من الجولة القادمة — استرداد ما دفعه + تحرير
+         المقعد للمتفرج الراغب في المشاركة (ترقية الطابور) */
+      if (pathname === '/api/rooms/roundWithdraw') {
+        const rW = roomHub.exec('roundWithdraw', me, data);
+        json(rW.body, rW.status);
         return;
       }
       /* [Policy 2026-09-16] أُزيل الآليون من الغرف: حصرية للاعبين البشر */

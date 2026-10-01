@@ -756,6 +756,21 @@ body.app-fs-on #pg-game { background: transparent !important; }
 .fd-bp-amt span { font-size: 0.62rem; font-weight: 700; color: #b9c6c0; }
 .fd-bp-amt b { font-size: 1.15rem; font-weight: 900; color: var(--fd-gold); text-shadow: 0 2px 8px rgba(0,0,0,.5); }
 
+/* ═══ [v2.73] مرحلة المشاركة بين الجولات: خيارا «المشاركة/الانسحاب» —
+   الاقتطاع لا يقع إلا بالنقر على المشاركة (عقد المال لكل جولة) ═══ */
+.fd-join-phase { flex-wrap: wrap; row-gap: 8px; }
+.fd-join-wait {
+  flex: 1 1 100%;
+  text-align: center;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #cfe0d8;
+  background: rgba(9, 22, 18, 0.55);
+  border: 1px solid rgba(103, 229, 174, 0.22);
+}
+
 /* ═══ الأرقام المنسدلة: دائرية كبيرة تملأ عرض الطاولة وتتكبّر/تصغر حسب الشاشة ═══ */
 .fd-sheet-inner { padding-left: 8px !important; padding-right: 8px !important; }
 .fd-nums {

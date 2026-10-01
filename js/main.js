@@ -2247,6 +2247,12 @@ const PROMO_DEFAULTS = {
   rates: { usd_to_mad: 10, usd_to_coins: 100 }
 };
 let PROMO_DATA = PROMO_DEFAULTS;
+/* [v2.73] رسالة الشريط الإشهاري الحالية (يكتبها السوبر أدمن من بوت المالية) */
+let PROMO_NEWS = null;
+function promoNewsText() {
+  const t = PROMO_NEWS && PROMO_NEWS.text ? String(PROMO_NEWS.text).trim() : '';
+  return t ? t.slice(0, 200) : '';
+}
 function promoEsc(value) {
   return String(value == null ? '' : value).replace(/[&<>\"']/g, function (c) {
     return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;' }[c];
@@ -2281,12 +2287,15 @@ function openPromoWallet(amount) {
 window.openPromoWallet = openPromoWallet;
 function renderPromotions(data) {
   data = data || PROMO_DATA || PROMO_DEFAULTS;
+  /* [v2.73] رسالة الشريط: من الخادم (بوت المالية) — null عند عدم وجودها */
+  PROMO_NEWS = (data && data.news && data.news.text) ? { text: String(data.news.text), at: data.news.at || null } : null;
   PROMO_DATA = {
     direct: Array.isArray(data.direct) ? data.direct : PROMO_DEFAULTS.direct,
     admin: Array.isArray(data.admin) ? data.admin : PROMO_DEFAULTS.admin,
     referral_pct: Number(data.referral_pct) >= 0 ? Number(data.referral_pct) : PROMO_DEFAULTS.referral_pct,
     currency: 'USD',
     rates: Object.assign({}, PROMO_DEFAULTS.rates, data.rates || {}),
+    news: PROMO_NEWS,
     updated_at: data.updated_at || ''
   };
   function draw(id, list) {
@@ -2360,6 +2369,11 @@ function renderTicker() {
       ' <span class="w">🪙 ' + promoEsc(fmt(Number(x[2]) || 0)) + '</span> <span class="g">(' + promoEsc(tickGameLabel(x[1])) + ')</span></span>';
   });
   const promoItems = [];
+  /* [v2.73] رسالة السوپر أدمن الإشهارية أول الشريط — تُعاد قراءتها كل ٥ دقائق */
+  const newsTxt = promoNewsText();
+  if (newsTxt) {
+    promoItems.push('<span class="tk promo news">📢 ' + promoEsc(newsTxt) + '</span>');
+  }
   const direct = (PROMO_DATA.direct || []).slice();
   const admin = (PROMO_DATA.admin || []).slice();
   if (direct.length) {

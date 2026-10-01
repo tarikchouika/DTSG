@@ -180,6 +180,16 @@
           }
         } catch (err) { console.error('[rooms] leave', err); }
       });
+      /* [v2.73·فلات دوغ] مصادقة مشاركة وصلت (رهان الجولة اقتُطع خادمياً) —
+         تُمرَّر للعبة لتحديث لوحة المشاركة وإطلاق الجولة عند الاكتمال */
+      _source.addEventListener('room:roundjoin', function (e) {
+        try { Rooms._onRoundJoin(JSON.parse(e.data)); } catch (err) { console.error('[rooms] roundjoin', err); }
+      });
+      /* [v2.73·فلات دوغ] انسحاب من الجولة القادمة: مقعد تحرّر ورُفع متفرج
+         من الطابور — اللعبة تزامن ترتيبها وتعيد بث مرحلة المشاركة */
+      _source.addEventListener('room:roundwithdraw', function (e) {
+        try { Rooms._onRoundWithdraw(JSON.parse(e.data)); } catch (err) { console.error('[rooms] roundwithdraw', err); }
+      });
     },
 
     _onUpdate: function (room) {
@@ -1467,6 +1477,25 @@
         Rooms.closeModal();
         if (typeof closeGamePage === 'function' && window._currentGameId) closeGamePage();
       }
+    },
+
+    _onRoundJoin: function (d) {
+      /* [v2.73·فلات دوغ] توجيه مصادقة المشاركة للعبة النشطة — تحديث اللوحة
+         أو إطلاق الجولة (المالك) عند اكتمال المتحدين */
+      if (!d) return;
+      var u = me();
+      if (d.user_id != null && u && d.user_id == u.id) Rooms._refreshGold();
+      var gid = Rooms.state ? Rooms.state.game_id : null;
+      var h = gid && _gameHandlers[gid];
+      if (h && window._currentGameId === gid) { try { h({ action: 'roundjoin', data: d }); } catch (e) { if (window.console) console.error('[rooms] roundjoin', e); } }
+    },
+    _onRoundWithdraw: function (d) {
+      /* [v2.73·فلات دوغ] انسحاب/انسحاب تلقائي بمهلة: الغرفة الحالة الرسمية
+         (room:update) تصل من الخادم — هنا نبلّغ اللعبة لتزامن ترتيبها */
+      if (!d) return;
+      var gid = Rooms.state ? Rooms.state.game_id : null;
+      var h = gid && _gameHandlers[gid];
+      if (h && window._currentGameId === gid) { try { h({ action: 'roundwithdraw', data: d }); } catch (e) { if (window.console) console.error('[rooms] roundwithdraw', e); } }
     },
 
     /* [B-settle] إعلان نتيجة الجولة من اللعبة — [v2.69·آلي] المالك أو السائق

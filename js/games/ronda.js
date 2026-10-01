@@ -1122,6 +1122,54 @@ class RondaRenderer {
     );
     this._setHint(RL('pickMode'));
   }
+  /* ═══ [v2.73] مرحلة المشاركة: المتخمّن الموالي (والموزّع) بين خيارَي
+     المشاركة/الانسحاب — الاقتطاع لا يقع إلا بالنقر على المشاركة ═══ */
+  _showJoinPhase(d) {
+    if (!this._alive()) return;
+    const u = rnMe();
+    const myId = u && u.id;
+    const srv = (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.roundJoin) || null;
+    const joined = (d.joined && d.joined.length ? d.joined : (srv && srv.joined) || []);
+    const isReq = (d.dealer != null && String(d.dealer) === String(myId)) ||
+                  (d.selector != null && String(d.selector) === String(myId));
+    const iJoined = joined.some(function (j) { return String(j) === String(myId); });
+    this.core.bet = Number(d.bet) || 0;
+    let html = '<div class="fd-bet-phase fd-join-phase" id="rnJoinPhase">' +
+      '<div class="fd-bp-amt"><span>' + RL('roundBet') + '</span><b>🪙 ' + fmt(Number(d.bet) || 0) + '</b></div>';
+    if (isReq && !iJoined) {
+      html += '<button class="fd-prompt-btn bet" onclick="RN_joinRound()">' + RL('joinYes') + '</button>' +
+              '<button class="fd-prompt-btn quit" onclick="RN_declineRound()">' + RL('joinNo') + '</button>';
+    } else if (isReq) {
+      html += '<div class="fd-join-wait">✅ ' + RL('joinDone') + '</div>';
+    } else {
+      html += '<div class="fd-join-wait">⏳ ' + RL('joinWaitOthers') + '</div>';
+    }
+    html += '</div>';
+    this._sheet(html);
+    this._setHint(isReq ? RL('joinHint') : RL('waitingRound'));
+  }
+  /* تحديث لحظي: مصادقة وصلت — والمالك يطلق الجولة آلياً عند اكتمالهما */
+  _onRoundJoin(d) {
+    if (!this._alive() || !d) return;
+    const srv = (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.roundJoin) || null;
+    const req = (d.required && d.required.length ? d.required : (srv && srv.required) || []);
+    const joined = (d.joined && d.joined.length ? d.joined : (srv && srv.joined) || []);
+    const complete = req.length > 0 && req.every(function (id) {
+      return joined.some(function (j) { return String(j) === String(id); });
+    });
+    const ad = RN_ADAPTER;
+    if (complete && ad && ad.room && ad.room.isOwner) {
+      if (ad._joinTimer) { clearTimeout(ad._joinTimer); ad._joinTimer = null; }
+      if (ad.room.phase === 'join') ad.ownerStartRound();
+    } else {
+      this._showJoinPhase({
+        bet: (d.bet != null ? d.bet : (srv && srv.bet) || this.core.bet),
+        dealer: req[0],
+        selector: req[1],
+        joined: joined
+      });
+    }
+  }
   _showNeutralEnd(winner) {
     if (!this._alive()) return;
     const banner = document.getElementById('rnBanner');
@@ -1230,15 +1278,19 @@ class RondaPlatformAdapter {
       seed: rs.seed || null,
       pick: rs.pick || null,
       phase: rs.phase || 'mode',
-      bet: rs.bet || 10
+      /* [v2.73] رهان الجولة = المبلغ المحدد للغرفة نفسها — كان يُقرأ من
+         room_state (مفتاح غير مسجّل) فيعود دائماً إلى 10 مهما ضبط المالك */
+      bet: (room.bet != null && room.bet !== 0) ? room.bet : (rs.bet || 10)
     };
 
-    /* نهاية الجولة: المالك يدوّر الأدوار ويطلق الجولة التالية تلقائياً */
+    /* [v2.73] نهاية الجولة: الدور ينتقل للمتخمّن الموالي آلياً (دوران) ثم
+       مرحلة المشاركة — لا إطلاق آلي لجولة مالية بلا موافقة الطرفين
+       (توجيه المالك: يُعرض على المتخمّن الموالي المشاركة أو الانسحاب) */
     this.core.on('ROUND_ENDED', (d) => {
       if (!this.room) return;
       if (this.room.isOwner) {
         this.room.order = rnRotate(this.room.order, d.winner === 'selector');
-        setTimeout(() => this.ownerStartRound(), 1600);
+        setTimeout(() => this.ownerNextRound(), 1600);
       } else {
         this.renderer._setHint(RL('waitingRound'));
       }
@@ -1306,11 +1358,14 @@ class RondaPlatformAdapter {
       c.startShuffle();
     }, 250);
   }
-  /* المالك يطلق جولة جديدة (بذرة عشوائية تُبث للجميع) */
+  /* المالك يطلق جولة جديدة (بذرة عشوائية تُبث للجميع) — [v2.73] بعد
+     اكتمال مصادقتي المشاركة (أو مباشرة في الغرف المجانية) */
   ownerStartRound() {
     if (!this.room || !this.room.isOwner || !this.room.mode) return;
     if (this._betTimer) { clearTimeout(this._betTimer); this._betTimer = null; }
     if (this._propTimer) { clearTimeout(this._propTimer); this._propTimer = null; }
+    if (this._joinTimer) { clearTimeout(this._joinTimer); this._joinTimer = null; }
+    this.room.phase = 'playing';
     this.room.round++;
     this.room.seed = (Math.random() * 0xFFFFFFFF) >>> 0;
     this.room.pick = null;
@@ -1344,7 +1399,9 @@ class RondaPlatformAdapter {
     const payload = { cards: res.cards, origOrder: order, order: res.order, seed: seed, mode: this.room.mode };
     Rooms.sendMove('deal', payload, this._statePayload());
     this.renderer._showDealerDeal(payload);
-    setTimeout(() => this.ownerStartBetPhase(), 2600);
+    /* [v2.73] بعد تحديد الموزّع: مرحلة المشاركة برهان الجولة المحدد للغرفة
+       (كانت مرحلة تفاوض تبدأ من 10 وتنقض رهان الغرفة المعيّن) */
+    setTimeout(() => this.ownerNextRound(), 2600);
   }
   /* مرحلة الرهان: المتخمّن يقترح، الموزّع يقبل/يرفض الزيادة */
   ownerStartBetPhase() {
@@ -1374,11 +1431,82 @@ class RondaPlatformAdapter {
     Rooms.sendMove('betdecide', { accept: accept, bet: this.room.bet }, this._statePayload());
     this.renderer._onBetDecide({ accept: accept, bet: this.room.bet });
   }
-  /* المتخمّن يؤكّد الرهان ويبدأ الجولة */
+  /* المتخمّن يؤكّد الرهان ويبدأ الجولة — [v2.73] التوافق مع مرحلة المشاركة:
+     أي betstart قديم يمرّ بنفس بوابة الجولة القادمة */
   betStart() {
     if (!this.room || this.core.myRole !== 'selector') return;
     Rooms.sendMove('betstart', { bet: this.room.bet }, this._statePayload());
-    if (this.room.isOwner) this.ownerStartRound();
+    if (this.room.isOwner) this.ownerNextRound();
+  }
+  /* ═══ [v2.73] بوابة الجولة القادنة: مالية ⇒ مرحلة المشاركة (موافقة
+     المتحدين بالنقر)، مجانية/بآلي ⇒ إطلاق مباشر كالسابق ═══ */
+  ownerNextRound() {
+    if (!this.room || !this.room.isOwner || !this.room.mode) return;
+    if (this._betTimer) { clearTimeout(this._betTimer); this._betTimer = null; }
+    if (this._propTimer) { clearTimeout(this._propTimer); this._propTimer = null; }
+    const bet = Number((typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.bet) || this.room.bet) || 0;
+    const duo = [this.room.order[0], this.room.order[1]];
+    const players = this.room.players || [];
+    const human = function (id) {
+      if (id == null) return false;
+      if (String(id).indexOf('bot:') === 0) return false;
+      const p = players.find(function (x) { return x && String(x.id) === String(id); });
+      return !!(p && !p.spectate && !p.isBot);
+    };
+    if (bet > 0 && duo.every(human)) this.ownerStartJoinPhase();
+    else this.ownerStartRound();
+  }
+  /* ═══ [v2.73] مرحلة المشاركة: يُعرض على الموزّع والمتخمّن الموالي خيارا
+     «المشاركة» (يُقتطع رهان الجولة لحظة النقر) أو «الانسحاب» (يُحرّر مقعده
+     للمتفرج الراغب) — والجولة تنطلق آلياً بعد مصادقة الطرفين ═══ */
+  ownerStartJoinPhase() {
+    if (!this.room || !this.room.isOwner) return;
+    if (this._joinTimer) clearTimeout(this._joinTimer);
+    this.room.phase = 'join';
+    const d = {
+      bet: Number((typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.bet) || this.room.bet) || 0,
+      dealer: this.room.order[0],
+      selector: this.room.order[1],
+      joined: []
+    };
+    Rooms.sendMove('joinphase', d, this._statePayload());
+    this.renderer._showJoinPhase(d);
+    /* صمت 30 ثانية = انسحاب (لا موافقة فلا اقتطاع) — يُطلق المالك انسحاباً
+       آلياً لكل مطلوب لم يصادق، فيتحرّر مقعده للمتفرج الراغب */
+    this._joinTimer = setTimeout(() => this._onJoinTimeout(), 30000);
+  }
+  _onJoinTimeout() {
+    if (!this.room || !this.room.isOwner || this.room.phase !== 'join') return;
+    const rj = (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.roundJoin) || null;
+    if (!rj || !rj.required || !rj.required.length) return;
+    const pending = rj.required.filter(function (id) {
+      return !(rj.joined || []).some(function (j) { return String(j) === String(id); });
+    });
+    const self = this;
+    pending.forEach(function (id) {
+      API.post('/api/rooms/timeoutSeat', { room_id: self.room.id, playerId: id }).catch(function () {});
+    });
+  }
+  /* [v2.73] حدث انسحاب من الجولة القادمة: مزامنة الترتيب/الأعضاء ثم إعادة
+     بث مرحلة المشاركة للمطلوبين الجدد (المالك حصراً) */
+  _onRoundWithdraw(d) {
+    if (!this.room || !d) return;
+    if (d.room) {
+      this.room.players = d.room.players || this.room.players;
+      const rs = d.room.room_state || {};
+      if (Array.isArray(rs.order) && rs.order.length) this.room.order = rs.order.slice();
+      if (this.renderer) this.renderer._renderRotation && this.renderer._renderRotation();
+    }
+    if (d.reason === 'need_players') {
+      if (this.renderer) this.renderer._showWaitingRoom();
+      return;
+    }
+    if (this.room.isOwner) {
+      const self = this;
+      setTimeout(function () { if (self.room && self.room.phase !== 'playing') self.ownerStartJoinPhase(); }, 900);
+    } else if (this.renderer) {
+      this.renderer._setHint(RL('waitingRound'));
+    }
   }
   /* تسوية الكوينز (بوساطة المالك): يُقتطع من الخاسر ويُضاف للرابح ناقص رسم الرهان */
   _onSelectorTimeout() {
@@ -1426,14 +1554,22 @@ class RondaPlatformAdapter {
     const dealerId = this.room.order ? this.room.order[0] : null;
     const selectorId = this.room.order ? this.room.order[1] : null;
     if (String(dealerId).indexOf('bot:') === 0 || String(selectorId).indexOf('bot:') === 0) return;
-    const seat = (winnerSide === 'selector') ? 1 : 0;
+    /* [v2.73] رصيد رهان الجولة = المحدد للغرفة؛ غرف مجانية بلا تسوية مال */
+    const bet = Number((typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.bet) || this.room.bet) || 0;
+    if (!(bet > 0)) return;
+    const dlP = players.find(function (p) { return p && String(p.id) === String(dealerId); });
+    const slP = players.find(function (p) { return p && String(p.id) === String(selectorId); });
+    if ((dlP && dlP.isBot) || (slP && slP.isBot)) return;
+    const winnerId = (winnerSide === 'selector') ? selectorId : dealerId;
+    if (winnerId == null) return;
     if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.status === 'playing' &&
         !Rooms.state.settled && typeof Rooms.roomSettle === 'function') {
-      try { Rooms.roomSettle('w' + seat); } catch (e) {}
+      try { Rooms.roomSettle('u' + winnerId); } catch (e) {}
     }
   }
   destroy() {
     if (this.core) this.core.dead = true;
+    if (this._joinTimer) { clearTimeout(this._joinTimer); this._joinTimer = null; }
     this.core = null;
     this.renderer = null;
     this.room = null;
@@ -1498,6 +1634,34 @@ function RN_betStart() {
   SND.click();
   if (RN_ADAPTER) RN_ADAPTER.betStart();
 }
+/* ═══ [v2.73] مرحلة المشاركة: المصادقة بالنقر — الاقتطاع يقع خادمياً هنا
+     فقط، والانسحاب يحرّر المقعد للمتفرج الراغب (ترقية الطابور) ═══ */
+function RN_joinRound() {
+  SND.click();
+  if (typeof Rooms === 'undefined' || !Rooms.state || !Rooms.state.id) return;
+  API.post('/api/rooms/roundJoin', { room_id: Rooms.state.id }).then(function (r) {
+    if (r && r.ok) {
+      if (typeof Rooms._refreshGold === 'function') Rooms._refreshGold();
+      const rr = r.data || {};
+      if (RN_ADAPTER && RN_ADAPTER.renderer && rr.required) {
+        RN_ADAPTER.renderer._onRoundJoin({ required: rr.required, joined: rr.joined || [], bet: Number(Rooms.state.bet) || 0 });
+      }
+    } else if (r && r.data && r.data.message) {
+      toast(r.data.message, 'err');
+    }
+  }).catch(function () {});
+}
+function RN_declineRound() {
+  SND.click();
+  if (typeof Rooms === 'undefined' || !Rooms.state || !Rooms.state.id) return;
+  API.post('/api/rooms/roundWithdraw', { room_id: Rooms.state.id }).then(function (r) {
+    if (r && r.ok) {
+      if (typeof Rooms._refreshGold === 'function') Rooms._refreshGold();
+    } else if (r && r.data && r.data.message) {
+      toast(r.data.message, 'err');
+    }
+  }).catch(function () {});
+}
 /* أول حرفين من الاسم كصورة رمزية */
 function rnInitials(name) {
   if (!name) return '؟';
@@ -1554,12 +1718,29 @@ function RN_roomMove(d) {
   if (d.action === 'betstart') {
     if (ad._betTimer) { clearTimeout(ad._betTimer); ad._betTimer = null; }
     if (ad._propTimer) { clearTimeout(ad._propTimer); ad._propTimer = null; }
-    if (ad.room.isOwner) ad.ownerStartRound();
+    if (ad.room.isOwner) ad.ownerNextRound();
+    return;
+  }
+  /* ═══ [v2.73] مرحلة المشاركة بين الجولات ═══ */
+  if (d.action === 'joinphase') {
+    ad.room.phase = 'join';
+    if (d.data.bet != null) ad.room.bet = Number(d.data.bet) || ad.room.bet;
+    if (ad.renderer) ad.renderer._showJoinPhase(d.data);
+    return;
+  }
+  if (d.action === 'roundjoin') {
+    if (ad.renderer) ad.renderer._onRoundJoin(d.data);
+    return;
+  }
+  if (d.action === 'roundwithdraw') {
+    ad._onRoundWithdraw(d.data);
     return;
   }
   if (d.action === 'round') {
     /* تجاهل الجولات القديمة (وصلت متأخرة أو مكررة) */
     if (!ad.room.isOwner && ad.room.round > 0 && d.data.round <= ad.room.round) return;
+    if (ad._joinTimer) { clearTimeout(ad._joinTimer); ad._joinTimer = null; }
+    ad.room.phase = 'playing';
     ad.applyRound(d.data);
     if (d.data.pick) ad.core.receivePick(d.data.pick.num, d.data.pick.sym);
     return;
@@ -1628,6 +1809,13 @@ const RONDA_L = {
   spectating: ['أنت تكتفي بالفرجة', 'Vous regardez', 'You are spectating'],
   rotation: ['ترتيب الأدوار', 'Ordre des rôles', 'Role order'],
   startRound: ['🚀 ابدأ الجولة', '🚀 Lancer le tour', '🚀 Start round'],
+  /* [v2.73] مرحلة المشاركة — المشاركة أو الانسحاب برهان الجولة */
+  roundBet: ['رهان الجولة', 'Mise du tour', 'Round bet'],
+  joinYes: ['✅ المشاركة', '✅ Participer', '✅ Participate'],
+  joinNo: ['🚪 الانسحاب', '🚪 Se retirer', '🚪 Withdraw'],
+  joinDone: ['تمّت مصادقتك — بانتظار الخصم…', 'Validation faite — en attente…', 'Confirmed — waiting for opponent…'],
+  joinWaitOthers: ['بانتظار مصادقة المتحدين…', 'En attente des joueurs…', 'Waiting for players to confirm…'],
+  joinHint: ['دورك: شارك برهان الجولة أو انسحب', 'À vous : participez ou retirez-vous', 'Your turn: join the round bet or withdraw'],
   waitingRound: ['بانتظار الجولة التالية…', 'En attente du prochain tour…', 'Waiting for next round…'],
   pickMode: ['اختر وضع اللعب لبدء الغرفة (أنت الموزع)', 'Choisissez le mode (vous êtes donneur)', 'Pick the game mode (you are dealer)'],
   waitingRoomStart: ['بانتظار بدء اللعب…', 'En attente du début…', 'Waiting for the game to start…'],
