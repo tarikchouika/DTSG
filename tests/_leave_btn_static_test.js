@@ -61,7 +61,7 @@ ok('حلقة هوية كل لعبة --ga في الزر والمودال', /--ga/
 ok('نسخة translations.js مرفوعة (dtsg21)', html.includes('js/i18n/translations.js?v=dtsg21'));
 ok('نسخة main.js مرفوعة (dtsg20)', html.includes('js/main.js?v=dtsg20'));
 ok('نسخة 09-chrome.css مرفوعة (dtsg10)', html.includes('css/09-chrome.css?v=dtsg10'));
-ok('نسخة rooms.js مرفوعة (dtsg10)', html.includes('js/core/rooms.js?v=dtsg10'));
+ok('نسخة rooms.js مرفوعة (dtsg11)', html.includes('js/core/rooms.js?v=dtsg11'));  /* [v2.71] توجيه إعادة البناء لكل لعبة */
 
 console.log('\n═══ النتيجة: ' + pass + ' نجح / ' + fail + ' فشل ═══');
 process.exit(fail === 0 ? 0 : 1);

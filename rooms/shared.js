@@ -198,7 +198,10 @@ function createSharedRoomIO(ctx) {
     if (!room || !room.joinQueue || !room.joinQueue.length) return;
     if (room.status === 'playing' && !room.settled) return;
     for (;;) {
-      const nonSpec = room.players.filter(function (p) { return !p.spectate; }).length;
+      /* [v2.71] المقعد الآلي (مغادر أو شبح) مقعد حرّ: لا يُحسب مشغولاً —
+         وإلا لم يملأ الطابور المقعد الشاغر بعد الجولة أبداً (المغادر يحجز
+         المقعد إلى ما لا نهاية فيبقى شاغراً بلا استثمار). */
+      const nonSpec = room.players.filter(function (p) { return !p.spectate && !p.isBot; }).length;
       if (nonSpec >= room.max_players) break;
       const req = room.joinQueue.shift();
       if (!req) break;
@@ -206,12 +209,32 @@ function createSharedRoomIO(ctx) {
       if (p) {
         p.spectate = false;
         p.ready = true;
+        p.isBot = false;
+        p.leftRound = false;
         p.seat = nonSpec;
       } else {
-        room.players.push({ id: req.id, username: req.username, ready: true, spectate: false, seat: nonSpec });
+        room.players.push({ id: req.id, username: req.username, ready: true, spectate: false, isBot: false, leftRound: false, seat: nonSpec });
       }
     }
     if (!room.joinQueue.length) room.joinQueue = [];
+  }
+
+  /* ═══════ [v2.71] ختام الجولة: مقعدٌ حرّ لكل مغادر/شبح ═══════
+     يُستدعى بعد كل تسوية (من اللعبة أو من الخادم عند المغادرة الفورية).
+     الترتيب مقصود: إسقاط الآليين أولاً (فلا يحجزون مقعداً) ثم ترقية
+     الطابور فتملأ المقاعد الشاغرة فعلاً، ثم إعادة تعيين السائق.
+     آمن بعد التسوية فقط: يغيّر order ولا يمسّ الجولة الجارية أبداً. */
+  function afterRoundEnd(room) {
+    if (!room) return;
+    const before = room.players.length;
+    room.players = room.players.filter(function (p) { return !p.isBot; });
+    /* ترقيم المقاعد بلا فجوات (order مرتَّب بـseat — الفجوات تضرب الترقيم) */
+    let seat = 0;
+    room.players.filter(function (p) { return !p.spectate; }).forEach(function (p) { p.seat = seat++; });
+    room.players.forEach(function (p) { if (p.spectate) p.seat = seat++; });
+    promoteQueued(room);
+    reassignDriver(room);
+    return before - room.players.length;
   }
 
   /* ═══════ [Resilience] السائق والاتصال ═══════ */
@@ -258,6 +281,7 @@ function createSharedRoomIO(ctx) {
     dissolveIfExpired: dissolveIfExpired,
     tryResolveRematch: tryResolveRematch,
     promoteQueued: promoteQueued,
+    afterRoundEnd: afterRoundEnd,
     isOnline: isOnline,
     markOnline: markOnline,
     markOffline: markOffline,

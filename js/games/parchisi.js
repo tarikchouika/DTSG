@@ -1162,7 +1162,9 @@ const ParchisiApp = {
       const seatId = this._roomSeats[i];
       if (seatId == null) continue;
       const p = byId[String(seatId)];
-      if ((!p || p.spectate) && this.engine.players[i].type !== 'ai') {
+      /* [v2.71] المقعد الموسوم isBot من الخادم (انقطاع/مغادرة) مقعد آلي
+         أيضاً — كان المحرك ينتظر لاعباً غادر فيتجمّد الدور على مقعدٍ خالٍ. */
+      if ((!p || p.spectate || p.isBot) && this.engine.players[i].type !== 'ai') {
         this.engine.players[i].type = 'ai';
         if (this._roomTypes) this._roomTypes[i] = 'ai';
         changed = true;

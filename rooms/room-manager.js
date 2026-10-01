@@ -38,6 +38,21 @@ function createRoomManager(gameId, io, ctx) {
     try { if (u && logTx) logTx(u, type, amount, extra || {}); } catch (e) {}
   }
 
+  /* ═══════ [v2.71·سجل] مفتاح الجولة — يربط صف transactions بتذكرة bet_tickets
+     لنفس الجولة حتى لا تظهر الجولة مرتين في السجل المدمج للأدمن (التكرار
+     المُبلّغ)، ومع ذلك تُكتب التذكرة في كل لعبة كما يطلب المالك. */
+  function roundKey(room) {
+    if (!room.roundId) {
+      room.roundSeq = (room.roundSeq || 0) + 1;
+      room.roundId = room.id + '-' + room.roundSeq;
+    }
+    return room.roundId;
+  }
+  /* تذكرة رهان الجولة للاعب واحد: الرهان المصروف + الفوز (0 للخاسر/المستردّ) */
+  function ticket(room, u, bet, won, payout, txt) {
+    try { if (u && ctx.logTicket) ctx.logTicket(u.id, room.game_id, bet, won, payout, txt, room.roundId); } catch (e) {}
+  }
+
   /* ═══════ [v2.69·نواة] هل مقعد هذا اللاعب مغادر صراحةً (خسر الجولة)؟ ═══════ */
   function isLeftSeat(room, pid) {
     const q = room.players.find(function (x) { return String(x.id) === String(pid); });
@@ -101,7 +116,8 @@ function createRoomManager(gameId, io, ctx) {
         if (back > 0) {
           u.gold = (u.gold || 0) + back;
           try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
-          tx(u, 'refund', back, { game_id: room.game_id, note: 'تعادل جولة' + (bonus > 0 ? ' + حصة مغادر' : ''), balance_after: u.gold });
+          tx(u, 'refund', back, { game_id: room.game_id, note: 'تعادل جولة' + (bonus > 0 ? ' + حصة مغادر' : ''), balance_after: u.gold, round_id: room.roundId });
+          ticket(room, u, escrowOf(u), false, 0, 'تعادل');
         }
         refundsOut.push(shape(u, { refunded: back }));
       });
@@ -118,7 +134,14 @@ function createRoomManager(gameId, io, ctx) {
       payout = r2(stake - fee);
       winner.gold = (winner.gold || 0) + payout;
       try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
-      tx(winner, 'win', payout, { game_id: room.game_id, note: 'فوز جولة غرفة', balance_after: winner.gold });
+      tx(winner, 'win', payout, { game_id: room.game_id, note: 'فوز جولة غرفة', balance_after: winner.gold, round_id: room.roundId });
+      /* [v2.71·تذاكر] تذكرة لكل لاعب: الرابح برهان الجرة ورسب المصروف،
+         والخاسر تذكرة برهانه بلا فوز. السجل المدموج سيعرض الجولة مرة واحدة. */
+      humans.forEach(function (u) {
+        const myStake = escrowOf(u);
+        if (u.id === winner.id) ticket(room, u, myStake, true, payout, 'فوز جولة غرفة');
+        else ticket(room, u, myStake, false, 0, 'خسارة جولة غرفة');
+      });
       /* [v2.70·سجل] لا صف bet للخاسرين هنا — صف الرهان سُجّل عند الاقتطاع
          في بدء الجولة (عقد المال §2). كان يُسجّل ثانيةً عند التسوية فيظهر
          الخاسر مقتطعاً مرتين في سجل المعاملات (خلل التكرار المُبلّغ). */
@@ -140,12 +163,46 @@ function createRoomManager(gameId, io, ctx) {
     };
     S.broadcastRoom(room, 'room:settle', payload);
     if (S.dissolveIfExpired(room)) payload.dissolved = true;
+    /* [v2.71] ختام الجولة: المقعد الشاغر يصير حراً ويُملأ من الطابور فوراً */
+    if (rooms.has(room.id)) { S.afterRoundEnd(room); S.updateRoom(room); }
     return { status: 200, body: payload };
   }
 
   /* ── عون: هل هذا المستخدم مضيفاً مرجعياً (مالك أو سائق حالي)؟ ── */
   function isHost(room, uid) {
     return !!room && uid != null && (room.owner_id === uid || room.driverId === uid);
+  }
+
+  /* [v2.71] بدء التصويت على المباراة الجديدة — واحد للجميع: من يطلبه من
+     الواجهة (rematchStart) أو الخادم بعد تسوية فورية بسبب المغادرة. */
+  function beginRematch(room) {
+    if (!room || room.rematch) return false;
+    if (S.sweepExpiredRoom(room)) return false;
+    if (room.status === 'playing' && !room.settled && room.escrow) {
+      S.refundAllEscrow(room, 'استرداد قبل إعادة المباراة (جولة غير مسوّاة)');
+    }
+    /* الجولة انتهت — من غادر أو غاب لا يعود مقعداً: إسقاط الآليين أولاً */
+    dropBots(room);
+    const parts = room.players.filter(function (p) { return !p.spectate; });
+    if (!parts.length) {
+      S.broadcastRoom(room, 'room:update', null);
+      if (ctx.removeRoom) ctx.removeRoom(room); else rooms.delete(room.id);
+      return false;
+    }
+    const names = {};
+    parts.forEach(function (p) { names[p.id] = p.username; });
+    room.rematch = { participants: parts.map(function (p) { return p.id; }), votes: {}, names: names, ts: Date.now() };
+    room.status = 'waiting';
+    const rid = room.id;
+    setTimeout(function () {
+      const r = rooms.get(rid);
+      if (r && r.rematch && !r.rematch.resolved) {
+        r.rematch.participants.forEach(function (id) { if (!r.rematch.votes[id]) r.rematch.votes[id] = 'refuse'; });
+        if (S.tryResolveRematch(r)) S.updateRoom(r);
+        if (r.rematch && r.rematch.resolved && !r.rematch.rematch) S.dissolveIfExpired(r);
+      }
+    }, 60000);
+    return true;
   }
 
   const mgr = {
@@ -260,17 +317,23 @@ function createRoomManager(gameId, io, ctx) {
             room_id: room.id, user_id: uid, username: p.username,
             forfeited: forfeited, ai: true, lost: true
           });
-          /* ثنائي: الخصم الباقي رابح فوراً (مغادرة = خسارة) — تسوية آنية */
+          /* [v2.71] غادر الخصوم جميعاً ⇒ الجولة تُحسم الآن لا انتظاراً:
+             المقاعد الباقية (لم تغادر صراحةً) — إن كان واحداً فهو الرابح
+             مباشرة، ثم يبدأ التصويت على جولة جديدة. وإن لم يبقَ أحد: استرداد
+             الكل وحلّ الغرفة آلياً. كان خاصاً بالثنائيات فقط: في الغرف 3-4
+             كانت الجولة معلّقة على مقعدٍ غادر أو على لعبةٍ لم تُحسم. */
           const orderNow = S.serializeRoom(room).order;
-          if (orderNow.length === 2) {
-            const otherIdx = (String(orderNow[0]) === String(uid)) ? 1 : 0;
-            const otherId = orderNow[otherIdx];
-            const other = room.players.find(function (x) { return String(x.id) === String(otherId); });
-            if (other && !other.leftRound && users[otherId]) {
-              const r = settleSeatCore(room, 'w' + otherIdx);
-              if (r.status === 200) { S.updateRoom(room); return { status: 200, body: r.body }; }
+          const alive = [];
+          orderNow.forEach(function (pid, i) { if (!isLeftSeat(room, pid)) alive.push(i); });
+          if (alive.length <= 1) {
+            if (alive.length === 1) {
+              const r = settleSeatCore(room, 'w' + alive[0]);
+              if (r.status === 200) {
+                if (rooms.has(room.id)) { beginRematch(room); S.updateRoom(room); }
+                return { status: 200, body: r.body };
+              }
             }
-            /* الباقي أيضاً مغادر — استرداد الجميع وحل الغرفة */
+            /* لا أحد باقٍ: استرداد الجميع وحلّ الغرفة */
             S.refundAllEscrow(room);
             S.broadcastRoom(room, 'room:update', null);
             if (ctx.removeRoom) ctx.removeRoom(room); else rooms.delete(room.id);
@@ -341,12 +404,15 @@ function createRoomManager(gameId, io, ctx) {
           if ((users[p.id].gold || 0) < bet) { insufficient = users[p.id].username; break; }
         }
         if (insufficient) return { status: 400, body: { ok: false, error: 'insufficient_funds', user: insufficient } };
+        /* [v2.71] مفتاح الجولة قبل الاقتطاع: صف bet يحمل round_id فيُربط
+           بتذكرة الجولة فلا تظهر الجولة مرتين في السجل المدمج */
+        roundKey(room);
         payers.forEach(function (p) {
           const u = users[p.id];
           u.gold = (u.gold || 0) - bet;
           try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
           /* [v2.69·مال] سجل اقتطاع الرهان لحظة البدء — كانت الغرف تقتطع بلا سجل */
-          tx(u, 'bet', bet, { game_id: gameId, note: 'رهان بدء جولة غرفة', balance_after: u.gold });
+          tx(u, 'bet', bet, { game_id: gameId, note: 'رهان بدء جولة غرفة', balance_after: u.gold, round_id: room.roundId });
         });
         room.escrow = {};
         payers.forEach(function (p) { room.escrow[p.id] = bet; });
@@ -402,9 +468,9 @@ function createRoomManager(gameId, io, ctx) {
       const room = rooms.get(data.room_id);
       if (room && me && room.owner_id === me.id && room.status === 'playing') {
         if (!room.settled && room.escrow) S.refundAllEscrow(room);
-        dropBots(room);
         room.status = 'waiting';
         room.players.forEach(function (p) { if (!p.spectate) p.ready = false; });
+        S.afterRoundEnd(room);   /* [v2.71] الطابور يملأ ما شاغر */
         if (S.dissolveIfExpired(room)) return { status: 200, body: { ok: true, room: null } };
         S.updateRoom(room);
       }
@@ -436,38 +502,7 @@ function createRoomManager(gameId, io, ctx) {
     rematchStart: function (me, data) {
       const room = rooms.get(data.room_id);
       const mePart = room && me && room.players.some(function (p) { return p.id === me.id && !p.spectate; });
-      if (mePart && !room.rematch) {
-        if (S.sweepExpiredRoom(room)) return { status: 200, body: { ok: true, room: null } };
-        /* [v2.70·مال] جولة غير مسوّاة تُستبدل بريماش: المال لا يتبخر —
-           استرداد الإيداعات قبل بدء التصويت. إن سبقته تسوية صحيحة فلا
-           إيداعات أصلاً (escrow={} وsettled=true) فلا أثر لهذا الاسترداد.
-           (كان الريماش يستبدل escrow بلا تسوية ولا استرداد = اختفاء المال) */
-        if (room.status === 'playing' && !room.settled && room.escrow) {
-          S.refundAllEscrow(room, 'استرداد قبل إعادة المباراة (جولة غير مسوّاة)');
-        }
-        /* الجولة انتهت — من غادر أو غاب لا يعود مقعداً: إسقاط الآليين أولاً */
-        dropBots(room);
-        const parts = room.players.filter(function (p) { return !p.spectate; });
-        if (!parts.length) {
-          S.broadcastRoom(room, 'room:update', null);
-          if (ctx.removeRoom) ctx.removeRoom(room); else rooms.delete(room.id);
-          return { status: 200, body: { ok: true, room: null } };
-        }
-        const names = {};
-        parts.forEach(function (p) { names[p.id] = p.username; });
-        room.rematch = { participants: parts.map(function (p) { return p.id; }), votes: {}, names: names, ts: Date.now() };
-        room.status = 'waiting';
-        S.updateRoom(room);
-        const rid = room.id;
-        setTimeout(function () {
-          const r = rooms.get(rid);
-          if (r && r.rematch && !r.rematch.resolved) {
-            r.rematch.participants.forEach(function (id) { if (!r.rematch.votes[id]) r.rematch.votes[id] = 'refuse'; });
-            if (S.tryResolveRematch(r)) S.updateRoom(r);
-            if (r.rematch && r.rematch.resolved && !r.rematch.rematch) S.dissolveIfExpired(r);
-          }
-        }, 60000);
-      }
+      if (mePart && !room.rematch) { beginRematch(room); S.updateRoom(room); }
       return { status: 200, body: { ok: true, room: room ? S.serializeRoom(room) : null } };
     },
     rematchVote: function (me, data) {
@@ -696,11 +731,16 @@ function createRoomManager(gameId, io, ctx) {
         u.gold = (u.gold || 0) + add;
         try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(u.gold, u.id); } catch (e) {}
         u._rdShare = add;
-        tx(u, 'win', add, { game_id: room.game_id, note: 'فوز جولة فرق (غرفة)', balance_after: u.gold });
+        tx(u, 'win', add, { game_id: room.game_id, note: 'فوز جولة فرق (غرفة)', balance_after: u.gold, round_id: room.roundId });
+        ticket(room, u, escrowOf(u), true, add, 'فوز جولة فرق');
       });
       /* [v2.70·سجل] لا صف bet للخاسرين/المغادرين هنا — سُجّل عند الاقتطاع
          في بدء الجولة (عقد المال §2). كان يُكرَّر عند التسوية فيظهر الخاسر
          مقتطعاً مرتين في سجل المعاملات (خلل التكرار المُبلّغ). */
+      /* [v2.71·تذاكر] الخاسرون والمغادرون لهم تذاكر بلا فوز (رهانهم المصروف) */
+      loseHumans.concat(leftHumans).forEach(function (u) {
+        ticket(room, u, escrowOf(u), false, 0, 'خسارة جولة فرق');
+      });
       room.escrow = {};
       room.settled = true;
       const shape = function (u) {
@@ -714,6 +754,7 @@ function createRoomManager(gameId, io, ctx) {
       };
       S.broadcastRoom(room, 'room:settle', payload);
       if (S.dissolveIfExpired(room)) payload.dissolved = true;
+      if (rooms.has(room.id)) { S.afterRoundEnd(room); S.updateRoom(room); }
       return { status: 200, body: payload };
     },
 
@@ -727,14 +768,29 @@ function createRoomManager(gameId, io, ctx) {
       const loser = Object.values(users).find(function (u) { return u.username === data.loser; });
       const winner = Object.values(users).find(function (u) { return u.username === data.winner; });
       if (!loser || !winner) return { status: 400, body: { ok: false, message: 'لاعب غير موجود' } };
-      if ((loser.gold || 0) < amt) return { status: 400, body: { ok: false, message: 'رصيد الخاسر غير كافٍ' } };
-      const fee = Math.round(amt * ctx.BET_FEE_RATE);
-      loser.gold = (loser.gold || 0) - amt;
-      winner.gold = (winner.gold || 0) + (amt - fee);
+      if (String(loser.id) === String(winner.id)) return { status: 400, body: { ok: false, message: 'لا يمكن أن يخسر اللاعب نفسه' } };
+      /* [v2.71·بلا تكرار] رهان الجولة مقتطع مسبقاً عند البدء (escrow) — كان
+         هذا المسار يخصم المبلغ من الرصيد مرةً ثانية: الخاسر مقتطع مرتين في
+         السجل المالي. الآن: إن كان إيداع الخاسر مصروفاً فيستهلك منه، وإلا
+         يخصم من رصيده (مباراة فردية بلا جولة غرفة). */
+      const escrowed = Number((room.escrow && room.escrow[loser.id]) || 0);
+      const charge = (room.status === 'playing' && escrowed > 0) ? Math.min(amt, escrowed) : 0;
+      if (!charge && (loser.gold || 0) < amt) return { status: 400, body: { ok: false, message: 'رصيد الخاسر غير كافٍ' } };
+      const stake = charge || amt;
+      const fee = Math.round(stake * ctx.BET_FEE_RATE);
+      if (charge) { room.escrow[loser.id] = 0; }
+      else { loser.gold = (loser.gold || 0) - amt; }
+      winner.gold = (winner.gold || 0) + (stake - fee);
       try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(loser.gold, loser.id); } catch (e) {}
       try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
-      logTx(winner, 'win', amt - fee, { game_id: room.game_id, counterparty_id: loser.id, counterparty_name: loser.username, balance_after: winner.gold });
-      logTx(loser, 'bet', amt, { game_id: room.game_id, counterparty_id: winner.id, counterparty_name: winner.username, note: 'خسارة جولة', balance_after: loser.gold });
+      roundKey(room);
+      logTx(winner, 'win', stake - fee, { game_id: room.game_id, counterparty_id: loser.id, counterparty_name: loser.username, balance_after: winner.gold, round_id: room.roundId });
+      /* الخاسر بلا صف bet ثانٍ: الرهان قُطع عند البدء (أو من الرصيد هنا) */
+      if (!charge) logTx(loser, 'bet', amt, { game_id: room.game_id, counterparty_id: winner.id, counterparty_name: winner.username, note: 'خسارة جولة', balance_after: loser.gold });
+      ticket(room, winner, stake, true, stake - fee, 'فوز جولة');
+      ticket(room, loser, stake, false, 0, 'خسارة جولة');
+      room.settled = true;
+      if (rooms.has(room.id)) { S.afterRoundEnd(room); S.updateRoom(room); }
       return {
         status: 200, body: { ok: true, fee: fee, loser: { username: loser.username, gold: loser.gold }, winner: { username: winner.username, gold: winner.gold } }
       };

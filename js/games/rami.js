@@ -6366,11 +6366,24 @@ function RM_roomMove(d) {
   } catch (e) { if (typeof console !== 'undefined') console.error('[Rami MP] applyMove', e && e.message, e); }
 }
 
-/* [Req3] تحديث حالة الغرفة: إعادة رسم واجهة التصويت عند نهاية المباراة */
+/* [Req3] تحديث حالة الغرفة: إعادة رسم واجهة التصويت عند نهاية المباراة
+   [v2.71] + وسم المقاعد التي Massaها الخادم isBot فوراً (مغادرة/انقطاع): يحلّ
+   المحرك محلها بالذكاء المحلي فيُكمل الجولة عادلاً بدل تجمّدها. */
 function RM_roomUpdate(room) {
   try {
     var ad = (typeof window !== 'undefined') ? (window.RamiAdapter || window.RAMI_ADAPTER) : null;
-    if (ad && ad.multiplayer && ad.game && ad.game.gamePhase === 'MATCH_END' && typeof ad._endRoundUI === 'function') ad._endRoundUI();
+    if (!ad) return;
+    if (ad.multiplayer && ad.game && room && room.players) {
+      var order = (room.order || []).map(String);
+      var changed = false;
+      for (var i = 0; i < room.players.length; i++) {
+        var seat = order.indexOf(String(room.players[i].id));
+        var p = (seat >= 0 && ad.game.players) ? ad.game.players[seat] : null;
+        if (p && !!p.isBot !== !!room.players[i].isBot) { p.isBot = !!room.players[i].isBot; changed = true; }
+      }
+      if (changed && typeof ad._processTurn === 'function' && ad.game.gamePhase !== 'MATCH_END') ad._processTurn();
+    }
+    if (ad.multiplayer && ad.game && ad.game.gamePhase === 'MATCH_END' && typeof ad._endRoundUI === 'function') ad._endRoundUI();
   } catch (e) {}
 }
 
@@ -6484,11 +6497,20 @@ RamiUIAdapter.prototype._netConfig = function () {
   return { mode: mode, target: target, isSingle: isSingle, targetVal: targetVal, bet: bet, timer: timerSec };
 };
 
-/* [MP-AI] مقاعد الآلي من ترتيب الغرفة (المعرّفات التي تبدأ بـ bot) */
-RamiUIAdapter.prototype._netBotSeats = function (order) {
+/* [MP-AI] مقاعد الآلي من ترتيب الغرفة.
+   [v2.71] نوعان للمقعد الآلي: معرّف يبدأ بـ bot، ومقعدٌ وسومه الخادم
+   isBot (انقطاع = شبح، أو مغادرة صريحة). الثاني كان مجهولاً للرامي ⇒ الجولة
+   تتجمّد على مقعد غادر ولا يكملها أحد (والسائق مُكلَّف بها بلا يملك الطقم). */
+RamiUIAdapter.prototype._netBotSeats = function (order, room) {
   if (!order || !order.length) return [];
+  var botIds = {};
+  if (room && room.players) {
+    for (var i = 0; i < room.players.length; i++) { if (room.players[i].isBot) botIds[String(room.players[i].id)] = 1; }
+  }
   var seats = [];
-  for (var i = 0; i < order.length; i++) { if (String(order[i]).indexOf('bot') === 0) seats.push(i); }
+  for (var i = 0; i < order.length; i++) {
+    if (String(order[i]).indexOf('bot') === 0 || botIds[String(order[i])] === 1) seats.push(i);
+  }
   return seats;
 };
 
@@ -6498,7 +6520,7 @@ RamiUIAdapter.prototype._netHostInit = function (room) {
   var order = (room && room.order) ? room.order.slice() : [];
   var playerCount = Math.max(2, order.length || 2);
   var seed = Math.floor(Math.random() * 0xFFFFFFFF);
-  var botSeats = this._netBotSeats(order);   /* [MP-AI] مقاعد الآلي */
+  var botSeats = this._netBotSeats(order, room);   /* [MP-AI] مقاعد الآلي (شواهد الخادم) */
 
   /* بناء الجولة محلياً عند المالك */
   this._netBuildGame(cfg, seed, playerCount, botSeats);
@@ -6660,9 +6682,13 @@ RamiUIAdapter.prototype._netApplyReplay = function (history, roomId) {
       try {
         if (this.game && typeof this.game.normalizeTurnPhase === 'function') this.game.normalizeTurnPhase();
         if (m.action === 'init') {
+          /* [v2.71] مرجع المقاعد عند إعادة البناء: بلا هذا يبقى _netOrder فارغاً
+             فلا يُعرف المقعد الآلي (فلا يكمله أحد) ويُعطَّل حرس المرسل
+             (_netMoveAuthentic) جولةً كاملة بعد التحديث. */
+          this._netOrder = (md.order || []).map(String);
           this.myPlayerId = this._netResolveSeat(md.order);
           this.isSpectator = (this.myPlayerId === -1);
-          this._netBuildGame(md, md.seed, md.playerCount || 2, md.botSeats || this._netBotSeats(md.order));
+          this._netBuildGame(md, md.seed, md.playerCount || 2, md.botSeats || this._netBotSeats(md.order, this.room || (typeof Rooms !== 'undefined' ? Rooms.state : null)));
         } else if (!this.game) {
           continue;
         } else if (m.action === 'draw') {

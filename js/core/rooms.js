@@ -37,6 +37,26 @@
     return (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
   }
 
+  /* ═══════ [v2.71] توجيه إعادة البناء إلى صاحب اللعبة ═══════
+     `window.applyRoomReplay` اسم عالمي تتقاسمه ثماني ألعاب (تتكاثر بالسلاسل)،
+     فكان مشغّل رامي يستقبل مصفوفة حركات رامي فيمرّرها لآخر لعبة حمّلته — فلا
+     تُبنى اللوحة أبداً بعد التحديث (استعادة الغرفة مكسورة). لكل لعبة معالجها
+     الخاص؛ نوجّه بهوية غرفة room.game_id ثم نسقط إلى السلسلة القديمة. */
+  var REPLAY_BY_GAME = {
+    rm: 'RM_applyReplay', rd: 'RD_applyReplay', bl: 'BL_applyReplay',
+    bg: 'bgApplyReplay', do: 'doApplyReplay'
+  };
+  function dispatchReplay(d) {
+    try {
+      var gid = (Rooms.state && Rooms.state.game_id) || window._currentGameId || '';
+      var name = REPLAY_BY_GAME[gid];
+      if (name && typeof window[name] === 'function') { window[name](d); return true; }
+      if (typeof window.applyRoomReplay === 'function') { window.applyRoomReplay(d); return true; }
+      if (typeof window.RM_applyReplay === 'function') { window.RM_applyReplay(d); return true; }
+    } catch (e) { if (window.console) console.error('[rooms] replay dispatch', e && e.message); }
+    return false;
+  }
+
   var Rooms = {
     state: null,
     /* الألعاب المدعومة للغرف: id -> أقصى عدد لاعبين */
@@ -136,10 +156,7 @@
           var d = JSON.parse(e.data);
           _pendingReplay = d;   /* يستهلكها محوّل اللعبة عند فتحها */
           /* [Resilience] إن كانت اللعبة مسجَّلة بالفعل، طبّق الإعادة فوراً */
-          try {
-            if (typeof window !== 'undefined' && typeof window.applyRoomReplay === 'function') window.applyRoomReplay(d);
-            else if (typeof window !== 'undefined' && typeof window.RM_applyReplay === 'function') window.RM_applyReplay(d);
-          } catch (er) {}
+          Rooms._dispatchReplay(d);
         } catch (err) { console.error('[rooms] replay', err); }
       });
       /* [B-settle] تسوية نهاية الجولة: فائز/خاسر/تعادل + احتساب الرسم وفق نوع الغرفة */
@@ -937,6 +954,7 @@
       _updateHandler = fn;
     },   /* [Req3] */
     /* [Resilience] استهلاك تاريخ الحركات المعلّق لإعادة بناء الحالة */
+    _dispatchReplay: dispatchReplay,
     consumePendingReplay: function () { var h = _pendingReplay; _pendingReplay = null; return h; },
     hasPendingReplay: function () { return !!_pendingReplay; },
 
@@ -1548,6 +1566,35 @@
       }
       Rooms.joinRoom(code);
     },
+    /* [v2.71·استعادة] أعد فتح غرفتك الجارية بعد تحديث الصفحة أو انقطاع الشبكة.
+       القاعدة في الخادم (/api/rooms/active) لا في localStorage: الغرفة الحيّة
+       حقيقة عند الخادم، والمخزّن المحلي قد يكون بائداً أو مفقوداً (سياق جديد،
+       جهاز آخر) فيبقى اللاعب على الصفحة الرئيسية whilst جولته تدور. */
+    restoreActive: function () {
+      try {
+        if (!AUTH || !AUTH.user || Rooms.state) return Promise.resolve(null);
+        if (Rooms._restoreBusy) return Promise.resolve(null);
+        Rooms._restoreBusy = true;
+        return API.get('/api/rooms/active').then(function (r) {
+          Rooms._restoreBusy = false;
+          if (!r.ok || !r.data || !r.data.room || Rooms.state) return null;
+          var room = r.data.room;
+          Rooms._rejoinLive = (room.status === 'playing');
+          if (room.status === 'waiting') {
+            /* غرفة انتظار: تُستعاد حالتها دون فتح صفحة اللعبة قسراً */
+            Rooms.state = room;
+            Rooms._persistRoom(room);
+            Rooms.render();
+            if (typeof Rooms.openModal === 'function') Rooms.openModal();
+          } else {
+            /* جولة جارية: joinRoom يفتح اللعبة ويطلب إعادة بناء الجولة */
+            Rooms.joinRoom(room.code);
+          }
+          return room;
+        }).catch(function () { Rooms._restoreBusy = false; return null; });
+      } catch (e) { return Promise.resolve(null); }
+    },
+
     checkPendingRoom: function () {
       try {
         var code = sessionStorage.getItem('rc_pending_room');
@@ -1567,10 +1614,13 @@
             var ar = JSON.parse(raw);
             if (ar && ar.code && (Date.now() - (ar.ts || 0)) < 6 * 60 * 60 * 1000) {
               setTimeout(function () { Rooms.joinRoom(ar.code); }, 600);
+              return;
             } else {
               localStorage.removeItem('rc_active_room');
             }
           }
+          /* لا أثر محلياً ⇒ اسأل الخادم: قد تكون الغرفة حيّة على جهاز آخر */
+          setTimeout(function () { Rooms.restoreActive(); }, 900);
         }
       } catch (e) {}
     },

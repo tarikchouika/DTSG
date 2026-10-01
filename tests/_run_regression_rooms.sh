@@ -5,6 +5,9 @@
 #
 #   bash tests/_run_regression_rooms.sh
 #
+# [v2.71] جناح الاستعادة لا يعتمد على منظّف الأشباح: يغلق لاعب بنفسه صراحةً
+# (مغادرة لا انقطاع) فيُوسم مقعده فوراً ⇒ فحص بلا انتظار وبلا تسريع عام
+# يزعج اختبارات الـAPI التي لا تفتح قناة SSE (فكل لاعبينها «أشباح»).
 # [v2.70.1] يُربط node_modules بالنسخة المعزولة (QA_NODE_MODULES، افتراضياً
 # $REPO/node_modules) وإلا فشلت أجنحة المتصفح/المحرك بـMODULE_NOT_FOUND وهي
 # ليست انحداراً؛ وأُضيف جناح v270 (حرس الدور/المُرسِل + التسوية الخادمية).
@@ -112,6 +115,8 @@ run "v267 غرف المال والمزامنة"       "tests/_rooms_v267_test.js
 run "v268 عزل الألعاب"               "tests/_rooms_isolation_v268_test.js"
 run "v269 تسوية الرهان والمغادرة"    "tests/_bet_settle_v269_test.js"
 run "v270 حرس الدور والتسوية"        "tests/_rm_guard_settle_v270_test.js"
+run "v271 المغادرة الفورية والتذاكر"  "tests/_leave_settle_v271_test.js"
+run "v271 الاستعادة وإكمال الآلي"    "tests/_restore_bot_v271_test.js"
 run "امتثال v263"                    "tests/_v263_compliance_test.js"
 run "تسوية ضاما"                     "tests/_dama_settle_test.js"
 run "تسوية روندا"                    "tests/_rn_settle_test.js"

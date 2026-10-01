@@ -216,6 +216,16 @@ CREATE TABLE IF NOT EXISTS bet_tickets (
 CREATE INDEX IF NOT EXISTS idx_tk_user_time ON bet_tickets(user_id, created_at);
 `);
 
+/* [v2.71·سجل] مفتاح الجولة: يربط صف transactions بتذكرة bet_tickets لنفس الجولة
+   حتى تظهر الجولة مرة واحدة في السجل المدمج للأدمن (تذاكر + معاملات)،
+   ومع ذلك تُكتب التذكرة في كل لعبة — متطلبات المالك: «التذاكر تُسجَّل في كل
+   لعبة ومبلغ الرهان يُسوى في السجل بدقة وبدون تكرار». NULL = خارج الغرف
+   (ألعاب فردية) فيُعرض صفها من التذكرة وحدها كسابق. */
+try { db.exec("ALTER TABLE transactions ADD COLUMN round_id TEXT"); } catch (e) {}
+try { db.exec("ALTER TABLE bet_tickets ADD COLUMN round_id TEXT"); } catch (e) {}
+try { db.exec("CREATE INDEX IF NOT EXISTS idx_tx_round ON transactions(round_id)"); } catch (e) {}
+try { db.exec("CREATE INDEX IF NOT EXISTS idx_tk_round ON bet_tickets(round_id)"); } catch (e) {}
+
 /* [Group-Legacy] جداول بيانات قديمة من نظام الجولات الجماعية المُزال —
    تُبقى للتوافق مع قواعد بيانات قائمة (تسوية الرهانات المعلقة عند الإقلاع) */
 db.exec(`
@@ -422,9 +432,7 @@ function r2(v) {
 function logTx(user, type, amount, extra) {
   try {
     const ex = extra || {};
-    db.prepare(
-      'INSERT INTO transactions (user_id, type, amount, balance_after, counterparty_id, counterparty_name, actor_id, actor_name, game_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
-    ).run(
+    const base = [
       user.id, String(type || ''), r2(amount || 0),
       (ex.balance_after != null) ? r2(ex.balance_after) : null,
       ex.counterparty_id != null ? ex.counterparty_id : null,
@@ -432,18 +440,40 @@ function logTx(user, type, amount, extra) {
       ex.actor_id != null ? ex.actor_id : null,
       ex.actor_name != null ? String(ex.actor_name) : null,
       ex.game_id != null ? String(ex.game_id) : null,
-      ex.note != null ? String(ex.note) : null,
-      Math.floor(Date.now() / 1000)
-    );
+      ex.note != null ? String(ex.note) : null
+    ];
+    const tail = Math.floor(Date.now() / 1000);
+    /* [v2.71] شبكة أمان: إن غاب عمود round_id (قاعدة لم تُرقَّ) نكتب بالشكل
+       القديم بلا رابط — صفٌّ بلا رابط خيرٌ من ضياع السجل المالي كله. */
+    try {
+      db.prepare(
+        'INSERT INTO transactions (user_id, type, amount, balance_after, counterparty_id, counterparty_name, actor_id, actor_name, game_id, note, round_id, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)'
+      ).run(...base, ex.round_id != null ? String(ex.round_id) : null, tail);
+    } catch (e) {
+      db.prepare(
+        'INSERT INTO transactions (user_id, type, amount, balance_after, counterparty_id, counterparty_name, actor_id, actor_name, game_id, note, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)'
+      ).run(...base, tail);
+    }
   } catch (e) {}
 }
 /* [server-tx] تسجيل تذكرة رهان في جدول bet_tickets (لا تُفشل اللعبة أبداً) */
-function logTicket(userId, gameId, bet, won, payout, resultTxt) {
+function logTicket(userId, gameId, bet, won, payout, resultTxt, roundId) {
   try {
-    db.prepare(
-      'INSERT INTO bet_tickets (user_id, game_id, bet, won, payout, result_txt, created_at) VALUES (?,?,?,?,?,?,?)'
-    ).run(userId, String(gameId || ''), bet || 0, won ? 1 : 0, payout || 0,
-      (resultTxt != null) ? String(resultTxt).slice(0, 90) : null, Math.floor(Date.now() / 1000));
+    /* نفس شبكة الأمان: تذكرة بلا رابط خيرٌ من ضياع السجل كله */
+    let ins;
+    try {
+      ins = db.prepare(
+        'INSERT INTO bet_tickets (user_id, game_id, bet, won, payout, result_txt, round_id, created_at) VALUES (?,?,?,?,?,?,?,?)'
+      );
+    } catch (e) {
+      ins = db.prepare(
+        'INSERT INTO bet_tickets (user_id, game_id, bet, won, payout, result_txt, created_at) VALUES (?,?,?,?,?,?,?)'
+      );
+      roundId = null;
+    }
+    ins.run(userId, String(gameId || ''), bet || 0, won ? 1 : 0, payout || 0,
+      (resultTxt != null) ? String(resultTxt).slice(0, 90) : null,
+      (roundId != null) ? String(roundId) : null, Math.floor(Date.now() / 1000));
   } catch (e) {}
 }
 
@@ -532,7 +562,10 @@ function ghostSweepPass(forceGraceMs) {
   });
 }
 global.__DTSG_GHOST_SWEEP = ghostSweepPass;   /* مقبض اختبار: دورة تنظيف واحدة عند الطلب */
-setInterval(ghostSweepPass, 60 * 1000);
+/* [v2.71] الفترة قابلة للضبط للاختبارات (DTSG_GHOST_SWEEP_MS) — الافتراضي
+   كما كان: كل 60 ثانية. */
+const GHOST_SWEEP_MS = (parseInt(process.env.DTSG_GHOST_SWEEP_MS, 10) > 0) ? parseInt(process.env.DTSG_GHOST_SWEEP_MS, 10) : (60 * 1000);
+setInterval(ghostSweepPass, GHOST_SWEEP_MS);
 /* [v2.67] حضور حقيقي = اتصال SSE مفتوح فعلاً للهوية — خريطة room.online تُملأ
    أيضاً عند الإنشاء/الانضمام (بلا قناة) فلا تصلح وحدها لكشف الأشباح */
 function hasLiveSse(uid) {
@@ -658,7 +691,7 @@ function isMuted(u) { return !!(u && u.muted_until && u.muted_until > Date.now()
    لكل لعبة عبر rooms/room-manager.js. server.js يستهلك المحور فقط. */
 const roomHub = require('./rooms/index.js').createRoomHub({
   users: users, db: db, sseClients: sseClients,
-  BET_FEE_RATE: BET_FEE_RATE, r2: r2, logTx: logTx, isMuted: isMuted
+  BET_FEE_RATE: BET_FEE_RATE, r2: r2, logTx: logTx, logTicket: logTicket, isMuted: isMuted
 });
 function sendSSE(res, event, data) {
   try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) {}
@@ -1817,6 +1850,10 @@ const server = http.createServer((req, res) => {
           const params = [];
           if (uid) { where.push('t.user_id = ?'); params.push(uid); }
           if (type) { where.push('t.type = ?'); params.push(type); }
+          /* [v2.71·بلا تكرار] صفا bet/win لجولة لها تذكرة لا يُعرضان: التذكرة
+             تعرضهما سويّة (رهان الرابح وفوزه). كانا يظهران مرتين — خل reporting
+             مُبلَّغ. الاستردادات (refund) لا تملكها التذكرة فتُعرض دائماً. */
+          where.push("(t.type NOT IN ('bet','win') OR t.round_id IS NULL OR t.round_id NOT IN (SELECT round_id FROM bet_tickets WHERE round_id IS NOT NULL))");
           const whereSql = where.length ? (' WHERE ' + where.join(' AND ')) : '';
           try {
             const rowsTx = db.prepare(
@@ -1883,6 +1920,23 @@ const server = http.createServer((req, res) => {
          إنشاء/انضمام/حركات/تسويات/دردشة — كل لعبة بمعزل عن الأخريات، والتحقق
          (مقاعد/حركات/حالة) وفق تعريف اللعبة من games/registry.js.
          عقود الاستجابات مطابقة حرفياً لما كانت عليه (توافق كامل للعملاء). */
+      /* [v2.71·استعادة] غرف المستخدم الحالية — يناديها العميل عند الإقلاع
+         فيعيد فتح اللعبة الجارية بدل أن يبقى على الصفحة الرئيسية. */
+      if (pathname === '/api/rooms/active' && req.method === 'GET') {
+        if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
+        const mine = roomHub.roomsOfUser(me.id);
+        mine.sort(function (a, b) {
+          const pa = (a.status === 'playing' ? 1 : 0), pb = (b.status === 'playing' ? 1 : 0);
+          if (pa !== pb) return pb - pa;
+          return (b.rev || 0) - (a.rev || 0);
+        });
+        json({
+          ok: true,
+          room: mine.length ? roomHub.io.serializeRoom(mine[0]) : null,
+          rooms: mine.map(function (r) { return roomHub.io.serializeRoom(r); })
+        });
+        return;
+      }
       if (pathname === '/api/rooms' && req.method === 'GET') {
         json({ ok: true, rooms: roomHub.waitingList() });
         return;

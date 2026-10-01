@@ -110,9 +110,11 @@ async function hands(page) {
     const hacker = cur === 0 ? pB : pA;
     const victim = cur;
     const before = await hands(pA);
+    /* [v2.71] نقرتان سريعتان لا نقرتان متباعدتان: الرامي يشترط النقرتين
+       في أقل من 420ms، فالنقرتان المتباعدتان لا تسحبان أصلاً وكان الفحص
+       يمرّ بلا معنى (حارس الدور لم يُختبر حقاً). */
     const deck = hacker.locator('[data-ramidraw="deck"]');
-    await deck.click({ timeout: 5000 });
-    await deck.click({ timeout: 5000 });
+    await deck.dblclick({ timeout: 5000 });
     await sleep(800);
     const after = await hands(pA);
     ok(JSON.stringify(before) === JSON.stringify(after),
@@ -164,7 +166,14 @@ async function hands(page) {
     ok(winsA.length === 1 && Math.abs(winsA[0].amount - 19) < 0.011, 'صف win واحد للرابح بمبلغ الجرة بعد الرسم');
     const tksB = await api(lb.cookie, 'GET', '/api/rounds', undefined);
     const rmTk = (tksB.json.rounds || []).filter(r => r.game_id === 'rm');
-    ok(rmTk.length === 0, 'لا تذاكر لجولات الغرف (السجل المالي الموحّد transactions)');
+    /* [v2.71] تغيّر العقد بتوجيه المالك: التذاكر تُسجَّل في كل لعبة —
+       الخاسر له تذكرة رهان بلا فوز، والرابح تذكرة برهان وفوزه 19. */
+    ok(rmTk.length === 1 && rmTk[0].won === 0 && Math.abs(rmTk[0].bet - 10) < 0.011,
+      'تذكرة الخاسر: رهان 10 بلا فوز (بلا تكرار — صف bet واحد في السجل المالي)');
+    const tkA = await api(la.cookie, 'GET', '/api/rounds', undefined);
+    const rmTkA = (tkA.json.rounds || []).filter(r => r.game_id === 'rm');
+    ok(rmTkA.length === 1 && rmTkA[0].won === 1 && Math.abs(rmTkA[0].payout - 19) < 0.011,
+      'تذكرة الرابح: رهان 10 · فوز 19 (الجرة بعد الرسم)');
     /* الغرفة انتظرت التصويت بعد التسوية (ترتيب v2.70) */
     let rematchSeen = false;
     for (let i = 0; i < 20 && !rematchSeen; i++) {
