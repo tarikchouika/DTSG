@@ -50,11 +50,22 @@ fi
 
 # ── 2) نسخة معزولة: بيانات جديدة، لا مساس بقاعدة الإنتاج ──
 echo "── تجهيز النسخة المعزولة: $QA_DIR (المنفذ $QA_PORT)"
-for p in $( (ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null) | grep ":$QA_PORT " | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u ); do
+# [v2.77] كان الاكتشاف كله على ss/netstat — وهما معطّلان في هذه الحاوية
+# (قائمة فارغة بلا خطأ) ⇒ لم يُقتل خادم qa-env القديم على 3971، فمات خادم
+# العدّاء بـEADDRINUSE **unjesهل فحص الجاهزية**: الكاوندل جاوبه الخادم القديم،
+# فركضت كل الأجنحة على قاعدة /tmp/full بينما QA_DB يشير إلى النسخة المعزولة
+# الفارغة ⇒ «عدّاد meta = 0» وثلاثة إخفاقات وهمية. الاكتشاف صار عبر /proc.
+holders_on_port() {
+  local seen=""
+  for e in /proc/[0-9]*/environ; do
+    tr '\0' '\n' < "$e" 2>/dev/null | grep -qx "PORT=$QA_PORT" && basename "$(dirname "$e")"
+  done | sort -u | tr '\n' ' '
+}
+for p in $(holders_on_port); do
   cwd="$(readlink /proc/$p/cwd 2>/dev/null || true)"
   case "$cwd" in
-    "$QA_DIR"|/tmp/dtsg-qa*|/tmp/full) kill "$p" 2>/dev/null || true ;;
-    *) echo "   (المنفذ $QA_PORT مستخدم من $cwd — يُتجاهل)" ;;
+    "$QA_DIR"|/tmp/dtsg-qa*|/tmp/full) echo "   إيقاف خادم اختبار قديم على $QA_PORT (pid $p · $cwd)"; kill -9 "$p" 2>/dev/null || true ;;
+    *) echo "   ⚠ المنفذ $QA_PORT مستخدم من $cwd (pid $p) — سيُتخطّى الإيقاف" ;;
   esac
 done
 sleep 1
@@ -76,15 +87,16 @@ else
   echo "  remedy:  npm install            (أو)  QA_NODE_MODULES=/path/to/node_modules bash $0"
 fi
 
-# [v2.73.0] ‏aarch64: أجنحة المتصفح لا يمكنها الإقلاع على هذا الهاتف أصلاً.
-# ثنائي @sparticuz/chromium المتاح في npm مبني لـ x86-64، و CDN متصفحات
-# Playwright محجوب ⇒ MODULE_NOT_FOUND أو ENOENT عند الإطلاق. هذا قيد بيئة
-# معروف لا انحدار: يُقرأ تحذيرRunner نفسه ولا يُحسب نجاحاً ولا فشلاً.
+# [v2.77] كان هذا التنبيه يقرّر مسبقاً أن أجنحة المتصفح «غير قابلة للإقلاع على
+# aarch64» ويقرّر بتخطيها — والواقع أن chromium ‏arm64 (بناء 1243)
+# موجود على هذا الهاتف؛ كان الفشل سببه playwright ‏1.49 الذي يتوقّع البناء
+# x64 ‏1148. القرار الآن بالإطلاق التجريبي الفعلي أدناه (BROWSER_OK)، لا بتخمين
+# المعمارية — فالأجنحة تُحسب في المجموع إن أقلعت، وتُخطَّى فقط إن أخفقت فعلاً.
 ARCH="$(uname -m)"
 if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
-  echo "── تنبيه: المعمارية $ARCH — أجنحة المتصفح غير قابلة للإقلاع هنا"
-  echo "   (ثنائي chromium المتاح x86-64). MODULE_NOT_FOUND فيها قيد بيئة"
-  echo "   لا انحدار؛ باقي الأجنحة الخادمية هي المقياس."
+  echo "── المعمارية $ARCH — يُقرَّر مصير أجنحة المتصفح بالإطلاق التجريبي:"
+  echo "   chromium arm64 (بناء 1243) متاح على هذا الهاتف. إن أقلع فتدخل"
+  echo "   المجموع، وإن أخفق فتُخطّى كقيد بيئة (لا انحدار)."
 fi
 
 # ── 3) خادم الاختبار ──
@@ -99,12 +111,21 @@ for i in $(seq 1 20); do
   curl -sf "http://127.0.0.1:$QA_PORT/api/health" >/dev/null 2>&1 && break
   sleep 0.5
 done
+# [v2.77] الجاهزية وحدها لا تكفي: لو مات خادمنا وجاوب خادم آخر على نفس
+# المنفذ فالاختبار كله ينفّذ على غير القاعدة المعزولة. نتحقق من بقاء العملية نفسها حيّة.
+if ! kill -0 $SRV 2>/dev/null; then
+  echo "✗ خادم الاختبار مات (يرجى مراجعة السجل) — آخر السجل:"; tail -12 /tmp/dtsg_regression.log; exit 3
+fi
 if ! curl -sf "http://127.0.0.1:$QA_PORT/api/health" >/dev/null 2>&1; then
   echo "✗ لم يقلع خادم الاختبار — آخر السجل:"; tail -12 /tmp/dtsg_regression.log; kill $SRV 2>/dev/null; exit 3
 fi
 echo "✔ خادم الاختبار يعمل على $QA_PORT (بيانات معزولة)"
 QA_DB="$QA_DIR/data/royalcoin.db" node "$REPO/tests/_mkusers.js" >/dev/null 2>&1
 export QA_BASE="http://127.0.0.1:$QA_PORT/"
+# [v2.77] كان QA_DB مُصدَّراً لأمر _mkusers فقط ⇒ الاختبار الذي يقرأ جدول meta
+# مباشرة (_rooms_v267_test) فتح ‎data/royalcoin.db داخل المستودع = **قاعدة
+# الإنتاج الحيّة** وقرأ عدّاداً غير موجود ⇒ فشل وهمي كـ«لا وراثة معرّفات».
+export QA_DB="$QA_DIR/data/royalcoin.db"
 
 PASS=0; FAIL=0; SKIP=0; FAILED_TESTS=""; SKIPPED_TESTS=""
 

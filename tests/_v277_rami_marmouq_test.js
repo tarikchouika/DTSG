@@ -11,7 +11,9 @@
 const fs = require('fs');
 const vm = require('vm');
 
-const code = fs.readFileSync('/home/z/my-project/dtsg/js/games/rami.js', 'utf8');
+/* [v2.77] المسار كان '/home/z/my-project/dtsg/...' (مسار جهاز المؤلف) ⇒
+   ENOENT على أي جهاز آخر. نحلّه من جذر المستودع. */
+const code = fs.readFileSync(require('path').join(__dirname, '..', 'js', 'games', 'rami.js'), 'utf8');
 const ctx = {
   console, Date, Math, JSON, Set, Map, Array, Object, Number, String,
   setTimeout: (fn) => fn(), window: {},

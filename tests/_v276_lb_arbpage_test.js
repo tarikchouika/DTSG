@@ -308,13 +308,17 @@ function ok(l, c) { if (c === undefined || c) { pass++; console.log('  ✅ ' + l
   console.log('── F) فحوص ساكنة');
   const REPO = path.join(__dirname, '..');
   const idx = fs.readFileSync(path.join(REPO, 'index.html'), 'utf8');
+  /* [v2.77] الفحص كان يثبّت قيمة ?v= حرفياً (v276) ⇒ أي رفع شرعي للإصدار
+     بعد 2.76 يجعل الحارس يفشل بلا سبب. المقصود المُغطّى هو «الملف مُحمَّل
+     مع كاش-بيرست غير فارغ» — نتحقق من ذلك بدل رقم الإصدار. */
+  const busted = (f) => new RegExp('src="' + f.replace(/[/.]/g, '\\$&') + '\\?v=[^"]+"').test(idx);
+  const linked = (f) => new RegExp('href="' + f.replace(/[/.]/g, '\\$&') + '\\?v=[^"]+"').test(idx);
   ok('F1: عنصر التنقل + القسم + السكربت في index.html',
     idx.indexOf('data-nav="arb"') !== -1 && idx.indexOf('id="pg-arb"') !== -1 &&
-    idx.indexOf('js/core/arb-page.js?v=v276') !== -1 && idx.indexOf('id="lbFilters"') !== -1 && idx.indexOf('id="lbMeCard"') !== -1);
+    busted('js/core/arb-page.js') && idx.indexOf('id="lbFilters"') !== -1 && idx.indexOf('id="lbMeCard"') !== -1);
   ok('F2: إصدارات الكاش مرفوعة (main/live/arb ×3/translations/chrome css)',
-    idx.indexOf('js/main.js?v=v276') !== -1 && idx.indexOf('js/core/live.js?v=v276') !== -1 &&
-    idx.indexOf('js/core/arb-client.js?v=v276') !== -1 && idx.indexOf('js/core/arb-admin.js?v=v276') !== -1 &&
-    idx.indexOf('js/i18n/translations.js?v=v276') !== -1 && idx.indexOf('css/09-chrome.css?v=v276') !== -1);
+    busted('js/main.js') && busted('js/core/live.js') && busted('js/core/arb-client.js') &&
+    busted('js/core/arb-admin.js') && busted('js/i18n/translations.js') && linked('css/09-chrome.css'));
   const tr = fs.readFileSync(path.join(REPO, 'js/i18n/translations.js'), 'utf8');
   const trKeys = ['ui.arbNav', 'arb.pageTitle', 'arb.mineTitle', 'arb.step1', 'arb.rulesTitle', 'lb.sub', 'lb.overall', 'lb.profit', 'lb.meRank', 'lb.noData'];
   const trOk = trKeys.every(k => tr.indexOf("'" + k + "'") !== -1);

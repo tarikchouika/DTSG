@@ -58,10 +58,14 @@ ok('CSS الزر الذهبي الرمزي في الشريط (gl-leave-head دا
 ok('[v2.69] CSS تحذير الخسارة + زر التأكيد الأحمر', css.includes('.leave-loss') && css.includes('.gl-confirm-loss'));
 ok('CSS المودال فوق طبقات الألعاب (z-index 16000)', css.includes('#leaveModal { z-index: 16000; }'));
 ok('حلقة هوية كل لعبة --ga في الزر والمودال', /--ga/.test(css) && css.split('--ga').length > 6);
-ok('نسخة translations.js مرفوعة (v276)', html.includes('js/i18n/translations.js?v=v276'));
-ok('نسخة main.js مرفوعة (v276)', html.includes('js/main.js?v=v276'));  /* [v2.76] ترتيب حقيقي + صفحة التحكيم ⇒ كسر الكاش */
-ok('نسخة 09-chrome.css مرفوعة (v276)', html.includes('css/09-chrome.css?v=v276'));  /* [v2.76] أنماط arb-page/lb الجديدة */
-ok('نسخة rooms.js مرفوعة (v275)', html.includes('js/core/rooms.js?v=v275'));  /* [v2.73] مرحلة المشاركة: مستمعا roundjoin/roundwithdraw */
+/* [v2.77] الفحوص كانت تثبّت قيمة ?v= حرفياً ⇒ كل رفع شرعي للإصدار بعد
+   2.76 يُفشل الحارس بلا سبب (وجزء منها مرّ بالمصادفة). المقصود: الملف مُحمَّل
+   مع كاش-بيرست غير فارغ — وهذا ما نتحقق منه الآن. */
+const busted = (f, kind) => html.includes((kind || 'js/') + f + '?v=');
+ok('نسخة translations.js مرفوعة', busted('i18n/translations.js'));
+ok('نسخة main.js مرفوعة', busted('main.js'));
+ok('نسخة 09-chrome.css مرفوعة', busted('09-chrome.css', 'css/'));
+ok('نسخة rooms.js مرفوعة', busted('core/rooms.js'));
 
 console.log('\n═══ النتيجة: ' + pass + ' نجح / ' + fail + ' فشل ═══');
 process.exit(fail === 0 ? 0 : 1);

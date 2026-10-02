@@ -291,7 +291,10 @@ const gold = async (p) => await goldOf(p);
        على النسخة المعزولة، ونُظهر سبب الفشل بدل ابتلاعه صامتاً (كان يُظهر «0»
        فيتشخّص كأن العدّاد مفقود بينما هو فقط لم يُقرأ). */
     const { DatabaseSync } = require('node:sqlite');
-    const dbPath = require('path').join(__dirname, '..', 'data', 'royalcoin.db');
+    /* [v2.77] كان المسار مثبَّتاً على ‎__dirname/../data = قاعدة الإنتاج الحيّة
+       (قاعدة 13). العدّاء يصدّر QA_DB لنسخته المعزولة؛ والبناء المطلق
+       يبقي سليماً عند تشغيل الجناح وحده بلا العدّاء. */
+    const dbPath = process.env.QA_DB || require('path').join(__dirname, '..', 'data', 'royalcoin.db');
     let metaNext = 0, metaErr = null;
     for (const opt of [{ readOnly: true }, {}]) {
       try {

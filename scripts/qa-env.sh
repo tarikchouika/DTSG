@@ -33,11 +33,22 @@ START_SERVER=1
 [ "${1:-}" = "--no-server" ] && START_SERVER=0
 
 echo "── 1) Node $NODE_VER → $NODE_DIR"
-if [ ! -x "$NODE_DIR/bin/node" ]; then
-  curl -fsSL "https://nodejs.org/dist/v$NODE_VER/node-v$NODE_VER-linux-x64.tar.xz" -o /tmp/node.tar.xz
+# [v2.77.0] كان الحرف x64 مكتوباً ثابتاً ⇒ على هذا الهاتف (aarch64) كان السكربت
+# يُنزّل نسخة Intel غير قابلة للتنفيذ («cannot execute: required file not found»)
+# فتفشل كل أجنحة الاختبار بصمت شبه صامت. المعمارية تُشتق الآن من uname.
+case "$(uname -m)" in
+  x86_64|amd64)  NODE_ARCH="x64" ;;
+  aarch64|arm64) NODE_ARCH="arm64" ;;
+  *) echo "   ⚠ معمارية غير معروفة: $(uname -m) — أوقف"; exit 1 ;;
+esac
+NODE_TAR="node-v$NODE_VER-linux-$NODE_ARCH.tar.xz"
+if [ ! -x "$NODE_DIR/bin/node" ] || ! "$NODE_DIR/bin/node" -v >/dev/null 2>&1; then
+  [ -d "$NODE_DIR" ] && rm -rf "$NODE_DIR"      # نسخة تالفة/بمعمارية أخرى
+  curl -fsSL "https://nodejs.org/dist/v$NODE_VER/$NODE_TAR" -o /tmp/node.tar.xz
   mkdir -p "$NODE_DIR"
   tar -xJf /tmp/node.tar.xz -C "$NODE_DIR" --strip-components=1
   rm -f /tmp/node.tar.xz
+  "$NODE_DIR/bin/node" -v >/dev/null 2>&1 || { echo "   ✗ $NODE_TAR غير قابل للتنفيذ على $(uname -m)"; exit 1; }
 fi
 ln -sfn "$NODE_DIR" /tmp/node24            # مسار متوافق مع الأجنحة القديمة
 export PATH="$NODE_DIR/bin:$PATH"
@@ -69,12 +80,21 @@ echo "── 3) خادم اختبار على $PORT (نسخة من $REPO → $FUL
 # أوقف أي خادم قديم يشغل المنفذ (وإلا يفشل التشغيل الجديد بـEADDRINUSE ويبقى القديم يخدم قاعدة محذوفة)
 kill_port() {
   local pids
+  # [v2.77] ss/netstat معطّلان في حاوية هذه telephony (يعيدان قائمة فارغة بلا خطأ)
+  # ⇒ كان kill_port يعتبر المنفذ حراً، فيبقى الخادم القديم حيّاً على 3971
+  # ويخدم /tmp/full المحذوف (قاعدة بملف inode محذوف) ⇒ كل تسجيل دخول يفشل 401
+  # والأباجنحة كلها تسقط بلا سبب حقيقي. نضيف مساراً احتياطياً عبر /proc.
   pids=$( (ss -ltnp 2>/dev/null || netstat -ltnp 2>/dev/null) | grep ":$PORT " | grep -o 'pid=[0-9]*' | cut -d= -f2 | sort -u || true )
-  if [ -n "$pids" ]; then
+  if [ -z "${pids// /}" ]; then
+    pids=$( { for e in /proc/[0-9]*/environ; do
+                tr '\0' '\n' < "$e" 2>/dev/null | grep -qx "PORT=$PORT" && basename "$(dirname "$e")"
+              done | sort -u; } 2>/dev/null || true )
+  fi
+  if [ -n "${pids// /}" ]; then
     echo "   إيقاف خادم قديم على $PORT: $pids"
     for pid in $pids; do kill -TERM "$pid" 2>/dev/null || true; done
     sleep 1
-    for pid in $pids; do kill -9 "$pid" 2>/dev/null || true; done
+    for pid in $pids; do kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null || true; done
     sleep 1
   fi
   return 0
@@ -113,10 +133,13 @@ echo "── 6) تشغيل الخادم النهائي (خلفية) → $FULL/se
 cd "$FULL"
 env_qa nohup node server.js > "$FULL/server.log" 2>&1 &
 sleep 3
-if grep -qi "listen\|يعمل\|running\|$PORT" "$FULL/server.log" 2>/dev/null || (ss -ltn 2>/dev/null | grep -q ":$PORT "); then
-  echo "✔ الخادم يعمل على http://127.0.0.1:$PORT"
+# [v2.77] الفحص القديم كان يمرّ على presence الكلمة «listen» أو رقم المنفذ داخل
+# السجل — وسجل EADDRINUSE يحوي الرقم 3971 ⇒ يُعلن نجاحاً والخادم ميّت. الآن
+# نطلب من الخادم نفسه أن يردّ فعلاً.
+if curl -sf -m 5 "http://127.0.0.1:$PORT/api/promotions" >/dev/null 2>&1; then
+  echo "✔ الخادم يعمل على http://127.0.0.1:$PORT (تحقّق حقيقي بطلب HTTP)"
 else
-  echo "⚠ راجع السجل:"; tail -5 "$FULL/server.log"
+  echo "⚠ الخادم لا يردّ — راجع السجل:"; tail -8 "$FULL/server.log"; exit 1
 fi
 echo
 echo "بيئة جاهزة. للتشغيل:"
