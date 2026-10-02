@@ -1,6 +1,24 @@
 process.chdir(require('path').resolve(__dirname, '..'));
 /* اختبار البنود 6 (قفل غرفة المُنشئ) + 7 (رموز/رسائل لحظية) + 8 (رسالة صوتية ≤10ث). */
 const { chromium } = require('playwright');
+/* [v2.78] مطلق احتياطي: كاش المتصفحات أحدث من مكتبة playwright 1.49 (نمط v274/v277) */
+async function launchBw(extraArgs) {
+  const _fs = require('fs');
+  const _args = (extraArgs || []).concat(['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']);
+  try { return await chromium.launch({ headless: true, args: _args }); } catch (e) {}
+  for (const v of ['1243', '1200']) {
+    for (const p of [
+      '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+      '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome'
+    ]) {
+      if (_fs.existsSync(p)) {
+        try { return await chromium.launch({ headless: true, args: _args, executablePath: p }); } catch (e) {}
+      }
+    }
+  }
+  throw new Error('تعذر إطلاق متصفح — ثبّت كاش كروميوم أو حدّث playwright');
+}
+
 /* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
 const BASE = require('./_safe_base.js').BASE_SLASH;
 const _UNIQ = Date.now().toString().slice(-5);
@@ -35,7 +53,7 @@ async function setup(ctx, username) {
 }
 
 (async () => {
-  const browser = await chromium.launch();
+  const browser = await launchBw();
   const ctxA = await browser.newContext(), ctxB = await browser.newContext(), ctxC = await browser.newContext();
   const A = await setup(ctxA, 'r67_host'+_UNIQ), B = await setup(ctxB, 'r67_plr'+_UNIQ), C = await setup(ctxC, 'r67_watch'+_UNIQ);
   let pass = 0, fail = 0;

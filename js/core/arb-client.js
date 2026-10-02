@@ -87,10 +87,46 @@
     }).catch(function () { return null; });
   }
 
+  /* ── تشخيص دقيق لدعم مشاركة الشاشة [v2.78] ──
+     الجذر الموثق لبلاغ «المتصفح كروم ويدعمها»: رسالة «متصفحك لا يدعم»
+     كانت تطلق لكل سبب بلا تمييز، وأشهرها:
+       1. سياق غير آمن (HTTP بلا تشفير): كروم يحجب mediaDevices كلياً —
+          الحل فتح المنصة عبر HTTPS الرسمي.
+       2. متصفح هاتف (كروم أندرويد/WebView/متصفحات التطبيقات): واجهة
+          getDisplayMedia غير متوفرة على الجوال إطلاقاً — قيد منصّي لا
+          عطب في المتصفح — والحل البث من حاسوب.
+       3. متصفح مكتبي قديم (<72).
+     كل سبب له رسالته الصحيحة فلا تضليل بعد الآن. */
+  function support() {
+    if (!root.navigator || !root.navigator.mediaDevices) {
+      /* سياق غير آمن؟ (كروم يحجب كامل mediaDevices على http:// غير المحلي) */
+      var insecure = false;
+      try {
+        insecure = (root.isSecureContext === false) ||
+          (root.location && root.location.protocol === 'http:' &&
+           !/^(localhost|127\.0\.0\.1|\[::1\])(:|\/|$)/.test(root.location.host));
+      } catch (e) { insecure = (root.location && String(root.location.protocol || '') === 'http:'); }
+      return { ok: false, reason: insecure ? 'insecure' : 'old' };
+    }
+    if (!root.navigator.mediaDevices.getDisplayMedia) {
+      /* mediaDevices موجودة (سياق آمن) والواجهة غائبة ⇒ متصفح هاتف/WebView */
+      return { ok: false, reason: 'mobile' };
+    }
+    return { ok: true };
+  }
+  function supportToast() {
+    var s = support();
+    if (s.ok) return null;
+    if (s.reason === 'insecure') return T('arb.shareInsecure') || 'مشاركة الشاشة تتطلب اتصالاً مشفرًا HTTPS — افتح المنصة عبر رابطها الرسمي الآمن ثم أعد المحاولة';
+    if (s.reason === 'mobile') return T('arb.shareMobile') || 'متصفح الهاتف لا يدعم مشاركة الشاشة — افتح المنصة من حاسوب بكروم أو إيدج أو فايرفوكس';
+    return T('arb.shareOld') || 'هذا المتصفح قديم ولا يوفر واجهة البث — حدّثه إلى أحدث إصدار ثم أعد المحاولة';
+  }
+
   /* ── بدء البث (زر المستخدم) ── */
   async function startShare() {
-    if (!root.navigator || !root.navigator.mediaDevices || !root.navigator.mediaDevices.getDisplayMedia) {
-      if (root.toast) root.toast('متصفحك لا يدعم مشاركة الشاشة', 'err');
+    var sup = support();
+    if (!sup.ok) {
+      if (root.toast) root.toast(supportToast(), 'err');
       return;
     }
     if (st.pc) { if (root.toast) root.toast('البث جارٍ أصلاً', 'warn'); return; }
@@ -115,11 +151,20 @@
       if (r.data.ice_servers && r.data.ice_servers.length) st.iceServers = r.data.ice_servers;
       st.mediamtx = r.data.mediamtx || null;
 
-      /* 2) التقاط الشاشة */
-      st.stream = await root.navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 15, max: 24 }, width: { ideal: 1280 }, height: { ideal: 720 } },
-        audio: false
-      });
+      /* 2) التقاط الشاشة — [v2.78] إعادة محاولة بقيود مجردة إن رفضتها
+         المنصة (بعض محركات العرض لا تقبل قيود الدقة/الإطارات) */
+      try {
+        st.stream = await root.navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 15, max: 24 }, width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+      } catch (eC) {
+        if (eC && (eC.name === 'OverconstrainedError' || eC.name === 'ConstraintError')) {
+          st.stream = await root.navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        } else {
+          throw eC;
+        }
+      }
       st.stream.getVideoTracks().forEach(function (t) {
         t.addEventListener('ended', function () { stopShare('ended'); });
       });
@@ -130,7 +175,13 @@
       setState('connecting');
       if (root.toast) root.toast('🟡 يتم الاتصال بلوحة التحكيم…', 'ok');
     } catch (e) {
-      var msg = (e && e.name === 'NotAllowedError') ? 'تم رفض الإذن — اسمح بمشاركة الشاشة' : 'تعذر بدء البث';
+      /* [v2.78] تصنيف دقيق لأخطاء الالتقاط — لكل عطل رسالته الصحيحة:
+         NotAllowedError: رفض المستخدم الإذن · NotReadableError/AbortError:
+         الشاشة مشغولة ببرنامج التقاط آخر · غير ذلك: فشل عام */
+      var msg;
+      if (e && e.name === 'NotAllowedError') msg = T('arb.errDenied') || 'تم رفض الإذن — اسمح بمشاركة الشاشة من شريط المتصفح ثم أعد المحاولة';
+      else if (e && (e.name === 'NotReadableError' || e.name === 'AbortError')) msg = T('arb.errBusy') || 'تعذر التقاط الشاشة (النظام مشغول) — أغلق برامج التسجيل الأخرى ثم أعد المحاولة';
+      else msg = 'تعذر بدء البث' + ((e && e.message) ? ' — ' + e.message : '');
       setState('failed');
       if (root.toast) root.toast(msg, 'err');
     }
@@ -245,15 +296,26 @@
     var member = (room.players || []).some(function (p) { return String(p.id) === String(u.id) && !p.spectate; });
     if (!member) return '';
     var sharing = !!(st.pc || st.stream);
+    /* [v2.78] بث غير مدعوم في هذا السياق: زر تحذيري يشرح السبب عند النقر
+       (أفضل من إخفائه — اللاعب يعرف لماذا وكيف يبث من جهاز آخر) */
+    var sup = support();
+    var startBtn;
+    if (!sup.ok) {
+      startBtn = '<button type="button" class="btn half" title="' + esc(supportToast() || '') + '" onclick="ARB.startShare()">⚠️ ' +
+        (T('arb.shareBlocked') || 'مشاركة الشاشة غير متاحة هنا') + '</button>';
+    } else {
+      startBtn = '<button type="button" class="btn half gold" onclick="ARB.startShare()">' + (T('arb.start') || '📺 مشاركة الشاشة / بدء البث') + '</button>';
+    }
     return '<div class="arb-box" id="arbBox">' +
       '<div class="arb-title">📺 ' + (T('arb.playerTitle') || 'بث التحكيم المباشر') + '</div>' +
       '<div class="arb-sub">' + esc(T('arb.playerSub') || 'شارك شاشتك ليحسم الأدمن النتيجة ويُطلق الأرباح فوراً — الفيديو يذهب للوحة التحكيم مباشرة فقط') + '</div>' +
       '<div class="arb-row">' +
         (sharing
           ? '<button type="button" class="btn half" onclick="ARB.stopShare()">' + (T('arb.stop') || '⏹ إيقاف البث') + '</button>'
-          : '<button type="button" class="btn half gold" onclick="ARB.startShare()">' + (T('arb.start') || '📺 مشاركة الشاشة / بدء البث') + '</button>') +
+          : startBtn) +
         '<span id="arbStreamChip"></span>' +
       '</div>' +
+      (!sup.ok ? '<div class="note" style="font-size:.72rem;text-align:start">ℹ️ ' + esc(supportToast() || '') + '</div>' : '') +
     '</div>';
   }
   function mountChip() { renderChip(); }
@@ -271,6 +333,7 @@
     mountChip: mountChip,
     reset: reset,
     onState: onState,
+    support: support,
     state: function () { return st.state; }
   };
 })(typeof window !== 'undefined' ? window : this);

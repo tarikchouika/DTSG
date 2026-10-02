@@ -1168,8 +1168,18 @@ class RamiMeld {
   findJokerSwapIndex(card, rules) {
     /* [2026-09-12] استبدال الجوكر المنزل: يشمل الجوكر المطبوع (الطالاج)
        والجوكر البري (السامبل — الورقة المعكوسة). الورقة الحقيقية تحل محل
-       الجوكر ويستعيده اللاعب ليده. الجوكرات لا تُستبدل بجوكرات. */
+       الجوكر ويستعيده اللاعب ليده. الجوكرات لا تُستبدل بجوكرات.
+       [v2.78·توجيه المالك — توضيح القانون المفعّل ناقصاً] تحديد الجوكر:
+       • متماثلة (Set) مكتملة من 3 أوراق والجوكر ثالثها ⇒ الجوكر غير محدد
+         (يصلح لأيّ من الورقتين الناقصتين) فلا يُستبدل قطعاً.
+       • متماثلة مكتملة من 4 أوراق والجوكر رابعها ⇒ الجوكر محدد بالورقة
+         الناقصة الوحيدة فيُستبدل بها حصراً.
+       • متتالية (Sequence) مهما كان عدد أوراقها ⇒ الجوكر محدد بموضعه
+         بين جاراته فيُستبدل بالورقة المعنية دائماً. */
     if (!card || rules.isWildCard(card)) return -1;
+    /* [v2.78] متماثلة ثلاثية (ورقتان + جوكر): الجوكر غير محدد — لا استبدال.
+       الرباعية (ثلاث أوراق + جوكر): الناقصة واحدة معلومة — الاستبدال جائز */
+    if (this.type === MELD_TYPE.SET && this.cards.length < 4) return -1;
     /* مواضع كل الجوكرات في المجموعة (مطبوعة + برية) */
     const jokerIdxs = [];
     this.cards.forEach(function (c, i) { if (rules.isWildCard(c)) jokerIdxs.push(i); });
@@ -1614,6 +1624,7 @@ class RoundManager {
       p.drawnLaTourCard = null;
       p.drawnFojokCard = null;
       p.tookLaTour = false;
+      p.jokerMustPlaceId = null;   /* [v2.78] إلزام الجوكر يسقط مع الشوط الجديد */
     }
 
     /* توزيع البطاقات: Talaj يمنح الموزع 15 ورقة والآخرين 14 ورقة.
@@ -1739,6 +1750,10 @@ class RoundManager {
     this.currentPlayerIndex = this.firstActiveFrom(this.currentPlayerIndex + 1);
     this.turnPhase = 'WAITING_DRAW';
     this.turnSecondsRemaining = this.rules.turnSeconds;
+    /* [v2.78·إلزام الجوكر] الإلزام مقيد بنفس الدور — بداية دور اللاعب القادم
+       تسقط أي وسم متقادم عنه (شفاء ذاتي لمسارات آلية أو عملاء أقدم) */
+    const _incoming = this.getCurrentPlayer();
+    if (_incoming) _incoming.jokerMustPlaceId = null;
   }
 
 }
@@ -2210,6 +2225,9 @@ class RamiGame {
       player.hand = player.hand.filter(c => !allIds.has(c.id));
       /* الأوراق المنزلة تبقى في خاناتها (تُحاط بحلقة ذهبية) — لا تُحذف من العرض */
 
+      /* [v2.78·إلزام الجوكر] افتتاح مجموعة تضم الجوكر المستبدَل = وفاء بالإلزام */
+      if (player.jokerMustPlaceId && allIds.has(player.jokerMustPlaceId)) player.jokerMustPlaceId = null;
+
       /* [V19.5] «الحرة تبقى حرة في دور الافتتاح فقط» — الإنزال الموالي للاعب
          المفتوح أصلاً لا يحمل وسم الحماية: يجوز فيه إدراج الجوكر وورقة المرموق
          المسحوبة فوراً (بما أن إنزالها ضمن المجموعة دفعة واحدة قانوني أصلاً) */
@@ -2318,6 +2336,18 @@ class RamiGame {
   _doDiscard(player, cardId) {
     if (this.roundManager.turnPhase !== 'WAITING_DISCARD') {
       return { success: false, error: 'يجب سحب ورقة أولاً من المجرف أو المرموق قبل رمي ورقة التخلص' };
+    }
+
+    /* [v2.78·قانون الجوكر — إلزام نفس الدور] رميٌ والجوكر المستبدَل ما يزال
+       في اليد؟ المحرك يضعه حتمياً في أول مجموعة قائمة تقبله (نفس التنفيذ عند
+       كل الأطراف عبر executeMove — نمط الاحتياط الحتمي نفسه المستعمل في
+       _doOpen فلا انحراف بين المتصفحين). صاحب القرار اليدوي ممنوع من بلوغ
+       هذه النقطة أصلاً (حارس ramiAction يذكّره ويوقفه)، فالوصول هنا يعني
+       مساراً آلياً (مهلة/لحاق) أو إعادة من عميل أقدم — والوضع الحتمي أصدق
+       تمثيلاً للقانون من تمرير الدور بجوكر محتفَظ به. لا موضع قط ⇒ رفض
+       والحرس الأعلى (تمرير الدور القسري في المسارات الآلية) يمنع التجمد. */
+    if (player.jokerMustPlaceId && !ramiAutoPlaceObligedJoker(this, player)) {
+      return { success: false, error: 'وضع الجوكر المستبدَل إلزامي قبل إنهاء الدور — أدرجه في مجموعة ضاهرة على الطاولة أو افتتح به مجموعة من يدك' };
     }
 
     // قاعدة سحب المهملات و«لا تور» الصارمة (طالاج فقط): لا يجوز سحب ورقة المهملات أو لا تور والاحتفاظ بها دون افتتاح أو إنهاء الشوط أو دمجها
@@ -2433,8 +2463,15 @@ class RamiGame {
   _doFinish(player, move) {
     const adapter = (typeof window !== 'undefined' && (window.RamiAdapter || window.RAMI_ADAPTER)) ? (window.RamiAdapter || window.RAMI_ADAPTER) : null;
 
+    /* [v2.78·قانون الجوكر] ورقة العزل لا يجوز أن تكون الجوكر المستبدَل —
+       الإلزام وضعه في مجموعة ضاهرة لا قلبها ورقة إنهاء */
+    const _jokerIsoBlocked = (isoCard) => !!(player.jokerMustPlaceId && isoCard && isoCard.id === player.jokerMustPlaceId && player.hand.some(c => c.id === player.jokerMustPlaceId));
+
     // الحالة 1: اليد فارغة أو تبقى ورقة واحدة فقط للرمي
     if (player.hand.length <= 1) {
+      if (player.hand.length === 1 && _jokerIsoBlocked(player.hand[0])) {
+        return { success: false, error: 'لا يجوز إنهاء الشوط بالجوكر المستبدَل ورقة عزل — ضعه في مجموعة ضاهرة أولاً (إلزام نفس الدور)' };
+      }
       let iso = null;
       if (player.hand.length === 1) {
         iso = player.hand.pop();
@@ -2474,6 +2511,8 @@ class RamiGame {
           }
         }
       }
+      /* [v2.78·إلزام الجوكر] دمج الجوكر المستبدَل في مجموعة ضمن الإنهاء = وفاء */
+      if (player.jokerMustPlaceId && !player.hand.some(c => c.id === player.jokerMustPlaceId)) player.jokerMustPlaceId = null;
       if (player.hand.length <= 1) {
         let iso = null;
         if (player.hand.length === 1) {
@@ -2510,6 +2549,11 @@ class RamiGame {
     const isoId = (move && move.isolateCardId != null) ? move.isolateCardId : (adapter ? adapter.isolateCardId : null);
     const effectiveIso = isoId || null;
     const handForMelds = effectiveIso ? player.hand.filter(c => c.id !== effectiveIso) : player.hand;
+
+    /* [v2.78·قانون الجوكر] العزل بالجوكر المستبدَل ممنوع — الإلزام وضعه في مجموعة */
+    if (effectiveIso && player.jokerMustPlaceId === effectiveIso && player.hand.some(c => c.id === player.jokerMustPlaceId)) {
+      return { success: false, error: 'لا يجوز عزل الجوكر المستبدَل كورقة إنهاء — ضعه في مجموعة ضاهرة أولاً (إلزام نفس الدور)' };
+    }
 
     const partitionMelds = partitionSelectedCards(handForMelds, this.rules);
     const slotCoverage = candidateMelds.reduce((sum, m) => sum + m.cards.length, 0);
@@ -3809,7 +3853,10 @@ class RamiUIAdapter {
           hl.innerHTML = '💡 ' + (_ramiT('rami.uxHint') || 'انقر ورقة لتحديدها · اسحبها وأفلتها في وسط الطاولة للرمي · انقر مرتين على المجرف/المرموق للسحب');
           hl.hidden = false;
           clearTimeout(this._hintT);
+          const selfHint = this;
           this._hintT = setTimeout(function () {
+            /* [v2.78] إلزام الجوكر قائم؟ السطر ملكه الآن — لا يُخفى */
+            if (selfHint && selfHint._jokerDutyOwnsHint) return;
             const h2 = document.getElementById('ramiHintLine');
             if (h2) h2.hidden = true;
           }, 12000);
@@ -4063,6 +4110,21 @@ class RamiUIAdapter {
                 const swapIdx = meld.findJokerSwapIndex(card, this.game.rules);
                 if (swapIdx !== -1) {
                   const jokerCard = meld.cards[swapIdx];
+                  /* [v2.78·إلزام نفس الدور] البوت لا يستبدل جوكراً إلا إن كان
+                     له موضع قائم على الطاولة يضعه فيه فوراً بعد الاستبدال —
+                     وإلا ترك الاستبدال (قرار طوعي) وبقي ضمن القانون بلا تعليق */
+                  let jokerHome = null;
+                  for (const m2 of rm.tableMelds) {
+                    if (m2 === meld) {
+                      /* المتتالية المُستبدَل فيها قد تقبل الجوكر امتداداً بعد خروجه */
+                      const sim = { type: m2.type, cards: m2.cards.slice() };
+                      sim.cards[swapIdx] = card;
+                      if (RamiExpertAI.canLayOff(this.game.rules, sim, jokerCard, botDrawn)) { jokerHome = { meld: m2, sim: true }; break; }
+                    } else if (RamiExpertAI.canLayOff(this.game.rules, m2, jokerCard, botDrawn)) {
+                      jokerHome = { meld: m2, sim: false }; break;
+                    }
+                  }
+                  if (!jokerHome) return false;
                   for (const pOwner of this.game.players) {
                     const mi = (pOwner.melds || []).indexOf(meld);
                     if (mi !== -1 && this.multiplayer) {
@@ -4074,6 +4136,21 @@ class RamiUIAdapter {
                   meld.cards[swapIdx] = card;
                   bot.hand.push(jokerCard);
                   onCardLaidOff(card.id);
+                  /* وضع الجوكر في موضعه فوراً (نفس الدور) + بثّ الإدراج */
+                  const home = jokerHome.meld;
+                  for (const pOwner of this.game.players) {
+                    const mi2 = (pOwner.melds || []).indexOf(home);
+                    if (mi2 !== -1 && this.multiplayer) {
+                      this._botEmit('addToMeld', { playerId: bot.id, targetPlayerId: pOwner.id, meldIndex: mi2, cardIdx: null, cardId: jokerCard.id });
+                      break;
+                    }
+                  }
+                  bot.removeCard(jokerCard.id);
+                  if (home.type === MELD_TYPE.SEQUENCE) {
+                    home.cards = ramiOrderSequenceCards(home.cards.concat([jokerCard]), c => this.game.rules.isWildCard(c));
+                  } else {
+                    home.cards.push(jokerCard);
+                  }
                   return true;
                 }
               }
@@ -4763,8 +4840,10 @@ class RamiUIAdapter {
         const card = slotCards[i];
         const isMelded = meldedIds.has(card.id);
         const selected = !isMelded && this.selectedCards.has(card.id);
-        const cls = (isMelded ? ' melded' : '') + (selected ? ' selected' : '');
-        const selBadge = selected ? '<span class="card-sel-badge">✓</span>' : '';
+        /* [v2.78·إلزام الجوكر] تمييز بصري للجوكر الملزَم بوضعه هذا الدور */
+        const obligedJoker = !isMelded && !!player.jokerMustPlaceId && card.id === player.jokerMustPlaceId;
+        const cls = (isMelded ? ' melded' : '') + (selected ? ' selected' : '') + (obligedJoker ? ' must-place-joker' : '');
+        const selBadge = selected ? '<span class="card-sel-badge">✓</span>' : (obligedJoker ? '<span class="card-sel-badge joker-duty" title="إلزام: ضع الجوكر في مجموعة ضاهرة هذا الدور">🃏</span>' : '');
         /* [V15/V28] الورقة المنزلة (حلقة ذهبية) قابلة للنقر كهدف للتركيب/الاستبدال، مع فهرسها
            لتمييز الورقة الصغيرة (يمين) عن الكبيرة (يسار) عند إدراج الجوكر */
         let meldOnClick = '';
@@ -4792,6 +4871,24 @@ class RamiUIAdapter {
 
     slotsContainer.innerHTML = slotsHtml;
     this._fitSlotOverlaps(slotsContainer);
+
+    /* [v2.78·إلزام الجوكر] سطر إرشاد ثابت أثناء وجوب وضع الجوكر المستبدَل —
+       يظهر أثناء سريان الإلزام ويختفي بوفائه، ولا يمسّ سطر الإرشاد العام */
+    try {
+      const hl = document.getElementById('ramiHintLine');
+      if (hl) {
+        const me = this.players()[0];
+        const duty = !!(me && me.jokerMustPlaceId && (me.hand || []).some(c => c.id === me.jokerMustPlaceId));
+        if (duty) {
+          const dutyHtml = '🃏 ' + (_ramiT('rami.jokerDuty') || 'إلزام هذا الدور: ضع الجوكر في مجموعة ضاهرة (طاولة قائمة تقبله أو افتتاح مجموعة به) قبل رمي ورقتك');
+          this._jokerDutyOwnsHint = true;
+          if (hl.innerHTML !== dutyHtml || hl.hidden) { hl.innerHTML = dutyHtml; hl.hidden = false; }
+        } else if (this._jokerDutyOwnsHint) {
+          this._jokerDutyOwnsHint = false;
+          if (!hl.hidden) hl.hidden = true;
+        }
+      }
+    } catch (e) {}
   }
 
   players() {
@@ -5277,6 +5374,81 @@ function cardFitsMeld(card, meld, rules, drawnCard, ownerMelds) {
   return rules.isValidMeld(temp, true);
 }
 
+/* ═══ [v2.78·قانون الجوكر — إلزام نفس الدور] ═══
+   توجيه المالك (توضيح القانون لا تغييره): اللاعب الذي استبدل جوكراً بالورقة
+   المعنية ملزم في نفس الدور بوضع الجوكر في مجموعة ضاهرة أو إدراجه مع مجموعة
+   وإظهارها — لا يجوز الاحتفاظ به لدور آخر مع أوراق اليد الباقية.
+   الدالتان هنا تحرسان هذا القانون في كل المسارات (يد محلية/إعادة شبكية/بوت). */
+
+/* هل للجوكر المستبدَل موضع قانوني في هذا الدور نفسه؟
+   (مجموعة قائمة تقبله — بما فيها المجموعة المستبدَل فيها بعد الاستبدال لأن
+   المتتالية قد تقبل الجوكر امتداداً — أو مجموعة جديدة تُفتتح به من اليد).
+   هذا الفحص المسبق يمنع استبدالاً لا يستطيع اللاعب الوفاء بإلزامه فيعلّق دوره. */
+function ramiJokerHasHomeThisTurn(game, player, swapCard, targetMeld, jokerSwapIdx, jokerCard) {
+  if (!game || !player || !jokerCard) return false;
+  const rules = game.rules;
+  const drawnCard = player.drawnDiscardCard || player.drawnLaTourCard || null;
+  /* المجموعة المستبدَل فيها بعد الاستبدال (محاكاة موضع الجوكر فيها) */
+  const postSwap = { type: targetMeld.type, cards: targetMeld.cards.slice(), _justOpened: targetMeld._justOpened };
+  postSwap.cards[jokerSwapIdx] = swapCard;
+  for (const pOwner of game.players) {
+    const melds = (pOwner.melds || []);
+    for (const m of melds) {
+      const cand = (m === targetMeld) ? postSwap : m;
+      if (cardFitsMeld(jokerCard, cand, rules, drawnCard, melds)) return true;
+    }
+  }
+  /* مجموعة جديدة تُفتتح بالجوكر من اليد (بعد خروج الورقة المستبدَلة ودخول الجوكر) */
+  const hand = player.hand.filter(c => c.id !== swapCard.id).concat([jokerCard]);
+  const others = hand.filter(c => c !== jokerCard);
+  for (let i = 0; i < others.length; i++) {
+    for (let j = i + 1; j < others.length; j++) {
+      const trio = [jokerCard, others[i], others[j]];
+      if (rules.isValidSet(trio, true) || rules.isValidSequence(trio, true)) return true;
+      for (let k = j + 1; k < others.length; k++) {
+        const quad = [jokerCard, others[i], others[j], others[k]];
+        if (rules.isValidSet(quad, true) || rules.isValidSequence(quad, true)) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/* وضع تلقائي حتمي للجوكر الملزَم به داخل المحرك (رمي ورث إلزاماً قائماً —
+   مسارات المهلة/اللحاق/إعادة تشغيل عملاء أقدم): أول مجموعة قائمة على الطاولة
+   تقبله. حتمي بالكامل فتتطابق كل الأطراف التي تنفذ نفس الحركة عبر executeMove.
+   يعيد true إن وُضع الجوكر (أو لم يعد في اليد أصلاً). */
+function ramiAutoPlaceObligedJoker(game, player) {
+  if (!game || !player || !player.jokerMustPlaceId) return true;
+  const joker = (player.hand || []).find(c => c.id === player.jokerMustPlaceId);
+  if (!joker) { player.jokerMustPlaceId = null; return true; }   /* وُضع في مسار آخر */
+  const rules = game.rules;
+  const drawnCard = player.drawnDiscardCard || player.drawnLaTourCard || null;
+  const melds = (game.roundManager && game.roundManager.tableMelds) || [];
+  for (const m of melds) {
+    if (!m || !m.cards) continue;
+    if (m.cards.some(c => rules.isWildCard(c))) continue;   /* مجموعة بجوكر لا تقبل جوكراً ثانياً */
+    const temp = m.cards.concat([joker]);
+    const fits = (m.type === MELD_TYPE.SET) ? rules.isValidSet(temp, true)
+      : (m.type === MELD_TYPE.SEQUENCE) ? rules.isValidSequence(temp, true) : false;
+    if (!fits) continue;
+    /* حراسة «الحرة تبقى حرة» (V19.2): جوكر هذا الدور لا يدخل مجموعة حرة أُنزلت الآن */
+    if (m._justOpened && !m.cards.some(c => rules.isWildCard(c))) continue;
+    /* تنفيذ الوضع: نفس ترتيب مسار الإدراج الشبكي */
+    player.removeCard(joker.id);
+    if (m.type === MELD_TYPE.SEQUENCE) {
+      m.cards = ramiOrderSequenceCards(m.cards.concat([joker]), c => rules.isWildCard(c));
+    } else {
+      m.cards.push(joker);
+    }
+    player.jokerMustPlaceId = null;
+    if (player.drawnDiscardCard && player.drawnDiscardCard.id === joker.id) player.drawnDiscardCard = null;
+    if (player.drawnLaTourCard && player.drawnLaTourCard.id === joker.id) player.drawnLaTourCard = null;
+    return true;
+  }
+  return false;   /* لا موضع — الاستبدال يُرجأ (الرمي يُرفض) */
+}
+
 /* نسخ سجل الأشواط والمخالفات إلى الحافظة */
 function ramiCopyHistory() {
   const game = RAMI_STATE || (typeof window !== 'undefined' ? window.RAMI_STATE : null);
@@ -5734,6 +5906,14 @@ function ramiAction(type, cardId) {
   if (type === 'discard') {
     if (game.roundManager.turnPhase === 'WAITING_DRAW' && player.hand.length < game.rules.playHandSize) {
       _ramiToast('يجب سحب ورقة أولاً من المجرف أو المرموق قبل رمي ورقة التخلص', 'warn');
+      return;
+    }
+    /* [v2.78·قانون الجوكر — إلزام نفس الدور] الجوكر المستبدَل يوضع في نفس
+       الدور: اللاعب يختار موضعه بنفسه (مجموعة قائمة تقبله أو افتتاح مجموعة
+       به من اليد) قبل أي رمي — الحارس هنا يمسك الحركة قبل بنائها فيرى
+       اللاعب رسالة واضحة بدل رفض المحرك الصامت */
+    if (player.jokerMustPlaceId && player.hand.some(c => c.id === player.jokerMustPlaceId)) {
+      _ramiToast('🃏 ' + (_ramiT('rami.jokerMustPlace') || 'وضع الجوكر إلزامي قبل الرمي — أدرجه في مجموعة ضاهرة على الطاولة أو افتتح به مجموعة من يدك'), 'warn');
       return;
     }
     let targetId = (cardId !== undefined && cardId !== null) ? cardId : null;
@@ -6337,9 +6517,18 @@ function ramiAddCardToTableMeld(targetPlayerId, meldIndex, cardIdx) {
   const jokerSwapIdx = (typeof targetMeld.findJokerSwapIndex === 'function') ? targetMeld.findJokerSwapIndex(card, game.rules) : -1;
   if (jokerSwapIdx !== -1) {
     const jokerCard = targetMeld.cards[jokerSwapIdx];
+    /* [v2.78·إلزام نفس الدور] لا استبدال إلا إن كان للجوكر موضع قانوني في هذا
+       الدور نفسه (مجموعة قائمة تقبله أو مجموعة تُفتتح به) — وإلا عُلّق دور
+       اللاعب بلا رمي. الاستبدال قرار طوعي فالرفض المسبق أعدل من التعليق */
+    if (typeof ramiJokerHasHomeThisTurn === 'function' &&
+        !ramiJokerHasHomeThisTurn(game, player, card, targetMeld, jokerSwapIdx, jokerCard)) {
+      _ramiToast('🃏 ' + (_ramiT('rami.jokerSwapBlocked') || 'لا يمكن الاستبدال الآن — لا مكان قانوني للجوكر في هذا الدور'), 'warn');
+      return;
+    }
     player.removeCard(cardId);
     targetMeld.cards[jokerSwapIdx] = card;
     player.hand.push(jokerCard); // استعادة الجوكر ليد اللاعب
+    player.jokerMustPlaceId = jokerCard.id;   /* [v2.78] وسم الإلزام: يُوضع قبل الرمي */
     
     if (player.drawnDiscardCard && player.drawnDiscardCard.id === cardId) player.drawnDiscardCard = null;
     if (player.drawnLaTourCard && player.drawnLaTourCard.id === cardId) player.drawnLaTourCard = null;
@@ -6349,7 +6538,7 @@ function ramiAddCardToTableMeld(targetPlayerId, meldIndex, cardIdx) {
     adapter.selectedCards.clear();
     if (adapter.multiplayer) adapter._netEmit('addToMeld', { playerId: player.id, targetPlayerId: targetPlayerId, meldIndex: meldIndex, cardIdx: jokerSwapIdx, cardId: cardId });
     if (typeof SND !== 'undefined' && SND.win) SND.win();
-    _ramiToast('🃏 تم استبدال الجوكر بنجاح وأخذه إلى يدك!', 'ok');
+    _ramiToast('🃏 ' + (_ramiT('rami.swapped') || 'استُبدل الجوكر وأُخذ ليدك') + ' — ⚠️ ' + (_ramiT('rami.jokerDuty') || 'إلزام هذا الدور: ضع الجوكر في مجموعة ضاهرة قبل رمي ورقتك'), 'ok');
     adapter._updateUI();
     return;
   }
@@ -6359,6 +6548,8 @@ function ramiAddCardToTableMeld(targetPlayerId, meldIndex, cardIdx) {
 
     if (isValid) {
     player.removeCard(cardId);
+    /* [v2.78·إلزام الجوكر] إدراج الجوكر الملزَم به في مجموعة = وفاء بالإلزام */
+    if (player.jokerMustPlaceId && player.jokerMustPlaceId === cardId) player.jokerMustPlaceId = null;
     /* [V28] إدراج مرتب: المتتالية تُرتَّب تصاعدياً.
        الجوكر: إن نُقر على الورقة الصغيرة (يمين) يوضع قبلها (مكان الورقة الأصغر)،
        وإن نُقر على الورقة الكبيرة (يسار) يوضع بعدها (مكان الورقة الأكبر). */
@@ -6959,6 +7150,7 @@ function _ramiNetApplyAddToMeld(g, data) {
     player.removeCard(data.cardId);
     targetMeld.cards[jokerSwapIdx] = card;
     player.hand.push(jokerCard);
+    player.jokerMustPlaceId = jokerCard.id;   /* [v2.78] إلزام نفس الدور — يُطبق عند كل الأطراف حتمياً */
     if (player.drawnDiscardCard && player.drawnDiscardCard.id === data.cardId) player.drawnDiscardCard = null;
     if (player.drawnLaTourCard && player.drawnLaTourCard.id === data.cardId) player.drawnLaTourCard = null;
     player.tookLaTour = false;
@@ -6966,6 +7158,8 @@ function _ramiNetApplyAddToMeld(g, data) {
   }
   /* 2) إضافة لتوسيع المجموعة */
   player.removeCard(data.cardId);
+  /* [v2.78·إلزام الجوكر] إدراج الجوكر الملزَم به = وفاء بالإلزام */
+  if (player.jokerMustPlaceId && player.jokerMustPlaceId === data.cardId) player.jokerMustPlaceId = null;
   if (targetMeld.type === MELD_TYPE.SEQUENCE) {
     var combined = targetMeld.cards.concat([card]);
     if (rules.isWildCard(card) && data.cardIdx !== undefined && data.cardIdx !== null) {

@@ -110,7 +110,22 @@ const REGISTRY = {
 
   /* ── حجر-ورقة-مقص (rp) وبينالتي (pn): ثنائيات الاختيار الأعمى ── */
   rp: game({ id: 'rp', seats: { min: 2, max: 2 }, actions: ['blind'] }),
-  pn: game({ id: 'pn', seats: { min: 2, max: 2 }, actions: ['blind'] })
+  pn: game({ id: 'pn', seats: { min: 2, max: 2 }, actions: ['blind'] }),
+
+  /* ── [v2.78·توجيه المالك] غرفة التحكيم المباشر (arb): ليست لعبة طاولة بل
+         مباراة خارجية (PES/eFootball وأمثالها) وجهًا لوجه — رهانها يسلك عقد
+         مال الغرف نفسه (إيداع عند البدء، والأدمن يحسم بالبث المزدوج عبر
+         arbResolve/arbCancel = نواة التسوية المعتمدة). لا محرك طاولة ولا
+         حركات لعب إطلاقاً (قائمة حركات فارغة حصراً) ولا room_state خاصة.
+         مدخلها تبويب خاص في قائمة الألعاب بإعدادات الغرفة ── */
+  arb: game({
+    id: 'arb',
+    seats: { min: 2, max: 2 },
+    actions: [],
+    stateKeys: [],
+    stateOwner: 'driver',
+    settle: 'seat'
+  })
 };
 
 /* ═════════════ واجهة السجل ═════════════ */
@@ -192,7 +207,11 @@ module.exports = {
 /* [Self-test] تشغيل مباشر: node games/registry.js — يتحقق من الثوابت الحرجة */
 if (require.main === module) {
   const assert = require('assert');
-  assert.strictEqual(roomGameIds().length, 17, '17 لعبة في السجل');
+  assert.strictEqual(roomGameIds().length, 18, '17 لعبة + غرفة التحكيم في السجل');
+  assert.strictEqual(resolveSeats('arb', 9).max_players, 2, '[v2.78] التحكيم ثنائي حصراً (وجه لوجه)');
+  assert.strictEqual(actionAllowed('arb', 'rmove'), false, '[v2.78] التحكيم: لا حركات لعب إطلاقاً');
+  assert.strictEqual(enoughToStart('arb', 2), true, '[v2.78] تحكيم بمقعدين يبدأ');
+  assert.strictEqual(enoughToStart('arb', 3), false, '[v2.78] تحكيم بثلاثة لا يبدأ');
   assert.strictEqual(getGame('bl').exactSeats, null, '[v2.72] البلوت لم يعد حتمي المقاعد');
   assert.deepStrictEqual(resolveSeats('bl', 2).max_players, 2, '[v2.72] بلوت بمقعدين يُقبل');
   assert.deepStrictEqual(resolveSeats('bl', 3).max_players, 3, '[v2.72] بلوت بثلاثة يُقبل');
@@ -214,5 +233,5 @@ if (require.main === module) {
   assert.strictEqual(enoughToStart('bl', 3), true, '[v2.72] بلوت ثلاثي يبدأ');
   assert.strictEqual(enoughToStart('bl', 4), true);
   assert.strictEqual(enoughToStart('bl', 5), false, 'بلوت بخمسة لا يبدأ');
-  console.log('games/registry.js — self-test 21/21 ✓');
+  console.log('games/registry.js — self-test 25/25 ✓');
 }

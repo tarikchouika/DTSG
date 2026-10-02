@@ -60,7 +60,24 @@ async function openAs(browser, cookie) {
 
 (async function main() {
   const { chromium } = require('playwright');
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  /* [v2.78] مطلق احتياطي: كاش المتصفحات أحدث من مكتبة playwright 1.49 —
+     نفس نمط v274/v277 (مسارات كاش كروميوم المحلية) */
+  let browser = null;
+  try { browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] }); } catch (e) {}
+  if (!browser) {
+    const fs278 = require('fs');
+    for (const v of ['1243', '1200']) {
+      for (const p of [
+        '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+        '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome'
+      ]) {
+        if (fs278.existsSync(p)) {
+          try { browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], executablePath: p }); } catch (e) {}
+        }
+      }
+    }
+  }
+  if (!browser) { console.error('تعذر إطلاق متصفح'); process.exit(2); }
 
   const mk = async (name) => {
     await api('POST', '/api/register', { username: name + tag, password: 'pw123456' });

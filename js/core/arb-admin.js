@@ -332,6 +332,8 @@
   }
 
   function gameName(gid) {
+    /* [v2.78·تحكيم] غرف المعرّف arb (تبويب القائمة) — تسمية التحكيم الموحدة */
+    if (gid === 'arb') return (typeof T === 'function' && T('rs.arbRoomName')) || 'غرفة تحكيم مباشر';
     try {
       if (root.GAMES) {
         for (var i = 0; i < root.GAMES.length; i++) if (root.GAMES[i].id === gid) return root.gname ? gname(root.GAMES[i]) : (root.GAMES[i].n && root.GAMES[i].n[0]) || gid;

@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.77.0';
+window.DTSG_BUILD = 'v2.78.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -211,7 +211,11 @@ function renderRooms() {
     const gmap = {};
     GAMES.forEach(function (g) { gmap[g.id] = g; });
     el.innerHTML = rooms.map(function (rm) {
-      const g = gmap[rm.game_id] || { em: '🎮', n: rm.game_id };
+      /* [v2.78·تحكيم] بطاقة غرفة التحكيم (معرّف arb): تسمية ورمز التحكيم —
+         ليست لعبة كتالوج بل مدخل المباريات الخارجية */
+      const isArbEntry = (rm.game_id === 'arb');
+      const g = isArbEntry ? { em: '📺', arbLabel: true } : (gmap[rm.game_id] || { em: '🎮', n: rm.game_id });
+      const gLabel = isArbEntry ? ((typeof Rooms !== 'undefined' && Rooms.arbRoomLabel) ? Rooms.arbRoomLabel() : 'غرفة تحكيم مباشر — مباراة خارجية') : gname(g);
       const statusSpan = rm.status === 'playing'
         ? '<span class="spill bad">🔴 ' + T('rooms.playing') + '</span>'
         : '<span class="spill ok">⏳ ' + T('rooms.waiting') + '</span>';
@@ -224,9 +228,10 @@ function renderRooms() {
       }
       return '<div class="card">' +
         '<div style="font-size:1.6rem;text-align:center">' + g.em + '</div>' +
-        '<b>' + esc(gname(g)) + '</b>' +
-        /* [v2.77·تحكيم] شارة غرف التحكيم المباشر في القائمة العامة */
-        (rm.arb ? '<div style="font-size:.72rem;color:var(--gold,#F5C518);font-weight:700">📺 ' + (T('rs.arb') || 'غرفة تحكيم مباشر') + '</div>' : '') +
+        '<b>' + esc(gLabel) + '</b>' +
+        /* [v2.77·تحكيم] شارة غرف التحكيم المباشر في القائمة العامة
+           [v2.78] يغطي علم غرف v2.77 ومعرّف arb الجديد معاً */
+        ((rm.arb || isArbEntry) ? '<div style="font-size:.72rem;color:var(--gold,#F5C518);font-weight:700">📺 ' + (T('rs.arb') || 'غرفة تحكيم مباشر') + '</div>' : '') +
         '<div class="mrow"><span>' + T('rooms.host') + '</span><b>' + esc(rm.owner_name) + '</b></div>' +
         '<div class="mrow"><span>' + T('rooms.players') + '</span><b>' + rm.players_count + '/' + rm.max_players + '</b></div>' +
         '<div class="mrow"><span>' + T('rooms.code') + '</span><b dir="ltr">' + esc(rm.code) + '</b></div>' +

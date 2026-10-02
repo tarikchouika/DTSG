@@ -4,6 +4,24 @@ process.chdir(require('path').resolve(__dirname, '..'));
    (ب) دور اللاعب المنقطع يتقدّم (السائق يلعب آلياً عنه بعد المهلة).
    (ج) انقطاع المالك/السائق → إعادة تعيين السائق للاعب المتبقي. */
 const { chromium } = require('playwright');
+/* [v2.78] مطلق احتياطي: كاش المتصفحات أحدث من مكتبة playwright 1.49 (نمط v274/v277) */
+async function launchBw(extraArgs) {
+  const _fs = require('fs');
+  const _args = (extraArgs || []).concat(['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']);
+  try { return await chromium.launch({ headless: true, args: _args }); } catch (e) {}
+  for (const v of ['1243', '1200']) {
+    for (const p of [
+      '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+      '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome'
+    ]) {
+      if (_fs.existsSync(p)) {
+        try { return await chromium.launch({ headless: true, args: _args, executablePath: p }); } catch (e) {}
+      }
+    }
+  }
+  throw new Error('تعذر إطلاق متصفح — ثبّت كاش كروميوم أو حدّث playwright');
+}
+
 /* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
 const BASE = require('./_safe_base.js').BASE_SLASH;
 
@@ -88,7 +106,7 @@ const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
   /* ═══ (أ) إعادة الاتصال تعيد بناء الحالة كاملةً ═══ */
   console.log('\n[Res-A] إعادة الاتصال بعد الإغلاق تعيد بناء الجولة الجارية');
   {
-    const b1 = await chromium.launch();
+    const b1 = await launchBw();
     const ctxA = b1.newContext(), ctxB = b1.newContext();
     const A = await setup(await ctxA, 'ra' + U + 'a'), B = await setup(await ctxB, 'rb' + U + 'a');
     await startRoom(A, B, ctxA);
@@ -155,7 +173,7 @@ const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
   /* ═══ (ب) دور اللاعب المنقطع يتقدّم (السائق يلعب آلياً) ═══ */
   console.log('\n[Res-B] دور اللاعب المنقطع لا يتجمّد — السائق يلعب عنه');
   {
-    const b2 = await chromium.launch();
+    const b2 = await launchBw();
     const ctxA = b2.newContext(), ctxB = b2.newContext();
     const A = await setup(await ctxA, 'ta' + U + 'b'), B = await setup(await ctxB, 'tb' + U + 'b');
     await startRoom(A, B, ctxA);
@@ -207,7 +225,7 @@ const ok = (c, m) => console.log((c ? '  ✓ ' : '  ✗ ') + m);
   /* ═══ (ج) انقطاع المالك/السائق → إعادة تعيين السائق ═══ */
   console.log('\n[Res-C] انقطاع المالك → إعادة تعيين السائق للاعب المتبقي');
   {
-    const b3 = await chromium.launch();
+    const b3 = await launchBw();
     const ctxA = b3.newContext(), ctxB = b3.newContext();
     const A = await setup(await ctxA, 'oa' + U + 'c'), B = await setup(await ctxB, 'ob' + U + 'c');
     await startRoom(A, B, ctxA);

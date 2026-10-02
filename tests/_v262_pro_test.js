@@ -5,6 +5,24 @@ process.chdir(require('path').resolve(__dirname, '..'));
    3) Penalty: تسديدة كاملة (صافرة → طيران → لافتة نتيجة) بلا أخطاء + عناصر الاستاد
    4) نقاط cf/hl المحذوفة = 404 */
 const { chromium } = require('playwright');
+/* [v2.78] مطلق احتياطي: كاش المتصفحات أحدث من مكتبة playwright 1.49 (نمط v274/v277) */
+async function launchBw(extraArgs) {
+  const _fs = require('fs');
+  const _args = (extraArgs || []).concat(['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']);
+  try { return await chromium.launch({ headless: true, args: _args }); } catch (e) {}
+  for (const v of ['1243', '1200']) {
+    for (const p of [
+      '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+      '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome'
+    ]) {
+      if (_fs.existsSync(p)) {
+        try { return await chromium.launch({ headless: true, args: _args, executablePath: p }); } catch (e) {}
+      }
+    }
+  }
+  throw new Error('تعذر إطلاق متصفح — ثبّت كاش كروميوم أو حدّث playwright');
+}
+
 /* [v2.69.1] عنوان آمن: يحترم QA_BASE ويرفض الكتابة على خادم المنصة الحيّ */
 const BASE = require('./_safe_base.js').BASE_SLASH;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -20,7 +38,7 @@ let pass = 0, fail = 0; const fails = [];
 const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.log((c ? '  ✅ ' : '  ❌ ') + n); };
 
 (async () => {
-  const b = await chromium.launch({ args: ['--no-sandbox'] });
+  const b = await launchBw();
   const ctx = await b.newContext({ viewport: { width: 1280, height: 800 } });
   await ctx.request.post(BASE + 'api/register', { data: { username: 'v262pro' + Date.now().toString().slice(-6), password: 'pw123456' } });
   const p = await ctx.newPage();
@@ -157,7 +175,7 @@ const ok = (c, n) => { if (c) pass++; else { fail++; fails.push(n); } console.lo
   ok(fill.gw >= 580 && fill.gx >= -2 && fill.gxr <= fill.iw + 2, 'goal centered with comfortable size on desktop (' + fill.gw + 'px of ' + fill.iw + ')');
   /* موبايل بورتريه: المرمى يملأ من الحد الأيمن للأيسر (مواصفة المستخدم) — سياق منفصل */
   {
-    const bm = await chromium.launch({ args: ['--no-sandbox'] });
+    const bm = await launchBw();
     const ctxm = await bm.newContext({ viewport: { width: 390, height: 780, isMobile: true, hasTouch: true }, isMobile: true, hasTouch: true });
     await ctxm.request.post(BASE + 'api/register', { data: { username: 'v263m' + Date.now().toString().slice(-6), password: 'pw123456' } });
     const pm = await ctxm.newPage();

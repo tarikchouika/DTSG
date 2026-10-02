@@ -19,7 +19,24 @@ async function setup(ctx, u) {
 }
 
 (async () => {
-  const b = await chromium.launch();
+  /* [v2.78] مطلق احتياطي: كاش المتصفحات أحدث من مكتبة playwright 1.49 —
+     نفس نمط v274/v277 (مسارات كاش كروميوم المحلية) */
+  let b = null;
+  try { b = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'] }); } catch (e) {}
+  if (!b) {
+    const fs278 = require('fs');
+    for (const v of ['1243', '1200']) {
+      for (const p of [
+        '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+        '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome'
+      ]) {
+        if (fs278.existsSync(p)) {
+          try { b = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'], executablePath: p }); } catch (e) {}
+        }
+      }
+    }
+  }
+  if (!b) { console.error('تعذر إطلاق متصفح'); process.exit(2); }
   const ctx = await b.newContext({ viewport: { width: 390, height: 780 }, isMobile: true, hasTouch: true });
   const page = await setup(ctx, 'dmst' + Date.now().toString().slice(-5));
   const R = [];

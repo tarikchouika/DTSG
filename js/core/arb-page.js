@@ -52,6 +52,8 @@
     return !!(u && u.role && u.role !== 'user');
   }
   function gameName(gid) {
+    /* [v2.78·تحكيم] غرف المعرّف arb (تبويب القائمة) — تسمية التحكيم الموحدة */
+    if (gid === 'arb') return (typeof T === 'function' && T('rs.arbRoomName')) || 'غرفة تحكيم مباشر';
     try {
       if (root.GAMES) {
         for (var i = 0; i < root.GAMES.length; i++) {
@@ -217,6 +219,18 @@
     renderMyChip();
   }
 
+  /* هل يدعم هذا السياق مشاركة الشاشة؟ (تفويض لتشخيص عميل البث — v2.78) */
+  function shareSupport() {
+    return (typeof ARB !== 'undefined' && ARB && ARB.support) ? ARB.support() : { ok: true };
+  }
+  function shareSupportToast() {
+    var s = shareSupport();
+    if (s.ok) return null;
+    if (s.reason === 'insecure') return T('arb.shareInsecure') || 'مشاركة الشاشة تتطلب اتصالاً مشفرًا HTTPS — افتح المنصة عبر رابطها الرسمي الآمن ثم أعد المحاولة';
+    if (s.reason === 'mobile') return T('arb.shareMobile') || 'متصفح الهاتف لا يدعم مشاركة الشاشة — افتح المنصة من حاسوب بكروم أو إيدج أو فايرفوكس';
+    return T('arb.shareOld') || 'هذا المتصفح قديم ولا يوفر واجهة البث — حدّثه إلى أحدث إصدار ثم أعد المحاولة';
+  }
+
   function mineCardHtml() {
     var u = me();
     var mine = st.mine;
@@ -247,9 +261,12 @@
           '</div>';
         }).join('') + '</div>' +
         '<div class="arb-row">' +
-          '<button type="button" class="btn half gold" id="arbShareBtn" onclick="ARB_PAGE.share()">' + esc(T('arb.start') || '📺 مشاركة الشاشة / بدء البث') + '</button>' +
+          (shareSupport().ok
+            ? '<button type="button" class="btn half gold" id="arbShareBtn" onclick="ARB_PAGE.share()">' + esc(T('arb.start') || '📺 مشاركة الشاشة / بدء البث') + '</button>'
+            : '<button type="button" class="btn half" id="arbShareBtn" title="' + esc(shareSupportToast() || '') + '" onclick="ARB_PAGE.share()">⚠️ ' + esc(T('arb.shareBlocked') || 'مشاركة الشاشة غير متاحة هنا') + '</button>') +
           '<span id="arbPageChip"></span>' +
         '</div>' +
+        (shareSupport().ok ? '' : '<div class="note" style="font-size:.72rem;text-align:start">ℹ️ ' + esc(shareSupportToast() || '') + '</div>') +
         '<div class="note arb-privacy">🔒 ' + esc(T('arb.rule2') || 'الفيديو اتصال مباشر مع لوحة التحكيم وحدها — لا يمر بالخوادم ولا يُسجَّل') + '</div>' +
       '</div>';
     }

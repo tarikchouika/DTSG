@@ -317,8 +317,9 @@ function createRoomManager(gameId, io, ctx) {
             bet: r.bet || 0, room_type: r.room_type || null,
             expires_at: r.expires_at != null ? Number(r.expires_at) : null,
             visibility: r.visibility === 'private' ? 'private' : 'public',
-            /* [v2.77·تحكيم] شارة غرف التحكيم في القائمة العامة */
-            arb: !!(r.game_opts && r.game_opts.arb)
+            /* [v2.77·تحكيم] شارة غرف التحكيم في القائمة العامة
+               [v2.78] يغطي معرّف arb الجديد (تبويب القائمة) كما العلم القائم */
+            arb: !!(r.game_opts && r.game_opts.arb) || r.game_id === 'arb'
           });
         }
       });

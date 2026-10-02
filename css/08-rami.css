@@ -918,3 +918,22 @@ body[data-game="rm"] #pg-game:-webkit-full-screen #gamePageBody {
   padding: 0 !important;
   background: transparent !important;
 }
+
+/* ═══ [v2.78·إلزام الجوكر] تمييز الجوكر المستبدَل الملزَم بوضعه في نفس الدور ═══
+   حلقة ذهبية نابضة + شارة 🃏 — تُرى فوراً أي ورقة اليد مطلوبة قبل الرمي */
+@keyframes ramiJokerDutyPulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(255, 210, 63, 0.75), inset 0 0 5px rgba(255, 210, 63, 0.3); }
+  50% { box-shadow: 0 0 22px rgba(255, 210, 63, 1), inset 0 0 9px rgba(255, 210, 63, 0.5); }
+}
+.rami-card-wrap.must-place-joker .rcard-vector {
+  border: 2px solid #FFD23F;
+  animation: ramiJokerDutyPulse 1.15s ease-in-out infinite;
+}
+.card-sel-badge.joker-duty {
+  background: #FFD23F;
+  font-size: 0.3em;
+}
+/* احترام تقليل الحركة (نوكيا والمتصفحات القديمة): نبض ألوان ثابت بلا حركة */
+@media (prefers-reduced-motion: reduce) {
+  .rami-card-wrap.must-place-joker .rcard-vector { animation: none; box-shadow: 0 0 14px rgba(255, 210, 63, 0.9); }
+}

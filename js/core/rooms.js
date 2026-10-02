@@ -64,9 +64,18 @@
   var Rooms = {
     state: null,
     /* الألعاب المدعومة للغرف: id -> أقصى عدد لاعبين */
-    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 5, rd: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين + [BJ-ghost] بلاك جاك أُزيلت من المنصة — حُذف خيارها الوهمي من القائمة */
+    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 5, rd: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2, arb: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين + [BJ-ghost] بلاك جاك أُزيلت من المنصة — حُذف خيارها الوهمي من القائمة + [v2.78] غرفة التحكيم المباشر تبويباً خاصاً في القائمة (مباراة خارجية وجهًا لوجه) */
 
     isGameSupported: function (id) { return !!Rooms.roomGameIds[id]; },
+    /* [v2.78·تحكيم] غرفة التحكيم — معرّف مزيف في قائمة الألعاب (تبويب خاص):
+       ليست لعبة طاولة بل مباراة خارجية؛ المفتاح هنا يوحّد كل فحوص الإعداد */
+    isArbRoom: function (room) {
+      return !!((room && room.game_opts && room.game_opts.arb) || (room && room.game_id === 'arb'));
+    },
+    /* [v2.78·تحكيم] تسمية موحدة لمدخل التحكيم في القوائم والبطاقات */
+    arbRoomLabel: function () {
+      return (typeof T === 'function' && T('rs.arbRoomName')) || 'غرفة تحكيم مباشر — مباراة خارجية';
+    },
     /* [v2.68·إصلاح جوهري] طلب إعادة بناء الجولة: جسر WS إن وُجد، وإلا فتح
        قناة SSE مرة واحدة فقط — الخادم يرسل hello + room:replay فور اتصالها.
        كان المسار الاحتياطي ينادي reopenSse التي تنادي requestReplay مجدداً
@@ -230,8 +239,9 @@
         /* [v2.77·تحكيم] غرفة التحكيم: لا صفحة لعبة تُفتح ولا مودال يُغلق —
            المباراة خارجية (PES/eFootball وأمثالها): مودال الغرفة هو مركز
            التشغيل (صندوق بث التحكيم + الرمز والرهان)، ويشارك اللاعبان
-           شاشتيهما من هنا أو من صفحة التحكيم #arb ويحسمها الأدمن */
-        if (room.game_opts && room.game_opts.arb) {
+           شاشتيهما من هنا أو من صفحة التحكيم #arb ويحسمها الأدمن.
+           [v2.78] يغطي معرّف الغرفة arb نفسه (تبويب القائمة) كما العلم القائم */
+        if (Rooms.isArbRoom(room)) {
           if (typeof toast === 'function') {
             toast('📺 ' + (T('rs.arbStarted') || 'بدأت جولة التحكيم — شارك شاشتك من هنا أو من صفحة التحكيم المباشر، والأدمن يشاهد ويحسم'), 'ok');
           }
@@ -668,14 +678,14 @@
     _initSettings: function () {
       if (Rooms._settingsBound) return;
       Rooms._settingsBound = true;
-      /* [F4] تعبئة قائمة اللعبة بالألعاب المدعومة في الغرف (لا تفتح فارغة) */
+      /* [F4] تعبئة قائمة اللعبة بالألعاب المدعومة في الغرف (لا تفتح فارغة) —
+         [v2.78·تحكيم] تبويب «غرفة تحكيم مباشر» أول القائمة (مدخل سلس للمباريات الخارجية) */
       var sel = document.getElementById('rsGame');
       if (sel && !sel.options.length) {
         var ids = Object.keys(Rooms.roomGameIds);
+        if (ids.indexOf('arb') !== -1) { ids.splice(ids.indexOf('arb'), 1); ids.unshift('arb'); }
         sel.innerHTML = ids.map(function (id) {
-          var g = (typeof GAMES !== 'undefined') && GAMES.filter(function (x) { return x.id === id; })[0];
-          var label = g ? (g.em + ' ' + (typeof gname === 'function' ? gname(g) : g.n[0])) : id;
-          return '<option value="' + id + '">' + esc(label) + '</option>';
+          return '<option value="' + id + '">' + esc(Rooms._gameOptionLabel(id)) + '</option>';
         }).join('');
       }
       var gear = document.getElementById('roomGearBtn');
@@ -691,12 +701,20 @@
         }
       });
     },
+    /* [v2.78·تحكيم] تسمية مدخل قائمة الألعاب — التحكيم تبويب خاص أول القائمة */
+    _gameOptionLabel: function (id) {
+      if (id === 'arb') return '📺 ' + Rooms.arbRoomLabel();
+      var g = (typeof GAMES !== 'undefined') && GAMES.filter(function (x) { return x.id === id; })[0];
+      return g ? (g.em + ' ' + (typeof gname === 'function' ? gname(g) : g.n[0])) : id;
+    },
     /* [RS-GameOpts] خانات إعدادات اللعبة المختارة داخل مودال إعدادات الغرفة.
        تُطبَّق على حالة المالك محلياً — هو من يبثّ التهيئة (init/cfg) للجميع عند البدء. */
     _gameOptsDefs: function (gid) {
       var sec = function (v) { return v + ' ' + (T('dama.seconds') || 'ث'); };
       var timer = { key: 'timer', label: T('dama.timer') || 'مؤقت الدور', opts: [[30, sec(30)], [60, sec(60)], [120, sec(120)], [180, sec(180)], [300, sec(300)]], def: 60 };
       var timer90 = { key: 'timer', label: T('dama.timer') || 'مؤقت الدور', opts: [[30, sec(30)], [60, sec(60)], [90, sec(90)], [120, sec(120)], [180, sec(180)], [300, sec(300)]], def: 90 };
+      /* [v2.78·تحكيم] لا خانات لعبة — بطاقة شرح في _renderGameOpts */
+      if (gid === 'arb') return [];
       if (gid === 'rm') return [
         { key: 'mode', label: T('rami.roundType') || 'نوع الجولة', opts: [['talaj', T('rami.talaj') || 'طالاج'], ['simple', T('rami.simple') || 'سامبل']], def: 'talaj' },
         /* [Targets-Match 2026-09-13] أهداف مطابقة لنافذة اللعبة حرفياً (rami._targetOptions):
@@ -783,6 +801,17 @@
     _renderGameOpts: function (gid) {
       var box = document.getElementById('rsGameOpts');
       if (!box) return;
+      /* [v2.78·تحكيم] تبويب التحكيم بديل قائمة الألعاب نفسها: لا خانات لعبة
+         بل بطاقة شرح للمباراة الخارجية، ومفتاح الخانة القديم (rsArb) يختفي
+         لأن التحديد صار بمجرد اختيار التبويب — التبويب والمفتاح لا يجتمعان */
+      var arbRow = document.getElementById('rsArbRow');
+      if (arbRow) arbRow.style.display = (gid === 'arb') ? 'none' : 'flex';
+      if (gid === 'arb') {
+        box.innerHTML = '<div class="note arb-room-note" style="text-align:start;line-height:1.8">📺 <b>' + esc(Rooms.arbRoomLabel()) + '</b><br>' +
+          esc(T('rs.arbTabHint') || 'مباراة خارجية وجهًا لوجه (PES/eFootball وأمثالها): يودَع الرهان عند بدء جولة التحكيم، يشارك اللاعبان شاشتيهما، والأدمن يشاهد المباشرة المزدوجة ويحسم النتيجة فتُوزّع الجرة فوراً (الفائز يستلم الجرة − 5%).') +
+          '</div>';
+        return;
+      }
       var defs = Rooms._gameOptsDefs(gid).slice();
       /* [v2.70] حفظ القيم الحالية قبل أي إعادة بناء — إعادة بناء القائمة كانت
          تُرجع كل خانة لقيمتها الافتراضية (def) فيضيع اختيار المستخدم:
@@ -934,13 +963,13 @@
       /* [F4] قيمة افتراضية (اللعبة الحالية أو رامي) كي لا تفتح القائمة فارغة أبداً */
       if (game) {
         /* [Policy 2026-09-16] تُعاد تعبئة القائمة عند كل فتح — الألعاب المعطلة
-           من السوبر أدمن تختفي من نافذة إعداد الغرفة */
+           من السوبر أدمن تختفي من نافذة إعداد الغرفة — [v2.78·تحكيم] تبويب
+           التحكيم أول القائمة (لا يخضع للتعطيل — ليس لعبة) */
         var dis = (typeof DISABLED !== 'undefined') ? DISABLED : {};
-        var ids = Object.keys(Rooms.roomGameIds).filter(function (id) { return !dis[id]; });
+        var ids = Object.keys(Rooms.roomGameIds).filter(function (id) { return (id === 'arb') || !dis[id]; });
+        if (ids.indexOf('arb') !== -1) { ids.splice(ids.indexOf('arb'), 1); ids.unshift('arb'); }
         game.innerHTML = ids.map(function (id) {
-          var g = (typeof GAMES !== 'undefined') && GAMES.filter(function (x) { return x.id === id; })[0];
-          var label = g ? (g.em + ' ' + (typeof gname === 'function' ? gname(g) : g.n[0])) : id;
-          return '<option value="' + id + '">' + esc(label) + '</option>';
+          return '<option value="' + id + '">' + esc(Rooms._gameOptionLabel(id)) + '</option>';
         }).join('');
         var def = window._currentGameId || (Rooms.state && Rooms.state.game_id) || 'rm';
         if (dis[def]) def = ids[0] || 'rm';
@@ -1000,10 +1029,14 @@
       var gOpts = Rooms._collectGameOpts(gid);
       var mEl = document.getElementById('rsOpt_maxp');
       var maxp = mEl ? (parseInt(mEl.value, 10) || 0) : 0;
+      /* [v2.78·تحكيم] تبويب التحكيم في قائمة الألعاب: المعرّف arb والمقعدان
+         2 (وجهًا لوجه) — العلم في game_opts.arb يبقى (توافق كل فحوص v2.77
+         القائمة) والخادم يثبّت المقاعد وفق السجل (exact 2) */
+      if (gid === 'arb') { gOpts = { arb: 1 }; maxp = 2; }
       /* [v2.77·تحكيم] غرفة تحكيم مباشر: علم في game_opts — جولة الغرفة
          رهان خارجي يديره الأدمن بالبث المزدوج (لا تُفتح صفحة لعبة عند البدء) */
       var arbEl = document.getElementById('rsArb');
-      if (arbEl && arbEl.checked) gOpts.arb = 1;
+      if (arbEl && arbEl.checked && gid !== 'arb') gOpts.arb = 1;
       Rooms._applyGameOpts(gid, gOpts);
       /* [Rooms-unified] room_type ثابت 'percentage' — الرسم 5% على كل جولة (لا اختيار في الواجهة) */
       Rooms.createRoom(gid, { room_type: 'percentage', bet: betVal, visibility: visVal, game_opts: gOpts, max_players: maxp }).then(function () {
@@ -1438,8 +1471,9 @@
         if (isOwner) {
           /* [Policy 2026-09-16] بلا زر «أضف آلياً» — الغرف حصرية للاعبين البشر */
           /* [v2.77·تحكيم] غرفة التحكيم: البدء هو بدء جولة التحكيم (مباراة
-             خارجية ببث الشاشات وحسم الأدمن) — نفس المسار المالي تماماً */
-          var isArbRoom = !!(st.game_opts && st.game_opts.arb);
+             خارجية ببث الشاشات وحسم الأدمن) — نفس المسار المالي تماماً.
+             [v2.78] يغطي معرّف arb كالعلم القائم (تبويب القائمة) */
+          var isArbRoom = Rooms.isArbRoom(st);
           btns += '<button class="btn half gold" onclick="Rooms.startGame()" ' +
             (allReady ? '' : 'disabled') + '>' +
             (isArbRoom ? ('🎬 ' + (T('rs.arbStart') || 'بدء جولة التحكيم')) : T('ui.roomStart')) + '</button>';
@@ -1461,7 +1495,7 @@
         btns += '<div class="ctext" style="padding:8px 0;text-align:center">▶ ' + T('ui.roomPlaying') + '</div>';
         /* [RoomFlow] عودة سريعة لطاولة اللعب — [v2.77·تحكيم] غرف التحكيم:
            العودة لصفحة التحكيم المباشر (لا طاولة لعبة في مباراة خارجية) */
-        if (st.game_opts && st.game_opts.arb) {
+        if (Rooms.isArbRoom(st)) {
           btns += '<button class="btn half gold" onclick="Rooms.closeModal(); if (typeof nav === \'function\') nav(\'arb\');">📺 ' + (T('rs.arbGoPage') || 'مركز التحكيم المباشر') + '</button>';
         } else {
           btns += '<button class="btn half gold" onclick="Rooms.closeModal(); if (typeof openGame === \'function\' && Rooms.state) openGame(Rooms.state.game_id);">🎮 ' + (T('ui.roomBackToGame') || 'العودة للعبة') + '</button>';
@@ -1490,7 +1524,7 @@
         /* ── نوع الغرفة + الرهان (يُقتطع عند بدء الجولة) ── */
         '<div style="text-align:center;margin-bottom:8px">' +
           /* [v2.77·تحكيم] شارة غرفة التحكيم — مباراة خارجية بإشراف بشري */
-          ((st.game_opts && st.game_opts.arb)
+          (Rooms.isArbRoom(st)
             ? '<div class="ctext2" style="color:var(--gold,#F5C518)">📺 ' + (T('rs.arbBadge') || 'غرفة تحكيم مباشر — بث الشاشات وحسم الأدمن') + '</div>'
             : '') +
           '<div class="ctext2">' + T('rm.bet') + ': ' + fmt(st.bet || 0) + '</div>' +
