@@ -15,8 +15,12 @@
  *
  * التشغيل (بنفس الـnode الذي يخدم المنصة — يلزم node:sqlite ⇒ Node ≥22):
  *   node tests/_ops_guards_test.js
- * إن لم يوجد خادم على 127.0.0.1:3000 ينشئ نسخة QA مؤقتة من المستودع ويشغّلها،
- * ثم يوقفها عند الانتهاء. فحص البواب الخلفي (L23) يشغّل نسخة ثانية بلا DM_TEST_MODE.
+ * [2026-10-03·تدقيق النشر] الافتراضي كان 3000 — وهو **خادم المنصة الحيّ
+ * وقاعدتها المالية**: الفحص الحيّ L2-L27 *يعدّل* (يدخل الأدمن والسوبر، يفعّل
+ * 2FA، يبذر رهاناً، يختبر حدّ القسائم) فكان التشغيل بلا متغيّر ينفّذ ذلك على
+ * الإنتاج. الافتراضي صار منفذاً معزولاً (3974) فيُنشئ الاختبار نسخته ويشغّلها
+ * عليه؛ والمنفذ 3000 لم يعد مستعملاً إلا بإشارة صريحة (OPS_QA_PORT).
+ * فحص البواب الخلفي (L29) يشغّل نسخة ثانية بلا DM_TEST_MODE.
  */
 'use strict';
 const fs = require('fs');
@@ -27,7 +31,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 
 const REPO = path.resolve(__dirname, '..');
-const QA_PORT = Number(process.env.OPS_QA_PORT || 3000);
+const QA_PORT = Number(process.env.OPS_QA_PORT || 3974);
 const NOMODE_PORT = Number(process.env.OPS_NOMODE_PORT || 3973);
 const BASE = 'http://127.0.0.1:' + QA_PORT;
 
