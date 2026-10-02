@@ -4372,7 +4372,10 @@ class RamiUIAdapter {
     /* 2. مركز الطاولة: أوراق التوزيع (المجرف) + أوراق المرموق (المهملة) — فيكتور نقي 100% في المركز الهندسي بدون عدادات أو أيقونات إضافية */
     const centerEl = document.getElementById('ramiTableCenter');
     if (centerEl) {
-      let centerHtml = '<div class="rami-piles-row">';
+      /* [v2.74·نوكيا] صنف صريح عند وجود عنصر ثالث بالمركز (فوجوك/وصف الجوكر)
+         بدل محدد :has() الذي يسقط في WebView القديمة (Chrome<105) */
+      const hasIndicatorBox = !!(rm.jokerIndicator || (this.game && this.game.mode !== 'talaj' && rm.jokerIndicatorInfo));
+      let centerHtml = '<div class="rami-piles-row' + (hasIndicatorBox ? ' rami-has-indicator' : '') + '">';
 
       /* الأوراق المتخلص منها (المرموق) أولاً على اليسار، ثم المجرف (المقلوب) على اليمين */
       if (rm.discardPile.length > 0) {

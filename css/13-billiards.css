@@ -25,10 +25,17 @@
   overflow: hidden;
 }
 
-/* البلياردو يملأ الصفحة كاملة: لا شريط نتائج ولا فراغ أسود */
+/* البلياردو يملأ الصفحة كاملة: لا شريط نتائج ولا فراغ أسود
+   [v2.74·نوكيا] :has(#billiardsStage) ← سمة data-game على <body> (يضبطها
+   openGame لأحد معرفات البلياردو الخمسة) — محدد :has() يسقط كاملاً في
+   WebView القديمة (Chrome<105) فيظهر شريط النتائج ويضيق ملء الشاشة */
 #pg-game.active #gamePageBody #billiardsStage { flex: 1 1 auto; }
 #billiardsStage ~ #GRes,
-#gamePageBody:has(#billiardsStage) #GRes { display: none !important; }
+body[data-game="bl8"] #gamePageBody #GRes,
+body[data-game="blbb"] #gamePageBody #GRes,
+body[data-game="blgv"] #gamePageBody #GRes,
+body[data-game="blsn"] #gamePageBody #GRes,
+body[data-game="blca"] #gamePageBody #GRes { display: none !important; }
 
 
 #billiardsStage .dama-play {
@@ -335,7 +342,10 @@ body.bl-game-open #gameLeaveBtn {
   min-width: 0;
   flex: 0 0 auto;
 }
-.bl-pl:has(> .bl-grp[hidden]) { display: none; }
+/* [v2.74·نوكيا] :has(> .bl-grp[hidden]) ← صنف bl-pl-nogrp
+   يضبطه blUpdateHud عند إخفاء شارة المجموعة — محدد :has() يسقط
+   كاملاً في WebView القديمة (Chrome<105) فيبقى عمود فارغ يأكل مسافة الهوامش */
+.bl-pl.bl-pl-nogrp { display: none; }
 .bl-grp {
   font-size: 12px;
   font-weight: 900;
@@ -668,9 +678,23 @@ body.bl-game-open #gameLeaveBtn {
   width: 100% !important;
 }
 /* حاوية اللعبة مع البلياردو: عرض كامل بلا توسيط ولا تمرير */
-#pg-game:fullscreen #gamePageBody:has(#billiardsStage),
-#pg-game:-webkit-full-screen #gamePageBody:has(#billiardsStage),
-#pg-game.app-fs #gamePageBody:has(#billiardsStage) {
+/* حاوية اللعبة مع البلياردو: عرض كامل بلا توسيط ولا تمرير
+   [v2.74·نوكيا] :has() ← سمة data-game (أنظر أعلى الملف) */
+body[data-game="bl8"] #pg-game:fullscreen #gamePageBody,
+body[data-game="blbb"] #pg-game:fullscreen #gamePageBody,
+body[data-game="blgv"] #pg-game:fullscreen #gamePageBody,
+body[data-game="blsn"] #pg-game:fullscreen #gamePageBody,
+body[data-game="blca"] #pg-game:fullscreen #gamePageBody,
+body[data-game="bl8"] #pg-game:-webkit-full-screen #gamePageBody,
+body[data-game="blbb"] #pg-game:-webkit-full-screen #gamePageBody,
+body[data-game="blgv"] #pg-game:-webkit-full-screen #gamePageBody,
+body[data-game="blsn"] #pg-game:-webkit-full-screen #gamePageBody,
+body[data-game="blca"] #pg-game:-webkit-full-screen #gamePageBody,
+body[data-game="bl8"] #pg-game.app-fs #gamePageBody,
+body[data-game="blbb"] #pg-game.app-fs #gamePageBody,
+body[data-game="blgv"] #pg-game.app-fs #gamePageBody,
+body[data-game="blsn"] #pg-game.app-fs #gamePageBody,
+body[data-game="blca"] #pg-game.app-fs #gamePageBody {
   max-width: 100% !important;
   padding: 0 !important;
   overflow: hidden !important;

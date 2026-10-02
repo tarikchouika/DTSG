@@ -1306,6 +1306,38 @@ class RondaPlatformAdapter {
     /* تسوية الكوينز: الخاسر يدفع للفائض (رهان×مضاعف إن فاز المتخمّن، أو الرهان إن فاز الموزّع) */
     this.core.on('ROUND_RESULT', (d) => this._settle(d));
 
+    /* ═══ [v2.74·تصويت] استعادة مرحلة المشاركة عند العودة ═══
+       الجذر: العائد (تحديث صفحة/انقطاع) أثناء مرحلة «المشاركة أو الانسحاب»
+       كان يُعيد بناء الجولة السابقة المنتهية (applyRound بآخر round>0) ولا
+       يرى لوحة المشاركة أبداً — فلا يستطيع المصادقة فيتعطل إطلاق الجولة
+       عند الجميع («نظام التصويت لا يعمل في فلات دوغ»). الحالة الرسمية
+       عند الخادم (roundJoin: المطلوبان + المصادقون) هي المرجع — تُبنى
+       منها اللوحة مباشرة كما يبنيها بثّ joinphase الحيّ. تُسجَّل معالجات
+       الأحداث أعلاه أولاً كي تعمل الجولة القادمة بعد المشاركة كاملة. */
+    const rjRestore = (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.roundJoin) || null;
+    if (rjRestore && Array.isArray(rjRestore.required) && rjRestore.required.length) {
+      const joinedAll = (rjRestore.joined || []).map(String);
+      const complete = rjRestore.required.every(function (id) {
+        return joinedAll.some(function (j) { return String(j) === String(id); });
+      });
+      if (!complete) {
+        this.room.phase = 'join';
+        this.renderer._showJoinPhase({
+          bet: Number((typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.bet) || this.room.bet) || 0,
+          dealer: rjRestore.required[0],
+          selector: rjRestore.required[1],
+          joined: joinedAll
+        });
+        /* المالك العائد يعيد تسليح مؤقّت صمت 30ث (منظّف الانسحاب الآلي
+           كان يسكن في الجلسة السابقة) — لا جولة معلقة إلى الأبد */
+        if (this.room.isOwner) {
+          if (this._joinTimer) clearTimeout(this._joinTimer);
+          this._joinTimer = setTimeout(() => this._onJoinTimeout(), 30000);
+        }
+        return;
+      }
+    }
+
     if (!isOwner && (!rs.mode || rs.round === 0)) {
       /* ضيف: بانتظار اختيار المالك للوضع أو بدء الجولة الأولى */
       this.renderer._showWaitingRoom();

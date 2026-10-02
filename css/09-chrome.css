@@ -270,12 +270,16 @@ body.app-fs-on .content { padding: 0 !important; max-width: 100% !important; }
 body.app-fs-on .main { padding-top: 0 !important; }
 
 /* ═══ صفحة اللعبة بعرض الشاشة الكامل بلا فراغات/فواصل جانبية (يمين ويسار)
-       سواء كان الهيدر ظاهراً أم في وضع الشاشة الممتلئة ═══ */
-.content:has(#pg-game.active) {
+       سواء كان الهيدر ظاهراً أم في وضع الشاشة الممتلئة ═══
+       [v2.74·نوكيا] :has(#pg-game.active) ← سمة data-game على <body>
+       (يضبطها openGame وتُنزع في closeGamePage) — محدد :has() يسقط كاملاً
+       في WebView القديمة (Chrome<105) فتبقى الصفحة بهوامش جانبية وتخطيط
+       مصغّر على هواتف نوكيا في الوضعين */
+body[data-game] .content {
   padding: 0 !important;
   max-width: 100% !important;
 }
-.content:has(#pg-game.active) #pg-game { width: 100%; }
+body[data-game] .content #pg-game { width: 100%; }
 
 /* طبقة مثبّتة على الشاشة المرئية (visualViewport) — نفس منهجية رندا،
    معمَّمة على كل الألعاب: لا تأثير لموضع تمرير الصفحة ولا لشريط المتصفح،
@@ -362,6 +366,16 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
   height: clamp(30px, 7vw, 36px) !important;
 }
 .game-leave-btn i { font-size: clamp(.95rem, 3.2vw, 1.1rem); }
+/* [v2.74·نوكيا] بدائل ثابتة قبل color-mix (Chrome<111 يسقط الإعلان كاملاً
+   فيفقد الزر حدوده وظله على هواتف نوكيا) — البديل بلون الذهب الافتراضي */
+.game-leave-btn {
+  border-color: rgba(227, 200, 137, .78);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 6px 16px rgba(0,0,0,.45),
+    0 0 14px rgba(217, 180, 92, .55);
+}
 .game-leave-btn {
   border-color: color-mix(in srgb, var(--ga, #d9b45c) 65%, rgba(247, 232, 200, .7));
   box-shadow:
@@ -371,6 +385,11 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
     0 0 14px color-mix(in srgb, var(--ga, #d9b45c) 55%, transparent);
 }
 .game-leave-btn:hover {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 6px 16px rgba(0,0,0,.45),
+    0 0 22px rgba(217, 180, 92, .8);
   box-shadow:
     0 1px 0 rgba(255,255,255,.55) inset,
     0 -3px 6px rgba(120, 80, 0, .5) inset,
@@ -394,7 +413,13 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
   background:
     linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 45%),
     linear-gradient(160deg, #f2d489, #d9b45c 40%, #b8892f);
+  border: 1px solid rgba(227, 200, 137, .78);   /* [v2.74·نوكيا] بديل قبل color-mix */
   border: 1px solid color-mix(in srgb, var(--ga, #d9b45c) 55%, rgba(247, 232, 200, .7));
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 4px 12px rgba(0,0,0,.4),
+    0 0 12px rgba(217, 180, 92, .45);
   box-shadow:
     0 1px 0 rgba(255,255,255,.55) inset,
     0 -3px 6px rgba(120, 80, 0, .5) inset,
@@ -416,6 +441,11 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
     0 1px 0 rgba(255,255,255,.55) inset,
     0 -3px 6px rgba(120, 80, 0, .5) inset,
     0 8px 18px rgba(0,0,0,.45),
+    0 0 18px rgba(217, 180, 92, .75);   /* [v2.74·نوكيا] بديل قبل color-mix */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 8px 18px rgba(0,0,0,.45),
     0 0 18px color-mix(in srgb, var(--ga, #d9b45c) 75%, transparent);
 }
 #pg-game .gp-head .gl-leave-head:hover i { color: #1a1301; }
@@ -429,7 +459,7 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 /* مودال تأكيد المغادرة: فوق كل طبقات الألعاب (billiards z-index 14500) */
 #leaveModal { z-index: 16000; }
 #leaveModal .modal { max-width: 380px; }
-#leaveModal .mhead h3 i { color: var(--ga, var(--gold, #d9b45c)); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ga, #d9b45c) 55%, transparent)); }
+#leaveModal .mhead h3 i { color: var(--ga, var(--gold, #d9b45c)); filter: drop-shadow(0 0 6px rgba(217, 180, 92, .55)); filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ga, #d9b45c) 55%, transparent)); }
 #leaveModal .leave-body { text-align: center; }
 #leaveModal .leave-game-chip {
   display: inline-flex;
@@ -437,7 +467,9 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
   gap: 10px;
   padding: 8px 18px;
   border-radius: 999px;
+  background: rgba(217, 180, 92, .16);   /* [v2.74·نوكيا] بديل قبل color-mix */
   background: color-mix(in srgb, var(--ga, #d9b45c) 16%, transparent);
+  border: 1px solid rgba(217, 180, 92, .45);
   border: 1px solid color-mix(in srgb, var(--ga, #d9b45c) 45%, transparent);
 }
 #leaveModal .leave-game-chip span { font-size: 1.55rem; line-height: 1; }
@@ -472,6 +504,11 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
     linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 45%),
     linear-gradient(160deg, #f2d489, #d9b45c 40%, #b8892f);
   border: 1px solid rgba(247, 232, 200, .7);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    0 -3px 6px rgba(120, 80, 0, .5) inset,
+    0 4px 12px rgba(0,0,0,.4),
+    0 0 12px rgba(217, 180, 92, .55);
   box-shadow:
     0 1px 0 rgba(255,255,255,.55) inset,
     0 -3px 6px rgba(120, 80, 0, .5) inset,
@@ -570,6 +607,72 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
 /* شاشات قصيرة: تقليص هيدر اللعبة في الوضع غير الممتلئ */
 @media (max-height: 620px) {
   #pg-game .gp-head { padding: 6px; margin-bottom: 8px; }
+}
+
+/* ═══ [v2.74·تصويت] شريط تصويت المباراة الجديدة الموحّد ═══
+   يظهر تلقائياً أعلى الشاشة عند تصويت نشط في غرفة لعبة بلا لوحة تصويت
+   داخل واجهتها (بلياردو/شطرنج/ضاما/طاولة/ضومنة/برجيس…) — يبقى فوق طبقات
+   نهاية المباراة (z أعلى) ولا يحجب اللوحة (أعلى الوسط، لا الوسط) */
+.room-rematch-bar,
+#roomRematchBar {
+  position: fixed;
+  top: calc(10px + var(--safe-top, 0px));
+  left: 50%;
+  transform: translate(-50%, -140%);
+  z-index: 14500;
+  width: min(330px, calc(100vw - 24px));
+  border-radius: 14px;
+  background: rgba(16,16,24,0.94);
+  border: 1px solid rgba(217,180,92,0.5);
+  box-shadow: 0 12px 38px rgba(0,0,0,0.6);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  transition: transform .28s ease;
+  pointer-events: none;         /* مخفي: لا يلتقط النقر */
+}
+.room-rematch-bar.show,
+#roomRematchBar.show {
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+.room-rematch-bar .rrmb-inner {
+  padding: 10px 12px 11px;
+  font-family: Cairo, system-ui, sans-serif;
+}
+.room-rematch-bar .rrmb-title {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-size: .92rem; font-weight: 800; color: #f3e5c0; margin-bottom: 6px;
+}
+.room-rematch-bar .rrmb-timer {
+  font-size: .76rem; font-weight: 700; color: var(--gold,#d9b45c);
+  background: rgba(217,180,92,0.14); border: 1px solid rgba(217,180,92,0.35);
+  padding: 1px 8px; border-radius: 999px; white-space: nowrap;
+}
+.room-rematch-bar .rrmb-rows {
+  display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;
+  max-height: 108px; overflow-y: auto;
+}
+.room-rematch-bar .rrmb-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 3px 10px; border-radius: 9px;
+  background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.09);
+  font-size: .84rem;
+}
+.room-rematch-bar .rrmb-name {
+  font-weight: 700; color: #f3e5c0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.room-rematch-bar .rrmb-mark { font-size: .92rem; }
+.room-rematch-bar .rrmb-actions { display: flex; gap: 8px; }
+.room-rematch-bar .rrmb-btn {
+  flex: 1 1 50%; padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  font-family: inherit; font-size: .88rem; font-weight: 800; color: #fff;
+  border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.08);
+}
+.room-rematch-bar .rrmb-btn.yes { border-color: rgba(110,231,183,0.7); background: rgba(16,185,129,0.24); }
+.room-rematch-bar .rrmb-btn.no { border-color: rgba(253,164,175,0.6); background: rgba(225,29,72,0.2); }
+.room-rematch-bar .rrmb-btn:active { transform: scale(0.96); }
+.room-rematch-bar .rrmb-note {
+  flex: 1; text-align: center; font-size: .8rem; color: rgba(243,229,192,0.8);
 }
 
 /* ═══ [Req7] ودجت الرموز/الرسائل الطافي + اندفاعات التفاعل ═══ */

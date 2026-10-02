@@ -1340,7 +1340,7 @@ function eChess(g) {
         '</div>' +
       '</div>' +
     '</div>'
-  , g).replace('<div class="stage">', '<div class="stage" id="chessStage">');
+  , g).replace('<div class="stage">', '<div class="stage ch-stage" id="chessStage">')  /* [v2.74·نوكيا] صنف بدل :has() */;
 }
 
 function initChess() {
@@ -1781,12 +1781,17 @@ function chessFinalize() {
   if (s.outcome === 'draw') {
     if (em) em.textContent = '🤝';
     if (tx) tx.textContent = T('dama.draw') + (reasonTxt ? ' — ' + reasonTxt : '');
+    /* [v2.74·مال] غرف الشطرنج تسوّى خادمياً (settleRound 'draw' يسترد
+       الإيداعات للجميع ويبث room:settle) — كان الاسترداد محلياً giveWin
+       في متصفح واحد فقط ولا يصل الخادم شيء فتسترد الإيداعات للجميع
+       عند الريماش مجدداً (دفع مزدوج من المنصة) */
     if (amt) {
-      if (CHESS.mode === 'room' && CHESS.bet > 0 && !CHESS.isSpectator) {
-        giveWin(CHESS.bet);
+      if (CHESS.mode === 'room') amt.textContent = reasonTxt || '';
+      else if (CHESS.bet > 0 && !CHESS.isSpectator) {
+        if (typeof giveWin === 'function') giveWin(CHESS.bet);
         if (typeof gres === 'function') gres(T('dama.drawRefund'), 0, true);
         amt.innerHTML = T('dama.refunded');
-      } else if (amt) amt.textContent = reasonTxt || '';
+      } else amt.textContent = reasonTxt || '';
     }
   } else {
     var winnerWhite = s.outcome === 'w';
@@ -1797,10 +1802,17 @@ function chessFinalize() {
       else tx.textContent = iWon ? T('dama.win') : T('dama.lose');
     }
     if (amt) {
-      if (CHESS.mode === 'room' && CHESS.bet > 0 && !CHESS.isSpectator) {
+      if (CHESS.mode === 'room') {
+        /* [v2.74·مال] تسوية خادمية موحّدة — كان الدفع المحلي giveWin(bet*2)
+           بلا رسم ولا يصل الخادم شيء فتتجمد الإيداعات وتُسترد للجميع عند
+           الريماش: «الكسور لا تقتطع وتدفع على حساب المنصة للرابح». الآن
+           roomSettle يوزع الجرة − 5% ويبث النتيجة للجميع (نفس عقد v2.70-ب
+           للرامي/البرجيس — الشطرنج كان باقياً على المسار القديم) */
+        amt.textContent = reasonTxt || '';
+      } else if (CHESS.bet > 0 && !CHESS.isSpectator) {
         if (iWon) {
           var payout = CHESS.bet * 2;
-          giveWin(payout);
+          if (typeof giveWin === 'function') giveWin(payout);
           if (typeof gres === 'function') gres(T('dama.win') + ' +' + payout + ' 🪙', payout, true);
           if (typeof winFX === 'function') winFX(payout);
           /* [BotsLedger v2.28] فردي بوت: المنصة دفعت صافي (−) */
@@ -1821,6 +1833,19 @@ function chessFinalize() {
   }
   ov.hidden = false;
   if (typeof SND !== 'undefined' && SND.chessEnd) { try { SND.chessEnd(); } catch (e) {} }
+  /* [v2.74·تصويت] غرف الشطرنج: التسوية الخادمية فوراً من أي لاعب نشط ثم
+     فتح تصويت المباراة الجديدة تلقائياً بعد هبوطها (كان التصويت لا يُفتح
+     إلا بضغط «مباراة جديدة» اليدوي) — نفس نمط البلياردو/بينالتي */
+  if (CHESS.mode === 'room' && !CHESS.isSpectator && typeof Rooms !== 'undefined' && Rooms.state &&
+      Rooms.state.status === 'playing' && !Rooms.state.settled) {
+    var chRes = (s.outcome === 'draw') ? 'draw' : (s.outcome === 'w' ? 'w0' : 'w1');
+    var chVote = function () {
+      try { if (typeof Rooms.startRematch === 'function') Rooms.startRematch(); } catch (e) {}
+    };
+    var chSp = (typeof Rooms.roomSettle === 'function') ? Rooms.roomSettle(chRes) : null;
+    if (chSp && typeof chSp.then === 'function') chSp.then(chVote, chVote);
+    else chVote();
+  }
 }
 
 function chessNewMatch() {
@@ -2013,11 +2038,9 @@ function chessApplyRemoteMove(mv) {
 
 function chessResetBoardOnly() {
   if (!CHESS) return;
-  /* جولة جديدة في غرفة الرهان: كل طرف يعيد حصته (جولة = رهن مستقل)
-     [v2.28] الفردي ضد البوت يخصم أيضاً عند كل إعادة مباراة */
-  if (CHESS.mode === 'room' && CHESS.bet > 0 && !CHESS.isSpectator) {
-    if (typeof takeBet === 'function' && !takeBet(CHESS.bet)) CHESS.bet = 0;   /* لا يكفي الرصيد → تكمل ودية */
-  }
+  /* [v2.74·مال] جولة جديدة في غرفة الرهان: الاقتطاع الخادمي وحده (عند
+     بدء الجولة أو قرار الريماش tryResolveRematch) — كان takeBet المحلي
+     يخصم ثانية في العرض ويصفّر الرهان عند رصيد محلي متقادم */
   CHESS.state = chessNewState();
   CHESS.sel = null; CHESS.legal = []; CHESS.busy = false;
   CHESS.lastFrom = null; CHESS.lastTo = null;
@@ -2066,18 +2089,13 @@ function chessStartRoom(myColor, oppBot, spec, bet) {
   CHESS.sel = null; CHESS.legal = []; CHESS.busy = false;
   CHESS.lastFrom = null; CHESS.lastTo = null; CHESS.drawBanUntil = 0;
   CHESS.flipped = (myColor === 'b');
-  /* رهان الغرفة: كل طرف يخصم حصته
-     [Persist] عائد لجولة جارية (تجديد صفحة/انقطاع): حصته خُصمت قبل الانقطاع
-     والرصيد المحلي محفوظ — لا خصم مكرر. */
+  /* [v2.74·مال] رهان الغرفة يُقتطع خادمياً عند البدء/الريماش — لا خصم
+     محلياً (كان يخصم مرتين في العرض ويُفرغ الرهان عند رصيد محلي متقادم
+     فتختلف حالة الطرفين) — الرصيد يُزامن من الخادم عبر _refreshGold */
   var _rejoin = (typeof Rooms !== 'undefined' && Rooms && Rooms._rejoinLive);
   if (_rejoin && typeof Rooms !== 'undefined') Rooms._rejoinLive = false;
-  if (!spec && CHESS.bet > 0 && !_rejoin) {
-    if (typeof takeBet === 'function' && !takeBet(CHESS.bet)) {
-      CHESS.bet = 0;
-      CHESS.state.over = true;
-      chessSetStatus(T('ts.noc'));
-      return;
-    }
+  if (typeof Rooms !== 'undefined' && typeof Rooms._refreshGold === 'function') {
+    try { Rooms._refreshGold(); } catch (e) {}
   }
   document.getElementById('chessSetup').hidden = true;
   document.getElementById('chessOver').hidden = true;

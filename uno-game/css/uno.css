@@ -602,9 +602,12 @@
 }
 
 
-/* [R13] ضمان خلفية كاملة للشاشة بلا شريط بني */
-body:has(.un-stage),
-body:has(.un-stage) #pg-game,
-body:has(.un-stage) #gamePageBody {
+/* [R13] ضمان خلفية كاملة للشاشة بلا شريط بني
+   [v2.74·نوكيا] :has() ← سمة data-game على <body> يضبطها openGame —
+   محددات :has() تسقط كاملةً في WebView القديمة (Chrome<105، هواتف نوكيا
+   الاقتصادية) فتبقى الخلفية البنية الافتراضية = «تشوه العرض» */
+body[data-game="un"],
+body[data-game="un"] #pg-game,
+body[data-game="un"] #gamePageBody {
   background: #0b1526 !important;
 }

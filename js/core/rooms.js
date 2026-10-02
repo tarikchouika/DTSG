@@ -237,6 +237,8 @@
       /* غادرت الغرفة (حُذفت أو طردت) */
       if (!room) { Rooms.reset(); Rooms.render(); return; }
       Rooms.render();
+      /* [v2.74·تصويت] شريط التصويت الموحّد — يتزامن مع كل تحديث غرفة */
+      Rooms._syncRematchBar();
       var uh = (room && room.game_id && _updateHandlers[room.game_id]) || _updateHandler;
       if (uh) { try { uh(room); } catch (e) {} }   /* [Req3] تحديث واجهة التصويت */
     },
@@ -571,6 +573,80 @@
     _renderBadge: function () {
       var badge = document.getElementById('roomTypeBadge');
       if (badge) { badge.textContent = ''; badge.style.display = 'none'; }
+    },
+
+    /* ═══════ [v2.74·تصويت] شريط تصويت المباراة الجديدة الموحّد ═══════
+       الألعاب بلا لوحة تصويت داخل واجهتها (البلياردو بأنماطه الخمسة،
+       الشطرنج، الضاما، الطاولة، الضومنة، البرجيس…) لم يكن لديها أي وسيلة
+       للتصويت أصلاً: الخادم يفتح التصويت ثم لا يراه أحد فينقضي بعد 60ث
+       رفضاً تلقائياً — «نظام التصويت لا يعمل في بعض الألعاب». هذا الشريط
+       الثابت يظهر تلقائياً عند أي تصويت نشط في غرفة لعبة بلا لوحة خاصة
+       بها؛ الألعاب ذات اللوحات (rm/pn/rd/un/rp) تُستثنى كي لا يزدوج
+       العرض. المشاركون يصوتون بأزرار الموافقة/الرفض والمتفرجون ينتظرون. */
+    _OWN_REMATCH_PANEL_GAMES: { rm: 1, pn: 1, rd: 1, un: 1, rp: 1 },
+    _rmVoteTi: null,
+    _ensureRematchBar: function () {
+      var bar = document.getElementById('roomRematchBar');
+      if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'roomRematchBar';
+        bar.className = 'room-rematch-bar';
+        document.body.appendChild(bar);
+      }
+      return bar;
+    },
+    _syncRematchBar: function () {
+      try {
+        var bar = document.getElementById('roomRematchBar');
+        var st = Rooms.state;
+        var rm = (st && st.rematch) ? st.rematch : null;
+        var gid = st ? st.game_id : null;
+        var active = !!(rm && !rm.resolved && gid && !Rooms._OWN_REMATCH_PANEL_GAMES[gid]);
+        if (Rooms._rmVoteTi) { clearInterval(Rooms._rmVoteTi); Rooms._rmVoteTi = null; }
+        if (!active) {
+          if (bar) bar.classList.remove('show');
+          return;
+        }
+        bar = Rooms._ensureRematchBar();
+        var u = me();
+        var myId = u ? String(u.id) : null;
+        var parts = (rm.participants || []).map(String);
+        var rows = '';
+        parts.forEach(function (pid) {
+          var v = rm.votes ? rm.votes[pid] : null;
+          var name = (rm.names && rm.names[pid]) ? rm.names[pid] : ('#' + pid);
+          var mark = (v === 'agree') ? '✅' : (v === 'refuse') ? '❌' : '⏳';
+          rows += '<div class="rrmb-row"><span class="rrmb-name">' + esc(name) + '</span><span class="rrmb-mark">' + mark + '</span></div>';
+        });
+        var myVote = rm.votes ? rm.votes[myId] : null;
+        var iPart = parts.indexOf(myId) !== -1;
+        var actions = '';
+        if (iPart && !myVote) {
+          actions = '<button type="button" class="rrmb-btn yes" onclick="Rooms.voteRematch(\'agree\')">✅ ' + esc(T('ui.rematchAgree') || 'موافقة') + '</button>' +
+            '<button type="button" class="rrmb-btn no" onclick="Rooms.voteRematch(\'refuse\')">❌ ' + esc(T('ui.rematchRefuse') || 'رفض') + '</button>';
+        } else if (iPart) {
+          actions = '<div class="rrmb-note">' + esc(T('ui.rematchVoted') || 'تم تسجيل صوتك — بانتظار البقية') + '</div>';
+        } else {
+          actions = '<div class="rrmb-note">' + esc(T('ui.rematchWait') || 'بانتظار تصويت اللاعبين') + '</div>';
+        }
+        var remain = rm.ts ? Math.max(0, 60 - Math.floor((Date.now() - rm.ts) / 1000)) : 60;
+        bar.innerHTML = '<div class="rrmb-inner">' +
+          '<div class="rrmb-title">🔁 ' + esc(T('ui.rematchTitle') || 'مباراة جديدة؟') +
+            '<span class="rrmb-timer" id="rrmbTimer">⏱ ' + remain + '</span></div>' +
+          '<div class="rrmb-rows">' + rows + '</div>' +
+          '<div class="rrmb-actions">' + actions + '</div>' +
+        '</div>';
+        bar.classList.add('show');
+        if (rm.ts) {
+          var ts = rm.ts;
+          Rooms._rmVoteTi = setInterval(function () {
+            var r = Math.max(0, 60 - Math.floor((Date.now() - ts) / 1000));
+            var el = document.getElementById('rrmbTimer');
+            if (el) el.textContent = '⏱ ' + r;
+            if (r <= 0 && Rooms._rmVoteTi) { clearInterval(Rooms._rmVoteTi); Rooms._rmVoteTi = null; }
+          }, 1000);
+        }
+      } catch (e) {}
     },
     /* [B-migrate] إعدادات الغرفة (نوع + رهان) — ربط عناصر المودال التي أنشأها index.html */
     _initSettings: function () {
@@ -1289,8 +1365,12 @@
       var isOwner = st.owner_id === (u && u.id);
       /* [RDC] الروندا تشترط اكتمال المقاعد (2 في 1ضد1 أو 4 في 2ضد2) قبل البدء */
       var rdFull = !(st.game_id === 'rd') || (st.seats && st.seats.players >= st.max_players);
-      /* [BL] البلوت يشترط 4 لاعبين كاملين (2 ضد 2) */
-      var blFull = st.game_id !== 'bl' || st.players.filter(function (p) { return !p.spectate; }).length >= 4;
+      /* [BL·v2.74] إصلاح خلل الإعدادات المُبلّغ: كانت البوابة تشترط 4 لاعبين
+         دائماً (بقايا ما قبل v2.72 التي جعلت البلوت 2-4: فردي عند 2-3 وفرق
+         عند 4 بنمط mode4) فيبقى زر البدء معطلاً في غرف 1ضد1/1ضد2 مع رسالة
+         «تحتاج البلوت 4 لاعبين كاملين» رغم أن الخادم والمحرك يقبلان —
+         الشرط الصحيح: اكتمال مقاعد الغرفة المختارة (max_players) كالروندا */
+      var blFull = st.game_id !== 'bl' || !!(st.seats && st.seats.players >= st.max_players);
       var allReady = rdFull && blFull && st.players.length >= 2 && st.players.every(function (p) { return p.ready; });
       var link = location.origin + '/?room=' + st.code;
 
@@ -1338,10 +1418,13 @@
             btns += '<div class="ctext2" style="width:100%;text-align:center;color:#ffc98a;font-size:.74rem">' +
               (T('rdc.room.badSeats') || 'تحتاج الروندا مقاعد كاملة — أضف لاعبين أو آليين') + '</div>';
           }
-          /* [BL] تنبيه: البلوت تحتاج 4 لاعبين كاملين */
+          /* [BL·v2.74] تنبيه اكتمال المقاعد لغرف البلوت بأي سعة (2-4) — كان
+             نصاً حرفياً «4 لاعبين كاملين» حتى في غرفة 1ضد1 */
           if (st.game_id === 'bl' && !blFull) {
             btns += '<div class="ctext2" style="width:100%;text-align:center;color:#ffc98a;font-size:.74rem">' +
-              (T('blt.room.needFour') || 'تحتاج البلوت 4 لاعبين كاملين (2 ضد 2)') + '</div>';
+              (T('blt.room.needSeats') || 'بانتظار اكتمال لاعبي البلوت') + ' (' +
+              (st.seats ? st.seats.players : st.players.filter(function (p) { return !p.spectate; }).length) +
+              '/' + st.max_players + ')</div>';
           }
         }
       } else {
@@ -1686,6 +1769,10 @@
       var panel = document.getElementById('roomReactPanel');
       if (btn) btn.parentNode && btn.parentNode.removeChild(btn);
       if (panel) panel.parentNode && panel.parentNode.removeChild(panel);
+      /* [v2.74·تصويت] إخفاء شريط التصويت الموحّد وإيقاف عدّاده */
+      if (Rooms._rmVoteTi) { clearInterval(Rooms._rmVoteTi); Rooms._rmVoteTi = null; }
+      var rbar = document.getElementById('roomRematchBar');
+      if (rbar) rbar.classList.remove('show');
     }
   };
 

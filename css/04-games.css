@@ -2773,7 +2773,7 @@ body.rami-game-open { overflow: hidden; }
      column 1 (right) and the playfield in column 2 (left). The stage uses
      position:absolute;inset:0 so its natural box is exactly the viewport —
      fitGameStage() then scales it 1:1 to fill. */
-  #pg-game.app-fs .stage:has(.ch-wrap),
+  #pg-game.app-fs .stage.ch-stage,
   #pg-game.app-fs .stage:has(.mn-wrap),
   #pg-game.app-fs .stage:has(.pl-wrap),
   #pg-game.app-fs .stage:has(.sb-wrap),
@@ -2792,13 +2792,13 @@ body.rami-game-open { overflow: hidden; }
      grid-row:1/-1 spans every control row. In CSS Grid, -1 is the last
      EXPLICIT line, so implicit auto-rows would leave the playfield stuck in
      row 1. The control counts below are measured per game. */
-  #pg-game.app-fs .stage:has(.ch-wrap) { grid-template-rows: minmax(0, 1fr); }
+  #pg-game.app-fs .stage.ch-stage { grid-template-rows: minmax(0, 1fr); }
   #pg-game.app-fs .stage:has(.mn-wrap) { grid-template-rows: repeat(3, minmax(0, 1fr)); }
   #pg-game.app-fs .stage:has(.pl-wrap) { grid-template-rows: repeat(5, minmax(0, 1fr)); }
   #pg-game.app-fs .stage:has(.sb-wrap) { grid-template-rows: repeat(7, minmax(0, 1fr)); }
   #pg-game.app-fs .stage:has(.dc-wrap) { grid-template-rows: repeat(7, minmax(0, 1fr)); gap: 6px; }
   /* playfield wrapper: left column, full height */
-  #pg-game.app-fs .stage:has(.ch-wrap) > .ch-wrap,
+  #pg-game.app-fs .stage.ch-stage > .ch-wrap,
   #pg-game.app-fs .stage:has(.mn-wrap) > .mn-wrap,
   #pg-game.app-fs .stage:has(.pl-wrap) > .pl-wrap,
   #pg-game.app-fs .stage:has(.sb-wrap) > .sb-wrap,
@@ -2811,7 +2811,7 @@ body.rami-game-open { overflow: hidden; }
   }
   /* Chess: .dama-play lays out its own board+controls 2-column grid, so let
      .ch-wrap span the full stage width instead of the reserved side column. */
-  #pg-game.app-fs .stage:has(.ch-wrap) > .ch-wrap { grid-column: 1 / -1; }
+  #pg-game.app-fs .stage.ch-stage > .ch-wrap { grid-column: 1 / -1; }
   /* controls / stats: right column, each in its own row, compact at the top */
   #pg-game.app-fs .stage:has(.mn-wrap) > .bets,
   #pg-game.app-fs .stage:has(.mn-wrap) > .res,
@@ -2825,7 +2825,7 @@ body.rami-game-open { overflow: hidden; }
   #pg-game.app-fs .stage:has(.dc-wrap) > .dc-mult,
   #pg-game.app-fs .stage:has(.dc-wrap) > .bets,
   #pg-game.app-fs .stage:has(.dc-wrap) > .res,
-  #pg-game.app-fs .stage:has(.ch-wrap) > .res {
+  #pg-game.app-fs .stage.ch-stage > .res {
     grid-column: 1;
     align-self: start;
     width: 100%;
@@ -2933,7 +2933,7 @@ body.rami-game-open { overflow: hidden; }
 @media (orientation: portrait) {
   /* الحاوية الرئيسية لكل لعبة كلاسيكية تتمدد لتملأ الفراغ المتبقي.
      shrink:0 ضروري — بدونه تنضغط الحاوية لصفر عندما يفيض الأشقاء */
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball {
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -2942,7 +2942,7 @@ body.rami-game-open { overflow: hidden; }
     align-items: center;
     justify-content: center;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
+  #pg-game.app-fs #gamePageBody .stage.rps-stage,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) {
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -2987,7 +2987,7 @@ body.rami-game-open { overflow: hidden; }
 }
 /* ── لاندسكيب: نفس التمدد مع أحجام أفقية معتدلة ── */
 @media (orientation: landscape) {
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-arena,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball) > .wg-ball{
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -2996,7 +2996,7 @@ body.rami-game-open { overflow: hidden; }
     align-items: center;
     justify-content: center;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
+  #pg-game.app-fs #gamePageBody .stage.rps-stage,
   #pg-game.app-fs #gamePageBody .stage:has(.wg-ball){
     flex: 1 1 auto;
     flex-shrink: 0;
@@ -3123,29 +3123,29 @@ body.rami-game-open { overflow: hidden; }
    لوحة اللعب تمتد على كل الصفوف في عمودها. CSS فقط — صفر منطق لعب.
    ════════════════════════════════════════════════════════════════ */
 @media (orientation: landscape) {  /* ── 3) حجر ورقة مقص (rp): البطاقتان كانتا تنزلان فوق أزرار الاختيار ── */
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage {
     grid-template-rows: auto auto minmax(0, 1fr) auto;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-arena {
     grid-row: 1 / 4;
     align-self: center;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-picks {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-picks {
     grid-row: 4;
     align-self: center;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-hint { grid-row: 1; align-self: start; }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-status {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-hint { grid-row: 1; align-self: start; }
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-status {
     grid-column: 1;
     grid-row: 2;
     align-self: start;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .res {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .res {
     grid-column: 1;
     grid-row: 3;
     align-self: end;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .bets {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .bets {
     grid-column: 1;
     grid-row: 4;
     align-self: center;
@@ -3982,8 +3982,8 @@ body.rami-game-open { overflow: hidden; }
    CSS فقط — صفر منطق لعب. تُدرَج آخر الملف لتغلب في التتالي.
    ═══════════════════════════════════════════════════════════════════ */
 @media (orientation: landscape) and (max-height: 520px) {
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena),
-  #pg-game.active #gamePageBody .stage:has(.rps-arena) {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage,
+  #pg-game.active #gamePageBody .stage.rps-stage {
     display: grid;
     grid-template-columns: minmax(0, 1fr) clamp(150px, 24vw, 260px);
     grid-template-rows: auto auto auto auto;
@@ -3992,8 +3992,8 @@ body.rami-game-open { overflow: hidden; }
     padding: 8px;
   }
   /* الحلبة: العمود الأول (يمين RTL) تمتد على صفوف المعلومات الثلاثة */
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-arena,
-  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-arena {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-arena,
+  #pg-game.active #gamePageBody .stage.rps-stage > .rps-arena {
     grid-column: 1;
     grid-row: 1 / 4;
     align-self: center;
@@ -4003,8 +4003,8 @@ body.rami-game-open { overflow: hidden; }
     padding: 10px 14px 8px;
   }
   /* عمود المعلومات (يسار RTL): تلميح أعلى، حالة وسط، نتيجة أسفل */
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-hint,
-  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-hint {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-hint,
+  #pg-game.active #gamePageBody .stage.rps-stage > .rps-hint {
     grid-column: 2;
     grid-row: 1;
     align-self: start;
@@ -4013,8 +4013,8 @@ body.rami-game-open { overflow: hidden; }
     font-size: 0.72rem;
     border-radius: 8px;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-status,
-  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-status {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-status,
+  #pg-game.active #gamePageBody .stage.rps-stage > .rps-status {
     grid-column: 2;
     grid-row: 2;
     align-self: center;
@@ -4023,8 +4023,8 @@ body.rami-game-open { overflow: hidden; }
     font-size: 0.78rem;
     line-height: 1.4;
   }
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .res,
-  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .res {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .res,
+  #pg-game.active #gamePageBody .stage.rps-stage > .res {
     grid-column: 2;
     grid-row: 3;
     align-self: end;
@@ -4033,8 +4033,8 @@ body.rami-game-open { overflow: hidden; }
     font-size: 0.78rem;
   }
   /* أزرار الاختيار الثلاثة: صف أفقي عريض أسفل الشاشة بعرض المرحلة */
-  #pg-game.app-fs #gamePageBody .stage:has(.rps-arena) > .rps-picks,
-  #pg-game.active #gamePageBody .stage:has(.rps-arena) > .rps-picks {
+  #pg-game.app-fs #gamePageBody .stage.rps-stage > .rps-picks,
+  #pg-game.active #gamePageBody .stage.rps-stage > .rps-picks {
     grid-column: 1 / -1;
     grid-row: 4;
     align-self: end;

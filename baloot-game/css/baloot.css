@@ -425,7 +425,9 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
 .bl-trick.bl-resolved .bl-trickcard:not([data-seat]) { }
 .bl-trick.bl-resolved .bl-trickcard { opacity: 0.62; transition: opacity 0.4s; }
 .bl-trick.bl-resolved .bl-trickcard .bl-trickwin { display: block; }
-.bl-trick.bl-resolved .bl-trickcard:has(.bl-trickwin) { opacity: 1; }
+/* [v2.74·نوكيا] :has() ← صنف يضيفه المحرك نفسه على الورقة الفائزة
+   (baloot-app: bl-won) — محدد :has() يسقط في WebView القديمة */
+.bl-trick.bl-resolved .bl-trickcard.bl-won { opacity: 1; }
 
 .bl-ashurchip {
   position: absolute; bottom: -26px; left: 50%; transform: translateX(-50%);
@@ -854,9 +856,12 @@ img.bl-cimg.bl-cimgtrump { box-shadow: 0 0 0 2.5px var(--bl-gold), 0 0 16px rgba
 }
 
 
-/* [R13] ضمان خلفية كاملة للشاشة بلا شريط بني */
-body:has(.bl-stage),
-body:has(.bl-stage) #pg-game,
-body:has(.bl-stage) #gamePageBody {
+/* [R13] ضمان خلفية كاملة للشاشة بلا شريط بني
+   [v2.74·نوكيا] :has() ← سمة data-game على <body> يضبطها openGame —
+   محددات :has() تسقط كاملةً في WebView القديمة (Chrome<105، هواتف نوكيا
+   الاقتصادية) فتبقى الخلفية البنية الافتراضية = «تشوه العرض» */
+body[data-game="bl"],
+body[data-game="bl"] #pg-game,
+body[data-game="bl"] #gamePageBody {
   background: #0b1526 !important;
 }

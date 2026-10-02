@@ -541,7 +541,15 @@ function blEndFrame() {
     else tx.textContent = (iWon ? T('dama.win') : T('dama.lose')) + snScore + (reasonTxt ? ' — ' + reasonTxt : '');
   }
   if (amt) {
-    if (B.mode === 'room' && B.bet > 0 && !B.isSpectator) {
+    if (B.mode === 'room') {
+      /* [v2.74·مال] تسوية خادمية موحّدة (settleRound) — كان الدفع محلياً
+         giveWin(bet*2) في متصفح الرابح وحده: بلا رسم 5% ولا يصل الخادم
+         شيء، فتتجمد الإيداعات ثم تُسترد للجميع عند الريماش — يبدو أن «الكسور
+         لا تقتطع للمراهنين وتدفع على حساب المنصة للرابح». الآن الخادم يوزّع
+         الجرة كاملة − 5% ويبثّ room:settle للجميع (توست الرابح/الخاسر
+         والأرصدة من Rooms._onSettle) — نفس عقد الرامي/الضاما (v2.70-ب). */
+      amt.textContent = reasonTxt || '';
+    } else if (B.bet > 0 && !B.isSpectator) {
       if (iWon) {
         var payout = B.bet * 2;
         if (typeof giveWin === 'function') giveWin(payout);
@@ -563,7 +571,23 @@ function blEndFrame() {
   }
   if (ov) ov.hidden = false;
   if (typeof SND !== 'undefined' && SND.chessEnd) { try { SND.chessEnd(); } catch (e) {} }
-  if (B.mode === 'room') blSendRoom({ t: 'end', winner: S.winner, reason: S.endReason });
+  if (B.mode === 'room') {
+    blSendRoom({ t: 'end', winner: S.winner, reason: S.endReason });
+    /* [v2.74·تصويت] التسوية الخادمية فوراً من أي لاعب نشط (أول تقرير يفوز
+       والخادم يمنع التكرار) ثم فتح تصويت المباراة الجديدة تلقائياً بعد
+       هبوطها — الريماش قبل التسوية كان يسترد الإيداعات قبل توزيعها
+       (نظام التصويت المعتمد للبلياردو منذ v2.64 صار فورياً لا يدوياً) */
+    if (!B.isSpectator && typeof Rooms !== 'undefined' && Rooms.state &&
+        Rooms.state.status === 'playing' && !Rooms.state.settled) {
+      var blRes = (S.winner === 0) ? 'w0' : (S.winner === 1) ? 'w1' : 'draw';
+      var blVote = function () {
+        try { if (typeof Rooms.startRematch === 'function') Rooms.startRematch(); } catch (e) {}
+      };
+      var blSp = (typeof Rooms.roomSettle === 'function') ? Rooms.roomSettle(blRes) : null;
+      if (blSp && typeof blSp.then === 'function') blSp.then(blVote, blVote);
+      else blVote();
+    }
+  }
 }
 
 /* ═══════════ HUD ═══════════ */
@@ -582,16 +606,21 @@ function blUpdateHud() {
   for (var i = 0; i < 2; i++) {
     var el = document.getElementById('blGrp' + i);
     if (!el) continue;
+    var plCol = document.getElementById('blPl' + i);
     if (isSn) {
       /* [R10] سنوكر/كاروم: النقاط رقماً فقط — بلا أي عبارة مكتوبة */
       el.hidden = false;
       el.textContent = String(S.scores ? S.scores[i] : 0);
       el.className = 'bl-grp g-score' + (S.active === i && !S.frameOver ? ' on' : '');
+      /* [v2.74·نوكيا] صنف صريح بدل محدد :has() الذي يسقط في WebView
+         القديمة (Chrome<105) — إظهار عمود النقاط في سنوكر/كاروم فقط */
+      if (plCol) plCol.classList.remove('bl-pl-nogrp');
     } else {
       /* [R10] ممنوع العبارات (طاولة مفتوحة/مجموعة…) — لون كرات اللاعب
          يظهر بأفاتاره وكراته في العمود، والدور بتوهج الأفاتار */
       el.hidden = true;
       el.textContent = '';
+      if (plCol) plCol.classList.add('bl-pl-nogrp');
     }
   }
   /* [v23] رسالة انتقال الدور أزيلت — الدور يُشار إليه بتوهج أفاتار اللاعب النشط */
@@ -1833,10 +1862,16 @@ function blRoomStart(room) {
   BILLIARDS.oppBot = !!oppBot;
   BILLIARDS.isSpectator = spec;
   BILLIARDS.bet = spec ? 0 : bet;
-  /* [Persist] عائد لجولة جارية: لا خصم رهان مكرر (خُصم قبل الانقطاع) */
+  /* [Persist] عائد لجولة جارية: علم إعادة الانضمام يُستهلك هنا (توافق مع
+     بقية الجسور) — الخصم الخادمي عند البدء وقع قبل الانقطاع ولا خصم محلياً
+     أصلاً [v2.74·مال]: الخادم يقتطع ويزامن الرصيد عبر _refreshGold، وكان
+     takeBet المحلي يخصم مرتين في العرض ويصفّر الرهان عند رصيد محلي متقادم
+     فتختلف حالة الطرفين (ودي عند أحدهما ورهان عند الآخر) */
   var _rejoin = (typeof Rooms !== 'undefined' && Rooms && Rooms._rejoinLive);
   if (_rejoin && typeof Rooms !== 'undefined') Rooms._rejoinLive = false;
-  if (!spec && bet > 0 && !_rejoin && typeof takeBet === 'function' && !takeBet(bet)) BILLIARDS.bet = 0;  /* رصيد غير كافٍ → ودية */
+  if (typeof Rooms !== 'undefined' && typeof Rooms._refreshGold === 'function') {
+    try { Rooms._refreshGold(); } catch (e) {}
+  }
   billiardsStart('room');
   if (!spec && mySeat === 0 && BILLIARDS.variant === 'carom') {
     blSendRoom({ t: 'cfg', d: BILLIARDS.caromDisc, g: BILLIARDS.caromTarget, tm: BILLIARDS.turnTimer });

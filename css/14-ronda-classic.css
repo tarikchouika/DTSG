@@ -953,6 +953,36 @@ body.app-fs-on #rdStage,
    بوحدات الحاوية cqh/cqw (نسبة إلى صندوق #rdStage نفسه) فتتوسّع وتتقلّص معاً
    بلا تداخل: 6 أوراق سفلية، وسط فيه الأوراق المرمية والرزمة، زوايا أربع. */
 
+/* ══ [v2.74·نوكيا] بديل وحدات الحاوية للمتصفحات القديمة (Chrome<104) ══
+   وحدات cqh/cqw تسقط عند استخدامها فيخرب كل مقاسات الأوراق (تنهار إلى auto)
+   في الويبفيو القديمة الشائعة في هواتف نوكيا الاقتصادية.
+   البديل: نفس المعادلات بوحدات الشاشة vh/vw (المسرح يملأ الصفحة تقريباً
+   فيكون التقريب وثيقاً) — تطبق فقط عند غياب الدعم بأمان تام: @supports not ══ */
+@supports not (height: 1cqh) {
+  #rdStage {
+    --cw: 14vh; --ch: 20vh;
+    --tcw: 15.2vh; --tch: 21vh;
+    --chB: min(28vh, 30vw);
+    --cwB: min(calc(var(--chB) * .72), 15vw);
+    --deckS: 8.2vw;
+    --deckH: calc(var(--deckS) * .92);
+    --avS: 6.6vh; --bdH: 11.5vh; --bdHt: 11.5vh; --sideIn: 1.2vw;
+    --ctTop: 18.5vh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .8vh);
+    --ctBot: calc(var(--chB) + var(--bdH) + 3vh);
+  }
+  #rdStage.rd-uppers {
+    --cw: 9.6vh; --ch: 13.5vh;
+    --tcw: 15.8vh; --tch: 22vh;
+    --chB: min(24vh, 26vw);
+    --cwB: min(calc(var(--chB) * .72), 13vw);
+    --deckS: 9.6vw;
+    --bdHt: 7.8vh;
+    --ctTopUp: calc(var(--ch) + var(--bdHt) + .8vh);
+    --ctBot: calc(var(--chB) + var(--bdH) + 2.8vh);
+  }
+}
+
 #rdStage {
   container-type: size;
   --cw: 14cqh; --ch: 20cqh;            /* أساس أوراق الظهر العلوية */
@@ -1164,15 +1194,18 @@ body.app-fs-on #rdStage,
      ولا فراغ — كل مقعد في زاويته الفعلية والقاعة تتنفس في الوسط. */
 
 /* ── ملء الشاشة: مسرح الروندا الكلاسيكية يذوب في حاوية اللعبة ── */
-/* إلغاء حواف الحاوية حول #rdStage فقط (بقية الألعاب تُبقي إطارها الخشبي) */
-#pg-game.active:has(#rdStage) { padding: 0 !important; }
-#pg-game.active:has(#rdStage) #gamePageBody {
+/* إلغاء حواف الحاوية حول #rdStage فقط (بقية الألعاب تُبقي إطارها الخشبي)
+   [v2.74·نوكيا] :has(#rdStage) ← سمة data-game على <body> (يضبطها openGame)
+   — محددات :has() تسقط كاملةً في WebView القديمة (Chrome<105) فينكسر
+   ملء الشاشة في الوضعين على هواتف نوكيا الاقتصادية */
+body[data-game="rd"] #pg-game.active { padding: 0 !important; }
+body[data-game="rd"] #pg-game.active #gamePageBody {
   padding: 0 !important;
   background: transparent !important;
 }
 /* المسرح (#rdStage نفسه يحمل .stage.rd-stage) بلا إطار/حواف/هامش —
    جدول اللعب (جلد الطاولة) هو كل الشاشة */
-#gamePageBody:has(#rdStage) > .stage#rdStage {
+body[data-game="rd"] #gamePageBody > .stage#rdStage {
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;

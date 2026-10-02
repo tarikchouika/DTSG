@@ -83,11 +83,15 @@ function createRoomManager(gameId, io, ctx) {
     const pot = Number(room.bet) || 0;
     /* [v2.73·فلات دوغ] actualOnly: الجرة = الإيداعات الفعلية وحدها (المتحدين
        الاثنين) — لا قيمة افتراضية لمن لم يشارك: فلا تدفع المنصة فارقاً ولا
-       يخسر متفرج لم يراهن قرشاً (غرف rn بعقد المشاركة لكل جولة). */
+       يخسر متفرج لم يراهن قرشاً (غرف rn بعقد المشاركة لكل جولة).
+       [v2.74·مال] الغير rn كذلك: البديل 0 لا pot — عضو بلا إيداع فعلي لا
+       يُصطنع له رهان عند التسوية فيدفع الرابح فارقاً من جيب المنصة (خلل
+       «الكسور لا تقتطع للمراهنين وتدفع على حساب المنصة»). كل دافع حقيقي
+       له إدخال escrow من start/الريماش/المشاركة — لا مسار آخر للمال. */
     const actualOnly = (room.game_id === 'rn');
     const humans = order.filter(function (pid) { return users[pid]; }).map(function (pid) { return users[pid]; });
     if (!humans.length) return { status: 400, body: { ok: false, message: 'لا لاعبون بشريون — لا تسوية' } };
-    const escrowOf = function (u) { return Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : (actualOnly ? 0 : pot)); };
+    const escrowOf = function (u) { return Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : 0); };
 
     let wSeat = seatMatch ? Number(seatMatch[1]) : -1;
     let drawMode = (result === 'draw');
@@ -544,6 +548,14 @@ function createRoomManager(gameId, io, ctx) {
           if (nonSpec >= room.max_players) {
             return { status: 400, body: { ok: false, message: 'المقاعد ممتلئة — يمكنك المشاهدة فقط' } };
           }
+          /* [v2.74·مال] لا تفعيل متفرج أثناء جولة غير مسوّاة: الداخل الجديد لم
+             يودع رهاناً (الاقتطاع وقع عند البدء) فكان يسقط في order بلا إيداع
+             ثم تحسب له جرة التسوية قيمةً لم تُحصّل قط — تفتحة مال حقيقية تمرّ
+             عبرها المنصة على الرابح. نفس حظر الطابور (promoteQueued) أثناء
+             الجولة — المسار الموحّد للانضمام وسط اللعب هو طابور الانضمام. */
+          if (room.status === 'playing' && !room.settled) {
+            return { status: 400, body: { ok: false, message: 'الجولة جارية — اطلب مقعداً من طابور الانضمام وسيُرقّى بعد الجولة' } };
+          }
         }
         p.spectate = !!data.spectate;
         if (data.spectate) p.ready = true;
@@ -914,7 +926,9 @@ function createRoomManager(gameId, io, ctx) {
       /* [v2.68] مقاعد زوجية (2 أو 4) — الفريق = مقعد % 2 */
       if (order.length !== 2 && order.length !== 4) return { status: 400, body: { ok: false, message: 'تسوية الفرق لمقاعد زوجية (2 أو 4) فقط' } };
       const bet = Number(room.bet) || 0;
-      const escrowOf = function (u) { return Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : bet); };
+      /* [v2.74·مال] البديل 0 لا bet — تسوية الفرق كذلك لا تُصطنع رهاناً لعضو
+         بلا إيداع (نفس جذر settleSeatCore في v2.74) */
+      const escrowOf = function (u) { return Number((room.escrow && room.escrow[u.id] != null) ? room.escrow[u.id] : 0); };
       let teamId = (result === 't0') ? 0 : 1;
       const seatWin = function (i) { return i % 2 === teamId; };
       const humansAll = order.map(function (pid, i) { return { pid: pid, i: i }; }).filter(function (x) { return users[x.pid]; });

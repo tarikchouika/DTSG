@@ -719,8 +719,8 @@
   }
   #pg-game.app-fs #damaStage .dama-setup .dama-field { margin: 0; width: 100%; }
   /* المؤقت (6 خيارات) وخانة الرهان بعرض الصفّين */
-  #pg-game.app-fs #damaStage .dama-setup .dama-field:has(.dama-timer-row),
-  #pg-game.app-fs #damaStage .dama-setup .dama-field:has(.dama-betrow) {
+  #pg-game.app-fs #damaStage .dama-setup .dama-field.dama-field-timer,
+  #pg-game.app-fs #damaStage .dama-setup .dama-field.dama-field-bet {
     grid-column: 1 / -1;
   }
   #pg-game.app-fs #damaStage .dama-setup .dama-timer-row { flex-wrap: wrap; }

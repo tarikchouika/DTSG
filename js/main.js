@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.73.0';
+window.DTSG_BUILD = 'v2.74.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -609,6 +609,11 @@ function openGame(id) {
   closeModal();
   window._currentGameId = id;
   setGameLeaveAccent(g);   /* [Leave] هوية كل لعبة في زر المغادرة + وسوم إتاحة */
+  /* [v2.74·نوكيا] هوية اللعبة على <body> (data-game): بديل محددات :has()
+     التي تسقط كاملةً في متصفحات WebView القديمة (Chrome<105 الشائعة في
+     هواتف نوكيا الاقتصادية) فتنهار تخطيطات صفحات الألعاب في الوضعين —
+     محدد السمة مدعوم في كل المتصفحات. تُنزع الإزاحة في closeGamePage */
+  try { document.body.setAttribute('data-game', id); } catch (e) {}
   /* [Training 2026-09-16] كل لعبة تبدأ غير تدريبية؛ أوضاع البوت/المحلي فقط تفعّلها */
   window.TRAINING = window.TRAINING || { on: false };
   window.TRAINING.on = false;
@@ -796,6 +801,9 @@ function closeGamePage() {
       Rooms.state.game_id === curId) keepLive = false;
 
   window._currentGameId = null;
+  /* [v2.74·نوكيا] إزالة هوية اللعبة عن <body> عند مغادرة صفحة اللعبة
+     (بقاياها كانت تُبقي تخطيط لعبة سابقة مطبقاً على بقية الصفحات) */
+  try { document.body.removeAttribute('data-game'); } catch (e) {}
   /* تنظيف روندا الكلاسيكية (المحرك المستورد) عند مغادرة الصفحة */
   if (typeof cleanupRondaCard === 'function') {
     try { cleanupRondaCard(); } catch (e) { console.error('cleanupRondaCard error:', e); }

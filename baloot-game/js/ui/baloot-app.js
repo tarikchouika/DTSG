@@ -757,7 +757,9 @@
         const ui = this._uiSeatMap(p.seat);
         const o = OFF[ui >= 0 ? ui : 0];
         const win = s.phase === 'trickEnd' && s.trickWinner === p.seat;
-        html += '<div class="bl-trickcard bl-snap" data-seat="' + p.seat + '" style="' +
+        /* [v2.74·نوكيا] صنف صريح على الورقة الفائزة (bl-won) بدل محدد
+           :has() الذي يسقط في WebView القديمة (Chrome<105) */
+        html += '<div class="bl-trickcard bl-snap' + (win ? ' bl-won' : '') + '" data-seat="' + p.seat + '" style="' +
           '--tx:' + o.x + '%; --ty:' + o.y + 'px; --tr:' + o.r + 'deg; z-index:' + (10 + i) + '">' +
           R.cardSVG(p.card, { trump: s.trump && p.card.suit === s.trump }) +
           (win ? '<i class="bl-trickwin" aria-hidden="true"></i>' : '') +

@@ -280,6 +280,9 @@
   position: absolute;
   right: auto;
   bottom: auto;
+  /* [v2.74·نوكيا] بديل px قبل cqw (Chrome<104 يسقط الإعلان كاملاً) */
+  width: 48px;
+  height: 48px;
   width: var(--pr-icon, clamp(40px, 11cqw, 62px));
   height: var(--pr-icon, clamp(40px, 11cqw, 62px));
   border-radius: 50%;
@@ -298,7 +301,7 @@
 .pr-pc {
   color: #ffedbe;
   font-weight: 900;
-  font-size: 3.8cqw;
+  font-size: .85rem;   /* [v2.74·نوكيا] بديل قبل cqw */
   font-size: clamp(0.72rem, 3.8cqw, 1.15rem);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   line-height: 1;
@@ -310,6 +313,7 @@
   transform: translateY(-50%);
   white-space: nowrap;
   /* [B6] حجم أيقونة المؤقت +50% */
+  font-size: .95rem;   /* [v2.74·نوكيا] بديل قبل cqw */
   font-size: clamp(0.87rem, 4.05cqw, 1.28rem);
   font-weight: 800;
   color: #ffe9a8;
@@ -320,8 +324,8 @@
   opacity: 0;
   transition: opacity 0.25s ease;
 }
-.pr-picon[data-side="right"] .pr-ptimer { left: calc(100% + 0.7cqw); }
-.pr-picon[data-side="left"] .pr-ptimer { right: calc(100% + 0.7cqw); }
+.pr-picon[data-side="right"] .pr-ptimer { left: calc(100% + 8px); left: calc(100% + 0.7cqw); }   /* [v2.74·نوكيا] بديل قبل cqw */
+.pr-picon[data-side="left"] .pr-ptimer { right: calc(100% + 8px); right: calc(100% + 0.7cqw); }   /* [v2.74·نوكيا] بديل قبل cqw */
 .pr-ptimer.on { opacity: 1; }
 .pr-ptimer.low { color: #ff8f6a; border-color: rgba(255, 110, 80, 0.75); }
 
@@ -466,6 +470,7 @@
 
 /* ── [B9] النرد الدائم بزوايا القواعد — خارج زوايا اللوحة الأربع ── */
 .pr-cd {
+  --cdsz: 46px;   /* [v2.74·نوكيا] بديل قبل cqw */
   --cdsz: var(--pr-die, clamp(42px, 11.5cqw, 58px));
   position: absolute;
   right: auto;

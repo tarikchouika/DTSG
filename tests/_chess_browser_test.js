@@ -14,7 +14,8 @@ process.chdir(require('path').resolve(__dirname, '..'));
    • الأرصدة تُقاس بالفروق (Δ) عن أرصدة الخادم المرجعية، لا بقيم مطلقة (50000/49975…) */
 const near = (a, b, eps) => Math.abs(a - b) <= (eps == null ? 0.05 : eps);
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.74·قاعدة 13] QA_BASE قابل للضبط — الافتراضي التاريخي يبقى (تشغيل آمن على خادم معزول فقط) */
+const BASE = process.env.QA_BASE || 'http://localhost:3000/';
 
 async function wait(page, fn, timeout, arg) {
   timeout = timeout || 15000;
@@ -222,6 +223,12 @@ async function tap(page, r, c) {
     await wait(A, () => !!(CHESS && CHESS.mode === 'room' && CHESS.state && !document.getElementById('chessPlay').hidden), 15000);
     await wait(B, () => !!(CHESS && CHESS.mode === 'room' && CHESS.state && !document.getElementById('chessPlay').hidden), 15000);
 
+    /* [v2.74·مال] الرصيد المرجعي = الخادم (الاقتطاع خادمي عند البدء — المحلي يمثل الخادم عبر _refreshGold) */
+    const srvGold = (pg) => pg.evaluate(async () => {
+      const r = await fetch('/api/me', { credentials: 'include' }).then(x => x.json()).catch(() => null);
+      return r && r.user ? r.user.gold : null;
+    });
+    const srvSeats = await Promise.all([srvGold(A), srvGold(B)]);
     const seats = await Promise.all([
       A.evaluate(() => ({ my: CHESS.myColor, flip: CHESS.flipped, spec: CHESS.isSpectator, gold: ST.gold })),
       B.evaluate(() => ({ my: CHESS.myColor, flip: CHESS.flipped, spec: CHESS.isSpectator, gold: ST.gold }))
@@ -229,8 +236,8 @@ async function tap(page, r, c) {
     ok('host=white not flipped', seats[0].my === 'w' && seats[0].flip === false && seats[0].spec === false);
     ok('guest=black flipped view', seats[1].my === 'b' && seats[1].flip === true && seats[1].spec === false);
     /* [مُجمّد] الحصة تُخصم من الطرفين بمقدار الرهان بالضبط (رصيد الخادم المرجعي − 25) */
-    ok('bet 25 taken from both (base ' + baseGold.join('/') + ' → ' + seats[0].gold + ' / ' + seats[1].gold + ')',
-      near(seats[0].gold - baseGold[0], -25) && near(seats[1].gold - baseGold[1], -25));
+    ok('bet 25 taken from both من الخادم (base ' + baseGold.join('/') + ' → ' + srvSeats[0] + ' / ' + srvSeats[1] + ')',
+      near(srvSeats[0] - baseGold[0], -25) && near(srvSeats[1] - baseGold[1], -25));
 
     /* [مُجمّد] لا عنصر رهان في شاشة اللعب حتى داخل غرفة برهان — الرهان يُدار بالرصيد
        لا بشريط واجهة؛ كان الاختبار القديم يتوقّع #chessStake (عنصر محذوف) فلا نعيده */
@@ -262,12 +269,16 @@ async function tap(page, r, c) {
     }));
     const resA = JSON.parse(await snap(A)); const resB = JSON.parse(await snap(B));
     ok('mate synced both (b/mate)', resA.outcome === 'b' && resA.reason === 'mate' && resB.outcome === 'b' && resB.reason === 'mate');
-    /* التسوية في غرف الشطرنج تجري في chessFinalize: الفائز +2×الرهان، الخاسر بلا تغيير */
-    const dMate = [resA.gold - seats[0].gold, resB.gold - seats[1].gold];
-    ok('loser overlay A (' + resA.tx.trim() + ' ' + resA.amt + ' gold=' + resA.gold + ' Δ=' + dMate[0] + ')',
-      /خسرت|خسارة|perdu|lost/.test(resA.tx) && near(dMate[0], 0));
-    ok('winner payout B (' + resB.amt.trim() + ' gold=' + resB.gold + ' Δ=' + dMate[1] + ')',
-      /\+\s*50/.test(resB.amt) && near(dMate[1], 50));
+    /* [v2.74·مال] التسوية خادمية موحدة (settleRound) عند نهاية المباراة:
+       الفائز يأخذ الجرة كاملة − 5% من الخادم (50 → 47.5)،
+       والواجهة تعرض سبب النهاية وتوست المبلغ من room:settle */
+    const srvMate = await Promise.all([srvGold(A), srvGold(B)]);
+    const dMateSrv = [srvMate[0] - baseGold[0], srvMate[1] - baseGold[1]];
+    const settledOk = await wait(A, () => (Rooms.state && Rooms.state.settled) ? true : null, 10000);
+    ok('loser overlay A (' + resA.tx.trim() + ' gold=' + srvMate[0] + ' Δ=' + dMateSrv[0] + ')',
+      /خسرت|خسارة|perdu|lost/.test(resA.tx) && settledOk === true && near(dMateSrv[0], -25));
+    ok('winner payout B خادمياً (gold=' + srvMate[1] + ' Δ=' + dMateSrv[1] + ')',
+      near(dMateSrv[1], -25 + 47.5));
 
     /* مباراة جديدة (المضيف يطلقها) → لوحة جديدة عند الطرفين */
     await A.evaluate(() => chessNewMatch());

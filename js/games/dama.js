@@ -648,7 +648,7 @@ function eDama(g) {
             '<button class="dama-chip" data-c="b" onclick="damaSetColor(\'b\')"><span class="dama-cd b"></span> ' + T('dama.black') + '</button>' +
           '</div>' +
         '</div>' +
-        '<div class="dama-field"><div class="dama-flab">' + T('dama.timer') + '</div>' +
+        '<div class="dama-field dama-field-timer"><div class="dama-flab">' + T('dama.timer') + '</div>' +
           '<div class="dama-timer-row">' +
             '<button class="dama-chip on" data-t="0" onclick="damaSetTimer(0)">' + T('dama.timerOff') + '</button>' +
             '<button class="dama-chip" data-t="30" onclick="damaSetTimer(30)">30 ' + T('dama.seconds') + '</button>' +
@@ -659,7 +659,7 @@ function eDama(g) {
           '</div>' +
         '</div>' +
         /* [Training 2026-09-16] مباراة الآلي تدريبية مجانية — الرهان حصري للغرف */
-        '<div class="dama-field"><div class="dama-flab">' + T('dama.yourBet') + '</div>' +
+        '<div class="dama-field dama-field-bet"><div class="dama-flab">' + T('dama.yourBet') + '</div>' +
           '<div class="dama-betrow" hidden>' + betRow() + '</div>' +
           '<div class="dama-pay" style="text-align:center;color:var(--t3);font-size:.8rem">🎓 ' + (T('ui.trainingFree') || 'تدريب مجاني بدون رهان — الرهان متاح في الغرف أونلاين فقط') + '</div>' +
         '</div>' +

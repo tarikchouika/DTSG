@@ -422,8 +422,11 @@
 }
 .rami-piles-row { display: flex; align-items: center; justify-content: center; gap: calc(var(--card-w) * 1.15); }
 /* [V19b] سامبل: عنصر ثالث في المركز (فوجوك/وصف الجوكر) — فجوة مضغوطة كي لا يُدفَع
-   عنوان سامبل وهدف الجولة ومجموع الرهان خارج الطاولة */
-.rami-piles-row:has(.rami-indicator-box) { gap: calc(var(--card-w) * 0.45); }
+   عنوان سامبل وهدف الجولة ومجموع الرهان خارج الطاولة
+   [v2.74·نوكيا] :has() ← صنف rami-has-indicator يضيفه باني المركز في rami.js —
+   محدد :has() يسقط كاملاً في WebView القديمة (Chrome<105) فتبقى الفجوة
+   الواسعة تدفع عنوان سامبل خارج الطاولة على هواتف نوكيا */
+.rami-piles-row.rami-has-indicator { gap: calc(var(--card-w) * 0.45); }
 .rami-deck-box, .rami-discard-box, .rami-indicator-box {
   display: flex; flex-direction: column; align-items: center; gap: 0.05em;
   cursor: pointer; transition: transform 0.18s ease;
@@ -898,17 +901,20 @@ body.rami-dragging { cursor: grabbing; user-select: none; -webkit-user-select: n
    (بلا حدّ ولا حشو — قسم .rami-round-table أعلاه)، وهنا نُعفي صفحة الرامي
    من خلفية الخشب العامة (11-game-theme.css: #gamePageBody) ومن حشو الحاوية
    كي يلتصق الجوخ بحواف الشاشة في الوضعين (العادي + الممتلئ). نفس المنهج
-   المعتمد سلفاً لمسرح الروندا (#rdStage) — بقية الألعاب تُبقي إطارها الخشبي. */
-#pg-game.active:has(#ramiContainer),
-#pg-game.app-fs:has(#ramiContainer),
-#pg-game:fullscreen:has(#ramiContainer),
-#pg-game:-webkit-fullscreen:has(#ramiContainer) {
+   المعتمد سلفاً لمسرح الروندا (#rdStage) — بقية الألعاب تُبقي إطارها الخشبي.
+   [v2.74·نوكيا] :has(#ramiContainer) ← سمة data-game على <body> (يضبطها
+   openGame) — محددات :has() تسقط كاملةً في WebView القديمة (Chrome<105)
+   فيبقى الفاصل الخشبي مطبقاً في الرامي على هواتف نوكيا الاقتصادية */
+body[data-game="rm"] #pg-game.active,
+body[data-game="rm"] #pg-game.app-fs,
+body[data-game="rm"] #pg-game:fullscreen,
+body[data-game="rm"] #pg-game:-webkit-full-screen {
   padding: 0 !important;
 }
-#pg-game.active:has(#ramiContainer) #gamePageBody,
-#pg-game.app-fs:has(#ramiContainer) #gamePageBody,
-#pg-game:fullscreen:has(#ramiContainer) #gamePageBody,
-#pg-game:-webkit-fullscreen:has(#ramiContainer) #gamePageBody {
+body[data-game="rm"] #pg-game.active #gamePageBody,
+body[data-game="rm"] #pg-game.app-fs #gamePageBody,
+body[data-game="rm"] #pg-game:fullscreen #gamePageBody,
+body[data-game="rm"] #pg-game:-webkit-full-screen #gamePageBody {
   padding: 0 !important;
   background: transparent !important;
 }

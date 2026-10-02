@@ -103,7 +103,7 @@ function gres(m, w, noRec, forceWin) {
     }
   }
 }
-function gFrame(inner, g) {
+function gFrame(inner, g, stageCls) {  /* [v2.74·نوكيا] stageCls: صنف مسرح للعبة بدل محددات :has() التي تسقط في WebView القديمة */
   const R = RULES[g.id];
   const rulesContent = R ? (R[langIndex()] || R[0]).map((r, i) =>
     '<div class="rline"><b>' + (i + 1) + '.</b> ' + r + '</div>'
@@ -114,7 +114,7 @@ function gFrame(inner, g) {
   const gbg = (typeof GAME_IMG !== 'undefined' && GAME_IMG[g.id] && GAME_BG[GAME_IMG[g.id]])
     ? '<div class="gstage-bg" style="background-image:url(assets/games/' + GAME_IMG[g.id] + '/background.webp)"></div>'
     : '';
-  return '<div class="stage">' + gbg +
+  return '<div class="stage' + (stageCls ? ' ' + stageCls : '') + '">' + gbg +
     '<div class="glogo-wm" aria-hidden="true"></div>' +
     '<div class="gtop">' +
       '<span class="ctext">RTP <b style="color:var(--green2)">' + g.rtp + '%</b></span>' +
@@ -229,6 +229,11 @@ function eRps(g) {
   rpsAiScore = 0;
   if (typeof Rooms !== 'undefined') {
     Rooms.setGameHandler(rpRoomMove);
+    /* [v2.74·تصويت] تحديثات الغرفة (أصوات التصويت/انضمام/حالة) تحدّث لوحة
+       المباراة الجديدة فوراً — نفس نظام البلياردو/بينالتي المعتمد */
+    if (typeof Rooms.setUpdateHandler === 'function') {
+      Rooms.setUpdateHandler(function () { rpsRoomUi(); rpsRematchRender(); });
+    }
     Rooms.setStartHandler(function (room) {
       rpRoomReset();
       if (room && room.players) {
@@ -239,8 +244,10 @@ function eRps(g) {
         if (mine) rpRoom.mySeat = mine.seat;   /* [RoomSettle] مقعدي لتسوية رهان المباراة */
       }
       rpsRoomUi();
+      rpsRematchRender();
     });
   }
+  /* [v2.74·نوكيا] صنف المسرح rps-stage يستخدمه CSS تخطيط اللاندسكيب بدل :has(.rps-arena) */
   return gFrame(
     '<div class="rps-hint">' + T('rp.hint') + '</div>' +
     '<div class="rps-arena">' +
@@ -265,8 +272,12 @@ function eRps(g) {
         '</button>';
       }).join('') +
     '</div>' +
-    '<div class="rps-status" id="rpsResult"></div>',
-    g
+    '<div class="rps-status" id="rpsResult"></div>' +
+    /* [v2.74·تصويت] لوحة تصويت المباراة الجديدة — نفس نظام البلياردو/بينالتي
+       (كانت الروك-بيپر-سيسرز تنتهي بلا أي تصويت فتبقى الغرفة معلقة) */
+    '<div class="pn-rematch" id="rpsRematch" hidden></div>',
+    g,
+    'rps-stage'
   );
 }
 function rpsPlay(p) {
@@ -435,7 +446,23 @@ function rpsRoomSettle() {
       var mySeat = rpRoom.mySeat || 0;
       var s0 = (mySeat === 0) ? rpRoom.myWins : rpRoom.oppWins;
       var s1 = (mySeat === 0) ? rpRoom.oppWins : rpRoom.myWins;
-      try { Rooms.roomSettle(s0 > s1 ? 'w0' : (s1 > s0 ? 'w1' : 'draw')); } catch (e) {}
+      var rpRes = s0 > s1 ? 'w0' : (s1 > s0 ? 'w1' : 'draw');
+      /* [v2.74·تصويت] فتح تصويت المباراة الجديدة فور هبوط التسوية — أي لاعب
+         نشط يفتحه (الخادم يقبل الأول ويمنع التكرار): كان لا يُفتح التصويت في
+         روك-بيپر-سيسرز أبداً فتبقى الغرفة معلقة بعد نهاية المباراة */
+      var rpVote = function () {
+        try {
+          var meR = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+          var activeR = Rooms.state && Rooms.state.players &&
+            Rooms.state.players.filter(function (p) { return p.id === (meR && meR.id) && !p.spectate; })[0];
+          if (activeR && typeof Rooms.startRematch === 'function') Rooms.startRematch();
+        } catch (e) {}
+        rpsRematchRender();
+      };
+      var rpSp;
+      try { rpSp = Rooms.roomSettle(rpRes); } catch (e) { rpSp = null; }
+      if (rpSp && typeof rpSp.then === 'function') rpSp.then(rpVote, rpVote);
+      else rpVote();
     }
     return;
   }
@@ -469,6 +496,67 @@ function rpsRoomUi() {
     el.textContent = '⏳ ' + T('rp.roomWaiting') + (rpRoom.oppPicked ? ' — ' + T('rp.oppPicked') : '') + ' (' + T('rp.round') + ' ' + rpRoom.round + '/' + ((window.HTH_ROUNDS && window.HTH_ROUNDS.rp) || (Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.rounds) || 3) + ' — ' + (rpRoom.oppName || T('rp.opp')) + ')';
   } else {
     el.textContent = '🎮 ' + T('rp.roomGo') + '  (' + T('rp.round') + ' ' + rpRoom.round + '/' + ((window.HTH_ROUNDS && window.HTH_ROUNDS.rp) || (Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.rounds) || 3) + ' — ' + T('rp.you') + ' ' + rpRoom.myWins + ' : ' + rpRoom.oppWins + ')';
+  }
+}
+/* ═══ [v2.74·تصويت] لوحة تصويت المباراة الجديدة لروك-بيپر-سيسرز — نفس نظام
+   البلياردو/بينالتي (صفوف المشاركين + أزرار موافقة/رفض + عدّاد 60ث):
+   كانت المباراة تنتهي بلا أي تصويت فتبقى الغرفة معلقة عند الجميع ═══ */
+function rpsRematchRender() {
+  var host = document.getElementById('rpsRematch');
+  if (!host) return;
+  try { if (window._rpsRmTi) { clearInterval(window._rpsRmTi); window._rpsRmTi = null; } } catch (e) {}
+  var inRoom = !!(typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'rp');
+  if (!inRoom) { host.hidden = true; host.innerHTML = ''; return; }
+  var rm = Rooms.state.rematch;
+  var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
+  var myId = me ? String(me.id) : null;
+  if (!rm) { host.hidden = true; host.innerHTML = ''; return; }
+  if (rm.resolved && !rm.rematch) {
+    host.hidden = false;
+    host.innerHTML = '<div class="pn-rm-box"><span class="pn-rm-ico">🚫</span><div class="pn-rm-note">' + esc(T('pn.rematchNo')) + '</div></div>';
+    return;
+  }
+  if (rm.resolved && rm.rematch) {
+    host.hidden = false;
+    host.innerHTML = '<div class="pn-rm-box"><span class="pn-rm-ico">▶️</span></div>';
+    return;
+  }
+  var rows = '';
+  var parts = (rm.participants || []).map(String);
+  for (var i = 0; i < parts.length; i++) {
+    var pid = parts[i];
+    var v = rm.votes ? rm.votes[pid] : null;
+    var name = (rm.names && rm.names[pid]) ? rm.names[pid] : ('#' + pid);
+    var mark = (v === 'agree') ? '✅' : (v === 'refuse') ? '❌' : '⏳';
+    rows += '<div class="pn-rm-row"><span class="pn-rm-name">' + esc(name) + '</span><span class="pn-rm-mark">' + mark + '</span></div>';
+  }
+  var myVote = rm.votes ? rm.votes[myId] : null;
+  var isParticipant = (parts.indexOf(myId) !== -1);
+  var actions = '';
+  if (isParticipant && !myVote) {
+    actions = '<button type="button" class="pn-rm-btn yes" onclick="Rooms.voteRematch(\'agree\')">✅ ' + esc(T('pn.rematchAgree')) + '</button>' +
+      '<button type="button" class="pn-rm-btn no" onclick="Rooms.voteRematch(\'refuse\')">❌ ' + esc(T('pn.rematchRefuse')) + '</button>';
+  } else if (isParticipant && myVote) {
+    actions = '<div class="pn-rm-note">' + esc(T('pn.rematchVoted')) + '</div>';
+  } else {
+    actions = '<div class="pn-rm-note">' + esc(T('pn.rematchWaitVotes')) + '</div>';
+  }
+  var remain = rm.ts ? Math.max(0, 60 - Math.floor((Date.now() - rm.ts) / 1000)) : 60;
+  host.hidden = false;
+  host.innerHTML = '<div class="pn-rm-box">' +
+    '<div class="pn-rm-title">🔁 ' + esc(T('pn.rematchTitle')) + '</div>' +
+    '<div class="pn-rm-rows">' + rows + '</div>' +
+    '<div class="pn-rm-actions">' + actions + '</div>' +
+    '<div class="pn-rm-timer">⏱ <span id="rpsRmTimerN">' + remain + '</span></div>' +
+    '</div>';
+  if (rm.ts) {
+    var ts = rm.ts;
+    window._rpsRmTi = setInterval(function () {
+      var r = Math.max(0, 60 - Math.floor((Date.now() - ts) / 1000));
+      var el = document.getElementById('rpsRmTimerN');
+      if (el) el.textContent = String(r);
+      if (r <= 0) { try { clearInterval(window._rpsRmTi); } catch (e) {} window._rpsRmTi = null; }
+    }, 1000);
   }
 }
 
@@ -1007,7 +1095,11 @@ function pnMatchEnd() {
   if (typeof flashColor === 'function') flashColor(iWon ? 'rgba(52, 211, 153, 0.4)' : 'rgba(244, 63, 94, 0.32)');
   if (typeof SND.rpsWin === 'function') { try { SND[iWon ? 'rpsWin' : 'rpsLose'](); } catch (e) {} }
   var me = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user : null;
-  var isOwner = Rooms.state && me && Rooms.state.owner_id === me.id;
+  /* [v2.74·تصويت] أي لاعب نشط يفتح التصويت (الخادم يقبل الأول ويمنع التكرار)
+     — كان حصراً في المالك فتتعطل الغرفة كلها بغياب جهازه لحظة النهاية
+     (نفس فلسفة v2.69 في فتح بوابة التسوية) */
+  var activeOpener = !!(Rooms.state && me && Rooms.state.players &&
+    Rooms.state.players.some(function (p) { return p.id === me.id && !p.spectate; }));
   /* [v2.69·آلي] أي لاعب نشط يوزّع القدح — الخادم يقبل الأول ويمنع التكرار
      (كان المضيف حصراً فتموت التسوية بغيابه) */
   if (typeof Rooms.roomSettle === 'function') {
@@ -1015,7 +1107,7 @@ function pnMatchEnd() {
   }
   /* [Rematch-vote] فتح تصويت المباراة الجديدة فور النهاية — نفس نظام البلياردو:
      الموافقون (≥2 ويحويهم المالك) يبدؤون مباراة جديدة، الباقون متفرجون */
-  if (isOwner && typeof Rooms.startRematch === 'function') {
+  if (activeOpener && typeof Rooms.startRematch === 'function') {
     try { Rooms.startRematch(); } catch (e) {}
   }
   pnRematchRender();

@@ -686,6 +686,16 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 .pn-rm-mark { font-size: 1rem; }
+/* [v2.74·rp] اسم المشارك في صف التصويت (لوحة روك-بيپر-سيسرز تستعمل الاسم
+   نصاً بدل حلقة الأفاتار الخاصة بالبينالتي) */
+.pn-rm-name {
+  font-weight: 700;
+  font-size: .92rem;
+  color: #f3e5c0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .pn-rm-actions {
   display: flex;
   gap: 8px;

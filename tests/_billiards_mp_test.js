@@ -2,7 +2,8 @@
    نمط _parchisi_mp_test.js: أزواج سياقات منفصلة، مزامنة حالة بعد 20 ضربة. */
 'use strict';
 const { chromium } = require('playwright');
-const BASE = 'http://localhost:3000/';
+/* [v2.74·قاعدة 13] QA_BASE قابل للضبط — الافتراضي التاريخي يبقى (تشغيل آمن على خادم معزول فقط) */
+const BASE = process.env.QA_BASE || 'http://localhost:3000/';
 
 let pass = 0, fail = 0;
 const ok = (m, c) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail++; console.log('  ✗ ' + m); } };
@@ -139,9 +140,16 @@ const SHOTS = [[0.4, 70], [-0.6, 60], [1.2, 55], [2.4, 65], [0.9, 50], [-1.2, 60
   const settled = await wait(E, () => (BILLIARDS.over && BILLIARDS.G.S.frameOver) ? true : null, 10000);
   ok('الاستسلام وصل للخصم وأنهى الإطار', settled === true);
   ok('الخصم هو الفائز عند E', await E.evaluate(() => BILLIARDS.G.S.winner === 1 && BILLIARDS.mySeat === 1));
-  await wait(E, () => true, 1200); /* مهلة giveWin */
-  const goldE2 = await E.evaluate(() => ST.gold);
-  ok('الفائز استلم 2× الرهان (صافي +10)', goldE2 - goldE0 === 10);
+  /* [v2.74·مال] التسوية خادمية آنية من أي لاعب نشط عند نهاية الإطار
+     (كان الدفع giveWin(bet*2) محلياً في متصفح الرابح بلا رسم ولا يصل الخادم شيءاً)
+     — الرابح يأخذ الجرة كاملة − 5% من الخادم: 19 من جرة 20 */
+  const stE = await wait(E, () => (Rooms.state && Rooms.state.settled) ? true : null, 10000);
+  ok('التسوية الخادمية قعتت عند نهاية الإطار', stE === true);
+  const goldSrv = await E.evaluate(async () => {
+    const r = await fetch('/api/me', { credentials: 'include' }).then(x => x.json()).catch(() => null);
+    return r && r.user ? r.user.gold : null;
+  });
+  ok('الرابح استلم من الخادم 19 (جرة 20 − رسم 5%) — صافي +9', goldSrv != null && goldSrv - goldE0 === 9);
 
   /* ═══ 3) بث إعدادات الكاروم (cfg) ═══ */
   sec('3) كاروم أونلاين: بث الاختصاص والهدف');

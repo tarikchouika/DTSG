@@ -283,7 +283,7 @@
    ════════════════════════════════════════════════════════════════ */
 @media (orientation: landscape) {
   /* cancel the generic stage grid; keep position:absolute;inset:0 from 04-games */
-  #pg-game.app-fs .stage:has(.ch-wrap) {
+  #pg-game.app-fs .stage.ch-stage {
     display: block !important;
     grid-template-columns: none !important;
     grid-template-rows: none !important;
@@ -292,7 +292,7 @@
     overflow: hidden;
   }
   /* result bar (.res) floats pinned to the bottom, out of the play flow */
-  #pg-game.app-fs .stage:has(.ch-wrap) > .res {
+  #pg-game.app-fs .stage.ch-stage > .res {
     position: absolute;
     left: 0;
     right: 0;
