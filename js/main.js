@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.75.0';
+window.DTSG_BUILD = 'v2.76.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -1289,34 +1289,101 @@ function renderGameHistory() {
     '</div>';
   }).join('');
 }
-/* ═══════════ المتصدرون ═══════════ */
+/* ═══════════ المتصدرون — [v2.76] ترتيب حقيقي من بيانات الرهان الفعلية ═══════════
+   كانت القائمة بيانات وهمية ثابتة (10 أسماء مزيفة). الآن: /api/lb يجمع
+   bet_tickets فعلياً — ترتيب لكل لعبة على حدة (رقائق التصفية) + ترتيب عام
+   بمجموع الأرباح، وبطاقة «ترتيبك» للمستخدم المسجل. الأرصدة الجارية تظل
+   خصوصية: المعروض صافي أرباح اللعب حصراً (توجيه المالك 2026-10-02). */
+let LB_SCOPE = 'overall';   /* 'overall' أو معرف لعبة */
+let LB_GAMES = [];           /* ألعاب لها جولات مسجَّلة (من الخادم) */
+let LB_FETCH_SEQ = 0;        /* حارس سباق: آخر استجابة فقط ترسم */
+
+function lbColor(name) {
+  const palette = ['#1A6CF6', '#7C3AED', '#10B981', '#EF4444', '#F59E0B', '#06B6D4', '#EC4899', '#84CC16'];
+  let h = 0;
+  const s = String(name || '?');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return palette[h % palette.length];
+}
+function lbGameName(gid) {
+  const g = (typeof GAMES !== 'undefined' && GAMES) ? GAMES.find(function (x) { return x.id === gid; }) : null;
+  return g ? gname(g) : gid;
+}
+function lbProfitHtml(p) {
+  const pos = p > 0;
+  const txt = (pos ? '+' : '') + fmt(p);
+  return '<span class="lprofit ' + (pos ? 'pos' : (p < 0 ? 'neg' : '')) + '">' + txt + '</span>';
+}
+function lbMeCardHtml(meRow, scopeLabel) {
+  if (!meRow) return '';
+  return '<div class="card lbme">' +
+    '<div class="lbme-rank">#' + meRow.rank + '</div>' +
+    '<div class="lbme-body">' +
+      '<div class="lbme-title">' + (T('lb.meRank') || 'ترتيبك في هذا التصنيف') + ' · ' + esc(scopeLabel) + '</div>' +
+      '<div class="lbme-stats">' +
+        '<span>' + (T('lb.profit') || 'صافي الربح') + ': <b>' + lbProfitHtml(meRow.profit) + '</b></span>' +
+        '<span>' + (T('lb.rounds') || 'جولات') + ': <b>' + fmt(meRow.rounds) + '</b></span>' +
+        '<span>' + (T('lb.wins') || 'فوز') + ': <b>' + fmt(meRow.wins) + '</b></span>' +
+      '</div>' +
+    '</div>' +
+  '</div>';
+}
+function renderLBFilters(games) {
+  const bar = document.getElementById('lbFilters');
+  if (!bar) return;
+  let html = '<button class="fchip' + (LB_SCOPE === 'overall' ? ' active' : '') + '" role="tab" aria-selected="' + (LB_SCOPE === 'overall') + '" onclick="lbSetScope(\'overall\', this)">' +
+    '<i class="fa-solid fa-crown" aria-hidden="true"></i> ' + (T('lb.overall') || 'الترتيب العام') + '</button>';
+  (games || []).forEach(function (g) {
+    const active = LB_SCOPE === g.game_id;
+    html += '<button class="fchip' + (active ? ' active' : '') + '" role="tab" aria-selected="' + active + '" onclick="lbSetScope(\'' + esc(g.game_id) + '\', this)">' + esc(lbGameName(g.game_id)) + ' <span class="lb-cnt">' + Number(g.players) + '</span></button>';
+  });
+  bar.innerHTML = html;
+}
+function lbSetScope(scope, el) {
+  LB_SCOPE = scope;
+  document.querySelectorAll('#lbFilters .fchip').forEach(function (c) { c.classList.remove('active'); c.setAttribute('aria-selected', 'false'); });
+  if (el) { el.classList.add('active'); el.setAttribute('aria-selected', 'true'); }
+  SND.click();
+  renderLB();
+}
 function renderLB() {
-  const players = [
-    ['RondaMaster', 58230, '#F5C518'],
-    ['KingPlayer', 45230, '#7C3AED'],
-    ['CrashKing', 38900, '#1A6CF6'],
-    ['LuckyGirl', 31200, '#10B981'],
-    ['ProGamer', 28500, '#EF4444'],
-    ['GoldHunter', 24100, '#F59E0B'],
-    ['StarPlayer', 19800, '#A78BFA'],
-    ['WinMaster', 15400, '#60A5FA'],
-    ['CoinCollector', 12300, '#34D399'],
-    ['NewChamp', 9800, '#F87171']
-  ];
   const el = document.getElementById('lbList');
   if (!el) return;
-  el.innerHTML = players.map((p, i) => {
-    const rankClass = i < 3 ? ' r' + (i + 1) : '';
-    const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1);
-    return '<div class="lrow' + rankClass + '" role="listitem">' +
-      '<div class="lrank">' + medal + '</div>' +
-      '<div class="lpl">' +
-        '<div class="avatar" style="background:' + p[2] + '">' + p[0].slice(-1) + '</div>' +
-        '<b>' + p[0] + '</b>' +
-      '</div>' +
-      '<div class="lcoins">🪙 ' + fmt(p[1]) + '</div>' +
+  const seq = ++LB_FETCH_SEQ;
+  const url = LB_SCOPE === 'overall' ? '/api/lb' : ('/api/lb?game=' + encodeURIComponent(LB_SCOPE));
+  el.innerHTML = '<div class="lrow lb-loading"><span class="lrank">…</span><div class="lpl"><span data-i18n="lb.loading">جارٍ جلب الترتيب…</span></div></div>';
+  API.get(url).then(function (r) {
+    if (seq !== LB_FETCH_SEQ) return;   /* استجابة متقادمة — تجاهل */
+    const d = (r && r.ok && r.data) ? r.data : null;
+    const list = (d && Array.isArray(d.leaderboard)) ? d.leaderboard : [];
+    LB_GAMES = (d && Array.isArray(d.games)) ? d.games : [];
+    renderLBFilters(LB_GAMES);
+    const scopeLabel = LB_SCOPE === 'overall' ? (T('lb.overall') || 'الترتيب العام') : lbGameName(LB_SCOPE);
+    const meBox = document.getElementById('lbMeCard');
+    if (meBox) meBox.innerHTML = lbMeCardHtml(d && d.me, scopeLabel);
+    if (!list.length) {
+      el.innerHTML = '<div class="lrow"><div class="lpl"><span class="note" style="margin:0">🏅 ' + (T('lb.noData') || 'لا جولات مسجَّلة بعد في هذا التصنيف — العب جولات مراهنة ليظهر الترتيب') + '</span></div></div>';
+      return;
+    }
+    const myName = (typeof AUTH !== 'undefined' && AUTH.user) ? AUTH.user.username : null;
+    el.innerHTML = list.map(function (p) {
+      const rankClass = p.rank < 4 ? ' r' + p.rank : '';
+      const medal = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : p.rank;
+      const isMe = myName && p.username === myName;
+      return '<div class="lrow' + rankClass + (isMe ? ' lb-me' : '') + '" role="listitem">' +
+        '<div class="lrank">' + medal + '</div>' +
+        '<div class="lpl">' +
+          '<div class="avatar" style="background:' + lbColor(p.username) + '">' + esc(String(p.username).slice(0, 1)) + '</div>' +
+          '<b>' + esc(p.username) + (isMe ? ' <span class="lb-you">' + (T('lb.you') || 'أنت') + '</span>' : '') + '</b>' +
+        '</div>' +
+        '<div class="lmeta">' + (T('lb.rounds') || 'جولات') + ' ' + fmt(p.rounds) + ' · ' + (T('lb.wins') || 'فوز') + ' ' + fmt(p.wins) + '</div>' +
+        '<div class="lcoins">' + lbProfitHtml(p.profit) + '</div>' +
       '</div>';
-  }).join('');
+    }).join('');
+  }).catch(function () {
+    if (seq !== LB_FETCH_SEQ) return;
+    el.innerHTML = '<div class="lrow"><div class="lpl"><span class="note err" style="margin:0">' + (T('admin.serverUnreachable') || 'تعذر الوصول للخادم') + '</span></div></div>';
+  });
 }
 /* ═══════════ لوحة الإدارة (حقيقية — من الـ API) ═══════════ */
 let ADMIN_TAB = 'users';
@@ -2516,6 +2583,9 @@ function initApp() {
         Rooms.joinSse();
         Rooms.tryAutoJoin();
       }
+      /* [v2.76] الترتيب أُجلب قبل اكتمال استعادة الجلسة — إعادة رسم بعد
+         الدخول لتظهر بطاقة «ترتيبك» وتمييز صف المستخدم */
+      if (typeof AUTH !== 'undefined' && AUTH.user && typeof renderLB === 'function') renderLB();
     });
   }
   /* مزامنة الرصيد مع الخادم كل 30 ثانية */
@@ -2527,6 +2597,12 @@ function initApp() {
     const pg = document.getElementById('pg-rooms');
     if (pg && pg.classList.contains('active') && typeof renderRooms === 'function') renderRooms();
   }, 5000);
+  /* [v2.76·ترتيب حقيقي] صفحة المتصدرون تُحدَّث كل 30ث أثناء فتحها فقط
+     (الكاش الخادمي 60ث — لا فائدة من استعلام أسرع) */
+  setInterval(function() {
+    const pg = document.getElementById('pg-lb');
+    if (pg && pg.classList.contains('active') && typeof renderLB === 'function') renderLB();
+  }, 30000);
   /* الصفحة الرئيسية تعرض ملخص الغرف والبطولات — تُراجع بهدوء كل 15 ثانية. */
   setInterval(function() {
     const pg = document.getElementById('pg-home');

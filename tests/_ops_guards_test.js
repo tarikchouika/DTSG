@@ -385,12 +385,19 @@ async function runLive() {
   }
   check('L25', voucherSpam[10].status === 429, 'القسائم: المحاولة 11 في الدقيقة ⇒ 429 (≤10/د)');
 
-  /* L26-L27: المتصدرون بلا أرصدة */
+  /* L26-L27: المتصدرون بلا أرصدة — [v2.76] الترتيب صار حقيقياً من بيانات
+     الرهان (لكل لعبة + عام بمجموع الأرباح)؛ القاعدة الفارغة ليس فيها تذاكر
+     بعد ⇒ نزرع واحدة بجلسة اللاعب قبل الفحص كي يبقى الحارس قوياً.
+     الخصوصية ذاتها محفوظة: أرباح اللعب وحدها تُعرض — لا gold ولا usd
+     ولا balance إطلاقاً (توجيه المالك 2026-10-02). */
+  const seedLb = await post(QA_PORT, '/api/rounds', { game_id: 'rn', bet: 50, won: true, payout: 95 }, { cookie: plCookie });
+  check('L26a', seedLb.status === 200, 'بذر تذكرة رهان لترتيب حقيقي (بلا تذاكر = قائمة فارغة)');
   const lb = await req(QA_PORT, '/api/lb');
   const entries = (lb.json && lb.json.leaderboard) || [];
   const noGold = entries.every((e) => !('gold' in e) && !('usd' in e) && !('balance' in e));
   check('L26', lb.status === 200 && entries.length > 0 && noGold, 'المتصدرون بلا أرصدة (خصوصية الأرصدة)');
-  check('L27', entries.every((e) => e.rank && e.username), 'شكل المتصدرين: {rank, username}');
+  check('L27', entries.every((e) => e.rank && e.username && typeof e.profit === 'number' && typeof e.rounds === 'number'),
+    'شكل المتصدرين: {rank, username, profit, rounds, wins} — ترتيب حقيقي v2.76');
 
   /* L28: الخادم لا ينهار بعد العاصفة */
   const alive = await req(QA_PORT, '/api/health');

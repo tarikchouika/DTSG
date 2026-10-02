@@ -84,6 +84,9 @@ if (typeof window !== 'undefined') {
 function nav(id, el) {
   /* التوافق مع روابط قديمة فقط: لا توجد صفحة دردشة عامة بعد الآن. */
   if (id === 'chat') { id = 'home'; el = document.querySelector('[data-nav="home"]'); }
+  /* [v2.76] الصفحة السابقة قبل تبديل الأصناف — لدورة حياة صفحة التحكيم
+     (فكّ اتصالاتها واستطلاعها عند مغادرتها) */
+  const prevPage = (document.body.className.match(/\bpg-([a-z0-9-]+)\b/) || [])[1] || '';
   /* إخفاء كل الصفحات */
   const pages = document.querySelectorAll('.page');
   for (let i = 0; i < pages.length; i++) {
@@ -125,6 +128,16 @@ function nav(id, el) {
   if (id === 'account' && typeof renderAccountLog === 'function') renderAccountLog();
   /* صفحة الأصدقاء: إظهارها وتهيئتها (إن وُجدت) */
   if (id === 'friends' && typeof Friends !== 'undefined' && Friends.init) Friends.init();
+  /* [v2.76·ترتيب حقيقي] صفحة المتصدرين تجلب الترتيب الحقيقي عند فتحها */
+  if (id === 'lb' && typeof renderLB === 'function') renderLB();
+  /* [v2.76·صفحة التحكيم] دورة حياة: دخول = تفعيل الاستطلاع والأحداث،
+     ومغادرة = فكّ نظيف (اتصالات لوحة الأدمن + المؤقتات + الاشتراكات) */
+  if (prevPage === 'arb' && id !== 'arb' && typeof ARB_PAGE !== 'undefined' && ARB_PAGE && ARB_PAGE.leave) {
+    try { ARB_PAGE.leave(); } catch (e) {}
+  }
+  if (id === 'arb' && typeof ARB_PAGE !== 'undefined' && ARB_PAGE && ARB_PAGE.enter) {
+    try { ARB_PAGE.enter(); } catch (e) {}
+  }
   closeSide();
   SND.click();
   /* ── Hash routing: update URL hash without triggering hashchange loop ── */

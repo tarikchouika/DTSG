@@ -1335,3 +1335,91 @@ html[dir="ltr"] .botchat { direction: ltr; }
 }
 .arb-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .arb-actions .btn.danger { border-color: rgba(253,164,175,0.6); background: rgba(225,29,72,0.22); }
+
+/* ═══ [v2.76·صفحة التحكيم] مركز التشغيل — لاعب وأدمن (بلا ميزات كاسرة: قاعدة نوكيا v2.74) ═══ */
+/* بطاقة جلستي الحالية عند اللاعب */
+.arb-mine {
+  border-color: rgba(217,180,92,0.4);
+  box-shadow: 0 0 0 1px rgba(217,180,92,0.08), var(--shadow-md, 0 4px 16px rgba(0,0,0,0.45));
+}
+.arb-mine-head {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  flex-wrap: wrap; padding: 6px 0 10px; border-bottom: 1px solid var(--bd, rgba(255,255,255,0.1));
+  margin-bottom: 10px;
+}
+.arb-mine-head .arb-room { font-weight: 800; color: #f3e5c0; font-size: .95rem; }
+.arb-mine-head .arb-bet { color: var(--gold, #d9b45c); font-weight: 800; font-size: .9rem; }
+.arb-pl-list { display: grid; gap: 8px; margin-bottom: 12px; }
+.arb-pl-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(16,16,24,0.45); border: 1px solid rgba(255,255,255,0.08);
+}
+.arb-pl-item b { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .88rem; color: var(--t1, #e9e2cf); }
+.arb-pl-item .avatar { width: 30px; height: 30px; font-size: .72rem; flex: 0 0 auto; }
+.arb-privacy { margin-top: 10px; font-size: .78rem; }
+/* بطاقة الإرشاد عند غياب غرفة */
+.arb-guide .btn { margin-top: 10px; }
+/* خطوات «كيف يعمل التحكيم؟» */
+.arb-steps { margin-top: 4px; }
+.arb-step { display: flex; gap: 12px; align-items: flex-start; }
+.arb-step-ico {
+  flex: 0 0 auto; width: 42px; height: 42px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; font-size: 1.05rem;
+  color: #0b1526;
+  background: linear-gradient(135deg, #d9b45c, #b8892f);
+  box-shadow: 0 0 14px rgba(217,180,92,0.28);
+}
+.arb-step-title { font-weight: 800; color: var(--t1, #e9e2cf); font-size: .92rem; margin-bottom: 4px; }
+.arb-step-sub { font-size: .78rem; color: var(--t2, #9aa5b8); line-height: 1.75; }
+/* قواعد التحكيم */
+.arb-rules-list { margin: 4px 0 0; padding-inline-start: 18px; display: grid; gap: 6px; }
+.arb-rules-list li { font-size: .82rem; color: var(--t2, #9aa5b8); line-height: 1.8; }
+/* رأس مركز الأدمن */
+.arb-console-head { border-color: rgba(217,180,92,0.35); margin-bottom: 12px; }
+
+/* ═══ [v2.76·ترتيب حقيقي] المتصدرون المحسّنون — أرباح حقيقية + تصفية ═══ */
+/* الصف: رتبة · لاعب · إحصاءات · ربح — عمود رابع للإحصاءات */
+.lrow {
+  grid-template-columns: 48px 1fr auto auto;
+}
+.lrow .lmeta { font-size: .72rem; color: var(--t3, #66708A); white-space: nowrap; }
+.lrow.lb-me { background: rgba(217,180,92,0.07); }
+.lb-you {
+  display: inline-block; padding: 1px 8px; border-radius: 999px;
+  font-size: .62rem; font-weight: 800; vertical-align: middle;
+  background: rgba(217,180,92,0.16); border: 1px solid rgba(217,180,92,0.45); color: var(--gold, #d9b45c);
+}
+.lprofit { font-weight: 800; font-size: .88rem; direction: ltr; display: inline-block; }
+.lprofit.pos { color: var(--green, #10B981); }
+.lprofit.neg { color: var(--red2, #F87171); }
+.lb-loading { color: var(--t3, #66708A); }
+/* رقاقة عدّاد اللاعبين داخل رقائق التصفية */
+#lbFilters .fchip .lb-cnt {
+  display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px;
+  font-size: .68rem; font-weight: 800;
+  background: rgba(217,180,92,0.14); border: 1px solid rgba(217,180,92,0.3); color: var(--gold, #d9b45c);
+}
+/* بطاقة «ترتيبك» */
+.lbme {
+  display: flex; align-items: center; gap: 14px;
+  border-color: rgba(217,180,92,0.45); margin-bottom: 14px;
+  background: linear-gradient(145deg, rgba(217,180,92,0.06), rgba(16,22,36,0.4));
+}
+.lbme-rank {
+  flex: 0 0 auto; min-width: 54px; height: 54px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 1.15rem; color: #0b1526;
+  background: linear-gradient(135deg, #d9b45c, #b8892f);
+  box-shadow: 0 0 16px rgba(217,180,92,0.3);
+}
+.lbme-title { font-weight: 800; color: var(--t1, #e9e2cf); font-size: .92rem; margin-bottom: 5px; }
+.lbme-stats { display: flex; gap: 14px; flex-wrap: wrap; font-size: .78rem; color: var(--t2, #9aa5b8); }
+.lbme-stats b { color: var(--t1, #e9e2cf); font-weight: 700; }
+/* موبايل: الإحصاءات تختفي في الشاشات الضيقة ويبقى الربح ظاهراً */
+@media (max-width: 560px) {
+  .lrow { grid-template-columns: 42px 1fr auto; }
+  .lrow .lmeta { display: none; }
+  .lbme { gap: 10px; }
+}
+

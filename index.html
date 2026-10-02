@@ -71,7 +71,7 @@
   <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg11">
   <link rel="stylesheet" href="css/07-responsive.css?v=dtsg8">
   <link rel="stylesheet" href="css/08-rami.css?v=dtsg10">
-  <link rel="stylesheet" href="css/09-chrome.css?v=v275">
+  <link rel="stylesheet" href="css/09-chrome.css?v=v276">
   <link rel="stylesheet" href="css/10-dama.css?v=dtsg7">
   <link rel="stylesheet" href="css/12-chess.css?v=dtsg8">
   <link rel="stylesheet" href="css/11-game-theme.css?v=dtsg6">
@@ -150,6 +150,11 @@
       <button class="nav-item" data-nav="rooms" onclick="nav('rooms', this)">
         <span class="ic" aria-hidden="true"><i class="fa-solid fa-users"></i></span>
         <span data-i18n="ui.rooms">غرف اللعب</span>
+      </button>
+      <!-- [v2.76·صفحة التحكيم] مركز تشغيل التحكيم المباشر — لاعبون وأدمنز -->
+      <button class="nav-item" data-nav="arb" onclick="nav('arb', this)">
+        <span class="ic" aria-hidden="true"><i class="fa-solid fa-tower-broadcast"></i></span>
+        <span data-i18n="ui.arbNav">التحكيم المباشر</span>
       </button>
       <div class="side-title" data-i18n="ui.tools">الأدوات</div>
       <button class="nav-item" data-nav="admin" id="navAdmin" onclick="nav('admin', this)">
@@ -278,9 +283,14 @@
           </div>
           <div class="grid g4" id="allGames"></div>
         </section>
-        <!-- المتصدرون -->
+        <!-- المتصدرون — [v2.76] ترتيب حقيقي من بيانات الرهان: لكل لعبة + عام بمجموع الأرباح -->
         <section class="page" id="pg-lb" aria-labelledby="lbTitle">
-          <div class="phead"><div class="ptitle" id="lbTitle"><div class="ibox"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i></div> <span data-i18n="ui.lb">المتصدرون</span></div></div>
+          <div class="phead">
+            <div class="ptitle" id="lbTitle"><div class="ibox"><i class="fa-solid fa-ranking-star" aria-hidden="true"></i></div> <span data-i18n="ui.lb">المتصدرون</span></div>
+            <div class="psub" data-i18n="lb.sub">ترتيب حقيقي حسب صافي أرباح اللعب — لكل لعبة على حدة وترتيب عام شامل</div>
+          </div>
+          <div id="lbMeCard"></div>
+          <div class="fbar" id="lbFilters" role="tablist" aria-label="تصفية الترتيب"></div>
           <div class="lb" id="lbList" role="list"></div>
         </section>
         <!-- الأصدقاء -->
@@ -329,6 +339,16 @@
             </div>
           </div>
           <div class="grid g2" id="roomsList"></div>
+        </section>
+        <!-- [v2.76·صفحة التحكيم] مركز تشغيل التحكيم المباشر — لاعبون وأدمنز:
+             جلستي الحالية وبث الشاشة عند اللاعب · الجلسات والمشاهدة المزدوجة
+             والحسم عند الأدمن (js/core/arb-page.js) -->
+        <section class="page" id="pg-arb" aria-labelledby="arbTitle">
+          <div class="phead">
+            <div class="ptitle" id="arbTitle"><div class="ibox"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i></div> <span data-i18n="arb.pageTitle">مركز التحكيم المباشر</span></div>
+            <div class="psub" data-i18n="arb.pageSub">بث شاشات اللاعبين وحسم النتائج وإطلاق الأرباح فوراً — مركز تشغيل التحكيم البشري للمنصة</div>
+          </div>
+          <div id="arbPageBody"></div>
         </section>
         <!-- الإدارة -->
         <section class="page" id="pg-admin" aria-labelledby="adminTitle">
@@ -734,9 +754,9 @@
   <script src="js/core/api.js?v=dtsg10"></script>
   <script src="js/core/auth.js?v=dtsg10"></script>
   <script src="js/core/audio.js?v=dtsg7"></script>
-  <script src="js/core/utils.js?v=dtsg7"></script>
+  <script src="js/core/utils.js?v=v276"></script>
   <script src="js/core/fx.js?v=dtsg7"></script>
-  <script src="js/i18n/translations.js?v=v275"></script>
+  <script src="js/i18n/translations.js?v=v276"></script>
   <script src="js/rules/game-rules.js?v=dtsg9"></script>
   <script src="js/games/catalog.js?v=dtsg8"></script>
   <script src="js/games/ronda.js?v=v274r1"></script>
@@ -797,11 +817,13 @@
   <script src="js/games/billiards.js?v=dtsg24"></script>
   <script src="js/games/engines.js?v=dtsg15"></script>
   <script src="js/core/rooms.js?v=v275"></script>
-  <!-- [v2.75·تحكيم] بث الشاشة للاعب + لوحة الأدمن (WebRTC P2P) -->
-  <script src="js/core/arb-client.js?v=v275"></script>
-  <script src="js/core/arb-admin.js?v=v275"></script>
-  <script src="js/main.js?v=v275"></script>
-  <script src="js/core/live.js?v=v275"></script>
+  <!-- [v2.75·تحكيم] بث الشاشة للاعب + لوحة الأدمن (WebRTC P2P)
+       [v2.76] صفحة التحكيم المخصّصة للمستخدمين والأدمنز -->
+  <script src="js/core/arb-client.js?v=v276"></script>
+  <script src="js/core/arb-admin.js?v=v276"></script>
+  <script src="js/core/arb-page.js?v=v276"></script>
+  <script src="js/main.js?v=v276"></script>
+  <script src="js/core/live.js?v=v276"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>
   <script src="js/wallet.js?v=pay11"></script>

@@ -19,6 +19,17 @@
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
     mediamtx: null, hb: null, state: 'idle', startedAt: 0, retries: 0
   };
+  /* [v2.76·صفحة التحكيم] مشتركو تغيّر الحالة (صفحة التحكيم تعرض شريحة
+     حالة البث خارج مودال الغرفة) — إلغاء الاشتراك بإرجاع دالة */
+  var stateSubs = [];
+  function onState(fn) {
+    if (typeof fn !== 'function' || stateSubs.indexOf(fn) !== -1) return function () {};
+    stateSubs.push(fn);
+    return function () {
+      var i = stateSubs.indexOf(fn);
+      if (i >= 0) stateSubs.splice(i, 1);
+    };
+  }
 
   /* [مهم] API وAUTH معرّفان بـconst/var في نطاق السكربت العام (روابط
      معجمية) فلا يظهران على window — الوصول بالمسمّى المجرّد حصراً */
@@ -49,6 +60,7 @@
   function setState(s) {
     st.state = s;
     renderChip();
+    stateSubs.forEach(function (fn) { try { fn(s); } catch (e) {} });
     if (st.token) heartbeat();
   }
 
@@ -258,6 +270,7 @@
     modalHtml: modalHtml,
     mountChip: mountChip,
     reset: reset,
+    onState: onState,
     state: function () { return st.state; }
   };
 })(typeof window !== 'undefined' ? window : this);

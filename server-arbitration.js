@@ -166,6 +166,41 @@ function createArbitration(ctx) {
 
   /* ══════════ الواجهة (يستدعيها server.js) ══════════ */
   return {
+    /* [v2.76·صفحة التحكيم] جلستي: غرفة المستخدم الجارية (إن كان لاعباً
+       نشطاً فيها) + جلسة التحكيم المرتبطة بها إن وُجدت — لتشغيل صفحة
+       التحكيم عند اللاعب بلا الاعتماد على مودال الغرفة. بلا توكنات. */
+    mine: function (me) {
+      if (!me) return { status: 401, body: { ok: false, message: 'يلزم تسجيل الدخول' } };
+      const myRooms = roomHub.roomsOfUser(me.id) || [];
+      const room = myRooms.find(function (r) {
+        const p = r.players.find(function (x) { return String(x.id) === String(me.id); });
+        return p && !p.spectate;
+      }) || null;
+      if (!room) {
+        return { status: 200, body: { ok: true, room: null, session: null, can_broadcast: false } };
+      }
+      const s = live.get(room.id);
+      const session = (s && s.status === 'live') ? s : null;
+      return {
+        status: 200,
+        body: {
+          ok: true,
+          can_broadcast: room.status === 'playing',
+          room: {
+            id: room.id, code: room.code, game_id: room.game_id,
+            bet: Number(room.bet) || 0, status: room.status,
+            round_id: room.roundId || null,
+            players: (room.players || []).filter(function (p) { return !p.spectate; })
+              .map(function (p) {
+                const u = users[p.id];
+                return { id: p.id, username: (u && u.username) || p.username || ('#' + p.id), ready: !!p.ready, is_bot: !!p.isBot };
+              })
+          },
+          session: session ? publicSession(session) : null
+        }
+      };
+    },
+
     /* لاعب نشط في غرفة جارية: يفتح/يجلب جلسة التحكيم ويستلم توكنه */
     startStream: function (me, roomId) {
       if (!me) return { status: 401, body: { ok: false, message: 'يلزم تسجيل الدخول' } };
@@ -202,17 +237,23 @@ function createArbitration(ctx) {
         rows.forEach(function (r) {
           if (!live.has(r.room_id)) {
             const room = roomHub.findById(r.room_id);
-            const s2 = rowToSession(r);
-            if (room) {
-              s2.game_id = room.game_id; s2.bet = Number(room.bet) || 0; s2.code = room.code;
-              const order = roomHub.io.serializeRoom(room).order;
-              s2.players = order.map(function (pid, i) {
-                const u = users[pid];
-                return u ? { userId: u.id, username: u.username, seat: i, state: 'idle', relay: false, lastSeen: 0 } : null;
-              }).filter(Boolean);
-              /* توكن جديد للاعبين الحاليين (القديم ضاع مع الذاكرة) */
-              s2.players.forEach(function (p) { p.token = crypto.randomBytes(16).toString('hex'); });
+            /* [v2.76] جلسة يتيمة: غرفتها ماتت مع إعادة تشغيل الخادم — لا
+               يمكن حسمها (findById فاشل) ولا تختفي من القائمة فتطارد لوحة
+               الأدمن للأبد (كشفها اختبار الصفحة). تُقبر cancelled في القاعدة
+               فلا تُعاد رحمتها مرة أخرى */
+            if (!room) {
+              try { db.prepare("UPDATE arb_sessions SET status = 'cancelled', resolved_at = ? WHERE id = ? AND status = 'live'").run(Date.now(), r.id); } catch (e) {}
+              return;
             }
+            const s2 = rowToSession(r);
+            s2.game_id = room.game_id; s2.bet = Number(room.bet) || 0; s2.code = room.code;
+            const order = roomHub.io.serializeRoom(room).order;
+            s2.players = order.map(function (pid, i) {
+              const u = users[pid];
+              return u ? { userId: u.id, username: u.username, seat: i, state: 'idle', relay: false, lastSeen: 0 } : null;
+            }).filter(Boolean);
+            /* توكن جديد للاعبين الحاليين (القديم ضاع مع الذاكرة) */
+            s2.players.forEach(function (p) { p.token = crypto.randomBytes(16).toString('hex'); });
             live.set(r.room_id, s2);
             if (!out.some(function (x) { return x.room_id === s2.room_id; })) out.push(publicSession(s2));
           }

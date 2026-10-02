@@ -19,7 +19,12 @@
     viewing: null,         /* roomId المعروض تفاصيله */
     pcs: {},               /* roomId -> { userId: RTCPeerConnection } */
     pollTi: null,
-    mediamtx: null
+    mediamtx: null,
+    /* [v2.76·صفحة التحكيم] حاوية الرسم قابلة للتبديل: التبويب الأصلي في
+       لوحة الأدمن (adminContent) أو مركز التحكيم بالصفحة المخصّصة
+       (arbConsole) — اتصالات WebRTC تعاد إرفاقها بالفيديوهات الجديدة
+       من خلال pc._stream بلا عروض جديدة عند اللاعب */
+    container: 'adminContent'
   };
 
   /* [مهم] API معرّف بـconst في نطاق السكربت العام (رابط معجمي) فلا يظهر
@@ -229,7 +234,9 @@
 
   /* ── الرسم ── */
   function render() {
-    var el = document.getElementById('adminContent');
+    /* [v2.76] الحاوية الهدف (التبويب أو صفحة التحكيم) — إن اختفت من
+       الشجرة (مثلاً فُكّت) نتوقف بهدوء دون كسر الاستطلاع */
+    var el = document.getElementById(st.container);
     if (!el) return;
     var list = Object.keys(st.sessions);
     var html = '';
@@ -301,9 +308,11 @@
     return gid || '—';
   }
 
-  /* تركيب التبويب (تناديه adminLoadArb من main.js) */
-  function mount() {
-    if (!iAmAdmin()) return;   /* حارس مضاعف: التبويب أدمن حصراً أصل */
+  /* تركيب اللوحة (تناديه adminLoadArb من main.js أو صفحة التحكيم v2.76)
+     [v2.76] الحاوية معامل اختياري: بلا معامل = تبويب لوحة الأدمن */
+  function mount(containerId) {
+    if (!iAmAdmin()) return;   /* حارس مضاعف: أدمن/سوبر حصراً أصل */
+    st.container = containerId || 'adminContent';
     startPolling();
     render();
   }
@@ -313,12 +322,26 @@
     st.viewing = null;
   }
 
+  /* [v2.76·صفحة التحكيم] ملخّص إحصائي لرأس الصفحة (بلا استعلام إضافي —
+     من نفس حالة اللوحة) */
+  function summary() {
+    var total = Object.keys(st.sessions).length;
+    var streaming = 0;
+    Object.keys(st.sessions).forEach(function (rid) {
+      (st.sessions[rid].players || []).forEach(function (p) {
+        if (p.state === 'live' || p.state === 'relay' || p.state === 'connecting') streaming++;
+      });
+    });
+    return { total: total, streaming: streaming };
+  }
+
   root.ARB_ADMIN = {
     onEvent: onEvent,
     openView: openView,
     resolve: resolve,
     cancelMatch: cancelMatch,
     mount: mount,
-    unmount: unmount
+    unmount: unmount,
+    summary: summary
   };
 })(typeof window !== 'undefined' ? window : this);

@@ -478,6 +478,66 @@ function logTicket(userId, gameId, bet, won, payout, resultTxt, roundId) {
   } catch (e) {}
 }
 
+/* ═══ [v2.76·ترتيب حقيقي] المتصدرون من بيانات الرهان الفعلية (bet_tickets) ═══
+   توجيه المالك (2026-10-02): «إثراء صفحة الترتيب بمعلومات الترتيب الحقيقية
+   الخاصة بكل لعبة على حدة + ترتيب عام حسب مجموع الأرباح».
+   • الترتيب العام = مجموع أرباح المستخدم عبر كل الألعاب (Σ payout − Σ bet)،
+     وترتيب مستقل لكل لعبة على حدة (?game=<id>).
+   • المعروض حصرياً صافي أرباح اللعب (جولات/فوز/ربح) — الأرصدة الجارية
+     تبقى خصوصية كما قررنا في [DTSG-019] (لا تُكشف للعموم).
+   • الأدمن والسوبر والمحظورون مستبعدون من لوحة الشرف (نفس سياسة /api/lb).
+   • كاش ذاكرة 60ث للمجموع الكامل: استعلام تجميعي واحد لكل دقيقة حماية
+     لمعالج هاتف الخادم — الترتيب لا يتغير إلا بجولات جديدة أصلاً. */
+const LB_CACHE = { at: 0, data: null };
+function lbCompute(force) {
+  const now = Date.now();
+  if (!force && LB_CACHE.data && now - LB_CACHE.at < 60000) return LB_CACHE.data;
+  const ex = new Set();
+  Object.values(users).forEach(function (u) {
+    if (!u || u.role === 'admin' || u.role === 'super' || u.banned) ex.add(u.id);
+  });
+  const rows = [];
+  const gamesCount = {};
+  try {
+    const g = db.prepare('SELECT game_id AS gid, user_id AS uid, SUM(payout - bet) AS profit, COUNT(*) AS rounds, SUM(won) AS wins FROM bet_tickets GROUP BY game_id, user_id').all();
+    g.forEach(function (r) {
+      const uid = Number(r.uid);
+      if (ex.has(uid)) return;
+      const u = users[uid];
+      if (!u) return;
+      gamesCount[r.gid] = (gamesCount[r.gid] || 0) + 1;
+      rows.push({ uid: uid, username: u.username, gid: r.gid, profit: r2(r.profit), rounds: Number(r.rounds) || 0, wins: Number(r.wins) || 0 });
+    });
+  } catch (e) {}
+  const sortRows = function (a) {
+    return a.sort(function (x, y) { return (y.profit - x.profit) || (y.wins - x.wins) || (x.rounds - y.rounds); });
+  };
+  /* الطي للمجموع العام (نفس المستخدم عبر كل الألعاب) */
+  const overallMap = {};
+  rows.forEach(function (r) {
+    if (!overallMap[r.uid]) overallMap[r.uid] = { uid: r.uid, username: r.username, profit: 0, rounds: 0, wins: 0 };
+    overallMap[r.uid].profit = r2(overallMap[r.uid].profit + r.profit);
+    overallMap[r.uid].rounds += r.rounds;
+    overallMap[r.uid].wins += r.wins;
+  });
+  const perGame = {};
+  rows.forEach(function (r) {
+    if (!perGame[r.gid]) perGame[r.gid] = [];
+    perGame[r.gid].push(r);
+  });
+  Object.keys(perGame).forEach(function (gid) { perGame[gid] = sortRows(perGame[gid]); });
+  const data = {
+    at: now,
+    overall: sortRows(Object.values(overallMap)),
+    perGame: perGame,
+    games: Object.keys(gamesCount).map(function (gid) { return { game_id: gid, players: gamesCount[gid] }; })
+      .sort(function (a, b) { return b.players - a.players; })
+  };
+  LB_CACHE.at = now;
+  LB_CACHE.data = data;
+  return data;
+}
+
 /* [Financials 2026-09-28] بوت المالية للسوپر أدمن @dtsgfinancials_bot — نفس القاعدة
    والصلاحيات وجداول الداشبورد: يعرض الشحن/السحب/سجلات المستخدمين/جميع السجلات،
    وينفّذ الموافقة/الرفض بنفس دوال الداشبورد (pay.adminActOnPlatformTx) والشحن/
@@ -1499,15 +1559,32 @@ const server = http.createServer((req, res) => {
         json({ ok: false, error: 'removed', message: 'الدردشة العامة أُزيلت — استعمل بوت DTSG الخاص.' }, 410);
         return;
       }
-      /* [DTSG-019 / NEW-4 v2.58] نقطة قائمة المتصدرين: مرتبة + اسم فقط —
-         الأرصدة خصوصية ولا تُكشف للعموم (كانت تكشف ذهب كل متصدر بالدولار). */
+      /* [DTSG-019 / NEW-4 v2.58 ← v2.76·ترتيب حقيقي] المتصدرون من بيانات
+         الرهان الفعلية: ترتيب لكل لعبة (?game=<id>) + ترتيب عام بمجموع
+         الأرباح. الأرصدة الجارية خصوصية ولا تُكشف للعموم — المعروض
+         حصرياً صافي أرباح اللعب (توجيه المالك 2026-10-02). */
       if (pathname === '/api/lb' || pathname === '/api/leaderboard') {
-        const top = Object.values(users)
-          .filter(u => u && u.role !== 'admin' && u.role !== 'super' && !u.banned)
-          .sort((a, b) => (b.gold || 0) - (a.gold || 0))
-          .slice(0, 20)
-          .map((u, i) => ({ rank: i + 1, username: u.username }));
-        json({ ok: true, leaderboard: top });
+        const game = String((parsedUrl.query && parsedUrl.query.game) || '').slice(0, 16);
+        /* تجاوز الكاش حصراً في بيئة الاختبارات (DM_TEST_MODE — نمط
+           REGISTER_TEST_MODE نفسه): الأجنحة تزرع تذاكر ثم تقرأ فوراً؛
+           في الإنتاج لا مسار تجاوز إطلاقاً فالكاش يحمي معالج الهاتف */
+        const wantFresh = (process.env.DM_TEST_MODE === '1') && parsedUrl.query && String(parsedUrl.query.fresh || '') === '1';
+        const data = lbCompute(!!wantFresh);
+        const all = game ? (data.perGame[game] || []) : data.overall;
+        const limit = game ? 20 : 50;
+        const top = all.slice(0, limit).map(function (r, i) {
+          return { rank: i + 1, username: r.username, profit: r.profit, rounds: r.rounds, wins: r.wins };
+        });
+        /* رتبة الطالب نفسه (إن سجل الدخول وله جولات مسجَّلة) */
+        let meRow = null;
+        if (me) {
+          const idx = all.findIndex(function (r) { return r.uid === me.id; });
+          if (idx >= 0) {
+            const r = all[idx];
+            meRow = { rank: idx + 1, username: r.username, profit: r.profit, rounds: r.rounds, wins: r.wins };
+          }
+        }
+        json({ ok: true, scope: game || 'overall', leaderboard: top, games: data.games, me: meRow });
         return;
       }
       if (pathname === '/api/tournaments') {
@@ -1952,6 +2029,13 @@ const server = http.createServer((req, res) => {
          «المباراة» على المنصة = غرفة اللعب وجه لوجه (رهاناتها في escrow).
          المسارات كما طلبها المالك: /api/matches/:id/start-stream و resolve.
          الحسم أدمن حصراً ويسلك نواة التسوية المعتمدة (arbResolve/arbCancel). */
+      /* [v2.76·صفحة التحكيم] جلستي: غرفة المستخدم الجارية + جلسة التحكيم
+         المرتبطة بها — قبل كتلة المسارات كي لا يلتقطها regex المطابقة */
+      if (pathname === '/api/matches/mine' && req.method === 'GET') {
+        const rMn = arb.mine(me);
+        json(rMn.body, rMn.status);
+        return;
+      }
       {
         const arbMatch = pathname.match(/^\/api\/matches(?:\/([^\/]+)\/(start-stream|resolve|cancel))?$/);
         if (arbMatch && req.method === 'POST' && arbMatch[2] === 'start-stream') {
