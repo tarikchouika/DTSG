@@ -50,6 +50,14 @@ function initRonda() {
   if (typeof Rooms !== 'undefined' && Rooms.setGameHandler) {
     Rooms.setGameHandler(RN_roomMove);
     Rooms.setStartHandler(RN_roomStart);
+    /* [v2.77·خلل المالك «لا انتقال للجولة التالية»] تحديثات الغرفة: شفاء
+       ذاتي — انقطاع SSE عبر النفق كان يضيّع بث joinphase/roundjoin عند
+       الضيف فيبقى عند شاشة النتيجة إلى الأبد. الآن كل room:update تعيد
+       بناء لوحة المرحلة الحالية (مشاركة/انتظار) وتطلق الجولة عند المالك
+       إن اكتملت المصادقات خادمياً وبُثّها ضاع */
+    if (typeof Rooms.setUpdateHandler === 'function') Rooms.setUpdateHandler(RN_roomUpdate, 'rn');
+    /* إعادة البناء من سجل الخادم بعد أي انقطاع/تحديث (نفس عقد بقية الألعاب) */
+    window.RN_applyReplay = RN_applyReplay;
   }
   if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.game_id === 'rn') {
     RN_ADAPTER.enterRoom(Rooms.state);
@@ -1501,6 +1509,12 @@ class RondaPlatformAdapter {
       selector: this.room.order[1],
       joined: []
     };
+    /* [v2.77] المطلوبان محلياً — مؤقّت الصمت كان يقرأ Rooms.state.roundJoin
+       المتقادم (null بين التحديثات) فيعود فوراً بلا انسحاب: لو تجاهل
+       اللاعبان لوحة المشاركة تنتظر الغرفة إلى الأبد */
+    this._joinRequired = [this.room.order[0], this.room.order[1]].filter(function (id, i, a) {
+      return id != null && a.indexOf(id) === i;
+    });
     Rooms.sendMove('joinphase', d, this._statePayload());
     this.renderer._showJoinPhase(d);
     /* صمت 30 ثانية = انسحاب (لا موافقة فلا اقتطاع) — يُطلق المالك انسحاباً
@@ -1509,11 +1523,18 @@ class RondaPlatformAdapter {
   }
   _onJoinTimeout() {
     if (!this.room || !this.room.isOwner || this.room.phase !== 'join') return;
-    const rj = (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.roundJoin) || null;
-    if (!rj || !rj.required || !rj.required.length) return;
-    const pending = rj.required.filter(function (id) {
-      return !(rj.joined || []).some(function (j) { return String(j) === String(id); });
+    /* [v2.77] المطلوبون: النسخة المحلية المرجع + حالة الخادم إن وُجدت أحدث —
+       كانت القراءة من Rooms.state وحدها (متقادمة) تعطّل الانسحاب الآلي كلياً */
+    const rj = (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.roundJoin && Rooms.state.roundJoin.required && Rooms.state.roundJoin.required.length)
+      ? Rooms.state.roundJoin
+      : null;
+    const required = (rj ? rj.required : this._joinRequired) || [];
+    const joined = (rj ? (rj.joined || []) : []);
+    if (!required.length) return;
+    const pending = required.filter(function (id) {
+      return !joined.some(function (j) { return String(j) === String(id); });
     });
+    if (!pending.length) return;
     const self = this;
     pending.forEach(function (id) {
       API.post('/api/rooms/timeoutSeat', { room_id: self.room.id, playerId: id }).catch(function () {});
@@ -1780,6 +1801,118 @@ function RN_roomMove(d) {
   if (d.action === 'pick') {
     if (ad.core.myRole !== 'selector') ad.core.receivePick(d.data.num, d.data.sym);
     return;
+  }
+}
+
+/* ═══ [v2.77·خلل المالك «عند نهاية الجولة لا يتم الانتقال للجولة التالية»] ═══
+   الجذران المُصلحان:
+   1) REPLAY_BY_GAME لم يكن يشمل rn — أي انقطاع SSE (شائع عبر Cloudflare
+      Tunnels) يضيّع مرحلة المشاركة عند الضيف بلا مصالحة: إعادة الاتصال تجلب
+      room:replay فلا يجدها محوّل فلات دوغ (تذهب لسلسلة معالجات قديمة) فيبقى
+      الضيف عند شاشة نتيجة الجولة إلى الأبد بينما المالك ينتظر مصادقته.
+   2) مؤقّت صمت المشاركة (30ث) كان يقرأ Rooms.state.roundJoin المتقادم
+      (null بين التحديثات) فيعود فوراً بلا انسحاب — فلا شبكة أمان أصلاً
+      إذا تجاهل اللاعبان اللوحة.
+   الحلول أدناه: إعادة بناء كاملة من السجل + شفاء ذاتي من تحديثات الغرفة +
+   مؤقّت يعمل على المطلوبين المحفوظين محلياً. */
+/* تحديث غرفة (room:update): مزامنة لوحة المرحلة الحالية وإطلاق الجولة عند
+   اكتمال المصادقات — يعوّض ضياع أي بثّ joinphase/roundjoin */
+function RN_roomUpdate(room) {
+  if (!RN_ADAPTER || !RN_ADAPTER.room || !room || room.game_id !== 'rn') return;
+  const ad = RN_ADAPTER;
+  const rs = (typeof Rooms !== 'undefined' && Rooms.state) ? Rooms.state : room;
+  /* الجاري لعبها فعلاً؟ لا شيء — الحركات الحية تتكفل بها */
+  if (ad.room.phase === 'playing' && ad.core.state !== 'ROUND_ENDED') return;
+  const rj = rs.roundJoin || null;
+  if (!rj || !Array.isArray(rj.required) || !rj.required.length) return;
+  const joinedAll = (rj.joined || []).map(String);
+  const complete = rj.required.every(function (id) {
+    return joinedAll.some(function (j) { return String(j) === String(id); });
+  });
+  if (complete) {
+    /* المالك يطلق الجولة فوراً — حتى لو ضاع بث room:roundjoin عنه */
+    if (ad.room.isOwner && ad.room.phase === 'join') {
+      if (ad._joinTimer) { clearTimeout(ad._joinTimer); ad._joinTimer = null; }
+      ad.ownerStartRound();
+    }
+    return;
+  }
+  /* لوحة المشاركة غير المكتملة: تُعرض عند من فاتها البث (بلا ازدواج عند
+     من يراها أصلاً — الدوم يُستبدل بنفسه فلا وميض) */
+  if (ad.room.phase !== 'playing') {
+    ad.room.phase = 'join';
+    ad.renderer._showJoinPhase({
+      bet: Number(rs.bet) || ad.room.bet || 0,
+      dealer: rj.required[0],
+      selector: rj.required[1],
+      joined: joinedAll
+    });
+    /* المالك يعيد تسليح مؤقّت الصمت إن فقد تسليحه */
+    if (ad.room.isOwner && !ad._joinTimer) {
+      ad._joinTimer = setTimeout(() => ad._onJoinTimeout(), 30000);
+    }
+  }
+}
+/* إعادة بناء حالة الغرفة من سجل الحركات (room:replay — بعد انقطاع/تحديث) */
+function RN_applyReplay(d) {
+  if (!d || !d.history || !d.history.length) return;
+  const rs = (typeof Rooms !== 'undefined' && Rooms.state) ? Rooms.state : null;
+  if (rs && rs.game_id && rs.game_id !== 'rn') return;
+  /* لا لعبة بعد (المحوّل دُمّر): ادخل الغرفة أولاً — enterRoom يبني المسار */
+  if (!RN_ADAPTER || !RN_ADAPTER.room) {
+    if (rs) { try { RN_roomStart(rs); } catch (e) {} }
+    if (!RN_ADAPTER || !RN_ADAPTER.room) return;
+  }
+  const ad = RN_ADAPTER;
+  /* آخر لقطة معنى: آخر جولة + آخر مرحلة مشاركة بعدها + وضع/توزيع قبلها */
+  let lastRound = null, lastJoin = null, lastMode = null;
+  for (let i = 0; i < d.history.length; i++) {
+    const m = d.history[i];
+    if (!m || !m.action) continue;
+    const dd = m.data || {};
+    if (m.action === 'mode' && dd.mode) { lastMode = dd.mode; lastJoin = null; }
+    else if (m.action === 'round') { lastRound = dd; lastJoin = null; }
+    else if (m.action === 'joinphase') { lastJoin = dd; }
+    else if (m.action === 'betphase') { lastJoin = dd; }   /* بوابة قديمة مكافئة */
+  }
+  if (lastMode && !ad.room.mode) ad.room.mode = lastMode;
+  if (!lastRound && !lastJoin) return;
+  if (lastRound) {
+    /* الجولة الحالية (ربما منتصف اللعب): طبّقها كما يطبقها البث الحيّ */
+    if (!(ad.room.round > 0 && lastRound.round <= ad.room.round && ad.room.phase === 'playing' && ad.core.state !== 'ROUND_ENDED')) {
+      ad.room.phase = 'playing';
+      ad.applyRound(lastRound);
+      if (lastRound.pick) { try { ad.core.receivePick(lastRound.pick.num, lastRound.pick.sym); } catch (e) {} }
+    }
+    if (lastJoin) {
+      /* مرحلة المشاركة بعد الجولة — الحالة الرسمية (roundJoin) مرجع المصادقات */
+      const rj2 = rs && rs.roundJoin;
+      ad.room.phase = 'join';
+      ad.renderer._showJoinPhase({
+        bet: Number((rj2 && rj2.bet != null) ? rj2.bet : (rs && rs.bet) || lastJoin.bet || ad.room.bet) || 0,
+        dealer: lastJoin.dealer != null ? lastJoin.dealer : (rj2 && rj2.required && rj2.required[0]),
+        selector: lastJoin.selector != null ? lastJoin.selector : (rj2 && rj2.required && rj2.required[1]),
+        joined: (rj2 && rj2.joined) || lastJoin.joined || []
+      });
+      if (ad.room.isOwner && !ad._joinTimer) {
+        ad._joinTimer = setTimeout(() => ad._onJoinTimeout(), 30000);
+      }
+    }
+    return;
+  }
+  /* مرحلة مشاركة قبل أول جولة (تحديد الموزع انتهى) */
+  if (lastJoin) {
+    const rj2 = rs && rs.roundJoin;
+    ad.room.phase = 'join';
+    ad.renderer._showJoinPhase({
+      bet: Number((rj2 && rj2.bet != null) ? rj2.bet : (rs && rs.bet) || lastJoin.bet || ad.room.bet) || 0,
+      dealer: lastJoin.dealer != null ? lastJoin.dealer : (rj2 && rj2.required && rj2.required[0]),
+      selector: lastJoin.selector != null ? lastJoin.selector : (rj2 && rj2.required && rj2.required[1]),
+      joined: (rj2 && rj2.joined) || lastJoin.joined || []
+    });
+    if (ad.room.isOwner && !ad._joinTimer) {
+      ad._joinTimer = setTimeout(() => ad._onJoinTimeout(), 30000);
+    }
   }
 }
 /* ── ترجمات Moroccan Ronda ── */

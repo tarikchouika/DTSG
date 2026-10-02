@@ -1,5 +1,13 @@
 /* ═══════════════════════════════════════════════════════════════════════════
    [v2.76] صفحة التحكيم المباشر — مركز تشغيل موحّد للمستخدمين والأدمنز
+   [v2.77·إصلاح الوميض] رسم تزايدي ببوابة توقّع (signature):
+     كانت الصفحة تعيد بناء محتواها كاملاً كل 6ث (استطلاع اللاعب) وعلى كل
+     حداث SSE — فتومض البطاقات والأزرار دورياً «تظهر وتختفي»، ولوحة الأدمن
+     كانت تهدم عنصري الفيديو الحيين مع كل تحديث فتسودّ الشاشتان كل بضع
+     ثوانٍ (خلال بث نشط تصل أحداث arb:session كل ثوانٍ فتتضاعف الوتيرة).
+     الآن: الهيكل الثابت (الخطوات/القواعد) يُرسم مرة، وبطاقة «جلستي» وحدها
+     تُعاد — وفقط عند تغيّر توقّعها النصي؛ شريحة الحالة والزر يُحدَّثان في
+     مكانهما؛ ولا وميض «جارٍ التحميل» بعد أول رسم مهما تخلفت الشبكة.
    ───────────────────────────────────────────────────────────────────────────
    صفحة SPA مخصّصة (‪#arb‬) متناسقة مع هوية المنصة، تُدار بحسب الدور:
      • اللاعب: «جلستي الحالية» (غرفته الجارية + حالة بث كل لاعب عبر
@@ -17,7 +25,9 @@
   var st = {
     active: false,      /* الصفحة مفتوحة الآن */
     poll: null,         /* مؤقّت التحديث (لاعب) */
-    mine: null,         /* آخر /api/matches/mine */
+    mine: null,         /* آخر /api/matches/mine (نحتفظ بآخر بيانات صالحة) */
+    mineSig: '',        /* توقّع HTML لبطاقة جلستي — بوابة إعادة الرسم */
+    rendered: false,    /* تم أول رسم (لا وميض تحميل بعده) */
     unb: null,          /* إلغاء اشتراك ARB.onState */
     debounce: null
   };
@@ -60,6 +70,8 @@
   /* ═══ دورة الحياة (تناديها nav() من utils.js) ═══ */
   function enter() {
     st.active = true;
+    st.rendered = false;
+    st.mineSig = '';
     render();
     startPolling();
     /* مزامنة شريحة حالة بثّي مع عميل البث (مودال الغرفة والصفحة معاً) */
@@ -72,6 +84,8 @@
     st.active = false;
     stopPolling();
     st.mine = null;
+    st.rendered = false;
+    st.mineSig = '';
     if (st.debounce) { clearTimeout(st.debounce); st.debounce = null; }
     if (st.unb) { try { st.unb(); } catch (e) {} st.unb = null; }
     /* لوحة الأدمن تفكّك نظيفاً (اتصالات + استطلاع) — التبويب الأصلي يعيد
@@ -105,8 +119,11 @@
   function refreshMine() {
     if (!st.active || iAmAdmin()) return;
     fetchMine().then(function (d) {
-      st.mine = d;
-      if (st.active) renderUser();
+      if (!st.active) return;
+      /* [v2.77] نحتفظ بآخر بيانات صالحة — خلل شبكة عابر لا يمحو الجلسة
+         المعروضة ولا يعيد وميض «جارٍ التحميل» */
+      if (d) st.mine = d;
+      renderUser();
     });
   }
 
@@ -139,7 +156,12 @@
     var el = document.getElementById('arbStatsRow');
     if (!el) return;
     var s = (typeof ARB_ADMIN !== 'undefined' && ARB_ADMIN && ARB_ADMIN.summary) ? ARB_ADMIN.summary() : { total: 0, streaming: 0 };
-    el.innerHTML = adminStatsHtml(s);
+    var html = adminStatsHtml(s);
+    /* [v2.77] تحديث في المكان عند تغيّر الأرقام فقط — لا هدم لإعادة بناء */
+    if (el.dataset.sig !== html) {
+      el.dataset.sig = html;
+      el.innerHTML = html;
+    }
   }
   function adminStatsHtml(s) {
     return '<div class="stat" role="listitem"><div class="si"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i></div>' +
@@ -162,41 +184,55 @@
     }
   }
 
-  /* ── واجهة اللاعب ── */
+  /* ── واجهة اللاعب: هيكل ثابت مرة واحدة + بطاقة جلسة تُحدَّث بتوقّعها ── */
   function renderUser() {
     var el = document.getElementById('arbPageBody');
     if (!el || !st.active || iAmAdmin()) return;
     var u = me();
-    var done = function () {
-      el.innerHTML = userHtml();
-      renderMyChip();
-    };
-    if (!u) { st.mine = null; done(); return; }
-    if (!st.mine) {
-      fetchMine().then(function (d) { st.mine = d; if (st.active) { done(); } });
-      el.innerHTML = '<div class="note">⏳ ' + esc(T('lb.loading') || 'جارٍ التحميل…') + '</div>';
-      return;
+    if (!st.rendered) {
+      /* أول رسم: الهيكل الثابت (بطاقة تُملأ لاحقاً + الخطوات + القواعد) */
+      el.innerHTML = '<div id="arbMineWrap">' +
+          '<div class="note">⏳ ' + esc(T('lb.loading') || 'جارٍ التحميل…') + '</div>' +
+        '</div>' +
+        stepsHtml() + rulesHtml();
+      st.rendered = true;
+      if (!u) { st.mine = null; updateMineCard(); return; }
     }
-    done();
+    if (!u) { st.mine = null; updateMineCard(); return; }
+    if (!st.mine) {
+      fetchMine().then(function (d) { if (d) st.mine = d; if (st.active) updateMineCard(); });
+      return;   /* نبقي آخر محتوى (التحميل الأولي) — لا وميض */
+    }
+    updateMineCard();
   }
 
-  function userHtml() {
+  function updateMineCard() {
+    var wrap = document.getElementById('arbMineWrap');
+    if (!wrap || !st.active) return;
+    var html = mineCardHtml();
+    /* [v2.77] بوابة التوقّع: لا نمسّ DOM إن لم يتغير شيء — إيقاف الوميض الدوري */
+    if (st.mineSig === html) { renderMyChip(); return; }
+    st.mineSig = html;
+    wrap.innerHTML = html;
+    renderMyChip();
+  }
+
+  function mineCardHtml() {
     var u = me();
     var mine = st.mine;
     var room = mine && mine.room;
     var session = mine && mine.session;
-    var html = '';
-
-    /* 1) بطاقة جلستي الحالية */
     if (!u) {
-      html += '<div class="card arb-guide"><div class="ctitle"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> <span>' +
+      return '<div class="card arb-guide"><div class="ctitle"><i class="fa-solid fa-right-to-bracket" aria-hidden="true"></i> <span>' +
         esc(T('arb.needLogin') || 'سجل الدخول لاستعمال التحكيم') + '</span></div></div>';
-    } else if (room && room.status === 'playing') {
+    }
+    /* بطاقة جلستي الحالية */
+    if (room && room.status === 'playing') {
       var states = {};
       if (session && session.players) {
         session.players.forEach(function (p) { states[p.user_id] = p.state; });
       }
-      html += '<div class="card arb-mine" id="arbMineCard">' +
+      return '<div class="card arb-mine" id="arbMineCard">' +
         '<div class="ctitle"><i class="fa-solid fa-satellite-dish" aria-hidden="true"></i> <span>' + esc(T('arb.mineTitle') || 'جلستي الحالية') + '</span></div>' +
         '<div class="arb-mine-head">' +
           '<span class="arb-room">🎮 ' + esc(room.code || room.id) + ' · ' + esc(gameName(room.game_id)) + '</span>' +
@@ -216,8 +252,9 @@
         '</div>' +
         '<div class="note arb-privacy">🔒 ' + esc(T('arb.rule2') || 'الفيديو اتصال مباشر مع لوحة التحكيم وحدها — لا يمر بالخوادم ولا يُسجَّل') + '</div>' +
       '</div>';
-    } else if (room) {
-      html += '<div class="card arb-mine">' +
+    }
+    if (room) {
+      return '<div class="card arb-mine">' +
         '<div class="ctitle"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> <span>' + esc(T('arb.mineTitle') || 'جلستي الحالية') + '</span></div>' +
         '<div class="arb-mine-head">' +
           '<span class="arb-room">🎮 ' + esc(room.code || room.id) + ' · ' + esc(gameName(room.game_id)) + '</span>' +
@@ -225,25 +262,25 @@
         '</div>' +
         '<div class="note">⏳ ' + esc(T('arb.waitRoom') || 'الغرفة بانتظار بدء الجولة — زر البث يُفتح تلقائياً عند انطلاقها') + '</div>' +
       '</div>';
-    } else {
-      html += '<div class="card arb-guide">' +
-        '<div class="ctitle"><i class="fa-solid fa-door-open" aria-hidden="true"></i> <span>' + esc(T('arb.noRoomTitle') || 'لست في غرفة لعب حالياً') + '</span></div>' +
-        '<div class="ctext" style="font-size:.85rem;line-height:1.8">' + esc(T('arb.noRoomSub') || 'انضم إلى غرفة لعب وجهاً لوجه وابدأ الجولة، ثم شارك شاشتك ليشاهدها الأدمن ويحسم النتيجة') + '</div>' +
-        '<button type="button" class="btn gold" onclick="nav(\'rooms\')">🎮 ' + esc(T('arb.goRooms') || 'الذهاب إلى غرف اللعب') + '</button>' +
-      '</div>';
     }
+    return '<div class="card arb-guide">' +
+      '<div class="ctitle"><i class="fa-solid fa-door-open" aria-hidden="true"></i> <span>' + esc(T('arb.noRoomTitle') || 'لست في غرفة لعب حالياً') + '</span></div>' +
+      '<div class="ctext" style="font-size:.85rem;line-height:1.8">' + esc(T('arb.noRoomSub') || 'انضم إلى غرفة لعب وجهاً لوجه وابدأ الجولة، ثم شارك شاشتك ليشاهدها الأدمن ويحسم النتيجة') + '</div>' +
+      '<button type="button" class="btn gold" onclick="nav(\'rooms\')">🎮 ' + esc(T('arb.goRooms') || 'الذهاب إلى غرف اللعب') + '</button>' +
+    '</div>';
+  }
 
-    /* 2) كيف يعمل التحكيم؟ — ثلاث خطوات */
-    html += '<div class="shead" style="margin-top:18px"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-circle-question" aria-hidden="true"></i> <span>' +
+  function stepsHtml() {
+    return '<div class="shead" style="margin-top:18px"><div class="stitle"><span class="bar"></span> <i class="fa-solid fa-circle-question" aria-hidden="true"></i> <span>' +
       esc(T('arb.howTitle') || 'كيف يعمل التحكيم؟') + '</span></div></div>' +
       '<div class="grid g3 arb-steps">' +
         stepHtml('fa-play', T('arb.step1') || '1. ابدأ الجولة وشارك شاشتك', T('arb.step1s') || 'أثناء جولة المراهنة وجهاً لوجه يظهر زر البث — مشاركة الشاشة تصل لوحة التحكيم مباشرة') +
         stepHtml('fa-eye', T('arb.step2') || '2. الأدمن يشاهد المباشرة المزدوجة', T('arb.step2s') || 'شاشتا اللاعبين جنباً إلى جنب بجودة كاملة وبلا تخزين — الاتصال نقطة-إلى-نقطة') +
         stepHtml('fa-sack-dollar', T('arb.step3') || '3. الحسم وتوزيع الأرباح فوراً', T('arb.step3s') || 'الأدمن يؤكد الفائز فتُفرج الإيداعات آلياً (الجرة − 5%)، أو يعلن نزاعاً/إلغاءً فتُسترد الرهانات للجميع') +
       '</div>';
-
-    /* 3) قواعد التحكيم */
-    html += '<div class="card arb-rules" style="margin-top:14px">' +
+  }
+  function rulesHtml() {
+    return '<div class="card arb-rules" style="margin-top:14px">' +
       '<div class="ctitle"><i class="fa-solid fa-scale-balanced" aria-hidden="true"></i> <span>' + esc(T('arb.rulesTitle') || 'قواعد التحكيم') + '</span></div>' +
       '<div class="ctext"><ul class="arb-rules-list">' +
         '<li>' + esc(T('arb.rule1') || 'البث متاح أثناء الجولات المراهَنة وجهاً لوجه فقط') + '</li>' +
@@ -251,7 +288,6 @@
         '<li>' + esc(T('arb.rule3') || 'كل حسم موثق في السجل المالي (تذاكر + معاملات) بلا استثناء') + '</li>' +
       '</ul></div>' +
     '</div>';
-    return html;
   }
   function stepHtml(icon, title, sub) {
     return '<div class="card arb-step">' +
@@ -268,13 +304,20 @@
     var chip = document.getElementById('arbPageChip');
     var btn = document.getElementById('arbShareBtn');
     var state = (typeof ARB !== 'undefined' && ARB && ARB.state) ? ARB.state() : 'idle';
-    if (chip) chip.innerHTML = '<span class="arb-chip arb-' + esc(state) + '">' + esc(myStateLbl(state)) + '</span>';
+    if (chip) {
+      var chipHtml = '<span class="arb-chip arb-' + esc(state) + '">' + esc(myStateLbl(state)) + '</span>';
+      if (chip.dataset.sig !== chipHtml) { chip.dataset.sig = chipHtml; chip.innerHTML = chipHtml; }
+    }
     if (btn) {
       var sharing = (state === 'live' || state === 'connecting' || state === 'relay');
-      btn.innerHTML = sharing
+      var btnHtml = sharing
         ? '⏹ ' + esc(T('arb.stop') || 'إيقاف البث')
         : esc(T('arb.start') || '📺 مشاركة الشاشة / بدء البث');
-      btn.classList.toggle('gold', !sharing);
+      if (btn.dataset.sig !== btnHtml) {
+        btn.dataset.sig = btnHtml;
+        btn.innerHTML = btnHtml;
+        btn.classList.toggle('gold', !sharing);
+      }
     }
   }
   function myStateLbl(s) {

@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.76.0';
+window.DTSG_BUILD = 'v2.77.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -225,6 +225,8 @@ function renderRooms() {
       return '<div class="card">' +
         '<div style="font-size:1.6rem;text-align:center">' + g.em + '</div>' +
         '<b>' + esc(gname(g)) + '</b>' +
+        /* [v2.77·تحكيم] شارة غرف التحكيم المباشر في القائمة العامة */
+        (rm.arb ? '<div style="font-size:.72rem;color:var(--gold,#F5C518);font-weight:700">📺 ' + (T('rs.arb') || 'غرفة تحكيم مباشر') + '</div>' : '') +
         '<div class="mrow"><span>' + T('rooms.host') + '</span><b>' + esc(rm.owner_name) + '</b></div>' +
         '<div class="mrow"><span>' + T('rooms.players') + '</span><b>' + rm.players_count + '/' + rm.max_players + '</b></div>' +
         '<div class="mrow"><span>' + T('rooms.code') + '</span><b dir="ltr">' + esc(rm.code) + '</b></div>' +

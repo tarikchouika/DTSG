@@ -353,9 +353,14 @@ function createArbitration(ctx) {
           return { status: 403, body: { ok: false, message: 'توكن البث غير صالح' } };
         }
       }
-      /* تحديث حالة البث من اللاعب المُرسِل */
+      /* تحديث حالة البث من اللاعب المُرسِل — [v2.77] البث للحدثarb:session
+         يقع عند التغيّر الفعلي فقط: كانت الحالة تُكتب 'connecting' مع كل
+         إشارة عرض/مرشّح ICE (والشرط state!=='live' يظل صادقاً طوال الاتصال)
+         فتمطر الأحداث على الصفحة واللوحة عشرات المرات أثناء المصافحة —
+         والآن مرة واحدة عند idle→connecting ثم يتكفل النبض ببقية الانتقالات */
       if (fromPlayer) {
-        if (kind === 'offer' || kind === 'ice') { if (fromPlayer.state !== 'live') { fromPlayer.state = 'connecting'; broadcast(s, 'arb:session', { reason: 'state' }); } }
+        if (kind === 'offer' && fromPlayer.state === 'idle') { fromPlayer.state = 'connecting'; broadcast(s, 'arb:session', { reason: 'state' }); }
+        if (kind === 'ice' && fromPlayer.state === 'idle') { fromPlayer.state = 'connecting'; broadcast(s, 'arb:session', { reason: 'state' }); }
         if (kind === 'bye') { fromPlayer.state = 'idle'; broadcast(s, 'arb:session', { reason: 'stopped' }); }
       }
       /* الترحيل: إشارة موجّهة (to — جواب/طلب إعادة عرض) تصل هدفها وحده؛

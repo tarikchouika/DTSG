@@ -1744,6 +1744,13 @@ const TR = {
   'rs.percentage': [ 'بالنسبة المئوية', 'En pourcentage', 'Percentage', 'بالنسبة المئوية' ],
   'rs.bet': [ 'مبلغ الرهان', 'Montant de la mise', 'Bet amount', 'مبلغ الرهان' ],
   'rs.save': [ 'إنشاء الغرفة', 'Créer la salle', 'Create Room', 'إنشئ الشومبر' ],
+  /* [v2.77·تحكيم] غرفة مباراة خارجية بتحكيم بشري مباشر */
+  'rs.arb': [ 'غرفة تحكيم مباشر', 'Salle d\'arbitrage en direct', 'Live arbitration room', 'غرفة التحكيم دابا' ],
+  'rs.arbHint': [ 'مباراة خارجية (PES/eFootball وأمثالها): يشارك اللاعبان شاشتيهما ويحسم الأدمن النتيجة وتُوزَّع الجرة فوراً', 'Match externe (PES/eFootball…) : les deux joueurs partagent leurs écrans, l\'admin tranche et le pot est distribué aussitôt', 'External match (PES/eFootball etc.): both players share their screens, the admin decides and the pot is paid out instantly', 'ماتش برا (PES وأمثالها): الاثنين يشاركو السكرانات، الأدمن يحكم والخزونة تتوزع دغيا' ],
+  'rs.arbStart': [ 'بدء جولة التحكيم', 'Démarrer la manche d\'arbitrage', 'Start arbitration round', 'بدا جولة التحكيم' ],
+  'rs.arbBadge': [ 'غرفة تحكيم مباشر — بث الشاشات وحسم الأدمن', 'Arbitrage en direct — partage d\'écrans et décision de l\'admin', 'Live arbitration — screen sharing, admin decides', 'التحكيم دابا — بارتاجي السكرانات والأدمن يحكم' ],
+  'rs.arbGoPage': [ 'مركز التحكيم المباشر', 'Centre d\'arbitrage en direct', 'Live arbitration hub', 'مركز التحكيم دابا' ],
+  'rs.arbStarted': [ 'بدأت جولة التحكيم — شارك شاشتك من هنا أو من صفحة التحكيم المباشر، والأدمن يشاهد ويحسم', 'La manche d\'arbitrage a commencé — partagez votre écran ici ou depuis la page d\'arbitrage, l\'admin regarde et tranche', 'Arbitration round started — share your screen here or from the arbitration page; the admin watches and decides', 'بديت جولة التحكيم — شارك السكرانة من هنا ولا من صفحة التحكيم، الأدمن كيتفرج وكيحكم' ],
   'rs.cancel': [ 'إلغاء', 'Annuler', 'Cancel', 'إلغاء' ],
 
   /* ── Security / 2FA section in account (sec.*) ── */

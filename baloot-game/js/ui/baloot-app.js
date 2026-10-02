@@ -1150,20 +1150,35 @@
         (rs.driverId == null && String(rs.owner_id) === String(meId))));
       if (!rs || !rs.players || meId == null) return;
       const wasSeat = this._roomSeat;
+      /* [v2.77·خلل المالك «الجولة تبدأ واللاعب لا يستطيع البدء»] مقعد اللاعب
+         يُشتق من ترتيب المقاعد المرجعي (order الخادمي: اللاعبون النشطون
+         مرتبين بـseat — نفس ما يبني به المحرك) لا من فهرس مصفوفة players
+         الخام: مصفوفة اللاعبين تشمل المتفرجين وترتيبها ترتيب انضمام، فأي
+         متفرج سبق لاعباً (أو مقعد شبح/إعادة دخول) يحرف الفهرس — كان مقعد
+         الضيف يصير 2 في غرفة ثنائية (المحرك له مقعدان فقط) فلا يظهر له
+         أي إجراء أبداً وتتجمد الجولة عند الجميع. */
+      let seatFromOrder = -1;
+      let myEntry = null;
       for (let i = 0; i < rs.players.length; i++) {
         const p = rs.players[i];
-        if (String(p.id) === String(meId)) {
-          this._isSpectator = !!p.spectate;
-          /* [v2.69] مقعد موسوم آلياً (مغادرة/غيب): لا يستعيد التحكم — لا عبث
-             بحركة مقعد يقودها السائق الآلي الآن */
-          if (!p.spectate && !p.isBot) {
-            this._roomSeat = i;
-            /* ترقية متفرج→لاعب في منتصف جولة: يد مشبوثة حتى التوزيعة القادمة */
-            if (wasSeat === -1 && NS.state && NS.state.phase !== 'matchEnd' && NS.state.hands[i].length > 0) {
-              this._handDeferRound = NS.state.roundNo;
-            }
+        if (String(p.id) === String(meId)) { myEntry = p; break; }
+      }
+      const order = (rs.order && rs.order.length)
+        ? rs.order
+        : rs.players.filter((p) => !p.spectate).sort((a, b) => (a.seat || 0) - (b.seat || 0)).map((p) => p.id);
+      for (let i = 0; i < order.length; i++) {
+        if (String(order[i]) === String(meId)) { seatFromOrder = i; break; }
+      }
+      if (myEntry) {
+        this._isSpectator = !!myEntry.spectate;
+        /* [v2.69] مقعد موسوم آلياً (مغادرة/غيب): لا يستعيد التحكم — لا عبث
+           بحركة مقعد يقودها السائق الآلي الآن */
+        if (!myEntry.spectate && !myEntry.isBot && seatFromOrder >= 0) {
+          this._roomSeat = seatFromOrder;
+          /* ترقية متفرج→لاعب في منتصف جولة: يد مشبوهة حتى التوزيعة القادمة */
+          if (wasSeat === -1 && NS.state && NS.state.phase !== 'matchEnd' && NS.state.hands[this._roomSeat] && NS.state.hands[this._roomSeat].length > 0) {
+            this._handDeferRound = NS.state.roundNo;
           }
-          break;
         }
       }
     },
@@ -1245,7 +1260,10 @@
     },
 
     /* السائق: بذرة موحّدة + بناء محلي + بثّ التهيئة
-       [v2.72] الغرفة تقبل 2-4 لاعبين (فردي عند 2-3، وبنمط mode4 عند 4) */
+       [v2.72] الغرفة تقبل 2-4 لاعبين (فردي عند 2-3، وبنمط mode4 عند 4)
+       [v2.77] ترتيب المقاعد من order الخادمي (اللاعبون النشطون بترتيب
+       مقاعدهم) لا من مصفوفة players الخام (ترتيب انضمام يشمل المتفرجين) —
+       كان انضمام متفرج قبل لاعب يحرف تسمية المقاعد فتنحرف هوية الأدوار */
     _hostInitRoom: function (room) {
       const players = ((room && room.players) || []).filter((p) => !p.spectate).slice(0, 4);
       if (players.length < 2) {
@@ -1253,20 +1271,29 @@
         this._renderRoomWaiting();
         return;
       }
-      const order = players.map((p) => String(p.id));
-      const names = players.map((p) => String(p.username || p.id).slice(0, 14));
+      /* الترتيب المرجعي: order الغرفة إن وُجد، وإلا اللاعبون النشطون مرتبين
+         بمقاعدهم (نفس ما يبثه الخادم في serializeRoom.order) */
+      const orderIds = (room && room.order && room.order.length)
+        ? room.order.slice(0, 4).map(String)
+        : players.slice().sort((a, b) => (a.seat || 0) - (b.seat || 0)).map((p) => String(p.id));
+      const nameOf = (uid) => {
+        const p = players.find((x) => String(x.id) === String(uid));
+        return p ? String(p.username || p.id).slice(0, 14) : ('P' + (orderIds.indexOf(String(uid)) + 1));
+      };
+      const order = orderIds;
+      const names = orderIds.map(nameOf);
       const seed = ((Date.now() ^ ((Math.random() * 0xFFFFFFFF) >>> 0)) >>> 0) || 1;
       /* نمط الغرفة: maxp/mode4 من إعدادات إنشائها — 4 لاعبين مع mode4=tt = فرق،
          وما عدا ذلك فردي (توجيه المالك: 1ضد1 / 1ضد2 / 1ضد3) */
       const rc = (root.BL_ROOM_CFG && typeof root.BL_ROOM_CFG === 'object') ? root.BL_ROOM_CFG : {};
-      const solo = players.length < 4 || String(rc.mode4 || 'tt') !== 'tt';
+      const solo = order.length < 4 || String(rc.mode4 || 'tt') !== 'tt';
       this._buildRoomGame({
         seed: seed,
         target: this.config.target,
         order: order,
         names: names,
         kabotBonus: this.config.kabotBonus,
-        players: players.length,
+        players: order.length,
         solo: solo
       });
       this._netEmit('init', {
@@ -1275,7 +1302,7 @@
         order: order,
         names: names,
         kabotBonus: this.config.kabotBonus,
-        players: players.length,
+        players: order.length,
         solo: solo
       });
     },
@@ -1666,14 +1693,21 @@
       wire('blRM_Menu', () => { SFX.click(); this.toMenu(); });
     },
 
-    /* شاشة الانتظار داخل الغرفة (قبل البدء) [v2.72: عدد مقاعد الغرفة نفسها] */
+    /* شاشة الانتظار داخل الغرفة (قبل البدء) [v2.72: عدد مقاعد الغرفة نفسها]
+       [v2.77] الأسماء بترتيب المقاعد المرجعي (order) — لا بترتيب الانضمام */
     _renderRoomWaiting: function () {
       this.showScreen('game');
       const rs = this._roomState();
       const players = ((rs && rs.players) || []).filter((p) => !p.spectate).slice(0, 4);
       const maxp = Math.max(2, Math.min(4, (rs && rs.max_players) || players.length || 4));
+      const orderIds = (rs && rs.order && rs.order.length)
+        ? rs.order.slice(0, 4).map(String)
+        : players.slice().sort((a, b) => (a.seat || 0) - (b.seat || 0)).map((p) => String(p.id));
       const names = ['\u2026', '\u2026', '\u2026', '\u2026'];
-      for (let i = 0; i < players.length; i++) names[i] = String(players[i].username || '').slice(0, 14);
+      for (let i = 0; i < orderIds.length && i < 4; i++) {
+        const p = players.find((x) => String(x.id) === String(orderIds[i]));
+        names[i] = p ? String(p.username || '').slice(0, 14) : '\u2026';
+      }
       for (let k = 0; k < 4; k++) {
         const show = k < maxp;
         const seatEl = this.$('blSeat' + k);

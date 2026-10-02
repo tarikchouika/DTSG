@@ -24,7 +24,13 @@
        لوحة الأدمن (adminContent) أو مركز التحكيم بالصفحة المخصّصة
        (arbConsole) — اتصالات WebRTC تعاد إرفاقها بالفيديوهات الجديدة
        من خلال pc._stream بلا عروض جديدة عند اللاعب */
-    container: 'adminContent'
+    container: 'adminContent',
+    /* [v2.77·إصلاح الوميض] توقيعات الرسم — القائمة تُعاد فقط عند تغيّر
+       توقيعها، وعناصر الفيديو الحية لا تُهدم أبداً إلا بتغيّر الجلسة
+       المعروضة أو طاقم لاعبيها (كان كل تحديث يهدمها فتسودّ الشاشتان
+       وتومضان دورياً أمام الأدمن كل بضع ثوانٍ). */
+    listSig: '',
+    viewSig: ''
   };
 
   /* [مهم] API معرّف بـconst في نطاق السكربت العام (رابط معجمي) فلا يظهر
@@ -234,57 +240,33 @@
 
   /* ── الرسم ── */
   function render() {
-    /* [v2.76] الحاوية الهدف (التبويب أو صفحة التحكيم) — إن اختفت من
+    /* [v2.77] الحاوية الهدف (التبويب أو صفحة التحكيم) — إن اختفت من
        الشجرة (مثلاً فُكّت) نتوقف بهدوء دون كسر الاستطلاع */
     var el = document.getElementById(st.container);
     if (!el) return;
-    var list = Object.keys(st.sessions);
-    var html = '';
 
-    if (!list.length) {
-      html = '<div class="note">📺 ' + (T('arb.none') || 'لا جلسات تحكيم نشطة — حين يشارك لاعب شاشته أثناء جولة ستظهر جلسته هنا فوراً') + '</div>';
-    } else {
-      list.forEach(function (roomId) {
-        var s = st.sessions[roomId];
-        var states = (s.players || []).map(function (p) {
-          return '<span class="arb-chip arb-' + esc(p.state) + '">' + (STATE_LBL[p.state] || esc(p.state)) + '</span>';
-        }).join(' ');
-        html += '<div class="arb-card' + (st.viewing === roomId ? ' open' : '') + '" onclick="ARB_ADMIN.openView(\'' + esc(roomId) + '\')">' +
-          '<div class="arb-card-head">' +
-            '<span class="arb-room">🎮 ' + esc(s.code || roomId) + ' · ' + esc(gameName(s.game_id)) + '</span>' +
-            '<span class="arb-bet">🪙 ' + (s.bet || 0) + '</span>' +
-          '</div>' +
-          '<div class="arb-players">' + (s.players || []).map(function (p) {
-            return '<span>' + esc(p.username) + ' ' + (p.state === 'live' ? '🟢' : p.state === 'failed' ? '🔴' : '⬜') + '</span>';
-          }).join(' · ') + '</div>' +
-          '<div class="arb-states">' + states + '</div>' +
-        '</div>';
-      });
+    /* القسم 1: قائمة الجلسات — ببوابة توقّع (لا تُعاد إلا عند تغيّر
+       المحتوى الفعلي: جلسات/حالات/معروض) */
+    var listHtml = listHtmlOf();
+    if (st.listSig !== listHtml) {
+      st.listSig = listHtml;
+      var listBox = document.getElementById('arbList');
+      if (listBox) listBox.innerHTML = listHtml;
     }
 
-    /* تفصيل الجلسة المعروضة: بث مزدوج + أزرار الحسم */
-    if (st.viewing && st.sessions[st.viewing]) {
-      var v = st.sessions[st.viewing];
-      var vids = (v.players || []).map(function (p, i) {
-        return '<div class="arb-vbox">' +
-          '<div class="arb-vname">' + (i === 0 ? '🅰️' : '🅱️') + ' ' + esc(p.username) +
-            ' <span id="arbstate-' + esc(String(p.user_id)) + '">' + (STATE_LBL[p.state] || esc(p.state)) + '</span></div>' +
-          '<video id="arbvid-' + esc(String(p.user_id)) + '" autoplay playsinline muted></video>' +
-        '</div>';
-      }).join('');
-      html += '<div class="arb-view">' +
-        '<div class="arb-view-title">👁️ ' + (T('arb.liveView') || 'المشاهدة المباشرة') + ' — ' + esc(v.code || v.room_id) + '</div>' +
-        '<div class="arb-vgrid">' + vids + '</div>' +
-        '<div class="arb-actions">' +
-          (v.players && v.players[0] ? '<button type="button" class="btn half gold" onclick="ARB_ADMIN.resolve(\'' + esc(v.room_id) + '\',' + Number(v.players[0].user_id) + ')">✅ ' + (T('arb.winA') || 'تأكيد فوز اللاعب الأول') + '</button>' : '') +
-          (v.players && v.players[1] ? '<button type="button" class="btn half gold" onclick="ARB_ADMIN.resolve(\'' + esc(v.room_id) + '\',' + Number(v.players[1].user_id) + ')">✅ ' + (T('arb.winB') || 'تأكيد فوز اللاعب الثاني') + '</button>' : '') +
-          '<button type="button" class="btn half" onclick="ARB_ADMIN.resolve(\'' + esc(v.room_id) + '\',null,\'disputed\')">⚖️ ' + (T('arb.disputed') || 'نزاع — إرجاع للجميع') + '</button>' +
-          '<button type="button" class="btn half danger" onclick="ARB_ADMIN.cancelMatch(\'' + esc(v.room_id) + '\')">❌ ' + (T('arb.cancel') || 'إلغاء المباراة / إرجاع الأموال') + '</button>' +
-        '</div>' +
-      '</div>';
+    /* القسم 2: تفصيل الجلسة المعروضة (بث مزدوج + أزرار الحسم) — لا يُهدم
+       إلا بتغيّر الجلسة أو طاقم لاعبيها؛ تحديثات الحالة تمسّ التسميات
+       في مكانها عبر markPlayerState فلا تسودّ الفيديوهات أبداً */
+    var viewBox = document.getElementById('arbView');
+    var viewHtml = viewHtmlOf();
+    var viewSig = st.viewing + '|' + (st.sessions[st.viewing]
+      ? (st.sessions[st.viewing].players || []).map(function (p) { return p.user_id; }).join(',')
+      : '');
+    if (st.viewSig !== viewSig) {
+      st.viewSig = viewSig;
+      if (viewBox) viewBox.innerHTML = viewHtml;
     }
 
-    el.innerHTML = html;
     /* [v2.75·تحكيم] إعادة إرفاق مجارٍ وصلت قبل الرسم (لوحة فتحت متأخرة):
        المسار محفوظ على الاتصال — لا حاجة لعرض WebRTC جديد عند اللاعب */
     try {
@@ -299,6 +281,56 @@
     } catch (e) {}
   }
 
+  /* توقيع القائمة + بناؤها */
+  function listHtmlOf() {
+    var list = Object.keys(st.sessions);
+    if (!list.length) {
+      return '<div class="note">📺 ' + (T('arb.none') || 'لا جلسات تحكيم نشطة — حين يشارك لاعب شاشته أثناء جولة ستظهر جلسته هنا فوراً') + '</div>';
+    }
+    var html = '';
+    list.forEach(function (roomId) {
+      var s = st.sessions[roomId];
+      var states = (s.players || []).map(function (p) {
+        return '<span class="arb-chip arb-' + esc(p.state) + '">' + (STATE_LBL[p.state] || esc(p.state)) + '</span>';
+      }).join(' ');
+      html += '<div class="arb-card' + (st.viewing === roomId ? ' open' : '') + '" onclick="ARB_ADMIN.openView(\'' + esc(roomId) + '\')">' +
+        '<div class="arb-card-head">' +
+          '<span class="arb-room">🎮 ' + esc(s.code || roomId) + ' · ' + esc(gameName(s.game_id)) + '</span>' +
+          '<span class="arb-bet">🪙 ' + (s.bet || 0) + '</span>' +
+        '</div>' +
+        '<div class="arb-players">' + (s.players || []).map(function (p) {
+          return '<span>' + esc(p.username) + ' ' + (p.state === 'live' ? '🟢' : p.state === 'failed' ? '🔴' : '⬜') + '</span>';
+        }).join(' · ') + '</div>' +
+        '<div class="arb-states">' + states + '</div>' +
+      '</div>';
+    });
+    return html;
+  }
+
+  /* توقيع العرض + بناؤه — يتضمن طاقم اللاعبين (معرّفاتهم) لا حالاتهم:
+     تغيّر الحالة وحده لا يهدم الفيديو (تُحدَّث التسمية في مكانها) */
+  function viewHtmlOf() {
+    if (!st.viewing || !st.sessions[st.viewing]) return '';
+    var v = st.sessions[st.viewing];
+    var vids = (v.players || []).map(function (p, i) {
+      return '<div class="arb-vbox">' +
+        '<div class="arb-vname">' + (i === 0 ? '🅰️' : '🅱️') + ' ' + esc(p.username) +
+          ' <span id="arbstate-' + esc(String(p.user_id)) + '">' + (STATE_LBL[p.state] || esc(p.state)) + '</span></div>' +
+        '<video id="arbvid-' + esc(String(p.user_id)) + '" autoplay playsinline muted></video>' +
+      '</div>';
+    }).join('');
+    return '<div class="arb-view">' +
+      '<div class="arb-view-title">👁️ ' + (T('arb.liveView') || 'المشاهدة المباشرة') + ' — ' + esc(v.code || v.room_id) + '</div>' +
+      '<div class="arb-vgrid">' + vids + '</div>' +
+      '<div class="arb-actions">' +
+        (v.players && v.players[0] ? '<button type="button" class="btn half gold" onclick="ARB_ADMIN.resolve(\'' + esc(v.room_id) + '\',' + Number(v.players[0].user_id) + ')">✅ ' + (T('arb.winA') || 'تأكيد فوز اللاعب الأول') + '</button>' : '') +
+        (v.players && v.players[1] ? '<button type="button" class="btn half gold" onclick="ARB_ADMIN.resolve(\'' + esc(v.room_id) + '\',' + Number(v.players[1].user_id) + ')">✅ ' + (T('arb.winB') || 'تأكيد فوز اللاعب الثاني') + '</button>' : '') +
+        '<button type="button" class="btn half" onclick="ARB_ADMIN.resolve(\'' + esc(v.room_id) + '\',null,\'disputed\')">⚖️ ' + (T('arb.disputed') || 'نزاع — إرجاع للجميع') + '</button>' +
+        '<button type="button" class="btn half danger" onclick="ARB_ADMIN.cancelMatch(\'' + esc(v.room_id) + '\')">❌ ' + (T('arb.cancel') || 'إلغاء المباراة / إرجاع الأموال') + '</button>' +
+      '</div>' +
+    '</div>';
+  }
+
   function gameName(gid) {
     try {
       if (root.GAMES) {
@@ -309,10 +341,18 @@
   }
 
   /* تركيب اللوحة (تناديه adminLoadArb من main.js أو صفحة التحكيم v2.76)
-     [v2.76] الحاوية معامل اختياري: بلا معامل = تبويب لوحة الأدمن */
+     [v2.76] الحاوية معامل اختياري: بلا معامل = تبويب لوحة الأدمن
+     [v2.77] الهيكل ثابت (قائمة + عرض منفصلان) — إعادة الرسم مساحتان
+     مستقلتان فلا تُمسّ عناصر الفيديو عند تحديث القائمة والعكس */
   function mount(containerId) {
     if (!iAmAdmin()) return;   /* حارس مضاعف: أدمن/سوبر حصراً أصل */
     st.container = containerId || 'adminContent';
+    var el = document.getElementById(st.container);
+    if (el) {
+      el.innerHTML = '<div id="arbList"></div><div id="arbView"></div>';
+    }
+    st.listSig = '';
+    st.viewSig = '';
     startPolling();
     render();
   }
@@ -320,6 +360,8 @@
     stopPolling();
     Object.keys(st.pcs).forEach(closePcs);
     st.viewing = null;
+    st.listSig = '';
+    st.viewSig = '';
   }
 
   /* [v2.76·صفحة التحكيم] ملخّص إحصائي لرأس الصفحة (بلا استعلام إضافي —

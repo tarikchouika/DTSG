@@ -67,8 +67,9 @@ const REGISTRY = {
   /* ── الروندا الجديدة (rd) — محرك ronda-game/ المستقل ── */
   rd: game({ id: 'rd', seats: { min: 2, max: 4 }, stateKeys: [], stateOwner: 'driver' }),
 
-  /* ── الرامي (rm): 2-4 لاعبين ── */
-  rm: game({ id: 'rm', seats: { min: 2, max: 4 }, stateOwner: 'driver' }),
+  /* ── الرامي (rm): 2-5 لاعبين — [v2.77·توجيه المالك] اللعبة تتسع لخمسة
+         حسب قوانين اللعب (الرزمة 104/108 ورقة تكفي 5×14 + مجرف السحب) ── */
+  rm: game({ id: 'rm', seats: { min: 2, max: 5 }, stateOwner: 'driver' }),
 
   /* ── البرجيس (pr): 2-4 — يوثّق خريطة المقاعد في room_state للعائد ── */
   pr: game({

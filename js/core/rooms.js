@@ -44,7 +44,11 @@
      الخاص؛ نوجّه بهوية غرفة room.game_id ثم نسقط إلى السلسلة القديمة. */
   var REPLAY_BY_GAME = {
     rm: 'RM_applyReplay', rd: 'RD_applyReplay', bl: 'BL_applyReplay',
-    bg: 'bgApplyReplay', do: 'doApplyReplay'
+    bg: 'bgApplyReplay', do: 'doApplyReplay',
+    /* [v2.77·خلل المالك «فلات دوغ لا ينتقل للجولة التالية»] كانت rn غائبة
+       من الخريطة: أي انقطاع SSE يجلب room:replay فتضيع على فلات دوغ (تذهب
+       لسلسلة معالجات قديمة) — فيفقد الضيف مرحلة المشاركة إلى الأبد */
+    rn: 'RN_applyReplay'
   };
   function dispatchReplay(d) {
     try {
@@ -60,7 +64,7 @@
   var Rooms = {
     state: null,
     /* الألعاب المدعومة للغرف: id -> أقصى عدد لاعبين */
-    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 4, rd: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين + [BJ-ghost] بلاك جاك أُزيلت من المنصة — حُذف خيارها الوهمي من القائمة */
+    roomGameIds: { rp: 2, pn: 2, pr: 4, rn: 4, rm: 5, rd: 4, dm: 2, ch: 2, bg: 2, do: 4, bl: 4, un: 4, bl8: 2, blbb: 2, blgv: 2, blsn: 2, blca: 2 }, /* [إصلاح] البلياردو كانت غائبة — زر «غرفة أونلاين» كان صامتاً + [BGDO] الطاولة 2 والضومنة 2-4 لاعبين + [UN] أونو غرف 2-4 لاعبين + [BJ-ghost] بلاك جاك أُزيلت من المنصة — حُذف خيارها الوهمي من القائمة */
 
     isGameSupported: function (id) { return !!Rooms.roomGameIds[id]; },
     /* [v2.68·إصلاح جوهري] طلب إعادة بناء الجولة: جسر WS إن وُجد، وإلا فتح
@@ -223,6 +227,18 @@
         Rooms._refreshGold();
         /* [RS-GameOpts] إعدادات اللعبة المخزنة في الغرفة تُطبق عند كل العملاء قبل البدء */
         if (room.game_opts) { try { Rooms._applyGameOpts(room.game_id, room.game_opts); } catch (e) {} }
+        /* [v2.77·تحكيم] غرفة التحكيم: لا صفحة لعبة تُفتح ولا مودال يُغلق —
+           المباراة خارجية (PES/eFootball وأمثالها): مودال الغرفة هو مركز
+           التشغيل (صندوق بث التحكيم + الرمز والرهان)، ويشارك اللاعبان
+           شاشتيهما من هنا أو من صفحة التحكيم #arb ويحسمها الأدمن */
+        if (room.game_opts && room.game_opts.arb) {
+          if (typeof toast === 'function') {
+            toast('📺 ' + (T('rs.arbStarted') || 'بدأت جولة التحكيم — شارك شاشتك من هنا أو من صفحة التحكيم المباشر، والأدمن يشاهد ويحسم'), 'ok');
+          }
+          Rooms.render();
+          Rooms._syncRematchBar();
+          return;
+        }
         Rooms.closeModal();
         /* [v2.68] تسليم حدثي لا سباق زمني ثابت: openGame يرسم اللعبة ويستدعي
            initFn() بشكل متزامن — واللعبة تسجّل معالج بدئها داخل initFn، فيُطلق
@@ -943,6 +959,12 @@
       } else if (vis) {
         vis.value = 'public';
       }
+      /* [v2.77·تحكيم] إظهار حالة مفتاح التحكيم للغرفة القائمة (للغرف
+         الجديدة يبدأ مطفأ) — من إعداداتها المخزنة game_opts.arb */
+      var arbEl = document.getElementById('rsArb');
+      if (arbEl) {
+        arbEl.checked = !!(Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.arb);
+      }
       /* [Rooms-unified] وصف ثابت: رسم 5% من رهان الرابح في كل جولة (لا اختيار نوع بعد الآن) */
       Rooms._typeDesc();
       var cancel = document.getElementById('rsCancel');
@@ -978,6 +1000,10 @@
       var gOpts = Rooms._collectGameOpts(gid);
       var mEl = document.getElementById('rsOpt_maxp');
       var maxp = mEl ? (parseInt(mEl.value, 10) || 0) : 0;
+      /* [v2.77·تحكيم] غرفة تحكيم مباشر: علم في game_opts — جولة الغرفة
+         رهان خارجي يديره الأدمن بالبث المزدوج (لا تُفتح صفحة لعبة عند البدء) */
+      var arbEl = document.getElementById('rsArb');
+      if (arbEl && arbEl.checked) gOpts.arb = 1;
       Rooms._applyGameOpts(gid, gOpts);
       /* [Rooms-unified] room_type ثابت 'percentage' — الرسم 5% على كل جولة (لا اختيار في الواجهة) */
       Rooms.createRoom(gid, { room_type: 'percentage', bet: betVal, visibility: visVal, game_opts: gOpts, max_players: maxp }).then(function () {
@@ -1411,8 +1437,12 @@
         }
         if (isOwner) {
           /* [Policy 2026-09-16] بلا زر «أضف آلياً» — الغرف حصرية للاعبين البشر */
+          /* [v2.77·تحكيم] غرفة التحكيم: البدء هو بدء جولة التحكيم (مباراة
+             خارجية ببث الشاشات وحسم الأدمن) — نفس المسار المالي تماماً */
+          var isArbRoom = !!(st.game_opts && st.game_opts.arb);
           btns += '<button class="btn half gold" onclick="Rooms.startGame()" ' +
-            (allReady ? '' : 'disabled') + '>' + T('ui.roomStart') + '</button>';
+            (allReady ? '' : 'disabled') + '>' +
+            (isArbRoom ? ('🎬 ' + (T('rs.arbStart') || 'بدء جولة التحكيم')) : T('ui.roomStart')) + '</button>';
           /* [RDC] تنبيه: الروندا تحتاج مقاعد كاملة للبدء */
           if (st.game_id === 'rd' && !rdFull) {
             btns += '<div class="ctext2" style="width:100%;text-align:center;color:#ffc98a;font-size:.74rem">' +
@@ -1429,8 +1459,13 @@
         }
       } else {
         btns += '<div class="ctext" style="padding:8px 0;text-align:center">▶ ' + T('ui.roomPlaying') + '</div>';
-        /* [RoomFlow] عودة سريعة لطاولة اللعب */
-        btns += '<button class="btn half gold" onclick="Rooms.closeModal(); if (typeof openGame === \'function\' && Rooms.state) openGame(Rooms.state.game_id);">🎮 ' + (T('ui.roomBackToGame') || 'العودة للعبة') + '</button>';
+        /* [RoomFlow] عودة سريعة لطاولة اللعب — [v2.77·تحكيم] غرف التحكيم:
+           العودة لصفحة التحكيم المباشر (لا طاولة لعبة في مباراة خارجية) */
+        if (st.game_opts && st.game_opts.arb) {
+          btns += '<button class="btn half gold" onclick="Rooms.closeModal(); if (typeof nav === \'function\') nav(\'arb\');">📺 ' + (T('rs.arbGoPage') || 'مركز التحكيم المباشر') + '</button>';
+        } else {
+          btns += '<button class="btn half gold" onclick="Rooms.closeModal(); if (typeof openGame === \'function\' && Rooms.state) openGame(Rooms.state.game_id);">🎮 ' + (T('ui.roomBackToGame') || 'العودة للعبة') + '</button>';
+        }
         /* [RoomFlow] متفرج أثناء اللعب: طلب مقعد — يُرقّى تلقائياً حين يفرغ */
         if (mySpect) {
           btns += Rooms.myJoinPending()
@@ -1454,6 +1489,10 @@
         '</div>' +
         /* ── نوع الغرفة + الرهان (يُقتطع عند بدء الجولة) ── */
         '<div style="text-align:center;margin-bottom:8px">' +
+          /* [v2.77·تحكيم] شارة غرفة التحكيم — مباراة خارجية بإشراف بشري */
+          ((st.game_opts && st.game_opts.arb)
+            ? '<div class="ctext2" style="color:var(--gold,#F5C518)">📺 ' + (T('rs.arbBadge') || 'غرفة تحكيم مباشر — بث الشاشات وحسم الأدمن') + '</div>'
+            : '') +
           '<div class="ctext2">' + T('rm.bet') + ': ' + fmt(st.bet || 0) + '</div>' +
           /* [B-rooms] العدّاد التنازلي لغرف الساعة (يُحدَّث من Rooms._renderCountdown) */
           (st.room_type === 'hour' && st.expires_at ? '<div class="ctext2" id="roomCountdown"></div>' : '') +

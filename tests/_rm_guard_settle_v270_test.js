@@ -53,7 +53,25 @@ async function hands(page) {
 
 (async function main() {
   const { chromium } = require('playwright');
-  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] });
+  /* [v2.77] مطلقِق احتياطي — كاش المتصفحات أحدث من مكتبة Playwright المحلية
+     (نفس نمط v274): نجرّب الثنائي الافتراضي ثم ثنائيات كروميوم المحلية */
+  let browser = null;
+  const blArgs = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
+  try { browser = await chromium.launch({ headless: true, args: blArgs }); } catch (e) {}
+  if (!browser) {
+    const fs = require('fs');
+    for (const v of ['1243', '1200']) {
+      for (const p of [
+        '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+        '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome'
+      ]) {
+        if (fs.existsSync(p)) {
+          try { browser = await chromium.launch({ headless: true, args: blArgs, executablePath: p }); } catch (e) {}
+        }
+      }
+    }
+  }
+  if (!browser) { console.error('تعذر إطلاق متصفح'); process.exit(2); }
 
   /* ── حسابان وغرفة رامي ── */
   await api(null, 'POST', '/api/register', { username: 'g7a_' + tag, password: 'pw123456' });

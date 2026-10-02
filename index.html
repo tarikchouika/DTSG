@@ -578,6 +578,13 @@
         <label class="aflabel" for="rsGame"><i class="fa-solid fa-gamepad" aria-hidden="true"></i> <span data-i18n="rs.game">اللعبة</span></label>
         <select class="afinput" id="rsGame"></select>
         <div id="rsGameOpts"></div>
+        <!-- [v2.77·تحكيم] غرفة بمباراة خارجية (PES/eFootball وأمثالها) بتحكيم بشري:
+             الرهان يودَع عند بدء جولة التحكيم ويتولى الأدمن حسمها من صفحة التحكيم -->
+        <label class="aflabel" for="rsArb" style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:6px">
+          <input type="checkbox" id="rsArb" style="width:18px;height:18px;accent-color:var(--gold,#d9b45c);cursor:pointer">
+          <span><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> <span data-i18n="rs.arb">غرفة تحكيم مباشر</span>
+          <span class="ctext2" style="display:block;font-size:.72rem;opacity:.85" data-i18n="rs.arbHint">مباراة خارجية (PES/eFootball وأمثالها): يشارك اللاعبان شاشتيهما ويحسم الأدمن النتيجة وتُوزَّع الجرة فوراً</span></span>
+        </label>
         <label class="aflabel" for="rsBet"><i class="fa-solid fa-coins" aria-hidden="true"></i> <span data-i18n="rs.bet">مبلغ الرهان</span></label>
         <input class="afinput" id="rsBet" type="number" min="0.01" step="0.01" data-i18n-placeholder="rs.bet" placeholder="مبلغ الرهان" inputmode="decimal">
         <div id="rsMsg" class="authmsg" role="alert" aria-live="polite"></div>
@@ -756,10 +763,10 @@
   <script src="js/core/audio.js?v=dtsg7"></script>
   <script src="js/core/utils.js?v=v276"></script>
   <script src="js/core/fx.js?v=dtsg7"></script>
-  <script src="js/i18n/translations.js?v=v276"></script>
+  <script src="js/i18n/translations.js?v=v277"></script>
   <script src="js/rules/game-rules.js?v=dtsg9"></script>
   <script src="js/games/catalog.js?v=dtsg8"></script>
-  <script src="js/games/ronda.js?v=v274r1"></script>
+  <script src="js/games/ronda.js?v=v277"></script>
   <!-- [RDC] روندا الكلاسيكية: المحرك الأصلي المستورد (ronda-game) حرفياً + الواجهة المنصّية -->
   <script src="ronda-game/js/engine/ronda-core.js?v=rdc6"></script>
   <script src="ronda-game/js/engine/ronda-game.js?v=rdc6"></script>
@@ -797,7 +804,7 @@
   <script src="baloot-game/js/ui/baloot-i18n.js?v=bl4"></script>
   <script src="baloot-game/js/ui/baloot-renderer.js?v=bl3"></script>
   <script src="baloot-game/js/ui/baloot-html.js?v=bl5"></script>
-  <script src="baloot-game/js/ui/baloot-app.js?v=bl10"></script>
+  <script src="baloot-game/js/ui/baloot-app.js?v=v277"></script>
   <script src="baloot-game/baloot-bridge.js?v=bl3"></script>
   <!-- [UN] أونو: مشروع مستقل محكوم بعقد المنصة (نمط البلوت) -->
   <script src="uno-game/js/engine/uno-core.js?v=un1"></script>
@@ -809,20 +816,20 @@
   <script src="uno-game/js/ui/uno-app.js?v=un5"></script>
   <script src="uno-game/uno-bridge.js?v=un2"></script>
   <script src="js/games/parchisi.js?v=dtsg14"></script>
-  <script src="js/games/rami.js?v=dtsg24"></script>
+  <script src="js/games/rami.js?v=v277"></script>
   <script src="js/games/dama.js?v=dtsg18"></script>
   <script src="js/games/chess.js?v=dtsg13"></script>
   <script src="js/games/billiards-physics.js?v=dtsg6"></script>
   <script src="js/games/billiards-rules.js?v=dtsg6"></script>
   <script src="js/games/billiards.js?v=dtsg24"></script>
   <script src="js/games/engines.js?v=dtsg15"></script>
-  <script src="js/core/rooms.js?v=v275"></script>
+  <script src="js/core/rooms.js?v=v277"></script>
   <!-- [v2.75·تحكيم] بث الشاشة للاعب + لوحة الأدمن (WebRTC P2P)
        [v2.76] صفحة التحكيم المخصّصة للمستخدمين والأدمنز -->
   <script src="js/core/arb-client.js?v=v276"></script>
-  <script src="js/core/arb-admin.js?v=v276"></script>
-  <script src="js/core/arb-page.js?v=v276"></script>
-  <script src="js/main.js?v=v276"></script>
+  <script src="js/core/arb-admin.js?v=v277"></script>
+  <script src="js/core/arb-page.js?v=v277"></script>
+  <script src="js/main.js?v=v277"></script>
   <script src="js/core/live.js?v=v276"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>

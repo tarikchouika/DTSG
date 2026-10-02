@@ -2168,6 +2168,27 @@ class RamiGame {
       meldObjects = partitionSelectedCards(handForOpen, this.rules);
     }
 
+    /* [خلل المالك — مجموعة المرموق] احتياط المحرك: الافتتاح الأول بمجموعات
+       ناقصة (تحديد جزئي أو خانات غير مكتملة) فشل تحققها ⇒ نُحاول تقسيم كامل
+       اليد بنمطي التغطية والافتتاح (نفس مسار البوت) قبل إعلان خطأ الإظهار —
+       الإظهار الكامل قد يستوفي الـ71 بمجموعة المرموق نفسها. يعمل عند الطرفين
+       الشبكيين بالتطابق (تقسيم حتمي لنفس الأوراق) فلا انحراف بين المتصفحين. */
+    if (!player.hasOpened && meldObjects.length > 0) {
+      const curCheck = this.rules.validateOpening(
+        meldObjects, player.drawnDiscardCard, this.roundManager.jokerIndicator,
+        this.roundManager.highestOpeningScore || 0, !!player.tookLaTour
+      );
+      if (!curCheck.valid) {
+        const handForFull = (adapter && adapter.isolateCardId) ? player.hand.filter(c => c.id !== adapter.isolateCardId) : player.hand;
+        const candA = partitionSelectedCards(handForFull, this.rules, 'opening');
+        const candB = partitionSelectedCards(handForFull, this.rules);
+        const okA = candA && candA.length && this.rules.validateOpening(candA, player.drawnDiscardCard, this.roundManager.jokerIndicator, this.roundManager.highestOpeningScore || 0, !!player.tookLaTour).valid;
+        const okB = candB && candB.length && this.rules.validateOpening(candB, player.drawnDiscardCard, this.roundManager.jokerIndicator, this.roundManager.highestOpeningScore || 0, !!player.tookLaTour).valid;
+        if (okA) meldObjects = candA;
+        else if (okB) meldObjects = candB;
+      }
+    }
+
     if (meldObjects.length === 0) {
       /* [OPEN-DEFER] سامبل وطالاج: الإظهار الخاطئ لا يُحتسب فوراً — يُؤكَّد الخطأ
          فقط بعد رمي ورقة التخلص (للاعب مهلة إصلاح إظهاره في نفس الدور).
@@ -5798,9 +5819,8 @@ function ramiOpenMelds() {
   if (!adapter) return;
 
   let cardIds = [];
-  if (adapter.selectedCards.size >= 3) {
-    cardIds = Array.from(adapter.selectedCards);
-  } else if (adapter.handSlots) {
+  const selIds = (adapter.selectedCards && adapter.selectedCards.size >= 3) ? Array.from(adapter.selectedCards) : [];
+  if (adapter.handSlots) {
     /* الخانات اليدوية فقط (باستثناء الأوراق المنزلة) */
     const activeSlots = (typeof adapter._activeHandSlots === 'function') ? adapter._activeHandSlots() : adapter.handSlots;
     for (let s = 0; s < 5; s++) {
@@ -5815,10 +5835,31 @@ function ramiOpenMelds() {
         }
       }
     }
+    /* [خلل المالك — مجموعة المرموق «احتُسبت خطأ في الإظهار»] الافتتاح الأول
+       يُقيَّم على الإظهار كاملاً: التحديد الجزئي (أوراق مجموعة أضافها اللاعب
+       للتو كورقة المرموق) كان يحتكر الافتتاح فتُرفض الخانات الأخرى كلها
+       (مجموع حر < 71) ويُحتسب خطأ إظهارٍ يُؤكَّد جزاء +71 عند الرمي. الآن
+       التحديد يُدمج مع الخانات (بلا تكرار) — ومجموعة المرموق تحتسب مع
+       المجموع الحر كما يقضي قانون الطالاج. */
+    if (!player.hasOpened && selIds.length) {
+      const seen = new Set(cardIds);
+      const selCards = selIds.map(id => player.getCard(id)).filter(c => c && !seen.has(c.id));
+      if (selCards.length >= 3) {
+        if (game.rules.isValidSet(selCards, true) || game.rules.isValidSequence(selCards, true)) {
+          selCards.forEach(c => cardIds.push(c.id));
+        } else {
+          const found = partitionSelectedCards(selCards, game.rules);
+          for (const fm of found) fm.cards.forEach(c => cardIds.push(c.id));
+        }
+      }
+    }
     /* [V29] التقسيم التلقائي لكامل اليد للافتتاح الأولي فقط — لا للاعب المفتوح */
     if (cardIds.length === 0 && !player.hasOpened) {
       cardIds = player.hand.map(c => c.id);
     }
+  } else if (selIds.length >= 3) {
+    /* بلا خانات (احتياط توافق قديم): التحديد وحده */
+    cardIds = selIds;
   }
 
   setRamiBusy(true);
@@ -6650,6 +6691,11 @@ RamiUIAdapter.prototype._netHostInit = function (room) {
   var seed = Math.floor(Math.random() * 0xFFFFFFFF);
   var botSeats = this._netBotSeats(order, room);   /* [MP-AI] مقاعد الآلي (شواهد الخادم) */
 
+  /* [v2.77·أسماء الغرف] مرجع المقاعد قبل البناء — لتسمية اللاعبين بأسمائهم
+     الحقيقية في _netBuildGame (كان الجميع «أنت» فتظهر نافذة النتائج الجميع
+     بهذا الاسم في اللعب وجهاً لوجه) */
+  this._netOrder = order.map(String);
+
   /* بناء الجولة محلياً عند المالك */
   this._netBuildGame(cfg, seed, playerCount, botSeats);
 
@@ -6665,6 +6711,35 @@ RamiUIAdapter.prototype._netBuildGame = function (cfg, seed, playerCount, botSea
   RAMI_STATE.isSingleRound = !!cfg.isSingle;
   RAMI_STATE.displayTarget = cfg.isSingle ? _ramiT('rami.singleShort', 'ش و') : cfg.target;
   RAMI_STATE.startMatch(cfg.target);
+  /* [v2.77·خلل المالك] أسماء مقاعد الغرف: المستخدمون الحقيقيون —
+     initPlayers كان يسمي كل لاعب بشري «أنت» (سليم للعب المحلي بمشريك
+     آليين، كارثي في الغرف: كل الأطراف بشر فتسمي نافذة النتائج وسجل
+     الأشواط وحدود الدور الجميع «أنت»). المرجع: ترتيب المقاعد (هوية
+     الغرفة) + أسماء أعضائها — ومقعدي أنا أوسم بوسم «(أنت)» للتمييز. */
+  try {
+    var orderNow = (this._netOrder && this._netOrder.length) ? this._netOrder : null;
+    var roomP = (this.room && this.room.players && this.room.players.length)
+      ? this.room.players
+      : ((typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.players) ? Rooms.state.players : []);
+    if (orderNow && roomP.length) {
+      var meUid = ramiMyUserId();
+      for (var si = 0; si < RAMI_STATE.players.length && si < orderNow.length; si++) {
+        var pl = RAMI_STATE.players[si];
+        if (pl.isBot) continue;
+        var uid = orderNow[si];
+        var pEntry = null;
+        for (var pj = 0; pj < roomP.length; pj++) {
+          if (String(roomP[pj].id) === String(uid)) { pEntry = roomP[pj]; break; }
+        }
+        if (pEntry && pEntry.username && !pEntry.isBot) {
+          pl.name = (meUid != null && String(uid) === String(meUid))
+            ? (pEntry.username + ' (' + _ramiT('parchisi.you', 'أنت') + ')')
+            : String(pEntry.username);
+        }
+      }
+      RAMI_STATE.seatNames = RAMI_STATE.players.map(function (p2) { return p2.name; });
+    }
+  } catch (e) { /* تسمية تجميلية — لا تكسر البناء أبداً */ }
   window.RAMI_STATE = RAMI_STATE;
   if (typeof window !== 'undefined') window.RAMI_BET = cfg.bet;
 
