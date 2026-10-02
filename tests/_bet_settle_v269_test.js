@@ -87,7 +87,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     ok(st.status === 200 && st.json.room.status === 'playing', 'البدء ينجح ويحوّل الغرفة إلى playing');
     const gA1 = await goldOf(A), gB1 = await goldOf(B);
     ok(near(gA0 - gA1, 10) && near(gB0 - gB1, 10), 'الرهان اقتُطع من الطرفين عند البدء (10+10)');
-    const txA = await req('GET', '/api/transfers', null, A.cookie);
+    const txA = await req('GET', '/api/transfers?types=all', null, A.cookie);
     const betRow = txA.json && txA.json.transfers && txA.json.transfers.some(t => t.type === 'bet' && near(t.amount, 10));
     ok(!!betRow, 'معاملة bet مسجَّلة في سجل معاملات المستخدم (كانت الغرف بلا سجل مالي)');
     /* تنظيف: إنهاء الجولة واسترداد الكل — لا أثر على الأقسام التالية */
@@ -117,7 +117,7 @@ const near = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 0.011 : tol);
     ok(near(gB0 - gB1, 10), 'المغادر خسر رهانه كاملاً (10) — لا استرداد');
     ok(sinkA.some(e => e.event === 'room:leave' && e.data && e.data.lost === true), 'بث room:leave للباقين (علامة الخسارة)');
     ok(sinkA.some(e => e.event === 'room:settle' && e.data && e.data.result === 'w0'), 'بث room:settle للباقين');
-    const txB = await req('GET', '/api/transfers', null, B.cookie);
+    const txB = await req('GET', '/api/transfers?types=all', null, B.cookie);
     const betRows = (txB.json && txB.json.transfers || []).filter(t => t.type === 'bet' && near(t.amount, 10));
     ok(betRows.length === 1, 'المغادر صف bet واحد فقط (سُجِّل عند البدء — لا تكرار عند التسوية)');
     const winRowsB = (txB.json && txB.json.transfers || []).filter(t => t.type === 'win');

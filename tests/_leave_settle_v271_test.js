@@ -88,7 +88,7 @@ async function newRoom(owner, seats) {
       'انتقال مباشر للتصويت على جولة جديدة');
     ok(after.json.room.status === 'waiting', 'الغرفة تنتظر الجولة الجديدة (ليست playing بلا تسوية)');
 
-    const tx = await api('GET', '/api/transfers', undefined, a.cookie);
+    const tx = await api('GET', '/api/transfers?types=all', undefined, a.cookie);
     const bets = (tx.json.transfers || []).filter(t => t.type === 'bet');
     const wins = (tx.json.transfers || []).filter(t => t.type === 'win');
     ok(bets.length === 1, 'صف bet واحد للرابح (لا تكرار في المعاملات)');

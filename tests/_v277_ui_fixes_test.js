@@ -298,28 +298,35 @@ async function newUser(name) {
     await pA.waitForFunction(() => typeof AUTH !== 'undefined' && AUTH.user && typeof Rooms !== 'undefined', { timeout: 20000 }).catch(() => {});
     await sleep(1200);
 
-    /* 1) مفتاح التحكيم في مودال الإعدادات */
+    /* 1) [v2.79] مدخل التحكيم الوحيد: تبويب «غرفة تحكيم مباشر» في لائحة الألعاب —
+       خانة rsArb القديمة أسفل الحاوية أُزيلت بطلب المالك (كان ازدواج مدخلين) */
     await pA.evaluate(() => { try { Rooms._openSettings(false); } catch (e) {} });
-    const hasArbToggle = await pA.waitForSelector('#rsArb', { timeout: 8000 }).then(() => true).catch(() => false);
-    ok(hasArbToggle, 'مفتاح «غرفة تحكيم مباشر» موجود في إعدادات الغرفة');
-    if (hasArbToggle) {
-      /* غرفة تحكيم فعلياً: لعبة حاملة + رهان + المفتاح مفعّلاً */
-      const gSel = await pA.$('#rsGame');
-      if (gSel) await gSel.selectOption('pn').catch(() => {});
+    const arbEntry = await pA.evaluate(() => {
+      const sel = document.getElementById('rsGame');
+      const opt = sel ? sel.querySelector('option[value="arb"]') : null;
+      return {
+        tab: !!opt,
+        label: opt ? opt.textContent : '',
+        rowGone: !document.getElementById('rsArbRow') && !document.getElementById('rsArb')
+      };
+    }).catch(() => null);
+    ok(!!arbEntry && arbEntry.tab, 'تبويب «غرفة تحكيم مباشر» في لائحة ألعاب الإعدادات');
+    ok(!!arbEntry && arbEntry.rowGone, 'خانة rsArb القديمة أُزيلت نهائياً من أسفل الحاوية (لا ازدواج)');
+    if (arbEntry && arbEntry.tab) {
+      /* غرفة تحكيم فعلياً من التبويب: معرّف arb + رهان */
+      await pA.selectOption('#rsGame', 'arb').catch(() => {});
       await pA.evaluate(() => {
         const bet = document.getElementById('rsBet');
         if (bet) bet.value = '10';
-        const arb = document.getElementById('rsArb');
-        if (arb) arb.checked = true;
       });
       await pA.evaluate(() => { try { Rooms._saveSettings(); } catch (e) {} });
       let arbRoom = null;
       for (let i = 0; i < 20; i++) {
         const r = await api(A.cookie, 'GET', '/api/rooms/active');
-        if (r.json && r.json.room && r.json.room.game_opts && r.json.room.game_opts.arb) { arbRoom = r.json.room; break; }
+        if (r.json && r.json.room && r.json.room.game_id === 'arb') { arbRoom = r.json.room; break; }
         await sleep(500);
       }
-      ok(!!arbRoom, 'إنشاء غرفة بعلم التحكيم (game_opts.arb) من واجهة الإعدادات');
+      ok(!!arbRoom, 'إنشاء غرفة تحكيم بمعرّف arb من تبويب اللائحة');
 
       /* 2) غرفة تحكيم: الضيف ينضم والبدء يفتح البث — لا صفحة لعبة */
       if (arbRoom) {

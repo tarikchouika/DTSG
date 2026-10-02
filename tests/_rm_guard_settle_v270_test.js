@@ -175,8 +175,8 @@ async function hands(page) {
     const meB = await api(lb.cookie, 'GET', '/api/me', undefined);
     ok(Math.abs(meB.json.user.gold - (gold0.b - 10)) < 0.011, 'الخاسر خسر رهانه فقط (10)');
     /* السجل: خاسر صف bet واحد، رابح bet+win */
-    const txA = await api(la.cookie, 'GET', '/api/transfers', undefined);
-    const txB = await api(lb.cookie, 'GET', '/api/transfers', undefined);
+    const txA = await api(la.cookie, 'GET', '/api/transfers?types=all', undefined);
+    const txB = await api(lb.cookie, 'GET', '/api/transfers?types=all', undefined);
     const betsA = (txA.json.transfers || []).filter(t => t.type === 'bet');
     const winsA = (txA.json.transfers || []).filter(t => t.type === 'win');
     const betsB = (txB.json.transfers || []).filter(t => t.type === 'bet');

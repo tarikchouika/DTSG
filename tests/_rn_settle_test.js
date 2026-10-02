@@ -93,7 +93,7 @@ async function newUser(name) {
 
   /* settle records a transfer entry — [v2.27] /api/transfers يعيد معاملات صاحب الجلسة فقط؛
      التسوية تُسجَّل في سجل كل طرف: الفائز (P3) يرى win من الخاسر (P2) */
-  const tl = await req('GET', '/api/transfers', null, P3.cookie);
+  const tl = await req('GET', '/api/transfers?types=all', null, P3.cookie);
   const recorded = (tl.json && tl.json.transfers || []).some(t => t.type === 'win' && t.from_name === P2.name && t.to_name === P3.name);
   ok('settlement recorded in transfers', recorded);
 

@@ -1339,10 +1339,21 @@ const server = http.createServer((req, res) => {
         return;
       }
       if (pathname === '/api/transfers') {
-        /* [server-tx] سجل معاملات المستخدم الحالي من جدول transactions */
+        /* [server-tx] سجل معاملات المستخدم الحالي من جدول transactions
+           [v2.79·خلل المالك «مبلغ الرهان يسجَّل خطأً في سجل إرسال الكوين الوارد»]
+           الافتراضي حصراً حركات الكوين الفعلية بين الحسابات (تحويلات + شحن/سحب
+           أدمن + مكافآت) — أما صفوف لعبة الغرف (bet اقتطاع البدء · win التسوية ·
+           refund الاسترداد) فموضعها سجل المراهنات (bet_tickets عبر /api/rounds)
+           الذي يسجّلها صحيحاً، وكانت تُدرَج هنا فيظهر مبلغ الرهان لكل جولة رابحة
+           أو خاسرة كإرسالٍ وارد مخادع (الواجهة تصنّف bet صادراً لكنها كانت تصنّفه
+           وارداً لعدم معرفته). ?types=all يعيد كل الأنواع لفحوص عقد المال
+           (تظل تقرأ الجدول نفسه فلا يضعف التحقق). */
         if (!me) { json({ ok: false, message: 'يلزم تسجيل الدخول' }, 401); return; }
         const rows = db.prepare("SELECT * FROM transactions WHERE user_id = ? ORDER BY id DESC LIMIT 100").all(me.id);
-        const TX_TYPES = ['transfer_out', 'transfer_in', 'charge', 'deduct', 'set_balance', 'referral_bonus', 'claim', 'win', 'bet'];
+        const TX_USER = ['transfer_out', 'transfer_in', 'charge', 'deduct', 'set_balance', 'referral_bonus', 'claim'];
+        const TX_GAME = ['bet', 'win', 'refund'];
+        const allTypes = String((req.url && (url.parse(req.url, true).query || {}).types) || '') === 'all';
+        const TX_TYPES = allTypes ? TX_USER.concat(TX_GAME) : TX_USER;
         json({
           ok: true,
           transfers: rows.filter(function (t) { return TX_TYPES.indexOf(t.type) !== -1; }).map(function (t) {
@@ -1365,6 +1376,8 @@ const server = http.createServer((req, res) => {
               from_id = t.counterparty_id; from_name = t.counterparty_name || 'المنصة'; to_name = me.username;
             } else if (t.type === 'bet') {
               from_id = me.id; from_name = me.username; to_name = t.counterparty_name || 'المنصة';
+            } else if (t.type === 'refund') {
+              from_name = (t.game_id ? ('غرفة ' + t.game_id) : '') || t.note || 'المنصة'; to_name = me.username;
             }
             return {
               id: t.id, type: t.type,

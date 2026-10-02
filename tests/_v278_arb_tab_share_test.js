@@ -87,24 +87,26 @@ async function launchBrowser(requireObj) {
       });
       ok(label.indexOf('تحكيم') !== -1 && label.indexOf('مباراة خارجية') !== -1, 'تسمية التبويب: «' + label.trim() + '»');
 
-      /* اختيار التبويب: إخفاء مفتاح الخانة القديم + بطاقة الشرح */
+      /* اختيار التبويب: لا خانة قديمة إطلاقاً (أزيلت v2.79) + بطاقة الشرح */
       await p.selectOption('#rsGame', 'arb');
       await sleep(400);
       const ui = await p.evaluate(() => ({
-        arbRowHidden: (document.getElementById('rsArbRow') || {}).style ? document.getElementById('rsArbRow').style.display === 'none' : false,
+        /* [v2.79·توجيه المالك] الخانة القديمة أُزيلت نهائياً — التبويب هو المدخل
+           الوحيد (كان ازدواجاً: تبويب + خانة تُعلَّم أسفل الحاوية) */
+        arbRowGone: !document.getElementById('rsArbRow') && !document.getElementById('rsArb'),
         note: !!(document.querySelector('#rsGameOpts .arb-room-note')),
         noteText: (document.querySelector('#rsGameOpts .arb-room-note') || {}).textContent || '',
         noOpts: !document.querySelector('#rsOpt_mode, #rsOpt_target, #rsOpt_timer')
       }));
-      ok(ui.arbRowHidden, 'مفتاح «غرفة تحكيم مباشر» (الخانة القديمة) يختفي عند اختيار التبويب');
+      ok(ui.arbRowGone, 'خانة rsArb القديمة غير موجودة في الحاوية نهائياً (التبويب المدخل الوحيد)');
       ok(ui.note && ui.noteText.indexOf('PES') !== -1, 'بطاقة شرح المباراة الخارجية ظاهرة');
       ok(ui.noOpts, 'لا خانات إعدادات لعبة داخل تبويب التحكيم');
 
-      /* لعبة عادية: المفتاح يعود (توافق المسار القديم) */
+      /* لعبة عادية: الخانة القديمة لا تعود (أُزيلت لا تُخفى) */
       await p.selectOption('#rsGame', 'pn');
       await sleep(300);
-      const back = await p.evaluate(() => (document.getElementById('rsArbRow') || {}).style.display !== 'none');
-      ok(back, 'اختيار لعبة عادية يعيد مفتاح الخانة (توافق v2.77)');
+      const back = await p.evaluate(() => !document.getElementById('rsArbRow') && !document.getElementById('rsArb'));
+      ok(back, 'اختيار لعبة عادية لا يعيد خانة rsArb (الإزالة نهائية — لا ازدواج)');
 
       /* الحفظ من التبويب: غرفة بمعرّف arb ومقعدان */
       await p.selectOption('#rsGame', 'arb');

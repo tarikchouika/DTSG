@@ -801,11 +801,9 @@
     _renderGameOpts: function (gid) {
       var box = document.getElementById('rsGameOpts');
       if (!box) return;
-      /* [v2.78·تحكيم] تبويب التحكيم بديل قائمة الألعاب نفسها: لا خانات لعبة
-         بل بطاقة شرح للمباراة الخارجية، ومفتاح الخانة القديم (rsArb) يختفي
-         لأن التحديد صار بمجرد اختيار التبويب — التبويب والمفتاح لا يجتمعان */
-      var arbRow = document.getElementById('rsArbRow');
-      if (arbRow) arbRow.style.display = (gid === 'arb') ? 'none' : 'flex';
+      /* [v2.79·توجيه المالك] خانة rsArb القديمة أُزيلت من الحاوية نهائياً —
+         مدخل التحكيم الوحيد هو تبويب arb في لائحة الألعاب نفسها (كان الاختيار
+         مزدوجاً: تبويب + خانة تُعلَّم أسفل الإعدادات فيُستعمل كلاهما) */
       if (gid === 'arb') {
         box.innerHTML = '<div class="note arb-room-note" style="text-align:start;line-height:1.8">📺 <b>' + esc(Rooms.arbRoomLabel()) + '</b><br>' +
           esc(T('rs.arbTabHint') || 'مباراة خارجية وجهًا لوجه (PES/eFootball وأمثالها): يودَع الرهان عند بدء جولة التحكيم، يشارك اللاعبان شاشتيهما، والأدمن يشاهد المباشرة المزدوجة ويحسم النتيجة فتُوزّع الجرة فوراً (الفائز يستلم الجرة − 5%).') +
@@ -988,12 +986,8 @@
       } else if (vis) {
         vis.value = 'public';
       }
-      /* [v2.77·تحكيم] إظهار حالة مفتاح التحكيم للغرفة القائمة (للغرف
-         الجديدة يبدأ مطفأ) — من إعداداتها المخزنة game_opts.arb */
-      var arbEl = document.getElementById('rsArb');
-      if (arbEl) {
-        arbEl.checked = !!(Rooms.state && Rooms.state.game_opts && Rooms.state.game_opts.arb);
-      }
+      /* [v2.79] لا مفتاح تحكيم بعد الآن — التبويب في لائحة الألعاب هو المدخل
+         الوحيد (الخانة القديمة rsArb أُزيلت بطلب المالك: ازدواج مدخلين) */
       /* [Rooms-unified] وصف ثابت: رسم 5% من رهان الرابح في كل جولة (لا اختيار نوع بعد الآن) */
       Rooms._typeDesc();
       var cancel = document.getElementById('rsCancel');
@@ -1031,12 +1025,9 @@
       var maxp = mEl ? (parseInt(mEl.value, 10) || 0) : 0;
       /* [v2.78·تحكيم] تبويب التحكيم في قائمة الألعاب: المعرّف arb والمقعدان
          2 (وجهًا لوجه) — العلم في game_opts.arb يبقى (توافق كل فحوص v2.77
-         القائمة) والخادم يثبّت المقاعد وفق السجل (exact 2) */
+         القائمة) والخادم يثبّت المقاعد وفق السجل (exact 2).
+         [v2.79] لا مصدر آخر للعلم: خانة rsArb أُزيلت — التبويب حصراً */
       if (gid === 'arb') { gOpts = { arb: 1 }; maxp = 2; }
-      /* [v2.77·تحكيم] غرفة تحكيم مباشر: علم في game_opts — جولة الغرفة
-         رهان خارجي يديره الأدمن بالبث المزدوج (لا تُفتح صفحة لعبة عند البدء) */
-      var arbEl = document.getElementById('rsArb');
-      if (arbEl && arbEl.checked && gid !== 'arb') gOpts.arb = 1;
       Rooms._applyGameOpts(gid, gOpts);
       /* [Rooms-unified] room_type ثابت 'percentage' — الرسم 5% على كل جولة (لا اختيار في الواجهة) */
       Rooms.createRoom(gid, { room_type: 'percentage', bet: betVal, visibility: visVal, game_opts: gOpts, max_players: maxp }).then(function () {

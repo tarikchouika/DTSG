@@ -1140,6 +1140,14 @@
 
     _recomputeRoomIdentity: function () {
       const meId = this.blMyId();
+      /* [v2.79·خلل المالك «الأوراق تختفي حتى ينفد المؤقت»] كان wasSeat يُقرأ
+         بعد تصفير _roomSeat = -1 في أول الدالة فيصير -1 دائماً ⇒ أي
+         استدعاء أثناء جولة بأوراق موزّعة (كل room:update) كان يضبط
+         _handDeferRound للاعبٍ قائمٍ من بداية الجولة فتُفرَّغ يده عند أول
+         إعادة رسم (لا يستطيع اللعب حتى ينفد المؤقت فيُلعب آلياً).wasSeat
+         الآن يُلقط قبل التصفير: التأجيل يبقى حصراً لمن لم يكن له مقعد ثم
+         رُقّي (متفرج ← لاعب) منتصف جولة موزّونة الأوراق. */
+      const wasSeat = this._roomSeat;
       this._roomSeat = -1;
       this._isSpectator = true;
       const rs = this._roomState();
@@ -1149,7 +1157,6 @@
         (rs.driverId != null && String(rs.driverId) === String(meId)) ||
         (rs.driverId == null && String(rs.owner_id) === String(meId))));
       if (!rs || !rs.players || meId == null) return;
-      const wasSeat = this._roomSeat;
       /* [v2.77·خلل المالك «الجولة تبدأ واللاعب لا يستطيع البدء»] مقعد اللاعب
          يُشتق من ترتيب المقاعد المرجعي (order الخادمي: اللاعبون النشطون
          مرتبين بـseat — نفس ما يبني به المحرك) لا من فهرس مصفوفة players
@@ -1410,13 +1417,13 @@
     roomUpdate: function (room) {
       if (!this.roomMode) return;
       this._room = room || this._room;
+      /* [v2.79] الترقية (متفرج ← لاعب منتصف جولة) تُكتشف داخل
+         _recomputeRoomIdentity عبر wasSeat المُلتقط قبل التصفير —
+         الكتلة القديمة هنا كانت تضبط _handDeferRound لأي لاعب قائم
+         بأوراق في يده فيختفي نصاب اللاعب الرئيسي عند أول إعادة رسم
+         (مستنسخ: غرفة 1ضد1 + متفرج ينضم منتصف الجولة ⇒ A=0 ورقة
+         بعد أي إعادة رسم، فلا يستطيع اللعب حتى ينفد المؤقت فيُلعب آلياً). */
       this._recomputeRoomIdentity();
-      if (this._roomSeat >= 0 && NS.state && NS.state.phase !== 'matchEnd') {
-        /* ترقية متفرج→لاعب: يد مشبوثة حتى التوزيعة القادمة */
-        if (NS.state.hands[this._roomSeat] && NS.state.hands[this._roomSeat].length > 0 && this._handDeferRound === -1) {
-          this._handDeferRound = NS.state.roundNo;
-        }
-      }
       if (this._room && this._room.status !== 'playing' && !NS.state) this._renderRoomWaiting();
     },
 
