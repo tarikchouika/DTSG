@@ -41,7 +41,8 @@ bash scripts/phone-env-restart.sh     # يقرأ .env.local → يعيد الت�
 **بعد كل إعادة تشغيل تحقّق من (خطأ صامت = منصة معطّلة):**
 1. `curl -s http://127.0.0.1:3000/api/payments/methods` ⇒ `binance_pay_id` غير فارغ · وسيلة `live`.
 2. `curl -s https://api.telegram.org/bot$SUPPORT_BOT_TOKEN/getWebhookInfo` ⇒ بلا `last_error`.
-3. `tests/_support_bot_test.js` · `_private_chat_test.js` · `_voucher_bot_scope_test.js` · `_financial_bot_test.js`.
+3. `tests/_support_bot_test.js` · `_private_chat_test.js` · `_voucher_bot_scope_test.js` · `_financial_bot_test.js` · `_financial_bot_db_test.js` (91).
+   [v2.77] هذا الأخير كان يفشل عند 90✓1✗ بحارس متقادم يفترض جدولاً جديداً واحداً (`after.size === beforeA.size + 1`) بينما الوحدة تُنشئ اثنين (`fin_audit` + `meta`) — مُثبت على 825638f (v2.73.0) أي موروث.
    [v2.71] عقد مال الغرف: `node tests/_bet_settle_v269_test.js` (46) · `node tests/_rm_guard_settle_v270_test.js` (18) · `node tests/_leave_settle_v271_test.js` (25) · `node tests/_rooms_v267_test.js` (36) —
    تُشغَّل على خادم معزول: `QA_BASE=http://127.0.0.1:3971/ node tests/_bet_settle_v269_test.js` (القاعدة 13).
    [v2.73] خادمي وبلا متصفح: `node tests/_rn_roundjoin_v273_test.js` (52) · `node tests/_news_banner_v273_test.js` (25) — وهما كافيان لتغطية العقدين الجديدين دون متصفح.
@@ -51,7 +52,7 @@ bash scripts/phone-env-restart.sh     # يقرأ .env.local → يعيد الت�
    `curl -s http://127.0.0.1:3000/api/financials/status` ⇒ `ok:true` ·
    `curl -s https://api.telegram.org/bot$FINANCIALS_BOT_TOKEN/getWebhookInfo` ⇒ بلا `last_error` ·
    [v2.73] `curl -s http://127.0.0.1:3000/api/promotions` ⇒ الحقل `news` موجود (يعني أن أمر `/news` حيّ في هذه العملية — القاعدة 16).
-5. [v2.75] **وحدة التحكيم محمّلة** (قاعدة 17): `curl -s http://127.0.0.1:3000/api/matches/mine` مع ترويسة جلسة ⇒ `200` بلا خطأ 500 (يعني أن `server-arbitration.js` رُكّبت والجدول `arb_sessions` أُنشئ) · ولا حاجة إلى MediaMTX ليعمل النظام بوضع P2P.
+5. [v2.75] **وحدة التحكيم محمّلة** (قاعدة 17): `curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/matches/mine` ⇒ **`401` لا `404`** (‏401 = المسار مركّب ويطلب جلسة؛ ‏404 كان يعني أن الوحدة غير محمّلة. قارن بمسار وهمي للتأكّد) (يعني أن `server-arbitration.js` رُكّبت والجدول `arb_sessions` أُنشئ) · ولا حاجة إلى MediaMTX ليعمل النظام بوضع P2P.
 6. `pm2 save` بعد نجاح الفحوص فقط.
 
 ---

@@ -271,9 +271,12 @@ const CB = (id, data) => ({ callback_query: { id: 'cb' + Math.random(), from: { 
   let twice = true;
   try { fin.initFinancials(dbA); fin.initFinancials(dbA); } catch (e) { twice = false; }
   ok('الاستدعاء مرتين إضافيتين آمن (idempotent)', twice === true);
+  /* [v2.77] الشرط كان after.size === beforeA.size + 1 (جدول جديد واحد بالضبط)،
+     والوحدة تُنشئ جدولين (fin_audit + meta) ⇒ الفشل موروث لا انحدار (مُثبت على
+     825638f أي v2.73.0). المقصود المُغطّى: «لا جدول قائم أُزيل» — الشرط الصحيح. */
   ok('لا جدول قائم أُزيل أو تغيّر', (function () {
     const after = tables(dbA);
-    return Array.from(beforeA).every(t => after.has(t)) && after.size === beforeA.size + 1;
+    return Array.from(beforeA).every(t => after.has(t)) && after.size > beforeA.size;
   })());
   ok('أعمدة fin_audit مطابقة للمخطط', JSON.stringify(cols(dbA, 'fin_audit')) === JSON.stringify(['id', 'ts', 'actor_tg', 'action', 'detail']));
   ok('اسم fin_audit لا يظهر إطلاقاً في server.js أو server-payments.js (لا صراع ملكية)', (function () {
