@@ -14,8 +14,13 @@
 'use strict';
 const PW = require('./_rd_pw.js');
 let pass = 0, fail = 0;
-function ok(label) { pass++; console.log('  ✅ ' + label); }
-function bad(label) { fail++; console.log('  ❌ ' + label); }
+/* [v2.75·إصلاح حاسم] ok كانت تتجاهل وسيطها الثاني (الشرط) كلياً — كل
+   تأكيد كان يُطبع ✅ ويُحسب ناجحاً مهما كانت النتيجة الفعلية، فمَرّت
+   أجيالٌ من الأخطاء الخفية (انحراف توزيعة الضومنة بين الطرفين كان يمر
+   «نفس التوزيعة عند الطرفين ✅» رغم اختلاف الأيدِي حرفياً). الآن الشرط
+   يُفحص فعلاً — نمط بقية أجنحة المستودع (_bg_do_gameplay_test). */
+function ok(l, c) { if (c === undefined || c) { pass++; console.log('  ✅ ' + l); } else { fail++; console.log('  ❌ ' + l); } }
+function bad(l, c) { ok(l, c); }
 
 async function setup(ctx, username) {
   await ctx.request.post(PW.BASE + 'api/register', { data: { username, password: 'pw123456' } }).catch(() => {});
@@ -71,8 +76,8 @@ const doSnap = () => {
     optsBg: Rooms._gameOptsDefs('bg').map(d => d.key).join(','),
     optsDo: Rooms._gameOptsDefs('do').map(d => d.key).join(',')
   }));
-  ok('rooms: bg/do in roomGameIds (bgMax=' + reg.bgMax + ' doMax=' + reg.doMax + ')', reg.bg && reg.do && reg.bgMax === 2 && reg.doMax === 2);
-  ok('rooms: game opts — bg=[' + reg.optsBg + '] do=[' + reg.optsDo + ']', reg.optsBg === 'len' && reg.optsDo === 'target,draw');
+  ok('rooms: bg/do in roomGameIds (bgMax=' + reg.bgMax + ' doMax=' + reg.doMax + ')', reg.bg && reg.do && reg.bgMax === 2 && reg.doMax === 4);
+  ok('rooms: game opts — bg=[' + reg.optsBg + '] do=[' + reg.optsDo + ']', reg.optsBg === 'len,timer' && reg.optsDo === 'maxp,target,draw,timer');
 
   /* ══════════ 1) غرفة الطاولة ══════════ */
   await A.evaluate(() => openGame('bg'));
@@ -162,11 +167,13 @@ const doSnap = () => {
 
   const settleB = await PW.wait(B, () => {
     const u = AUTH.user;
-    return (typeof u.gold === 'number' && u.gold === goldB0 - 20 + 39) ? u.gold : null;
+    return (typeof u.gold === 'number' && u.gold === goldB0 + 38) ? u.gold : null;
   }, 12000);
   const goldB1 = (settleB != null) ? settleB : await B.evaluate(() => AUTH.user.gold);
-  /* رهان 20 لكل طرف → القدح 40، رسوم 5% (1) → الفائز 20+39 */
-  ok('bg: settle credited guest (' + goldB0 + ' → ' + goldB1 + ')', goldB1 === goldB0 - 20 + 39);
+  /* رهان 20 لكل طرف اقتُطع عند البدء (قبل لقطة goldB0) → الجرة 40، رسم 5% = 2
+     → الفائز يستلم 38. (التوقع القديم «-20+39» كان يخصم الرهان مرتين ويحسب
+     الرسم 1 — بقايا عهد الدفع المحلي القديم) */
+  ok('bg: settle credited guest (' + goldB0 + ' → ' + goldB1 + ')', goldB1 === goldB0 + 38);
 
   const errCount0 = A._errs.length + B._errs.length;
 
@@ -241,21 +248,24 @@ const doSnap = () => {
   /* انسحاب الضيف (مقعد 1) → المضيف يفاز + تسوية */
   const goldA_0 = await A.evaluate(() => AUTH.user.gold);
   await B.evaluate(() => { DominoApp.room && DOMINO_ROOM.resign(); });
+  /* [v2.75·إصلاح] كان المُناظِر يرد s.matchWinner (=0 — زائف) فلا يقبله
+     PW.wait أبداً (يشترط قيمة صادقة) فينقضي التقصي بلا نتيجة رغم اكتمالها */
   const hostWon = await PW.wait(A, () => {
     const a = DominoApp;
     if (!a || !a.game || !a.room || !a.room.on) return null;
     const s = a.game.state;
     const lay = document.getElementById('dmMatchLayer');
-    return (s.phase === 'matchEnd' && s.matchWinner === 0 && lay && !lay.hidden) ? s.matchWinner : null;
+    return (s.phase === 'matchEnd' && s.matchWinner === 0 && lay && !lay.hidden) ? 'won0' : null;
   }, 12000);
-  ok('do: host sees match end + winner=0 after guest resign', hostWon === 0);
+  ok('do: host sees match end + winner=0 after guest resign', hostWon === 'won0');
   const settleA = await PW.wait(A, () => {
     const u = AUTH.user;
-    return (typeof u.gold === 'number' && u.gold === goldA_0 - 15 + 29) ? u.gold : null;
+    return (typeof u.gold === 'number' && u.gold === goldA_0 + 28.5) ? u.gold : null;
   }, 12000);
   const goldA_1 = (settleA != null) ? settleA : await A.evaluate(() => AUTH.user.gold);
-  /* رهان 15 لكل طرف → القدح 30، رسوم 5% (1) → الفائز 15+29 */
-  ok('do: settle credited host (' + goldA_0 + ' → ' + goldA_1 + ')', goldA_1 === goldA_0 - 15 + 29);
+  /* رهان 15 لكل طرف اقتُطع عند البدء (قبل لقطة goldA_0) → الجرة 30، رسم 5% = 1.5
+     → الفائز يستلم 28.5 (بقايا التوقع القديم «-15+29» كانت خصماً مزدوجاً) */
+  ok('do: settle credited host (' + goldA_0 + ' → ' + goldA_1 + ')', goldA_1 === goldA_0 + 28.5);
 
   /* أخطاء الكونسول عبر الجلسة كلها */
   const errTotal = A._errs.length + B._errs.length;

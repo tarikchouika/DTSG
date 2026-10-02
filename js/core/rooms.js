@@ -1462,6 +1462,9 @@
         '<div class="ctext" style="padding:4px 0">' + T('ui.roomPlayers') + ' (' + st.players.length + '/' + st.max_players + ')</div>' +
         '<div style="max-height:150px;overflow-y:auto;margin-bottom:10px;padding-inline-end:8px;scroll-padding-inline-end:8px">' + rows + '</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">' + btns + '</div>' +
+        /* [v2.75·تحكيم] صندوق بث الشاشة للتحكيم — لاعب نشط في جولة جارية
+           حصراً (يخفيه ARB.modalHtml بنفسه خارج هذين الشرطين) */
+        ((typeof ARB !== 'undefined' && ARB && typeof ARB.modalHtml === 'function') ? ARB.modalHtml() : '') +
         /* ── محادثة الغرفة (جماعية + فردية) ── */
         '<div class="rchat">' +
           '<div class="rchat-head">💬 ' + T('ui.roomChatTitle') + '</div>' +
@@ -1478,6 +1481,8 @@
       if (newInp) newInp.value = prevInput;
       Rooms.renderChat();
       Rooms._renderCountdown();
+      /* [v2.75·تحكيم] مؤشر حالة البث بعد رسم المودال */
+      try { if (typeof ARB !== 'undefined' && ARB && typeof ARB.mountChip === 'function') ARB.mountChip(); } catch (e) {}
     },
 
     /* [B-rooms] تحديث نص العدّاد التنازلي (#roomCountdown) — يُستدعى من render ومن المؤقّت */
@@ -1751,6 +1756,8 @@
       Rooms._persistRoom(null);   /* [Persist] */
       _messages = [];
       _recipient = null;
+      /* [v2.75·تحكيم] إيقاف أي بث شاشة جارٍ — المغادرة تقطع مشاركة الشاشة */
+      try { if (typeof ARB !== 'undefined' && ARB && typeof ARB.reset === 'function') ARB.reset(); } catch (e) {}
       /* [v2.68·عزل] تنظيف سجل الألعاب: معالجات وبدايات معلّقة وحركات مخزّنة
          ومؤقّتات شبكة الأمان — لا تتسرب حالة لعبة إلى جلسة غرفة جديدة */
       _gameHandlers = {};

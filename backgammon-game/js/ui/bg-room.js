@@ -76,6 +76,25 @@
     /* السائق (مقعد 0) يبثّ التهيئة — الطرف الآخر بنى محلياً وسيتجاهل init المطابق */
     if (!spec && mySeat === 0) emit('init', { len: len });
     if (spec || mySeat === 0) flow();
+    /* [v2.75·سلامة] غير السائق: مراقب افتتاح (أدناه) */
+    if (mySeat !== 0) armOpeningWatchdog(a);
+  }
+
+  /* [v2.75·سلامة] مراقب الافتتاح لغير السائق (ضيف/متفرج): ينتظر رمية افتتاح
+     السائق المبثّة (roll opening) — إن ضاع البث لحظتها (انقطاع SSE عبر
+     النفق) يبقى عند شاشة الافتتاح إلى ما لا نهاية وكل حركات السائق
+     تُرفض (phase ليست move): «الجولة لا تبدأ». المراقب يعيد الطلب من سجل
+     الخادم (نمط الضومنة) — السجل يحمل رمية الافتتاح فيُعاد البناء.
+     يُسلّح بعد كل بناء (init يعيد البناء ويمسح المؤقتات) لذا يناديه
+     مسارا start و init معاً. */
+  function armOpeningWatchdog(a) {
+    a.later(function () {
+      const rc2 = room();
+      if (rc2 && rc2.on && a.game && a.game.state && a.game.state.phase === 'opening' &&
+          typeof root.Rooms !== 'undefined' && root.Rooms && typeof root.Rooms.requestReplay === 'function') {
+        try { root.Rooms.requestReplay(); } catch (e) {}
+      }
+    }, 2600);
   }
 
   /* بناء مباراة محلية نظيفة (شاشة اللعب + أسماء + رقعة) */
@@ -261,6 +280,8 @@
         a.finished = false;
         a.clearTimers();
         buildLocal(a, rc.len);
+        /* [v2.75·سلامة] المراقب بعد إعادة البناء (clearTimers مسح القديم) */
+        if (rc.mySeat !== 0) armOpeningWatchdog(a);
         return;
       }
       if (!a.game) return;

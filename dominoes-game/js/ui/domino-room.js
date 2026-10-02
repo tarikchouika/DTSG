@@ -80,18 +80,25 @@
         break;
       }
     }
-    /* [RS-GameOpts] الهدف وقاعدة السحب وعدد اللاعبين من إعدادات الغرفة (اختيار المالك) */
+    /* [RS-GameOpts] الهدف وقاعدة السحب من إعدادات الغرفة (اختيار المالك).
+       [v2.75·غرف] عدد اللاعبين = اللاعبون الفعلُون في الجولة (order.length)
+       حصراً — لا خيار الإعداد maxp: كان المحرك يُبنى بـ 4 مقاعد (القيمة
+       الافتراضية لعدد اللاعبين في الإعدادات) بينما في الغرفة لاعبان
+       فقط — فيحتجز الدورَ مقعدان وهميان بلا أحد يشغّلهما وتتجمد الجولة
+       عند أول دور يصل إليهما. السعة maxp تظل سعة مقاعد الغرفة كما هي
+       (من ينضم يُرقّى) لكن المحرك يُبنى دائماً على من يلعب فعلاً. */
     const cfg = (typeof root.DO_ROOM_CFG === 'object' && root.DO_ROOM_CFG) || {};
     const target = Math.max(50, Math.min(200, parseInt(cfg.target, 10) || 100));
     const drawRule = (cfg.draw === 0 || cfg.draw === '0' || cfg.draw === false) ? false : true;
-    const playersCount = Math.max(2, Math.min(4, parseInt(cfg.maxp || (rm && rm.max_players), 10) || 2));
+    const playersCount = Math.max(2, Math.min(4, order.length));
     a.room = { on: true, order: order, mySeat: mySeat, spec: !!spec, oppBot: !!oppBot, target: target, draw: drawRule, playersCount: playersCount, seed: null, ended: false };
     a.config.mode = 'room';
     a.config.playersCount = playersCount;
     a.betPlaced = 0;            /* لا محفظة في الغرفة — الاقتطاع تم في /api/rooms/start */
     a.finished = false;
     a.clearTimers();
-    /* السائق (مقعد 0) يبثّ التهيئة: بذرة موحّدة → نفس التوزيعة عند الجميع */
+    /* السائق (مقعد 0) يبثّ التهيئة: بذرة موحّدة → نفس التوزيعة عند الجميع.
+       [v2.75·غرف] playersCount المبثّ = العدد الفعلي (order.length) */
     if (!spec && mySeat === 0) {
       const seed = ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0) || 1;
       a.room.seed = seed;
@@ -116,7 +123,7 @@
     const avM = a.$('dmMyAvatar');
     if (avM) avM.textContent = initials(rc.spec ? '👁' : (myUserName() || (T('dm.you') || 'أنت')));
     if (rc.seed != null) {
-      buildFromInit(a, { seed: rc.seed, target: rc.target, draw: rc.draw });
+      buildFromInit(a, { seed: rc.seed, target: rc.target, draw: rc.draw, playersCount: rc.playersCount });
       return;
     }
     /* في انتظار init السائق: مؤقت سلامة إن تأخر البث (أعد الطلب) */
@@ -128,7 +135,9 @@
     }, 2500);
   }
 
-  /* بناء المباراة من إشارة init (بذرة + هدف + قاعدة سحب + عدد اللاعبين) — متطابق عند الجميع */
+  /* بناء المباراة من إشارة init (بذرة + هدف + قاعدة سحب + عدد اللاعبين) — متطابق عند الجميع.
+     [v2.75·غرف] newMatch يُستدعى ببذرة init الصريحة — كانت البذرة تُهمل
+     داخل newMatch فيتوزع كل طرف أوراقه الخاصة (جذر انحراف الغرف) */
   function buildFromInit(a, d) {
     const rc = a.room;
     rc.seed = (Number(d.seed) >>> 0) || 1;
@@ -152,7 +161,7 @@
       onEvent: function (ev) { self.onGameEvent(ev); }
     });
     if (rc.oppBot && !a.ai) a.ai = new root.DominoGameNS.DominoAI(a.game, 2);   /* [v18] بوت الغرفة خبير دائماً */
-    a.game.newMatch();
+    a.game.newMatch(rc.seed);
     a.selTile = null; a.selOwner = 0;
     a.busy = false;
     a.showScreen('play');
@@ -313,7 +322,11 @@
       }
       if (action === 'nextround') {
         if (s.phase !== 'roundEnd') return;
-        a.game.nextRound();
+        /* [v2.75·غرف] بذرة الجولة الجديدة من ناثق nextround — حتمية
+           التوزيعة التالية عند الجميع (كانت كل جهة تولّد بذرتها) */
+        const nseed = (Number(data.seed) >>> 0) || null;
+        a.game.nextRound(nseed);
+        rc.seed = nseed || rc.seed;
         a.busy = false; a.selTile = null;
         a.showLayer('dmRoundLayer', false);
         a.refresh();
@@ -437,7 +450,9 @@
     try { root.Rooms.roomSettle(result); } catch (e) {}
   }
 
-  /* زر «الجولة التالية» في الغرفة: بثّ nextround مرة واحدة (phase يحرسها) */
+  /* زر «الجولة التالية» في الغرفة: بثّ nextround مرة واحدة (phase يحرسها).
+     [v2.75·غرف] اللاعب الذي يضغط أولاً يولّد بذرة الجولة التالية ويبثّها
+     مع الحركة — الطرف الآخر (والمتأخر/العائد عبر السجل) يبني نفس الجولة */
   function nextRoundBtn() {
     const a = app(), rc = room();
     if (!a || !rc || !rc.on || !a.game || !a.game.state) return false;
@@ -445,10 +460,12 @@
     if (s.phase !== 'roundEnd') return true;
     if (rc.spec) { a.showLayer('dmRoundLayer', false); return true; }
     a.showLayer('dmRoundLayer', false);
-    a.game.nextRound();
+    const nseed = ((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0) || 1;
+    a.game.nextRound(nseed);
+    rc.seed = nseed;
     a.busy = false; a.selTile = null;
     a.refresh();
-    emit('nextround', {});
+    emit('nextround', { seed: nseed });
     flow();
     return true;
   }
@@ -510,7 +527,8 @@
         } else if (h.action === 'pass') {
           if (s.phase === 'play') a.game.pass((typeof hd.owner === 'number') ? hd.owner : s.turn);
         } else if (h.action === 'nextround') {
-          if (s.phase === 'roundEnd') a.game.nextRound();
+          /* [v2.75·غرف] بذرة الجولة من السجل — إعادة بناء مطابقة للعائد */
+          if (s.phase === 'roundEnd') { a.game.nextRound((Number(hd.seed) >>> 0) || null); }
         } else if (h.action === 'resign') {
           if (s.phase !== 'matchEnd') {
             const idx = seatOf(h.by);

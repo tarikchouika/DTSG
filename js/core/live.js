@@ -100,6 +100,18 @@
         else window.dispatchEvent(new CustomEvent('RC_admin_msg', { detail: d }));
       } catch (err) { console.error('[live] admin_msg', err); }
     });
+    /* [v2.75·تحكيم] أحداث البث المباشر للتحكيم: إشارات WebRTC (offer/answer/
+       ice/rewatch) + حالة الجلسة + الحسم — تُمرَّر لعميل التحكيم (ARB) عند
+       اللاعب ولوحة الأدمن (ARB_ADMIN) حسب من يحمل الكائن. */
+    ['arb:signal', 'arb:session', 'arb:resolved'].forEach(function (evName) {
+      _source.addEventListener(evName, function (e) {
+        try {
+          var d = JSON.parse(e.data);
+          if (window.ARB && typeof window.ARB.onEvent === 'function') window.ARB.onEvent(evName, d);
+          if (window.ARB_ADMIN && typeof window.ARB_ADMIN.onEvent === 'function') window.ARB_ADMIN.onEvent(evName, d);
+        } catch (err) { console.error('[live] ' + evName, err); }
+      });
+    });
     _source.onerror = function () {
       /* EventSource يغلق ويعيد المحاولة — نتركه يعمل */
     };

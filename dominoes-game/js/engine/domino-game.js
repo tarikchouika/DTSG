@@ -20,6 +20,16 @@
 
   /* ══════════════ DominoGame ══════════════ */
 
+  /* [v2.75·غرف] مولد rng من بذرة صريحة إن أُمرر (وضع الغرفة: بذرة init
+     المبثة من السائق — حتمية تامة عند الطرفين)، وإلا بذرة عشوائية
+     (اللعب المحلي — سلوك [R14] كما كان). القيمة 0 غير صالحة فتُعالج
+     كغياب البذرة (بروتوكول الغرفة لا يبث 0 قط: `>>> 0 || 1`). */
+  function rngFrom(seed) {
+    const s = (seed != null && isFinite(Number(seed))) ? (Number(seed) >>> 0) : 0;
+    if (s !== 0) return Core.SeededRng(s);
+    return Core.SeededRng((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0);
+  }
+
   function DominoGame(opts) {
     const o = opts || {};
     this.cfg = Core.normalizeConfig(o.config);
@@ -31,9 +41,16 @@
     this.state = null;
   }
 
-  DominoGame.prototype.newMatch = function () {
-    /* [R14] توليد seed جديد لكل مباراة لضمان عشوائية التوزيع */
-    this.rng = Core.SeededRng(((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0));
+  /* [v2.75·غرف] newMatch/nextRound يقبلان بذرة صريحة اختيارية:
+     وضع الغرفة يمرر بذرة السائق المبثة في init/nextround كي تتطابق
+     التوزيعة عند كل الأطراف حرفياً. قبل هذا الإصلاح كان المحرك يولّد
+     بذرة عشوائية جديدة داخل الدالتين مهما مررت بذرة الباني — فتنحرف
+     أيدِي الطرفين من أول توزيعة وتُرفض حركات الخصم (tile not in hand)
+     ويظل كل طرف ينتظر دور الآخر: الجولة لا تبدأ أبداً (خلل «اللاعبان
+     لا يستطيعان بدء الجولة» — موجود منذ [R14] v2.60.3). بلا بذرة:
+     عشوائية [R14] للعب المحلي كما كان. */
+  DominoGame.prototype.newMatch = function (seed) {
+    this.rng = rngFrom(seed);
     /* [RS-GameOpts] cfg من التهيئة — يدعم عدد اللاعبين (2 أو 3 أو 4) */
     const numPlayers = Math.max(2, Math.min(4, parseInt(this.cfg.playersCount, 10) || 2));
     this.state = Core.newRound({ cfg: this.cfg, round: 0, scores: new Array(numPlayers).fill(0) }, this.rng, null);
@@ -42,9 +59,10 @@
     return this.state;
   };
 
-  DominoGame.prototype.nextRound = function () {
-    /* [R14] توليد seed جديد لكل جولة لضمان عشوائية التوزيع والبادئ */
-    this.rng = Core.SeededRng(((Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0));
+  DominoGame.prototype.nextRound = function (seed) {
+    /* [v2.75·غرف] بذرة الجولة التالية تُبث في nextround — نفس العشوائية
+     المحلية مع حتمية الغرف */
+    this.rng = rngFrom(seed);
     this.state = Core.nextRound(this.state, this.rng);
     this._emit('roundStarted', { round: this.state.round, starter: this.state.starter });
     return this.state;

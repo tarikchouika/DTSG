@@ -15,8 +15,9 @@ const BUILD_VERSION = (function () {
    من الإنترنت عبر النفق/الووركر. تُعاد لها 404 كأنها غير موجودة. */
 const STATIC_DENY = [
   /* [v2.68·عزل] games/ وrooms/ وحدات خادم (سجل الألعاب ومديري الغرف) —
-     لا تُقدَّم للويب مثل server.js نفسه (كشف كود بلا داعٍ) */
-  /^\/?(server[^\/]*\.js|package(-lock)?\.json|tunnel-live\.json|\.env[^\/]*)/i,
+     لا تُقدَّم للويب مثل server.js نفسه (كشف كود بلا داعٍ).
+     [v2.75·تحكيم] mediamtx.yml إعداد خادم الوسائط كذلك */
+  /^\/?(server[^\/]*\.js|package(-lock)?\.json|tunnel-live\.json|mediamtx\.yml|\.env[^\/]*)/i,
   /^\/?(data|cf-worker|scripts|tests|node_modules|logs|backup|backups|tmp|games|rooms)(\/|$)/i,
   /(^|\/)\.(env|git|gitignore|htaccess|npmrc)/i,
   /(\.db|\.db-wal|\.db-shm|\.sqlite3?|\/dump\.sql)(\?|$)/i
@@ -693,6 +694,20 @@ const roomHub = require('./rooms/index.js').createRoomHub({
   users: users, db: db, sseClients: sseClients,
   BET_FEE_RATE: BET_FEE_RATE, r2: r2, logTx: logTx, logTicket: logTicket, isMuted: isMuted
 });
+/* ═══════ [v2.75·تحكيم] نظام البث المباشر للتحكيم البشري ═══════
+   اللاعبون يبثون شاشاتهم WebRTC P2P إلى لوحة الأدمن لحسم مباريات وجه
+   لوجه؛ هذا الخادم مُرشِد إشارات فقط (Offer/Answer/ICE تُرحّل عبر
+   ناقل SSE الحي القائم — لا مكتبات جديدة ولا منفذ إضافي عبر النفق).
+   الحسم/الإلغاء يعيدان استخدام نواة التسوية المعتمدة (arbResolve/
+   arbCancel في مدير الغرف) — لا مسار مال جديد. التفصيل: docs/ARBITRATION_SETUP.md */
+const arb = require('./server-arbitration.js').createArbitration({
+  users: users, db: db, roomHub: roomHub,
+  sendToUser: sendToUser, sseClients: sseClients, pushWallet: pushWallet,
+  r2: r2, logTx: logTx, BET_FEE_RATE: BET_FEE_RATE
+});
+/* [v2.75·تحكيم] منظّف النبض كل 5ث: انقطاع بث > 15ث يوسم failed وينبّه
+   لوحة الأدمن آلياً (مؤقت واحد خفيف — بلا مراقبة لكل جلسة على حدة) */
+setInterval(function () { try { arb.sweep(); } catch (e) {} }, 5000);
 function sendSSE(res, event, data) {
   try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) {}
 }
@@ -1933,6 +1948,43 @@ const server = http.createServer((req, res) => {
          إنشاء/انضمام/حركات/تسويات/دردشة — كل لعبة بمعزل عن الأخريات، والتحقق
          (مقاعد/حركات/حالة) وفق تعريف اللعبة من games/registry.js.
          عقود الاستجابات مطابقة حرفياً لما كانت عليه (توافق كامل للعملاء). */
+      /* ═══════ [v2.75·تحكيم] البث المباشر للتحكيم البشري ═══════
+         «المباراة» على المنصة = غرفة اللعب وجه لوجه (رهاناتها في escrow).
+         المسارات كما طلبها المالك: /api/matches/:id/start-stream و resolve.
+         الحسم أدمن حصراً ويسلك نواة التسوية المعتمدة (arbResolve/arbCancel). */
+      {
+        const arbMatch = pathname.match(/^\/api\/matches(?:\/([^\/]+)\/(start-stream|resolve|cancel))?$/);
+        if (arbMatch && req.method === 'POST' && arbMatch[2] === 'start-stream') {
+          const rSs = arb.startStream(me, decodeURIComponent(arbMatch[1] || ''));
+          json(rSs.body, rSs.status);
+          return;
+        }
+        if (arbMatch && !arbMatch[2] && pathname === '/api/matches' && req.method === 'GET') {
+          const rLs = arb.listSessions(me);
+          json(rLs.body, rLs.status);
+          return;
+        }
+        if (arbMatch && req.method === 'POST' && arbMatch[2] === 'resolve') {
+          const rRv = arb.resolve(me, decodeURIComponent(arbMatch[1] || ''), data);
+          json(rRv.body, rRv.status);
+          return;
+        }
+        if (arbMatch && req.method === 'POST' && arbMatch[2] === 'cancel') {
+          const rCx = arb.cancel(me, decodeURIComponent(arbMatch[1] || ''));
+          json(rCx.body, rCx.status);
+          return;
+        }
+      }
+      if (pathname === '/api/arb/signal' && req.method === 'POST') {
+        const rSg = arb.signal(me, data);
+        json(rSg.body, rSg.status);
+        return;
+      }
+      if (pathname === '/api/arb/heartbeat' && req.method === 'POST') {
+        const rHb = arb.heartbeat(me, data);
+        json(rHb.body, rHb.status);
+        return;
+      }
       /* [v2.71·استعادة] غرف المستخدم الحالية — يناديها العميل عند الإقلاع
          فيعيد فتح اللعبة الجارية بدل أن يبقى على الصفحة الرئيسية. */
       if (pathname === '/api/rooms/active' && req.method === 'GET') {

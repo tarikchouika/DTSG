@@ -984,6 +984,43 @@ function createRoomManager(gameId, io, ctx) {
       return { status: 200, body: payload };
     },
 
+    /* ═══════ [v2.75·تحكيم] حسم أدمن — نواة التسوية نفسها بتفويض الأدمن ═══════
+       نظام البث المباشر للتحكيم (server-arbitration.js): الأدمن يشاهد شاشات
+       اللاعبين ويحسم الفائز من لوحته. المال لا يسلك مساراً جديداً — نفس
+       settleSeatCore المعتمدة (الرابح يأخذ الجرة − 5%، مع سجل المعاملات
+       وتذاكر الجولة كاملة). الفارق الوحيد: مصدر التفويض صلاحية الأدمن
+       (role) بدل عضوية الغرفة — اللاعبون لا يملكون هذا المفتاح. */
+    arbResolve: function (me, data) {
+      const room = rooms.get(data.room_id);
+      if (!room) return { status: 404, body: { ok: false, message: 'الغرفة غير موجودة' } };
+      if (!me || me.role === 'user') return { status: 403, body: { ok: false, message: 'الحسم للأدمن المعتمد حصراً' } };
+      if (room.status !== 'playing') return { status: 400, body: { ok: false, message: 'لا جولة جارية' } };
+      /* جولة سوّتها اللاعبون قبله: لا ازدواج مال — الحسم التوثيقي يكفي */
+      if (room.settled) return { status: 200, body: { ok: true, already: true } };
+      const result = data.result;
+      if (!/^w([0-3])$/.test(String(result || '')) && result !== 'draw') {
+        return { status: 400, body: { ok: false, message: 'نتيجة غير صالحة' } };
+      }
+      return settleSeatCore(room, result);
+    },
+
+    /* ═══════ [v2.75·تحكيم] إلغاء أدمن — استرداد كامل (نمط endBet بتفويض أدمن) ═══════ */
+    arbCancel: function (me, data) {
+      const room = rooms.get(data.room_id);
+      if (!room) return { status: 404, body: { ok: false, message: 'الغرفة غير موجودة' } };
+      if (!me || me.role === 'user') return { status: 403, body: { ok: false, message: 'الإلغاء للأدمن المعتمد حصراً' } };
+      if (room.status !== 'playing') return { status: 200, body: { ok: true, room: null } };
+      /* [v2.73] استرداد عند أي إيداع فعلي (حتى جولة سوّيت وثبت رصيد مرحلة) */
+      if (S.escrowHasFunds(room)) S.refundAllEscrow(room, 'إلغاء تحكيم أدمن — استرداد إيداعات الجولة');
+      room.status = 'waiting';
+      room.roundJoin = null;
+      room.players.forEach(function (p) { if (!p.spectate) p.ready = false; });
+      S.afterRoundEnd(room);
+      if (S.dissolveIfExpired(room)) return { status: 200, body: { ok: true, room: null } };
+      S.updateRoom(room);
+      return { status: 200, body: { ok: true, room: S.serializeRoom(room) } };
+    },
+
     /* ═══════ التسوية القديمة بالأسماء (روندا الكلاسيكية) ═══════ */
     settleLegacy: function (me, data) {
       const room = rooms.get(data.room_id);

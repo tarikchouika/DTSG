@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.74.0';
+window.DTSG_BUILD = 'v2.75.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -1358,16 +1358,21 @@ function renderAdmin() {
       '<button class="atab' + (ADMIN_TAB === 'fin' ? ' active' : '') + '" role="tab" onclick="adminTab(\'fin\')">' + T('admin.finTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'codes' ? ' active' : '') + '" role="tab" onclick="adminTab(\'codes\')">' + T('admin.codesTab') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'money' ? ' active' : '') + '" role="tab" onclick="adminTab(\'money\')">💰 ' + (T('admin.moneyTab') || 'سجل المال') + '</button>' +
+      /* [v2.75·تحكيم] بث الشاشات وحسم النتائج — أدمن وسوبر */
+      '<button class="atab' + (ADMIN_TAB === 'arb' ? ' active' : '') + '" role="tab" onclick="adminTab(\'arb\')">📺 ' + (T('arb.tab') || 'التحكيم') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'botpl' ? ' active' : '') + '" role="tab" onclick="adminTab(\'botpl\')">📊 ' + T('admin.botPL') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'logs' ? ' active' : '') + '" role="tab" id="logs" onclick="adminTab(\'logs\')"><i class="fa-solid fa-receipt" aria-hidden="true"></i> ' + T('admin.logsTab') + '</button>'
     : '<button class="atab' + (ADMIN_TAB === 'users' ? ' active' : '') + '" role="tab" onclick="adminTab(\'users\')">👥 ' + T('admin.myPlayers') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'coord' ? ' active' : '') + '" role="tab" onclick="adminTab(\'coord\')">💬 ' + T('admin.coordTab') + '</button>' +
+      /* [v2.75·تحكيم] للأدمن العادي كذلك — حسم مبارياته المسندة إليه */
+      '<button class="atab' + (ADMIN_TAB === 'arb' ? ' active' : '') + '" role="tab" onclick="adminTab(\'arb\')">📺 ' + (T('arb.tab') || 'التحكيم') + '</button>' +
       '<button class="atab' + (ADMIN_TAB === 'tourneys' ? ' active' : '') + '" role="tab" onclick="adminTab(\'tourneys\')">🏆 ' + T('ui.tourney') + '</button>';
   el.innerHTML =
     '<div class="atabs" role="tablist">' + tabs + '</div>' +
     '<div id="adminContent"><div class="note">…</div></div>';
   if (ADMIN_TAB === 'users') adminLoadUsers();
   else if (ADMIN_TAB === 'coord') adminLoadCoordination();
+  else if (ADMIN_TAB === 'arb') adminLoadArb();
   else if (ADMIN_TAB === 'tourneys') adminLoadTourneys();
   else if (ADMIN_TAB === 'games') adminLoadGames();
   else if (ADMIN_TAB === 'rewards') adminLoadRewards();
@@ -1429,8 +1434,23 @@ async function adminMakeCode() {
 
 function adminTab(tab) {
   SND.click();
+  /* [v2.75·تحكيم] تفكيك لوحة البث عند مغادرة تبويبها (إغلاق اتصالات
+     WebRTC والاستطلاع — لا تبقى خلفية تعمل في تبويب خفي) */
+  if (ADMIN_TAB === 'arb' && typeof ARB_ADMIN !== 'undefined' && ARB_ADMIN && ARB_ADMIN.unmount) { try { ARB_ADMIN.unmount(); } catch (e) {} }
   ADMIN_TAB = tab;
   renderAdmin();
+}
+
+/* [v2.75·تحكيم] تبويب البث المباشر للتحكيم — للإدمن والسوبر معاً:
+   المشاهدة المزدوجة وحسم النتيجة من لوحة واحدة (js/core/arb-admin.js) */
+function adminLoadArb() {
+  const c = document.getElementById('adminContent');
+  if (!c) return;
+  if (typeof ARB_ADMIN === 'undefined' || !ARB_ADMIN) {
+    c.innerHTML = '<div class="note">وحدة التحكيم غير محمّلة</div>';
+    return;
+  }
+  ARB_ADMIN.mount();
 }
 
 /* ── البطاقات العلوية ── */

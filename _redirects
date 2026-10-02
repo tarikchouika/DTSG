@@ -33,6 +33,8 @@
 /server-support.js     /404.html  404
 /server-financials.js  /404.html  404
 /server-private-chat.js /404.html  404
+/server-arbitration.js /404.html  404
+/mediamtx.yml      /404.html  404
 /package.json      /404.html  404
 /package-lock.json /404.html  404
 /tunnel-live.json  /404.html  404

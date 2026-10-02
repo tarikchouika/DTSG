@@ -15,7 +15,11 @@ const BASE = process.env.QA_BASE || 'http://localhost:4173/';
    ذات النواة ARM (هاتف cat) يفشل الإقلاع بـ ENOENT. نستخدم ثنائي
    Playwright المحلي المتوافق مع المعمارية إن تعذّر sparticuz. */
 async function launchBrowser() {
-  const args = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
+  /* [v2.75·تحكيم] auto-select-desktop-capture-source: يسمح لاختبار البث
+     المباشر باستدعاء getDisplayMedia بلا منتقي الشاشة (لا يضر بقية
+     الأجنحة — لا تستعمل التقاط الوسائط أصلاً) */
+  const args = ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu',
+    '--auto-select-desktop-capture-source=Entire screen', '--use-fake-ui-for-media-stream'];
   try {
     const execPath = await (await import('@sparticuz/chromium')).default.executablePath();
     const fs = require('fs');

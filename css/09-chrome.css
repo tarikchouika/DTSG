@@ -1282,3 +1282,56 @@ html[dir="ltr"] .botchat { direction: ltr; }
 @media (max-width: 420px) {
   .botchat { inset-inline: 10px; width: auto; bottom: calc(134px + env(safe-area-inset-bottom, 0px)); max-height: 68vh; }
 }
+
+/* ═══ [v2.75·تحكيم] واجهة البث المباشر للتحكيم — لاعب + أدمن ═══ */
+/* صندوق بث اللاعب داخل مودال الغرفة */
+.arb-box {
+  margin: 10px 0; padding: 12px 14px; border-radius: 14px;
+  background: rgba(16,16,24,0.55);
+  border: 1px solid rgba(217,180,92,0.35);
+}
+.arb-box .arb-title { font-weight: 800; color: #f3e5c0; margin-bottom: 4px; font-size: .95rem; }
+.arb-box .arb-sub { font-size: .76rem; color: rgba(243,229,192,0.75); line-height: 1.7; margin-bottom: 10px; }
+.arb-box .arb-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.arb-chip {
+  display: inline-block; padding: 4px 12px; border-radius: 999px;
+  font-size: .78rem; font-weight: 700; white-space: nowrap;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.14);
+  color: #f3e5c0;
+}
+.arb-chip.arb-live { background: rgba(16,185,129,0.18); border-color: rgba(110,231,183,0.6); }
+.arb-chip.arb-connecting { background: rgba(245,158,11,0.16); border-color: rgba(252,211,77,0.5); }
+.arb-chip.arb-failed { background: rgba(225,29,72,0.18); border-color: rgba(253,164,175,0.55); }
+.arb-chip.arb-relay { background: rgba(249,115,22,0.16); border-color: rgba(251,146,60,0.55); }
+
+/* بطاقات جلسات الأدمن */
+.arb-card {
+  margin: 8px 0; padding: 12px 14px; border-radius: 13px; cursor: pointer;
+  background: var(--bg2, rgba(20,20,30,0.6)); border: 1px solid var(--bd, rgba(255,255,255,0.1));
+  transition: border-color .15s ease, transform .15s ease;
+}
+.arb-card:hover { border-color: rgba(217,180,92,0.55); }
+.arb-card.open { border-color: rgba(217,180,92,0.8); box-shadow: 0 4px 18px rgba(217,180,92,0.12); }
+.arb-card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; }
+.arb-card .arb-room { font-weight: 800; color: #f3e5c0; font-size: .9rem; }
+.arb-card .arb-bet { color: var(--gold,#d9b45c); font-weight: 800; font-size: .85rem; }
+.arb-card .arb-players { font-size: .8rem; color: rgba(243,229,192,0.85); margin-bottom: 6px; }
+.arb-card .arb-states { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* عرض الجلسة: بث مزدوج + أزرار الحسم */
+.arb-view {
+  margin-top: 14px; padding: 14px; border-radius: 15px;
+  background: rgba(10,10,16,0.65); border: 1px solid rgba(217,180,92,0.4);
+}
+.arb-view .arb-view-title { font-weight: 800; color: #f3e5c0; margin-bottom: 10px; }
+.arb-vgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.arb-vbox { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.12); border-radius: 12px; overflow: hidden; }
+.arb-vbox .arb-vname {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 12px; font-size: .82rem; font-weight: 700; color: #f3e5c0;
+}
+.arb-vbox video {
+  display: block; width: 100%; aspect-ratio: 16/9; background: #000; object-fit: contain;
+}
+.arb-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.arb-actions .btn.danger { border-color: rgba(253,164,175,0.6); background: rgba(225,29,72,0.22); }
