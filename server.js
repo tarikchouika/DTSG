@@ -768,6 +768,14 @@ const arb = require('./server-arbitration.js').createArbitration({
 /* [v2.75·تحكيم] منظّف النبض كل 5ث: انقطاع بث > 15ث يوسم failed وينبّه
    لوحة الأدمن آلياً (مؤقت واحد خفيف — بلا مراقبة لكل جلسة على حدة) */
 setInterval(function () { try { arb.sweep(); } catch (e) {} }, 5000);
+/* ═══════ [v2.81·mediamtx] مراقبة حالة بث المرحّل ═══════
+   ربط الباكأند بـ MediaMTX API لمعرفة حالة البث الحية (هل اللاعب يبث فعلاً
+   أم انقطع؟) — الاستعلام عبر Loopback المحلي حصراً (صفر باندويث عبر النفق)
+   وعند الطلب حصراً (لا حلقات خلفية إطلاقاً) وتعطّل المرحّل يعيد offline
+   بلا أي أثر على الخادم أو قاعدة البيانات. التفصيل: docs/ARBITRATION_SETUP.md §6 */
+const mtx = require('./server-mediamtx.js').createMediaMtxMonitor({
+  db: db, roomHub: roomHub, users: users, sseClients: sseClients, arb: arb
+});
 function sendSSE(res, event, data) {
   try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) {}
 }
@@ -2114,6 +2122,18 @@ const server = http.createServer((req, res) => {
         const rMn = arb.mine(me);
         json(rMn.body, rMn.status);
         return;
+      }
+      /* [v2.81·mediamtx] حالة بث اللاعبين عبر المرحّل — استعلام Loopback محلي
+         عند الطلب حصراً (عند فتح لوحة المباراة) — أدمن/سوبر حصراً. قبل كتلة
+         arbMatch كي لا يبتلعها regex المسارات العام */
+      {
+        const mtxMatch = pathname.match(/^\/api\/matches\/([^\/]+)\/stream-status$/);
+        if (mtxMatch && req.method === 'GET') {
+          Promise.resolve(mtx.streamStatus(me, decodeURIComponent(mtxMatch[1] || ''))).then(function (rMx) {
+            json(rMx.body, rMx.status);
+          }).catch(function () { json({ ok: false, message: 'تعذر فحص حالة البث' }, 500); });
+          return;
+        }
       }
       {
         const arbMatch = pathname.match(/^\/api\/matches(?:\/([^\/]+)\/(start-stream|resolve|cancel))?$/);

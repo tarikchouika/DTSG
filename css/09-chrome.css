@@ -1303,6 +1303,10 @@ html[dir="ltr"] .botchat { direction: ltr; }
 .arb-chip.arb-connecting { background: rgba(245,158,11,0.16); border-color: rgba(252,211,77,0.5); }
 .arb-chip.arb-failed { background: rgba(225,29,72,0.18); border-color: rgba(253,164,175,0.55); }
 .arb-chip.arb-relay { background: rgba(249,115,22,0.16); border-color: rgba(251,146,60,0.55); }
+/* [v2.81·mediamtx] سطر حالة بث المرحّل في عرض الجلسة */
+.arb-rt { padding: 6px 12px 8px; font-size: .74rem; min-height: 0; }
+.arb-rt:empty { display: none; }
+.arb-rt .arb-chip { font-size: .72rem; }
 
 /* بطاقات جلسات الأدمن */
 .arb-card {
@@ -1337,6 +1341,21 @@ html[dir="ltr"] .botchat { direction: ltr; }
 .arb-actions .btn.danger { border-color: rgba(253,164,175,0.6); background: rgba(225,29,72,0.22); }
 
 /* ═══ [v2.76·صفحة التحكيم] مركز التشغيل — لاعب وأدمن (بلا ميزات كاسرة: قاعدة نوكيا v2.74) ═══ */
+/* [v2.81·mediamtx] بطاقة إرشاد مشاركة شاشة الهاتف (بديل RTMP) — بلا
+   خصائص حديثة: قاعدة التوافق (‎:has()/color-mix/cqh ممنوعة) */
+.arb-mobile-relay {
+  margin: 10px 0 0; padding: 12px 14px; border-radius: 13px;
+  background: rgba(249,115,22,0.10);
+  border: 1px solid rgba(251,146,60,0.4);
+}
+.arb-mobile-relay .arb-mr-title { font-weight: 800; color: #f3e5c0; font-size: .88rem; margin-bottom: 8px; }
+.arb-mobile-relay .arb-mr-steps { margin: 0; padding-inline-start: 20px; font-size: .78rem; line-height: 1.9; color: rgba(243,229,192,0.9); }
+.arb-mobile-relay .arb-mr-url { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 6px; }
+.arb-mobile-relay .arb-mr-url code {
+  flex: 1 1 220px; display: block; padding: 7px 10px; border-radius: 9px;
+  background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.14);
+  font-size: .72rem; color: #fde68a; word-break: break-all; direction: ltr; text-align: left;
+}
 /* بطاقة جلستي الحالية عند اللاعب */
 .arb-mine {
   border-color: rgba(217,180,92,0.4);

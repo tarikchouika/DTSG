@@ -20,6 +20,10 @@
     pcs: {},               /* roomId -> { userId: RTCPeerConnection } */
     pollTi: null,
     mediamtx: null,
+    /* [v2.81·mediamtx] حالة بث المرحّل للجلسة المعروضة (استطلاع خفيف 10ث
+       — الاستعلام على الطلب حصراً: بلا لوحة مفتوحة لا استعلام إطلاقاً) */
+    rt: {},                /* roomId -> { available, players: { uid: {...} } } */
+    rtBusy: false,
     /* [v2.76·صفحة التحكيم] حاوية الرسم قابلة للتبديل: التبويب الأصلي في
        لوحة الأدمن (adminContent) أو مركز التحكيم بالصفحة المخصّصة
        (arbConsole) — اتصالات WebRTC تعاد إرفاقها بالفيديوهات الجديدة
@@ -60,10 +64,59 @@
     Object.keys(st.sessions).forEach(function (rid) {
       if (!live[rid]) {
         delete st.sessions[rid];
+        delete st.rt[rid];
         if (st.viewing === rid) { st.viewing = null; closePcs(rid); }
       }
     });
     render();
+    refreshRt();   /* [v2.81] حالة المرحّل للجلسة المعروضة (استعلام خفيف عند الطلب) */
+  }
+
+  /* ── [v2.81·mediamtx] حالة بث المرحّل (المستند §ب) — استطلاع فقط أثناء
+     عرض جلسة: يُستعلم MediaMTX محلياً خادمياً عند الطلب حصراً ── */
+  function refreshRt() {
+    var a = api();
+    if (!a || !st.viewing || !st.sessions[st.viewing] || st.rtBusy) return;
+    st.rtBusy = true;
+    var roomId = st.viewing;
+    a.get('/api/matches/' + encodeURIComponent(roomId) + '/stream-status').then(function (r) {
+      st.rtBusy = false;
+      if (!r || !r.ok || !r.data || r.data.ok !== true) return;
+      st.rt[roomId] = { available: r.data.available !== false, players: {} };
+      ['player_a_status', 'player_b_status'].forEach(function (k) {
+        var p = r.data[k];
+        if (p && p.user_id != null) st.rt[roomId].players[String(p.user_id)] = p;
+      });
+      renderRt(roomId);
+    }).catch(function () { st.rtBusy = false; });
+  }
+  function rtHtml(p) {
+    if (!p) return '';
+    var mb = (p.bytes_rx || 0) / 1048576;
+    var dur = p.stream_duration || 0;
+    var mm = Math.floor(dur / 60), ss = Math.floor(dur % 60);
+    var clock = (mm > 0 || ss > 0) ? ' · ' + mm + ':' + (ss < 10 ? '0' : '') + ss : '';
+    if (p.online) {
+      return '<span class="arb-chip arb-live">🟠 المرحّل مباشر' + esc((mb >= 0.01 ? ' · ' + (mb >= 1 ? mb.toFixed(1) + 'MB' : Math.round(mb * 1024) + 'KB') : '') + clock) + '</span>';
+    }
+    if (p.offline_since != null) {
+      var offSec = Math.max(0, Math.round((Date.now() - p.offline_since) / 1000));
+      return '<span class="arb-chip arb-failed">' + (p.alert ? '🚨' : '🔴') + ' انقطع عبر المرحّل (' + (offSec >= 60 ? Math.floor(offSec / 60) + 'د' : offSec + 'ث') + ')</span>';
+    }
+    return '';
+  }
+  function renderRt(roomId) {
+    /* تحديث في المكان (بوابة توقّع لكل عنصر) — لا مسّ للفيديوهات ولا للهيكل */
+    var rt = st.rt[roomId];
+    if (!rt) return;
+    var s = st.sessions[roomId];
+    if (!s) return;
+    (s.players || []).forEach(function (p) {
+      var el = document.getElementById('arbRt-' + p.user_id);
+      if (!el) return;
+      var html = rtHtml(rt.players[String(p.user_id)]);
+      if (el.dataset.sig !== html) { el.dataset.sig = html; el.innerHTML = html; }
+    });
   }
   function startPolling() {
     stopPolling();
@@ -98,6 +151,21 @@
       render();
     } else if (name === 'arb:signal') {
       onSignal(d);
+    } else if (name === 'arb:stream') {
+      /* [v2.81·mediamtx] تنبيه انقطاع/عودة بث المرحّل (خادمياً عند تجاوز مهلة
+         المراقبة 30ث — القرار للأدمن، لا حركة مال آلية) */
+      var rtR = st.rt[d.room_id];
+      if (rtR && d.user_id != null && rtR.players[String(d.user_id)]) {
+        rtR.players[String(d.user_id)].online = !!d.online;
+        rtR.players[String(d.user_id)].alert = !d.online && d.kind === 'offline';
+        rtR.players[String(d.user_id)].offline_since = d.online ? null : (d.at || Date.now());
+        renderRt(d.room_id);
+      }
+      if (d.kind === 'offline') {
+        if (root.toast) root.toast('🚨 انقطع بث المرحّل للـ ' + (d.username || 'لاعب') + ' — راجع الجلسة', 'err');
+      } else if (d.kind === 'recovered') {
+        if (root.toast) root.toast('🟠 عاد بث ' + (d.username || 'لاعب') + ' عبر المرحّل', 'ok');
+      }
     } else if (name === 'arb:resolved') {
       delete st.sessions[d.room_id];
       if (st.viewing === d.room_id) { st.viewing = null; closePcs(d.room_id); }
@@ -313,10 +381,13 @@
     if (!st.viewing || !st.sessions[st.viewing]) return '';
     var v = st.sessions[st.viewing];
     var vids = (v.players || []).map(function (p, i) {
+      /* [v2.81·mediamtx] سطر حالة المرحّل (arbRt-*) يُحدَّث في مكانه من
+         استطلاع stream-status (10ث) وحدث arb:stream — بلا مسّ للفيديو */
       return '<div class="arb-vbox">' +
         '<div class="arb-vname">' + (i === 0 ? '🅰️' : '🅱️') + ' ' + esc(p.username) +
           ' <span id="arbstate-' + esc(String(p.user_id)) + '">' + (STATE_LBL[p.state] || esc(p.state)) + '</span></div>' +
         '<video id="arbvid-' + esc(String(p.user_id)) + '" autoplay playsinline muted></video>' +
+        '<div class="arb-rt" id="arbRt-' + esc(String(p.user_id)) + '"></div>' +
       '</div>';
     }).join('');
     return '<div class="arb-view">' +

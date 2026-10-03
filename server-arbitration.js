@@ -186,6 +186,12 @@ function createArbitration(ctx) {
         body: {
           ok: true,
           can_broadcast: room.status === 'playing',
+          /* [v2.81] بيانات المرحّل لواجهة مشاركة شاشة الهاتف (بديل RTMP) —
+             بلا أسرار: عنوان عام يبنيه المالك في .env.local (المستند §5) */
+          relay: {
+            rtmp: process.env.MEDIAMTX_RTMP_URL || null,
+            whip: process.env.MEDIAMTX_WHIP_URL || null
+          },
           room: {
             id: room.id, code: room.code, game_id: room.game_id,
             bet: Number(room.bet) || 0, status: room.status,
@@ -219,6 +225,10 @@ function createArbitration(ctx) {
         body: {
           ok: true, token: mine.token, room_id: s.room_id, status: s.status,
           mediamtx: process.env.MEDIAMTX_WHIP_URL || null,
+          /* [v2.81] مشاركة الشاشة من الهاتف (بديل getDisplayMedia غير المتاح
+             على متصفحات الجوال): عنوان RTMP العام لنشر شاشة الهاتف عبر تطبيق
+             بث خارجي (Larix وأمثاله) — مفتاح النشر المتبقي: dtsg/<room>/<uid> */
+          mediamtx_rtmp: process.env.MEDIAMTX_RTMP_URL || null,
           ice_servers: (process.env.ARB_STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302').split(',').filter(Boolean).map(function (u) { return { urls: u.trim() }; })
         }
       };

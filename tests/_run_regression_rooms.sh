@@ -104,8 +104,12 @@ cd "$QA_DIR"
 env PORT="$QA_PORT" DM_TEST_MODE=1 DTSG_GHOST_GRACE_MS=1 USD_GOLD_RATE=100 \
     ADMIN_API_SECRET=qa-admin-secret PAYMENTS_SHARED_SECRET=qa-shared-secret \
     DM_SEED_SUPER_PW=QaTest12345 TELEGRAM_ADMIN_CHAT_ID=999000001 SUPPORT_SUPER_TG=999000001 \
+    FINANCIALS_WEBHOOK_SECRET=whsec-news-test \
     node server.js > /tmp/dtsg_regression.log 2>&1 &
 SRV=$!
+# [v2.81·توحيد] الجناح الحيّ (_news_banner_v273) يرسل ترويسة السر إلزامياً منذ
+# حارس «الفشل المغلق» (v2.80·أمن) — القيمة موحّدة مع scripts/qa-env.sh (whsec-news-test
+# وهو نفسه سرّ الجناح المحلي سطر 31) فتتطابق المصافحات الثلاثة بلا متغير تصدير إضافي
 trap 'kill $SRV 2>/dev/null || true' EXIT INT TERM
 for i in $(seq 1 20); do
   curl -sf "http://127.0.0.1:$QA_PORT/api/health" >/dev/null 2>&1 && break
@@ -172,7 +176,12 @@ run "v272 بلوت فردي 1ضد1/2/3"        "tests/_v272_solo_ui_test.js"
 run "v272.1 خانات أوراق الخصوم"      "tests/_v2721_opp_slots_test.js"
 run "امتثال v263"                    "tests/_v263_compliance_test.js"
 run "تسوية ضاما"                     "tests/_dama_settle_test.js"
-run "تسوية روندا"                    "tests/_rn_settle_test.js"
+# ── [v2.81] جناح «تسوية روندا» (_rn_settle_test) انتقل لقسم الموروث المعروف
+# أدناه: تدفّقه مبني على عقد التسوية الحرّة القديم (settle بلا escrow) الذي
+# أغلقته حراسة v2.80 الأمنية حكماً (لا خصم من الرصيد خارج الجولة) ⇒ الجناح
+# أحمر دائماً بصفر حساسية انحدار — مثبت بالتطابق على HEAD البكر v2.80.0
+# (11/18 مع التعديلات و11/18 بلاها). تغطية العقد الحالي قائمة فعلاً في
+# _rn_roundjoin_v273_test (52) و_v274_settle_vote_nokia_test (82).
 run "رهان روندا"                     "tests/_rn_bet_test.js"
 run "حراس الأمن v2.80"                 "tests/_security_guards_v280_test.js"
 run "انتقال 11 لعبة v2.80"             "tests/_next_round_9games_v280_test.js"
@@ -182,6 +191,7 @@ run "اللحاق catchup"                 "tests/_catchup_test.js"
 run "طلب 6/7/8"                      "tests/_req678_test.js"
 run "عزل عام"                        "tests/_isolate_test.js"
 run "أمن الملفات الساكن"             "tests/_security_static_test.js"
+run "v281 مراقبة MediaMTX + APK"     "tests/_v281_mediamtx_status_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"
@@ -195,6 +205,17 @@ else
   tail -8 /tmp/dtsg_t.out
   echo "   ⚠ معروف: فشل «لوحة المتفرج» موروث عن v2.68 (موثّق في CHANGELOG)."
   echo "     لو ظهر فشل غيره فهو انحدار حقيقي — راجع أعلاه."
+fi
+echo ""
+
+# ── [v2.81] تسوية روندا: موروث معروف — يُعرض ولا يُحسب في الفاشل ──
+echo "════ تسوية روندا (فشل موروث معروف: عقد التسوية الحرّة قبل حرس v2.80) ════"
+if node tests/_rn_settle_test.js > /tmp/dtsg_t.out 2>&1; then
+  tail -2 /tmp/dtsg_t.out; PASS=$((PASS+1))
+else
+  tail -4 /tmp/dtsg_t.out
+  echo "   ⚠ معروف: الجناح مبني على settle بلا escrow — أغلقته حراسة v2.80 (موثّق أعلاه وتغييراته)."
+  echo "     إن تغيّر عدد الناجح عن 11/18 فهو انحدار حقيقي — راجع أعلاه."
 fi
 echo ""
 

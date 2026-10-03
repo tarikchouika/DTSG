@@ -231,6 +231,55 @@
     return T('arb.shareOld') || 'هذا المتصفح قديم ولا يوفر واجهة البث — حدّثه إلى أحدث إصدار ثم أعد المحاولة';
   }
 
+  /* ═══ [v2.81] مشاركة شاشة الهاتف — البديل التقني (توجيه المالك) ═══
+     متصفحات الجوال لا توفّر getDisplayMedia (قيد منصّي) — البديل المعتمد:
+     تطبيق بث شاشة RTMP (مثل Larix Screencer) ينشر شاشة الهاتف إلى MediaMTX
+     على خادم المنصة عبر MEDIAMTX_RTMP_URL، ومسار النشر مفتاح خاص بك:
+     dtsg/<roomId>/<userId> — الأدمن يشاهد عبر المرحّل وتظهر حالة بثّك
+     في لوحته (انقطاع/عودة آلياً عبر مراقبة stream-status). */
+  function relayRtmpUrl(room, u) {
+    var base = st.mine && st.mine.relay && st.mine.relay.rtmp;
+    if (!base || !room || !u) return null;
+    return String(base).replace(/\/+$/, '') + '/dtsg/' + encodeURIComponent(room.id) + '/' + encodeURIComponent(u.id);
+  }
+  function mobileRelayHtml(room, u) {
+    var url = relayRtmpUrl(room, u);
+    if (!url) return '';
+    /* مصادر الترجمة موثوقة (تضم <b> المقصود) — نمط arb.mrHint المعتمد */
+    return '<div class="arb-mobile-relay" id="arbMobileRelay">' +
+      '<div class="arb-mr-title">' + (T('arb.mrTitle') || '📱 مشاركة شاشة الهاتف — عبر تطبيق RTMP') + '</div>' +
+      '<ol class="arb-mr-steps">' +
+        '<li>' + (T('arb.mrStep1') || 'ثبّت تطبيق بث شاشة مجانياً (مثل <b>Larix Screencer</b> من متجر التطبيقات)') + '</li>' +
+        '<li>' + esc(T('arb.mrStep2') || 'في إعدادات البث بالتطبيق: اختر RTMP ثم الصق عنوانك أدناه') + '</li>' +
+        '<li>' + esc(T('arb.mrStep3') || 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ثم ابدأ البث') + '</li>' +
+        '<li>' + esc(T('arb.mrStep4') || 'الأدمن يشاهد شاشتك عبر المرحّل ويظهر بثّك مباشرة في لوحته') + '</li>' +
+      '</ol>' +
+      '<div class="arb-mr-url"><code id="arbRtmpUrl">' + esc(url) + '</code>' +
+        '<button type="button" class="btn mini" onclick="ARB_PAGE.copyRtmp()">' + esc(T('arb.mrCopy') || '📋 نسخ') + '</button></div>' +
+      '<div class="note" style="font-size:.7rem;text-align:start">' + (T('arb.mrNote') || 'ℹ️ هذا البث عبر المرحّل يعمل من الهاتف دون حاسوب — ومشاركة المتصفح من حاسوب تبقى ممكنة كما كانت') + '</div>' +
+    '</div>';
+  }
+  function copyRtmp() {
+    var el = document.getElementById('arbRtmpUrl');
+    var txt = el ? el.textContent : '';
+    if (!txt) return;
+    var done = function () { if (root.toast) root.toast(T('arb.mrCopied') || '📋 نُسخ عنوان البث — الصقه في تطبيق RTMP', 'ok'); };
+    try {
+      if (root.navigator && root.navigator.clipboard && root.navigator.clipboard.writeText) {
+        root.navigator.clipboard.writeText(txt).then(done, function () { fallbackCopy(txt); done(); });
+      } else { fallbackCopy(txt); done(); }
+    } catch (e) { fallbackCopy(txt); done(); }
+  }
+  function fallbackCopy(txt) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e2) {}
+      document.body.removeChild(ta);
+    } catch (e) {}
+  }
+
   function mineCardHtml() {
     var u = me();
     var mine = st.mine;
@@ -267,6 +316,8 @@
           '<span id="arbPageChip"></span>' +
         '</div>' +
         (shareSupport().ok ? '' : '<div class="note" style="font-size:.72rem;text-align:start">ℹ️ ' + esc(shareSupportToast() || '') + '</div>') +
+        /* [v2.81] البديل التقني لمتصفح الهاتف: بث RTMP عبر تطبيق خارجي */
+        (!shareSupport().ok && shareSupport().reason === 'mobile' ? mobileRelayHtml(room, u) : '') +
         '<div class="note arb-privacy">🔒 ' + esc(T('arb.rule2') || 'الفيديو اتصال مباشر مع لوحة التحكيم وحدها — لا يمر بالخوادم ولا يُسجَّل') + '</div>' +
       '</div>';
     }
@@ -327,13 +378,23 @@
     }
     if (btn) {
       var sharing = (state === 'live' || state === 'connecting' || state === 'relay');
-      var btnHtml = sharing
-        ? '⏹ ' + esc(T('arb.stop') || 'إيقاف البث')
-        : esc(T('arb.start') || '📺 مشاركة الشاشة / بدء البث');
+      /* [v2.81] الزر يحترم دعم المشاركة: على الهاتف (بلا getDisplayMedia) يبقى
+         وضعاً تحذيرياً ⚠️ ولا تعيد شريحة الحالة كتابته فوق التحذير (كشفه
+         الفحص المتصفحي: الشريحة كانت تمحو ⚠️ بعد كل رسم) */
+      var sup = shareSupport();
+      var btnHtml;
+      if (sharing) {
+        btnHtml = '⏹ ' + esc(T('arb.stop') || 'إيقاف البث');
+      } else if (!sup.ok) {
+        btnHtml = '⚠️ ' + esc(T('arb.shareBlocked') || 'مشاركة الشاشة غير متاحة هنا');
+      } else {
+        btnHtml = esc(T('arb.start') || '📺 مشاركة الشاشة / بدء البث');
+      }
       if (btn.dataset.sig !== btnHtml) {
         btn.dataset.sig = btnHtml;
         btn.innerHTML = btnHtml;
-        btn.classList.toggle('gold', !sharing);
+        btn.title = (!sup.ok && !sharing) ? esc(shareSupportToast() || '') : '';
+        btn.classList.toggle('gold', !sharing && sup.ok);
       }
     }
   }
@@ -370,6 +431,7 @@
     leave: leave,
     onEvent: onEvent,
     refresh: refreshMine,
-    share: share
+    share: share,
+    copyRtmp: copyRtmp
   };
 })(typeof window !== 'undefined' ? window : this);

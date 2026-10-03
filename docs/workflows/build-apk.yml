@@ -1,0 +1,113 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# [v2.81·تثبيت لمرة واحدة] هذا الملف مصدر مُوثَّق في docs/workflows/ لأن دفع
+# ملفات .github/workflows/ يتطلب توكناً بصلاحية workflow (النشر العادي رُفض:
+# «refusing to allow a Personal Access Token to create or update workflow»).
+# التثبيت: انسخه إلى .github/workflows/build-apk.yml واعتمده من واجهة GitHub
+# (Add file) أو بتوكناً بصلاحية workflow — بعدها يعمل التفعيل الآلي أدناه.
+# ═══════════════════════════════════════════════════════════════════════════
+# [v2.81] سير عمل بناء تطبيق Android تلقائياً — Automated APK Build Workflow
+# ───────────────────────────────────────────────────────────────────────────
+# الطلب (توجيه المالك 2026-10-03 — مستند Capacitor APK): بناء Debug APK
+# لتطبيق Capacitor الأندرويدي لموقع dtsg.pages.dev مجاناً عبر GitHub Actions،
+# بشكل منعزل تماماً لا يضر بنظافة المستودع ولا يرفع ملفات البناء الثقيلة.
+#
+# ملاحظة معمارية (تكيف ضروري): مجلد android/ **غير محفوظ في المستودع** —
+# يولَّد في كل تشغيل عبر `npx cap add android` من إعداد Capacitor المؤقت
+# مع webDir=www (يجهّزه scripts/prepare-www.sh). بهذا يبقى المستودع نظيفاً
+# بلا ملفات منصّة ثقيلة، وكل بناء من إعداد حديث واحد.
+#
+# المُخرج: Artifact باسم DSTG-Gaming-App-Debug (app-debug.apk — يُحمَّل من
+# صفحة تشغيل الـ Workflow ويبقى 7 أيام). طريقة التنزيل والتثبيت:
+# docs/APK_BUILD.md
+# ═══════════════════════════════════════════════════════════════════════════
+name: Build Android APK (Debug)
+
+on:
+  push:
+    branches: [main, master]
+    # استثناء ملفات التوثيق: تعديلها وحده لا يستدعي بناء (المستند §أ)
+    paths-ignore:
+      - 'README.md'
+      - '.gitignore'
+      - 'docs/**'
+      - 'CHANGELOG.md'
+      - 'worklog.md'
+      - 'AGENTS.md'
+  workflow_dispatch: {}   # تشغيل يدوي بضغطة زر من واجهة GitHub (المستند §أ)
+
+# أقل الصلاحيات: قراءة الكود فقط — لا يكتب الـ Workflow أي شيء إلى المستودع
+# (المستند §3: ممنوع إعادة رفع ملفات مبنية أو مجلدات ثقيلة إلى المصدر)
+permissions:
+  contents: read
+
+jobs:
+  build-apk:
+    name: Capacitor Android Debug APK
+    runs-on: ubuntu-latest
+    steps:
+      # 1) جلب كود المستودع
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2) Node.js 20 + التخزين المؤقت لمكتبات npm (المستند §ب-3)
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 3) تثبيت الاعتمادات المحددة بدقة عبر package-lock.json (المستند §ب-4)
+      - name: Install dependencies (npm ci)
+        run: npm ci
+
+      # 4) تجهيز مجلد www (واجهة المنصة الثابتة) — نفس قائمة نشر Pages
+      #    (mkdir -p www يضمن وجوده حتى لو غيّرت القائمة مستقبلاً)
+      - name: Prepare www (web assets)
+        run: |
+          mkdir -p www
+          bash scripts/prepare-www.sh www
+
+      # 5) Capacitor 6 (متوافق Java 17/Gradle 8 — بلا تعديل package.json/lock
+      #    في المستودع: --no-save يبقي الشجرة نظيفة بعد انتهاء التشغيل)
+      - name: Install Capacitor (no-save)
+        run: npm install --no-save @capacitor/core@6 @capacitor/cli@6 @capacitor/android@6
+
+      # 6) إعداد Capacitor المؤقت + توليد مشروع Android + مزامنة www
+      #    (android/ ليس في المستودع: يُنشأ حديثاً في كل تشغيل)
+      - name: Capacitor config + add android + sync
+        run: |
+          cat > capacitor.config.json <<'JSON'
+          {
+            "appId": "com.dtsg.app",
+            "appName": "DTSG",
+            "webDir": "www",
+            "server": { "androidScheme": "https" }
+          }
+          JSON
+          [ -d android ] || npx cap add android
+          npx cap sync android
+
+      # 7) Java 17 (OpenJDK) المتوافق تماماً مع Gradle/Capacitor 6 + كاش Gradle
+      #    (المستند §ب-5)
+      - name: Setup Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      # 8) بناء APK تجريبي (المستند §ب-6): صلاحية تنفيذ للـ wrapper ثم
+      #    assembleDebug بلا دايمون (بيئة CI نظيفة بلا عمليات عالقة)
+      - name: Gradle assembleDebug
+        run: |
+          chmod +x android/gradlew
+          cd android && ./gradlew assembleDebug --no-daemon
+
+      # 9) حفظ الـ APK كمُخرج قابل للتحميل لمدة 7 أيام (المستند §ب-7)
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: DSTG-Gaming-App-Debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
+          if-no-files-found: error

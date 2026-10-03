@@ -316,6 +316,7 @@
         '<span id="arbStreamChip"></span>' +
       '</div>' +
       (!sup.ok ? '<div class="note" style="font-size:.72rem;text-align:start">ℹ️ ' + esc(supportToast() || '') + '</div>' : '') +
+      (!sup.ok && sup.reason === 'mobile' ? '<div class="note" style="font-size:.72rem;text-align:start">' + (T('arb.mrHint') || '📱 البديل على الهاتف: بث RTMP عبر تطبيق خارجي — افتح صفحة <b>التحكيم المباشر</b> لنسخ عنوان بثّك الخاص') + '</div>' : '') +
     '</div>';
   }
   function mountChip() { renderChip(); }

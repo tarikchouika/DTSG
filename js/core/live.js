@@ -105,7 +105,7 @@
        اللاعب ولوحة الأدمن (ARB_ADMIN) حسب من يحمل الكائن.
        [v2.76] وصفحة التحكيم المخصّصة (ARB_PAGE) — المستخدم يرى جلسته
        لحظياً والأدمن يتلقى تحديث الإحصاءات. */
-    ['arb:signal', 'arb:session', 'arb:resolved'].forEach(function (evName) {
+    ['arb:signal', 'arb:session', 'arb:resolved', 'arb:stream'].forEach(function (evName) {
       _source.addEventListener(evName, function (e) {
         try {
           var d = JSON.parse(e.data);

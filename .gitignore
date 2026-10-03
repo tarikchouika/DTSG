@@ -39,3 +39,13 @@ tests/_scratch_*.js
 # [v2.59.1 OPS] نسخ royalcoin.db الاحتياطية (بيانات شخصية) — لا تُرفع إلى GitHub أبداً
 backups/
 tool-results/
+
+# [v2.81] تطبيق الأندرويد (Capacitor): يُبنى محلياً وفي GitHub Actions فقط —
+# المستودع يبقى نظيفاً بلا ملفات المنصة الثقيلة (المستند §3: لا android/ ولا
+# build ولا .gradle في المصدر؛ الـ APK يُسلَّم Artifact من صفحة Actions)
+www/
+android/
+.gradle/
+*.apk
+capacitor.config.json
+local.properties

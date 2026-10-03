@@ -1230,6 +1230,18 @@ const TR = {
   'arb.stLive': [ '🟢 مباشر — الأدمن يشاهد', '🟢 En direct — l\'admin regarde', '🟢 Live — admin watching', '🟢 مباشر — الأدمن كيتفرج' ],
   'arb.stRelay': [ '🟠 مباشر عبر المرحّل', '🟠 Direct via relais', '🟠 Live via relay', '🟠 مباشر عبر المرحّل' ],
   'arb.stFailed': [ '🔴 منقطع — أعد المحاولة', '🔴 Interrompu — réessayez', '🔴 Disconnected — retry', '🔴 تنقطع — عاود' ],
+  /* [v2.81·مشاركة شاشة الهاتف] بطاقة البديل التقني (RTMP عبر تطبيق خارجي)
+     — متصفحات الجوال لا توفّر getDisplayMedia، فاللاعب يبث شاشته بتطبيق
+     RTMP إلى المرحّل (MediaMTX) بمسار مفتاح خاص به يعرضه له */
+  'arb.mrTitle': [ '📱 مشاركة شاشة الهاتف — عبر تطبيق RTMP', '📱 Partage d\'écran mobile — via une appli RTMP', '📱 Mobile screen sharing — via an RTMP app', '📱 مشاركة السكرانة من التيليفون — عبر تطبيق RTMP' ],
+  'arb.mrStep1': [ 'ثبّت تطبيق بث شاشة مجانياً (مثل <b>Larix Screencer</b> من متجر التطبيقات)', 'Installez une appli gratuite de diffusion d\'écran (ex. <b>Larix Screencer</b> du store)', 'Install a free screen-broadcast app (e.g. <b>Larix Screencer</b> from the store)', 'ثبّت تطبيق باش تبث السكرانة بلا فلوس (بحال <b>Larix Screencer</b> من الستور)' ],
+  'arb.mrStep2': [ 'في إعدادات البث بالتطبيق: اختر RTMP ثم الصق عنوانك أدناه', 'Dans les réglages de diffusion : choisissez RTMP puis collez votre adresse ci-dessous', 'In the app\'s broadcast settings: choose RTMP then paste your address below', 'فإعدادات البث ديال التطبيق: ختار RTMP ولصق العنوان ديالك لتحت' ],
+  'arb.mrStep3': [ 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ثم ابدأ البث', 'Dans l\'appli, activez « Capture d\'écran / Screen capture » puis démarrez', 'Inside the app enable “Screen capture” then start broadcasting', 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ومن بعد بدا البث' ],
+  'arb.mrStep4': [ 'الأدمن يشاهد شاشتك عبر المرحّل ويظهر بثّك مباشرة في لوحته', 'L\'admin regarde votre écran via le relais — votre diffusion apparaît dans son panneau', 'The admin watches your screen via the relay — your stream appears in their panel', 'الأدمن كيتفرج فالشاشة ديالك عبر المرحّل والبث ديالك كيبان عندو دغيا' ],
+  'arb.mrCopy': [ '📋 نسخ', '📋 Copier', '📋 Copy', '📋 كوپي' ],
+  'arb.mrCopied': [ '📋 نُسخ عنوان البث — الصقه في تطبيق RTMP', '📋 Adresse de diffusion copiée — collez-la dans l\'appli RTMP', '📋 Broadcast URL copied — paste it into the RTMP app', '📋 العنوان تنسخ — لصقو فتطبيق RTMP' ],
+  'arb.mrNote': [ 'ℹ️ هذا البث عبر المرحّل يعمل من الهاتف دون حاسوب — ومشاركة المتصفح من حاسوب تبقى ممكنة كما كانت', 'ℹ️ Cette diffusion via relais fonctionne depuis le téléphone sans ordinateur — le partage depuis un ordinateur reste possible comme avant', 'ℹ️ This relayed broadcast works from a phone without a computer — desktop browser sharing remains available as before', 'ℹ️ البث عبر المرحّل كيخدم من التيليفون بلا أورديناتور — ومشاركة المتصفح من الأورديناتور باقة ممكنة بحال قبل' ],
+  'arb.mrHint': [ '📱 البديل على الهاتف: بث RTMP عبر تطبيق خارجي — افتح صفحة <b>التحكيم المباشر</b> لنسخ عنوان بثّك الخاص', '📱 Alternative mobile : diffusion RTMP via une appli externe — ouvrez la page <b>Arbitrage en direct</b> pour copier votre adresse', '📱 Mobile alternative: RTMP broadcast via an external app — open the <b>Live Arbitration</b> page to copy your personal URL', '📱 البديل فالتيليفون: بث RTMP عبر تطبيق خارجي — حل صفحة <b>التحكيم المباشر</b> باش تنسخ العنوان ديالك' ],
   /* ══ [v2.76·ترتيب حقيقي] المتصدرون من بيانات الرهان الفعلية ══ */
   'lb.sub': [ 'ترتيب حقيقي حسب صافي أرباح اللعب — لكل لعبة على حدة وترتيب عام شامل', 'Classement réel par profits nets de jeu — par jeu et général', 'Real ranking by net game profit — per game and overall', 'ترتيب حقيقي حسب الربح الصافي — لكل لعبة وترتيب عام' ],
   'lb.overall': [ 'الترتيب العام', 'Général', 'Overall', 'الترتيب العام' ],
