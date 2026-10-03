@@ -103,7 +103,17 @@ kill_port
 rm -rf "$FULL"
 mkdir -p "$FULL"
 # نسخ شجرة العمل بلا ما لا يلزم للخادم
-tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads --exclude=.env.local --exclude=.env -cf - . | tar -xf - -C "$FULL"
+# [ما بعد v2.80.0-ISOLATION] `data/` كان يُنسخ ضمناً: فهو مستثنى في .gitignore لا من
+# الأمر، فكانت «البيئة المعزولة» (القاعدة 13) تنهض على **نسخة من قاعدة الإنتاج
+# المالية** — أرصدة حقيقية + تذاكر + سجل معاملات. أثران مؤكَّدان:
+#   (1) خطر: الاختبارات تكتب داخل بيانات المال الحقيقية المنسوخة، وأي فحص
+#       يفتح 'data/royalcoin.db' أثناء تشغيله من جذر المستودع يقرأ الإنتاج.
+#   (2) أثر وظيفي: seedIfEmpty() في server.js يتخطّى الزرع عند قاعدة غير فارغة
+#       ⇒ لا حساب super ⇒ اختبارات الصلاحيات المرتفعة تسقط بلا سبب في المنتج
+#       ([v2.80] حراس الأمن: 13/15 بدل 15/15 على قاعدة نظيفة).
+# القاعدة 13 قائمة أصلاً («خادم اختبار كامل بنسخة … وقاعدة نظيفة») — هذا التطبيق
+# هو ما كان ناقصاً.
+tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads --exclude=.env.local --exclude=.env --exclude=data -cf - . | tar -xf - -C "$FULL"
 mkdir -p "$FULL/data"
 
 echo "── 4) تشغيل أولي لإنشاء المخطط ثم إيقافه"
@@ -113,7 +123,13 @@ cd "$FULL"
 env_qa() { PORT="$PORT" ADMIN_API_SECRET=qa-admin-secret PAYMENTS_SHARED_SECRET=qa-shared-secret \
   USD_GOLD_RATE=100 DM_TEST_MODE=1 DM_SEED_SUPER_PW=QaTest12345 \
   TELEGRAM_ADMIN_CHAT_ID="${TELEGRAM_ADMIN_CHAT_ID:-999000001}" \
-  SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-999000001}" "$@"; }
+  SUPPORT_SUPER_TG="${SUPPORT_SUPER_TG:-999000001}" \
+  FINANCIALS_WEBHOOK_SECRET=whsec-news-test \
+  "$@"; }
+# [ما بعد v2.80.0] FINANCIALS_WEBHOOK_SECRET أعلاه ليس للتجربة: [v2.80] جعل ويب هوك المالية
+# **فشلاً مغلقاً** (`!secret || got !== secret` ⇒ 403)، وقسم «حيّ» في
+# tests/_news_banner_v273_test.js يرسل الترويسة الصحيحة — بلا سرّ على خادم QA
+# كان القسم يُسقط 403 ويُحسب فشلاً على المنتج. القيمة نفسها التي يضعها ذلك الملف.
 env_qa node server.js > "$FULL/boot.log" 2>&1 &
 BOOT_PID=$!
 for i in $(seq 1 20); do

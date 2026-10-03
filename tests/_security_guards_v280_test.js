@@ -79,10 +79,21 @@ const gold = (u) => req('GET', '/api/me', null, u.cookie).then(r => r.json.user.
     const g = await req('POST', '/api/login', { username: 'secgold_' + tag, password: 'pw123456' });
     ok('admin-granted start gold forced to 0', g.json && g.json.user && g.json.user.gold === 0, 'gold=' + (g.json && g.json.user && g.json.user.gold));
     /* السوبر بذر الرصيد أُسجل صف deposit */
+    /* [ما بعد v2.80.0] كان المسار `process.env.QA_DB || SB.QA_DB_FALLBACK || 'data/royalcoin.db'`
+       و`SB.QA_DB_FALLBACK` غير مُصدَّر أصلاً (tests/_safe_base.js لا يصدّره) ⇒
+       `QA_DB` غائباً ⇒ كان الفحص يفتح **قاعدة الإنتاج** ويعدّ صفوفها، فيمرّ
+       أو يسقط لأسباب لا علاقة لها بالإصلاح — وهو انتهاك القاعدة 13. الآن: المسار
+       المعتمد في كل جناح آخر (_mkusers · _fin_logs · _admin_payments_ui)،
+       وغياب QA_DB = رفض صريح لا قراءة صامتة لقاعدة أخرى. */
     const NODE = require('node:sqlite');
+    const QA_DB = process.env.QA_DB || '/tmp/full/data/royalcoin.db';
+    if (!QA_DB || QA_DB.endsWith('/DTSG/data/royalcoin.db')) {
+      console.log('  ✗ رفض التشغيل: QA_DB يشير إلى قاعدة الإنتاج (القاعدة 13) — عيّن QA_DB على نسخة معزولة');
+      process.exit(2);
+    }
     let depRow = null;
     try {
-      const db = new NODE.DatabaseSync(process.env.QA_DB || SB.QA_DB_FALLBACK || 'data/royalcoin.db', { readOnly: true });
+      const db = new NODE.DatabaseSync(QA_DB, { readOnly: true });
       depRow = db.prepare("SELECT COUNT(*) c FROM transactions WHERE type='deposit' AND note LIKE '%افتتاحي%'").get();
       db.close();
     } catch (e) { depRow = { c: -1, err: e.message }; }

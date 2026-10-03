@@ -123,9 +123,14 @@ const STRANGER = 111333;
     const probe = await fetch(B + 'api/financials/status').then(r => r.json()).catch(() => null);
     if (probe && probe.ok) {
       liveChecked = true;
+      /* [v2.80·أمن] الويب هوك صار **فشلاً مغلقاً** (`!secret || got !== secret` ⇒ 403)،
+         فالقسم الحيّ كان يرسل بلا ترويسة سرّ فيسقط 403 بلا سبب في المنتج. نرسل
+         الترويسة الصحيحة الآن — نفس القيمة التي يضعها هذا الملف لنفسه أعلاه
+         وللسرّ على خادم QA (scripts/qa-env.sh · env_qa). */
+      const WH_HEADERS = { 'Content-Type': 'application/json', 'x-telegram-bot-api-secret-token': 'whsec-news-test' };
       const wh = await fetch(B + 'api/financials/webhook', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: WH_HEADERS,
         body: JSON.stringify(U(999000001, '/news ✨ رسالة اختبار v273 من الشريط'))
       }).then(r => r.json()).catch(() => null);
       ok('الويب هوك قبل الأمر ⇒ ok', !!(wh && wh.ok));
@@ -134,7 +139,7 @@ const STRANGER = 111333;
       ok('/api/promotions يعيد رسالة الشريط من قاعدة الخادم', !!(promos && promos.news && promos.news.text.indexOf('v273') >= 0), '(' + ((promos && promos.news && promos.news.text) || '—') + ')');
       await fetch(B + 'api/financials/webhook', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: WH_HEADERS,
         body: JSON.stringify(U(999000001, '/news clear'))
       }).then(r => r.json()).catch(() => null);
       await sleep(150);
