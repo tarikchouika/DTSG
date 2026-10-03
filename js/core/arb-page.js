@@ -245,7 +245,29 @@
      على مسار غير موقّع لا يُحسب بثّاً لأحد ولا يدخل قرار الأدمن. طريقة
      الحساب تبقى في الخادم (لا تُفصح عنها الواجهة ولا يحتاجها اللاعب).
      الأدمن يشاهد عبر المرحّل وتظهر حالة بثّك في لوحته
-     (انقطاع/عودة آلياً عبر مراقبة stream-status). */
+     (انقطاع/عودة آلياً عبر مراقبة stream-status).
+
+     [v2.81.2] صار للنشر **مساران** لا مسار واحد، والفرق بينهما محور
+     **الخصوصية** لا محور الراحة ⇒ البطاقة تعرضهما جنباً إلى جنب وتقول
+     لكلٍّ منهما ما يعنيه بالضبط بدل أن تختار نيابةً عن اللاعب:
+       (أ) نفق TCP عام — relay.rtmp = MEDIAMTX_RTMP_URL: صفر إعداد على
+           الهاتف (الصق العنوان في أي تطبيق RTMP)، مجاني وبلا حساب ولا
+           منفذ مفتوح على الشبكة المنزلية — لكنه **غير مشفَّر** ويمرّ
+           بنصّ صريح عبر مرحّل طرف ثالث ⇒ **السلامة** (أن لا ينشر أحد
+           مكانك) مضمونة برمز المسار المُرمَّز، أما **الخصوصية**
+           (من يراه) فمضمونة عند مشغّل ذلك المرحّل وحده.
+       (ب) شبكة خاصة مشفّرة — relay.rtmp_secure = MEDIAMTX_RTMP_URL_WARP
+           (Cloudflare WARP): WireGuard طرف-لطرف بلا طرف ثالث في مسار
+           البيانات، وشبكتك المنزلية تبقى مغلقة — لكنه يتطلّب **تطبيق
+           Cloudflare One** على هاتف اللاعب، ولا يُعرض إطلاقاً ما لم
+           يسلّمه الخادم ⇒ غيابُه لا يُسقط شيئاً ولا يترك عنصراً معلّقاً.
+     والعنوانان يبنيان من **نفس المسار المُرمَّز** (publish_path) لأن الرمز
+     يقيد الغرفة واللاعب لا المضيف ⇒ نسخة واحدة من mine() تكفي، ولا يُبنى
+     أي مسار هنا ولا من roomId/userId (قابل للانتحال).
+     ⚠️ والبطاقة كلّها داخل mineCardHtml ⇒ تمرّ ببوابة التوقّع نفسها
+     (st.mineSig في updateMineCard): العنوانان ثابتان طوال الجلسة (الرمز
+     يأتي من الخادم ولا يتبدّل) فلا يتبدّل التوقّع كل 6ث، ولا تُعاد رسم
+     البطاقة، ولا يُلمس عنصر <video> الحيّ (قاعدة 17). */
   function relayRtmpUrl(room) {
     var relay = st.mine && st.mine.relay;
     var base = relay && relay.rtmp;
@@ -254,25 +276,63 @@
     if (!base || !room || !path) return null;
     return String(base).replace(/\/+$/, '') + '/' + path;
   }
+  /* [v2.81.2] نظير relayRtmpUrl للمسار المشفَّر — نفس publish_path ونفس
+     الدمج (مضيف من الخادم + مسار من الخادم)، والفرق كله في المضيف */
+  function relayRtmpSecureUrl(room) {
+    var relay = st.mine && st.mine.relay;
+    var base = relay && relay.rtmp_secure;
+    var path = relay && relay.publish_path;
+    if (!base || !room || !path) return null;
+    return String(base).replace(/\/+$/, '') + '/' + path;
+  }
+  /* كتلة خيار واحد: عنوانه + وسم توصيته + تحذير خصوصيته + زر نسخه
+     (معرّف العنصر ثابت من الكود لا من الخادم ⇒ يُمرَّر إلى copyRtmp) */
+  function relayOptHtml(id, title, badge, info, url) {
+    return '<div class="arb-mr-opt" style="margin-top:10px;padding:9px 11px;border-radius:11px;background:rgba(0,0,0,.28);border:1px solid rgba(255,255,255,.12)">' +
+      '<div class="arb-mr-opt-hd" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:800;color:#fde68a;font-size:.82rem">' +
+        '<span>' + esc(title) + '</span>' +
+        '<span style="font-weight:700;font-size:.72rem;color:#86efac">' + esc(badge) + '</span>' +
+      '</div>' +
+      '<div class="note" style="font-size:.72rem;text-align:start;margin:6px 0 2px">' + esc(info) + '</div>' +
+      '<div class="arb-mr-url"><code id="' + id + '">' + esc(url) + '</code>' +
+        '<button type="button" class="btn mini" onclick="ARB_PAGE.copyRtmp(\'' + id + '\')">' + esc(T('arb.mrCopy') || '📋 نسخ') + '</button></div>' +
+    '</div>';
+  }
   function mobileRelayHtml(room) {
     var url = relayRtmpUrl(room);
-    if (!url) return '';
+    var urlSecure = relayRtmpSecureUrl(room);
+    /* لا مسار عام ولا مشفَّر = لا نشر على الإطلاق — لا بديل محلي */
+    if (!url && !urlSecure) return '';
     /* مصادر الترجمة موثوقة (تضم <b> المقصود) — نمط arb.mrHint المعتمد */
     return '<div class="arb-mobile-relay" id="arbMobileRelay">' +
       '<div class="arb-mr-title">' + (T('arb.mrTitle') || '📱 مشاركة شاشة الهاتف — عبر تطبيق RTMP') + '</div>' +
       '<ol class="arb-mr-steps">' +
         '<li>' + (T('arb.mrStep1') || 'ثبّت تطبيق بث شاشة مجانياً (مثل <b>Larix Screencer</b> من متجر التطبيقات)') + '</li>' +
-        '<li>' + esc(T('arb.mrStep2') || 'في إعدادات البث بالتطبيق: اختر RTMP ثم الصق عنوانك أدناه') + '</li>' +
+        '<li>' + esc(T('arb.mrStep2') || 'في إعدادات البث بالتطبيق: اختر RTMP ثم الصق عنوان الخيار الذي تختاره أدناه') + '</li>' +
         '<li>' + esc(T('arb.mrStep3') || 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ثم ابدأ البث') + '</li>' +
         '<li>' + esc(T('arb.mrStep4') || 'الأدمن يشاهد شاشتك عبر المرحّل ويظهر بثّك مباشرة في لوحته') + '</li>' +
       '</ol>' +
-      '<div class="arb-mr-url"><code id="arbRtmpUrl">' + esc(url) + '</code>' +
-        '<button type="button" class="btn mini" onclick="ARB_PAGE.copyRtmp()">' + esc(T('arb.mrCopy') || '📋 نسخ') + '</button></div>' +
+      /* [v2.81.2] الخياران ظاهران بلا أي مفتاح خفي — كلٌّ بعنوانه ونسخه
+         وتحذيره؛ والعامل الوحيد الحاكم للظهور هو وجود المضيف في mine() */
+      '<div class="arb-mr-opts" style="margin-top:10px;font-weight:800;color:#f3e5c0;font-size:.8rem">' +
+        esc(T('arb.mrOptTitle') || '⚖️ خيارا البث — لكل واحد مقايضة') + '</div>' +
+      (url ? relayOptHtml('arbRtmpUrl',
+        T('arb.mrOptA') || 'الخيار 1 — نفق عام (الأسهل)',
+        T('arb.mrOptARec') || '✅ موصى به — مباراة عادية',
+        T('arb.mrOptAInfo') || 'غير مشفَّر — السلامة مضمونة برمز المسار أما ظهور شاشتك لمشغّل المرحّل فلا يستطيع أحد منعه',
+        url) : '') +
+      (urlSecure ? relayOptHtml('arbRtmpUrlSecure',
+        T('arb.mrOptB') || 'الخيار 2 — شبكة خاصة مشفّرة',
+        T('arb.mrOptBRec') || '🔒 للمباريات الحسّاسة',
+        T('arb.mrOptBInfo') || 'مشفَّر طرف-لطرف بلا طرف ثالث — لكن يتطلّب تطبيق Cloudflare One على هاتفك',
+        urlSecure) : '') +
       '<div class="note" style="font-size:.7rem;text-align:start">' + (T('arb.mrNote') || 'ℹ️ هذا البث عبر المرحّل يعمل من الهاتف دون حاسوب — ومشاركة المتصفح من حاسوب تبقى ممكنة كما كانت') + '</div>' +
     '</div>';
   }
-  function copyRtmp() {
-    var el = document.getElementById('arbRtmpUrl');
+  /* [v2.81.2] نسخة عمومية: ينسخ العنصر الذي طُلب، والبلا معامل يبقي
+     العنصر الأول (arbRtmpUrl) كما كان ⇒ صفر كسر لأي استدعاء قديم */
+  function copyRtmp(id) {
+    var el = document.getElementById(id || 'arbRtmpUrl');
     var txt = el ? el.textContent : '';
     if (!txt) return;
     var done = function () { if (root.toast) root.toast(T('arb.mrCopied') || '📋 نُسخ عنوان البث — الصقه في تطبيق RTMP', 'ok'); };

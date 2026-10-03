@@ -33,6 +33,18 @@
        20. السرّ من ARB_STREAM_SECRET (‎>=16 خانة) وsecretConfigured ينقلب
        21. server-arbitration.js يسلّم المسارين في mine() وstartStream() معاً
        22. mediamtx.yml: كل المستمعين (api/rtmp/rtsp/hls/webrtc) على 127.0.0.1
+     أ·4) تغطية [v2.81.2·مساران للنشر] — لا مسار واحد ولا ادّاء «مشفَّر» كذب:
+       23. mine() يسلّم relay.rtmp_secure وstartStream() يسلّم mediamtx_rtmp_secure
+       24. المصدر الوحيد هو MEDIAMTX_RTMP_URL_WARP وغيابه ⇒ null بالضبط (خيار
+           واحد في البطاقة، لا صندوق فارغ ولا رابط مزيّف)
+       25. حارس انحدار [v2.81.1]: المسار المُرمَّز باقٍ كما هو — relay.rtmp
+           الأول لم يتغيّر، وpublish_path في mine() وmediamtx_publish_path في
+           startStream() لا يزالان من publishPath() (الرمز = خاصية الأمان)
+       26. js/core/arb-page.js يقرأ relay.rtmp وrelay.rtmp_secure معاً (اللاعب
+           يُبلَّغ بالطريقين لا بواحد)، ولا رابط rtmp:// مكتوب في الواجهة أصلاً
+       27. js/i18n/translations.js: كل مفتاح T('arb.mr…') المستعمل في arb-page.js
+           موجود بأربع خانات غير فارغة بترتيب ar/fr/en/da — والقائمة المتوقعة
+           مُشتقّة من مواضع النداء الفعلية ⇒ صيانة ذاتية بلا اعتماد YAML
      ب) REST على خادم QA (fallback حقيقي: لا MediaMTX على 9997):
         - stream-status لأدمن على غرفة حقيقية ⇒ 200 + offline نظيف
      ج) فحوص ساكنة: mediamtx.yml (api:yes + apiAddress) · workflow بمفاتيحه
@@ -366,6 +378,90 @@ const ROOT = path.resolve(__dirname, '..');
   ok('server-arbitration.js: startStream() يسلّم mediamtx_publish_path + _whip (المشارك الجالس حصراً)',
     iStartFn > 0 && /mediamtx_publish_path:/.test(arbStart) && /mediamtx_publish_path_whip:/.test(arbStart)
     && PUBPATH.test(arbStart) && PUBWHIP.test(arbStart));
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     [v2.81.2·مساران للنشر] عقد التسليم الثنائي — لا مسار واحد ولا ادّاء
+     «مشفَّر» كذب على نفق عام
+     ───────────────────────────────────────────────────────────────────────
+    _paths_ الاستضافة صارت لها مدخلان محتملان، واللاعب يُبلَّغ بالاثنين مع
+     فرقهما الصريح (تشفير · حساب · إعداد على الهاتف): (أ) نفق TCP عام =
+     MEDIAMTX_RTMP_URL ⇒ صفر إعداد لكنه يمرّ صريحاً عبر طرف ثالث؛ (ب) شبكة
+     خاصة عبر Cloudflare WARP = MEDIAMTX_RTMP_URL_WARP ⇒ مشفَّر طرف-لطرف
+     لكنه يتطلّب تطبيق Cloudflare One وهو غير مضبوط بعد (Zero Trust معطّل
+     على الحساب ⇒ يلزم فعل لوح واحد من المالك). لذلك الحقل null عند الغياب
+     شرط وظيفي لا زينة: يرسم به الخيار الأول وحده بدل صندوق فارغ أو رابط
+     مخترَع. وحتى يثبت (ب) تشغيلاً حقيقياً لا يُفترض في الاختبار.
+     ═══════════════════════════════════════════════════════════════════════ */
+
+  /* (23) الحقلان الجديدان في مخرجَيه — أحدهما لكل واجهة: mine() لمّا لا جلسة
+     بعد، وstartStream() لمّا يفتح اللاعب البثّ. */
+  ok('server-arbitration.js: mine() يسلّم relay.rtmp_secure (المسار الآمن للجالس في غرفته)',
+    /rtmp_secure:/.test(arbMine) && /MEDIAMTX_RTMP_URL_WARP/.test(arbMine));
+  ok('server-arbitration.js: startStream() يسلّم mediamtx_rtmp_secure (نفس القيمة للمشارك الجالس)',
+    /mediamtx_rtmp_secure:/.test(arbStart) && /MEDIAMTX_RTMP_URL_WARP/.test(arbStart));
+
+  /* (24) التدهور الأني: غياب المتغيّر ⇒ null صريح في المخرجين، ولا قيمة
+     افتراضية مخترَعة في المصدر كله (رابط مزيّف أسوأ من خيار ناقص). */
+  ok('v2.81.2: غياب MEDIAMTX_RTMP_URL_WARP ⇒ null في المخرجين (خيار واحد لا صندوق فارغ)',
+    /rtmp_secure:[^\n]*\|\|\s*null/.test(arbMine) && /mediamtx_rtmp_secure:[^\n]*\|\|\s*null/.test(arbStart)
+    && !/MEDIAMTX_RTMP_URL_WARP\s*\|\|\s*['"]/.test(arbSrc));
+
+  /* (25) حارس انحدار [v2.81.1]: إضافة المسار الثاني لا يجوز أن تمسّ الأول ولا
+     أن تُضعف الرمز — publish_path يبقى من publishPath() (HMAC) في المخرجين. */
+  ok('حارس انحدار: relay.rtmp وmediamtx_rtmp بلا تغيير (المسار العام الأول باقٍ كما هو)',
+    /rtmp:\s*process\.env\.MEDIAMTX_RTMP_URL\s*\|\|\s*null/.test(arbMine)
+    && /mediamtx_rtmp:\s*process\.env\.MEDIAMTX_RTMP_URL\s*\|\|\s*null/.test(arbStart));
+  ok('حارس انحدار: المسار المُرمَّز باقٍ في المخرجين معاً (publish_path من publishPath لا من عنوان عام)',
+    /publish_path:\s*require\('\.\/server-mediamtx\.js'\)\.publishPath\(/.test(arbMine)
+    && /mediamtx_publish_path:\s*require\('\.\/server-mediamtx\.js'\)\.publishPath\(/.test(arbStart));
+
+  /* (26) جانب العميل: البطاقة تقرأ الحقلين معاً (لقاعدة «يُبلَّغ بالطريقين»)،
+     ولا تكتب أي عنوان RTMP في الواجهة — العرض من الخادم وحده. */
+  const arbPageSrc = fs.readFileSync(path.join(ROOT, 'js/core/arb-page.js'), 'utf8');
+  ok('js/core/arb-page.js: بطاقة الهاتف تقرأ relay.rtmp وrelay.rtmp_secure معاً (لا أحدهما وحده)',
+    /\brelay\.rtmp\b/.test(arbPageSrc) && /\brelay\.rtmp_secure\b/.test(arbPageSrc));
+  ok('js/core/arb-page.js: لا رابط rtmp:// مكتوب في الواجهة ولا قيمة احتياطية مزيّفة للمسار الآمن',
+    !/rtmp:\/\//.test(arbPageSrc) && !/relay\.rtmp_secure\s*\|\|\s*['"]/.test(arbPageSrc));
+
+  /* (27) الترجمة: قائمة المفاتيح المتوقعة مُشتقّة من مواضع T('arb.mr…')
+     الفعلية في arb-page.js — فلو أُضيف مفتاح للبطاقة بلا ترجمة بأربع لغات يسقط
+     هذا الفحص وحده. تحليل نصّي بحت (لا YAML ولا require للملف: ملف الترجمة
+     كائن حرفي ضخم واستيراده هنا بلا فائدة). */
+  const MR_KEYS = Array.from(new Set((arbPageSrc.match(/\bT\(\s*'arb\.mr[A-Za-z0-9_.]*'/g) || [])
+    .map(function (m) { return m.replace(/^.*T\(\s*'/, '').replace(/'\s*$/, ''); }))).sort();
+  const trSrc = fs.readFileSync(path.join(ROOT, 'js/i18n/translations.js'), 'utf8');
+  const ARABIC = /[؀-ۿ]/;   /* محارف عربية — \u0600-\u06FF بلا التباس اتجاه في المحرّر */
+  function trEntries(key) {          /* محوّل سطور: 'key': [ 'ar', 'fr', 'en', 'da' ] */
+    const line = trSrc.split('\n').filter(function (l) { return l.trim().indexOf("'" + key + "':") === 0; })[0];
+    if (!line) return null;
+    const open = line.indexOf('['), close = line.lastIndexOf(']');
+    if (open < 0 || close <= open) return null;
+    const inner = line.slice(open + 1, close), out = [];
+    for (let i = 0; i < inner.length; i++) {          /* مع احترام \\' داخل النص */
+      if (inner[i] !== "'") continue;
+      let v = '';
+      for (i++; i < inner.length && inner[i] !== "'"; i++) {
+        if (inner[i] === '\\' && i + 1 < inner.length) { v += inner[i + 1]; i++; } else { v += inner[i]; }
+      }
+      out.push(v);
+    }
+    return out;
+  }
+  const mrBad = MR_KEYS.filter(function (k) {
+    const e = trEntries(k);
+    return !e || e.length !== 4 || e.some(function (v) { return !String(v).trim(); });
+  });
+  ok('arb-page.js ⟷ translations.js: كل مفتاح T(arb.mr*) موجود بأربع خانات غير فارغة [' + MR_KEYS.length + ' مفتاحاً'
+    + (mrBad.length ? ' · الناقص أو ناقص الخانات: ' + mrBad.join(', ') : '') + ']',
+    MR_KEYS.length >= 8 && mrBad.length === 0);
+  /* الترتيب يُفحص بالنص لا بالحرف: (ar) عربي · (fr,en) لاتيني · (da) خط عربي
+     مغربي قد يطابق العربي — فالمطلوب خانة رابعة غير فارغة لا نص مختلف. */
+  const mrOrder = MR_KEYS.filter(function (k) {
+    const e = trEntries(k) || [];
+    return !(ARABIC.test(e[0] || '') && /[A-Za-z]/.test(e[1] || '') && /[A-Za-z]/.test(e[2] || '') && String(e[3] || '').trim());
+  });
+  ok('arb.mr*: ترتيب اللغات ar/fr/en/da سليم (الأول عربي، الثاني والثالث لاتيني، والرابع خانة دنماركية غير فارغة)',
+    mrOrder.length === 0);
 
   ok('docs/APK_BUILD.md: دليل التنزيل والتثبيت موجود', fs.existsSync(path.join(ROOT, 'docs/APK_BUILD.md')));
 

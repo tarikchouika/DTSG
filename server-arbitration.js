@@ -194,6 +194,13 @@ function createArbitration(ctx) {
           relay: {
             rtmp: process.env.MEDIAMTX_RTMP_URL || null,
             whip: process.env.MEDIAMTX_WHIP_URL || null,
+            /* [v2.81.2] مساران للنشر لا مسار واحد — والبطاقة تشرح الفرق للمستخدم:
+               (أ) نفق TCP عام (bore) — صفر إعداد على الهاتف، مجاني، بلا حساب،
+                   لكنه غير مشفَّر عبر خادم طرف ثالث ⇒ خصوصية الشاشة مكشوفة هناك.
+               (ب) شبكة خاصة عبر Cloudflare WARP — مشفّرة طرف-لطرف ولا طرف
+                   ثالث في مسار البيانات، لكن يتطلب تطبيق Cloudflare One
+                   على هاتف اللاعب. ولا يُعرض الخيار إلا إن كان مضبوطاً. */
+            rtmp_secure: process.env.MEDIAMTX_RTMP_URL_WARP || null,
             publish_path: require('./server-mediamtx.js').publishPath(room.id, me.id),
             publish_path_whip: require('./server-mediamtx.js').publishPathWhip(room.id, me.id)
           },
@@ -234,6 +241,8 @@ function createArbitration(ctx) {
              على متصفحات الجوال): عنوان RTMP العام لنشر شاشة الهاتف عبر تطبيق
              بث خارجي (Larix وأمثاله) — مفتاح النشر المتبقي مُرمَّز [v2.81.1] */
           mediamtx_rtmp: process.env.MEDIAMTX_RTMP_URL || null,
+          /* [v2.81.2] البديل المشفَّر (Cloudflare WARP) — يُعرض إن كان مضبوطاً */
+          mediamtx_rtmp_secure: process.env.MEDIAMTX_RTMP_URL_WARP || null,
           /* [v2.81.1] المساران المُرمَّزان (RTMP وWHIP) — للاعب الجالس وحده */
           mediamtx_publish_path: require('./server-mediamtx.js').publishPath(s.room_id, me.id),
           mediamtx_publish_path_whip: require('./server-mediamtx.js').publishPathWhip(s.room_id, me.id),
