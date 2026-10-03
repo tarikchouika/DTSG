@@ -6,26 +6,29 @@
 
 ---
 
-## 0. تثبيت سير العمل (لمرة واحدة — قرار توكن)
+## 0. تثبيت سير العمل — ✅ مكتمل (2026-10-04)
 
-دفع ملفات `.github/workflows/` عبر git يتطلب توكناً بصلاحية **workflow** —
-وتوكن النشر الحالي لا يملكها (رفض GitHub: «refusing to allow a Personal
-Access Token to create or update workflow»). لذلك ملف السير مُودَع كمصدر
-موثّق في **`docs/workflows/build-apk.yml`** والتثبيت خياران:
+كان الدفع إلى `.github/workflows/` محجوباً لأن توكن النشر الأول بلا صلاحية
+**workflow** (رفض GitHub: «refusing to allow a Personal Access Token to
+create or update workflow») — فعلق ملف السير مصدراً في
+**`docs/workflows/build-apk.yml`** بانتظار تثبيت لمرة واحدة بخيارين موثقين
+(واجهة GitHub، أو توكن بصلاحية workflow).
 
-1. **واجهة GitHub (أسهل):** افتح `docs/workflows/build-apk.yml` في المستودع ←
-   Copy raw file ← Add file ← Create new file بمسار
-   `.github/workflows/build-apk.yml` ← الصق ← Commit — بصلاحية المالك بلا توكن إضافي.
-2. **توكناً بصلاحية workflow:** أنشئ توكناً كلاسيكياً جديداً مع خانة
-   `workflow` ثم `mkdir -p .github/workflows && cp docs/workflows/build-apk.yml .github/workflows/ && git add .github && git commit && git push`.
+**تم التثبيت فعلاً في 2026-10-04 بالخيار 2:** وفّر المالك توكناً كلاسيكياً
+بصلاحية `workflow` (تحقق قبل الاستخدام: `x-oauth-scopes` يضم `workflow`) ⇒
+`mkdir -p .github/workflows && cp docs/workflows/build-apk.yml .github/workflows/`
+ثم إيداع ودفع ناجح (a8a8476) — النسختان متطابقتان حرفياً (`cmp`) والمصدر
+للتوثيق والمثبَّت للتنفيذ؛ أي تعديل مستقبلي يطبَّق على الاثنين معاً.
 
-بعد التثبيت يعمل كل ما في هذا الدليل حرفياً (التفعيل الآلي بالدفع + الزر اليدوي).
+بعد التثبيت يعمل كل ما في هذا الدليل حرفياً، والتفعيل الآلي مُتحقق منه فعلاً:
+دفعُ التثبيت ذاته أطلق **التشغيل #1** واكتمل **success** بخطواته التسع،
+والمخرج Artifact `DSTG-Gaming-App-Debug` (24.1MB) — انظر القائمة §5.
 
 ## 1. كيف يعمل النظام؟ (نظرة سريعة)
 
 | العنصر | الملف | الدور |
 |---|---|---|
-| سير العمل | `docs/workflows/build-apk.yml` (المصدر) — يُثبَّت في `.github/workflows/build-apk.yml` (§0) | يبنى عند كل دفع إلى `main`/`master` (مع استثناء ملفات التوثيق) + زر تشغيل يدوي `workflow_dispatch` |
+| سير العمل | المثبَّت: `.github/workflows/build-apk.yml` — والمصدر الموثق المطابق له حرفياً: `docs/workflows/build-apk.yml` (§0) | يبنى عند كل دفع إلى `main`/`master` (مع استثناء ملفات التوثيق) + زر تشغيل يدوي `workflow_dispatch` |
 | تجهيز الواجهة | `scripts/prepare-www.sh` | يجمّع ملفات المنصة الثابتة في `www/` — نفس قائمة نشر Cloudflare Pages حرفياً (قاعدة 11) |
 | إعداد Capacitor | يُنشأ مؤقتاً داخل CI | `capacitor.config.json` بمعرّف `com.dtsg.app` و`webDir: www` — **ليس في المستودع** |
 | مشروع Android | يُولَّد في CI | `npx cap add android` يُنشئ `android/` حديثاً في كل تشغيل — **ليس في المستودع** (نظافة كاملة) |
@@ -87,3 +90,7 @@ Access Token to create or update workflow»). لذلك ملف السير مُو�
 - [x] نظافة المستودع: `www/ android/ .gradle/ *.apk capacitor.config.json local.properties`
   في `.gitignore` (المستند §3) — ولا يكتب الـ Workflow أي شيء للمصدر.
 - [x] تعليقات توضيحية داخل الكود (المستند: «بأسلوب نظيف مع التعليقات التوضيحية»).
+- [x] **التثبيت الفعلي (2026-10-04):** `.github/workflows/build-apk.yml` بتوكن المالك
+  بصلاحية workflow — تطابق `cmp` كامل مع مصدر التوثيق.
+- [x] **أول بناء حقيقي ناجح (تشغيل #1):** success بكل الخطوات، Artifact
+  `DSTG-Gaming-App-Debug` 24.1MB — الدليل أن الخط إنتاجي لا نظري.

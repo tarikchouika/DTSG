@@ -131,7 +131,7 @@ pm2 logs casino-server --lines 20 --nostream | grep -i mediamtx
 
 ## 7. بناء تطبيق الأندرويد (APK) — بلا عمل منكم
 
-سير العمل (مصدره `docs/workflows/build-apk.yml` — يثبّته المالك مرة واحدة في `.github/workflows/` وفق `docs/APK_BUILD.md` §0) يُفعَّل آلياً مع كل دفع إلى main
+سير العمل (مثبَّت فعلاً في `.github/workflows/build-apk.yml` بتوكن المالك بصلاحية workflow — 2026-10-04، ومصدره الموثق المطابق `docs/workflows/build-apk.yml` وفق `docs/APK_BUILD.md` §0) يُفعَّل آلياً مع كل دفع إلى main
 (أو يدوياً من تبويب Actions ← Run workflow). الـAPK يُحمَّل من صفحة التشغيل:
 **Actions ← Build Android APK (Debug) ← آخر تشغيل أخضر ← Artifacts ←
 DSTG-Gaming-App-Debug** (يبقى 7 أيام). التثبيت على أندرويد: نزّل الملف ←
