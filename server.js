@@ -772,7 +772,7 @@ setInterval(function () { try { arb.sweep(); } catch (e) {} }, 5000);
    ربط الباكأند بـ MediaMTX API لمعرفة حالة البث الحية (هل اللاعب يبث فعلاً
    أم انقطع؟) — الاستعلام عبر Loopback المحلي حصراً (صفر باندويث عبر النفق)
    وعند الطلب حصراً (لا حلقات خلفية إطلاقاً) وتعطّل المرحّل يعيد offline
-   بلا أي أثر على الخادم أو قاعدة البيانات. التفصيل: docs/ARBITRATION_SETUP.md §6 */
+   بلا أي أثر على الخادم أو قاعدة البيانات. التفصيل: docs/ARBITRATION_SETUP.md §8 */
 const mtx = require('./server-mediamtx.js').createMediaMtxMonitor({
   db: db, roomHub: roomHub, users: users, sseClients: sseClients, arb: arb
 });

@@ -86,22 +86,61 @@ function createMediaMtxMonitor(ctx) {
   /* ── العميل: HTTP محلي خفيف (keep-alive، بلا مكتبات جديدة) ── */
   const agent = new http.Agent({ keepAlive: true, maxSockets: 4, keepAliveMsecs: 15000 });
 
+  /* [v2.81·إصلاح التعليق] الاستدعاء يُحسم مرة واحدة في كل طريق بلا استثناء.
+     الخلل المرصود: المرحّل يقبل الاتصال ويرسل الترويسة ثم يقطع المقبس في
+     منتصف الجسم ⇒ لا 'end' ولا 'error' على الطلب ⇒ لا يعمل أي نداء راجع:
+     probePath لا يعود أبداً ووعد streamStatus يعلق للأبد، ومع
+     maxSockets:4 يتجمّد كل استعلام قادم لكل غرفة. الحل: عَلَم settled + تغطية
+     مسارات الفشل كلها (res.error · res.aborted · req.timeout · حارس زمني).
+     عقد الباندويث سليم: المؤقّت مؤقّت طلب واحد يُصفَّر عند الحسم و.unref
+     — لا مؤقّت دوري ولا مؤقّت على مستوى الوحدة يعمل وحده؛ القيد 2 (استعلام
+     عند الطلب حصراً) يبقى قائماً بلا حلقة خلفية. */
   function fetchPath(name, cb) {
+    let settled = false, guard = null;
+    function once() {
+      if (settled) return;
+      settled = true;
+      if (guard) { clearTimeout(guard); guard = null; }
+      cb.apply(null, arguments);
+    }
     try {
       const req = http.get(API_URL + '/v3/paths/get/' + encodeURIComponent(name),
         { agent: agent, timeout: TIMEOUT_MS }, function (res) {
           let chunks = '', overflow = false;
           res.on('data', function (c) { if (chunks.length < 262144) chunks += c; else overflow = true; });
+          /* قطع المقبس في منتصف الجسم: لا end ولا error على الطلب */
+          res.on('error', function (e) { once(e); });
+          res.on('aborted', function () { once(new Error('aborted')); });
           res.on('end', function () {
-            if (overflow) return cb(null, res.statusCode, null);
+            if (overflow) return once(null, res.statusCode, null);
             let body = null;
             try { body = chunks ? JSON.parse(chunks) : null; } catch (e) { body = null; }
-            cb(null, res.statusCode, body);
+            once(null, res.statusCode, body);
           });
         });
-      req.on('timeout', function () { try { req.destroy(new Error('timeout')); } catch (e) {} });
-      req.on('error', function (e) { cb(e); });
-    } catch (e) { cb(e); }
+      req.on('timeout', function () { try { req.destroy(new Error('timeout')); } catch (e) {} once(new Error('timeout')); });
+      req.on('error', function (e) { once(e); });
+      /* حارس زمني مطلق (لا جواب إطلاقاً): يهدم الطلب ثم يحسم — يُصفَّر عند الحسم */
+      guard = setTimeout(function () {
+        try { req.destroy(new Error('probe wall-clock guard')); } catch (e) {}
+        once(new Error('probe wall-clock timeout'));
+      }, Math.max(1000, TIMEOUT_MS * 3));
+      if (guard.unref) guard.unref();
+    } catch (e) { once(e); }
+  }
+
+  /* مدة البث بالثواني — [v2.81] انزياح حقول API: readyDuration رقمي على
+     المرحّل القديم، ونصوص RFC3339 (readyTime ثم onlineTime) على الحديث بعد
+     حذف readyDuration. قيمة ناقصة أو تالفة ⇒ 0 (لا NaN يمسّ الواجهة). */
+  function pathDurationSec(body) {
+    const rd = body.readyDuration;
+    if (rd != null && isFinite(Number(rd))) return Number(rd);
+    const stamp = body.readyTime || body.onlineTime;
+    if (stamp) {
+      const t = Date.parse(stamp);
+      if (!isNaN(t)) return Math.max(0, (Date.now() - t) / 1000);
+    }
+    return 0;
   }
 
   /* ── استعلام مسار واحد (مع الكاش الثانوي) ──
@@ -120,12 +159,16 @@ function createMediaMtxMonitor(ctx) {
         }
         val = { online: false, ready: false, bytes_rx: 0, duration: 0, path: name, reachable: false, reason: 'unreachable' };
       } else if (status === 200 && body) {
-        const ready = body.ready === true;
+        /* [v2.81·انزياح الحقول] ready/bytesReceived متروكان على المرحّل الحديث
+           (ما زال يُبَثّ) وreadyDuration حُذف ⇒ نقبل الصيغتين معاً: online و
+           inboundBytes المعتمدان الآن، والمدة من readyTime/onlineTime. */
+        const ready = body.ready === true || body.online === true;
+        const bytes = body.inboundBytes != null ? body.inboundBytes : body.bytesReceived;
         val = {
           online: ready,
           ready: ready,
-          bytes_rx: Math.max(0, Number(body.bytesReceived) || 0),
-          duration: Math.max(0, Number(body.readyDuration) || 0),
+          bytes_rx: Math.max(0, Number(bytes) || 0),
+          duration: Math.max(0, pathDurationSec(body) || 0),
           path: name,
           reachable: true
         };

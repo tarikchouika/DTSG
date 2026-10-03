@@ -1,10 +1,11 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# [v2.81·التثبيت مكتمل 2026-10-04] كان هذا الملف عالقاً مصدراً موثَّقاً في
-# docs/workflows/ لأن توكن النشر الأول بلا صلاحية workflow (رفض GitHub:
-# «refusing to allow a Personal Access Token to create or update workflow»).
-# وفّر المالك توكناً جديداً بالصلاحية فثُبّت وفق APK_BUILD §0 (الخيار 2) —
-# وهذه النسخة (docs/workflows/ للمصدر) والمثبَّت (.github/workflows/)
-# متطابقتان حرفياً؛ أي تعديل مستقبلي يطبَّق على الاثنين معاً.
+# [v2.81] الملف مثبَّت ومزدوج بقاعدة «نسختان متطابقتان» — لم يعد مصدراً عالقاً
+# في docs/ وحده (كان كذلك لأن توكن النشر الأول بلا صلاحية workflow ورفض
+# GitHub: «refusing to allow a Personal Access Token to create or update
+# workflow» — وفّر المالك توكناً بالصلاحية فثُبّت وفق APK_BUILD §0 الخيار 2).
+# النسخة العملية هي .github/workflows/، وdocs/workflows/ مرآةٌ للرجوع إليها،
+# والاثنتان تُحفظان **متطابقتين بايت ببايت** (`cmp` = 0) عمداً: أي تعديل
+# مستقبلي يطبَّق على الاثنتين معاً في المهمة نفسها.
 # ═══════════════════════════════════════════════════════════════════════════
 # [v2.81] سير عمل بناء تطبيق Android تلقائياً — Automated APK Build Workflow
 # ───────────────────────────────────────────────────────────────────────────
@@ -27,13 +28,14 @@ on:
   push:
     branches: [main, master]
     # استثناء ملفات التوثيق: تعديلها وحده لا يستدعي بناء (المستند §أ)
+    # [v2.81] النمط العام '**/*.md' يغطي كل مستند مهما كان موضعه (القائمة
+    # السابقة غطّت 3 ملفات جذرة فقط (README.md المذكورة غير موجودة) + docs/**
+    # فبقي سبعة *.md جذرياً خارجها — الترقيم أدناه على 10 ملفات جذرة).)
+    # ⚠️ ملفات الواجهة التي تُشحن داخل التطبيق (_headers · _redirects ·
+    #    index.html · js/ · css/ · assets/) ليست توثيقاً ويجب أن تُعيد البناء.
     paths-ignore:
-      - 'README.md'
+      - '**/*.md'
       - '.gitignore'
-      - 'docs/**'
-      - 'CHANGELOG.md'
-      - 'worklog.md'
-      - 'AGENTS.md'
   workflow_dispatch: {}   # تشغيل يدوي بضغطة زر من واجهة GitHub (المستند §أ)
 
 # أقل الصلاحيات: قراءة الكود فقط — لا يكتب الـ Workflow أي شيء إلى المستودع
@@ -41,20 +43,28 @@ on:
 permissions:
   contents: read
 
+# [v2.81] دفعات سريعة متتابعة = ثلاثة بناءات Gradle متوازية بلا فائدة؛
+# وتنزيلٌ معلّق لا يجوز أن يحرق ست ساعات من زمن العدّاد.
+concurrency:
+  group: apk-build
+  cancel-in-progress: true
+
 jobs:
   build-apk:
     name: Capacitor Android Debug APK
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       # 1) جلب كود المستودع
       - name: Checkout
         uses: actions/checkout@v4
 
-      # 2) Node.js 20 + التخزين المؤقت لمكتبات npm (المستند §ب-3)
-      - name: Setup Node.js 20
+      # 2) Node.js 22 + التخزين المؤقت لمكتبات npm (المستند §ب-3)
+      #    [v2.81] 20 ← 22: package.json يشترط engines >= 22.12.0
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       # 3) تثبيت الاعتمادات المحددة بدقة عبر package-lock.json (المستند §ب-4)

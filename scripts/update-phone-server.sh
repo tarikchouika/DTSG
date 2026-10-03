@@ -36,7 +36,7 @@ PM2_NAME="${DTSG_PM2:-casino-server}"          # اسم العملية في pm2
 REPO="${DTSG_REPO:-https://github.com/tarikchouika/DTSG.git}"
 LOCAL_PORT="${DTSG_PORT:-3000}"
 PUBLIC="${DTSG_PUBLIC:-https://casino-phone.dmgames-api.workers.dev}"
-EXPECT_FILES=(server.js server-payments.js server-support.js server-private-chat.js cf-worker/payments-core.js js/wallet.js payments-url.json support.html)
+EXPECT_FILES=(server.js server-payments.js server-support.js server-private-chat.js server-mediamtx.js cf-worker/payments-core.js js/wallet.js payments-url.json support.html)
 
 say() { printf '\n\033[1;36m── %s\033[0m\n' "$*"; }
 ok()  { printf '   \033[1;32m✓\033[0m %s\n' "$*"; }
@@ -168,6 +168,7 @@ grep -q "binance" server-payments.js && ok "إصلاح Binance موجود (تر�
 grep -q "isDeniedStatic" server.js && ok "حماية ملفات الخادم/القاعدة موجودة (v2.40.4)"
 grep -q "sup_tickets" server-support.js && ok "محرّك بوت الدعم موجود (v2.41)"
 node --check server-support.js || die "server-support.js فيه خطأ صياغة"
+node --check server-mediamtx.js || die "server-mediamtx.js فيه خطأ صياغة"
 
 say "4) نسخة احتياطية لقاعدة البيانات"
 [ -f data/royalcoin.db ] && cp -v data/royalcoin.db "data/royalcoin.db.bak-$(date +%Y%m%d-%H%M)" || echo "   (لا قاعدة بعد — ستُنشأ)"

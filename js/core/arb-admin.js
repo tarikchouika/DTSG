@@ -114,7 +114,12 @@
     (s.players || []).forEach(function (p) {
       var el = document.getElementById('arbRt-' + p.user_id);
       if (!el) return;
-      var html = rtHtml(rt.players[String(p.user_id)]);
+      /* [v2.81·relay] المرحّل لا يرد أصلاً (available=false): سطر الحالة
+         كان يبقى فارغاً فيبدو كأن لا أحد يبث — وسم صريح يفرّق بين
+         «المرحّل مطفي» و«سكت اللاعب»، ويعود تلقائياً حين يستجيب الاستطلاع */
+      var html = rt.available === false
+        ? '<span class="arb-chip arb-failed">⚫ ' + (T('arb.relayDown') || 'المرحّل لا يرد') + '</span>'
+        : rtHtml(rt.players[String(p.user_id)]);
       if (el.dataset.sig !== html) { el.dataset.sig = html; el.innerHTML = html; }
     });
   }
@@ -146,7 +151,10 @@
       if (d.reason === 'timeout' && d.user_id != null) {
         var s = st.sessions[d.room_id];
         var p = s && (s.players || []).filter(function (x) { return x.user_id === d.user_id; })[0];
-        if (root.toast) root.toast('⚠️ انقطع بث ' + ((p && p.username) || 'لاعب') + ' — تابع الجلسة', 'err');
+        /* [v2.81·أمن] اسم اللاعب يمرّ بـesc: التنبيه يُكتب بـinnerHTML في
+           toast()، وصف قديم فيه «<» (loadUsersFromDB ينسخه حرفياً) كان
+           سينفّذ HTML في جلسة السوبر-أدمن — وحسمه يُفرج عن الإيداعات */
+        if (root.toast) root.toast('⚠️ انقطع بث ' + esc((p && p.username) || 'لاعب') + ' — تابع الجلسة', 'err');
       }
       render();
     } else if (name === 'arb:signal') {
@@ -162,9 +170,11 @@
         renderRt(d.room_id);
       }
       if (d.kind === 'offline') {
-        if (root.toast) root.toast('🚨 انقطع بث المرحّل للـ ' + (d.username || 'لاعب') + ' — راجع الجلسة', 'err');
+        /* [v2.81·أمن] نفس القاعدة: أسماء اللاعبين من الخادم تُهرَّب قبل
+           innerHTML (التنبيه) — النص العربي الثابت يُترك كما هو */
+        if (root.toast) root.toast('🚨 انقطع بث المرحّل للـ ' + esc(d.username || 'لاعب') + ' — راجع الجلسة', 'err');
       } else if (d.kind === 'recovered') {
-        if (root.toast) root.toast('🟠 عاد بث ' + (d.username || 'لاعب') + ' عبر المرحّل', 'ok');
+        if (root.toast) root.toast('🟠 عاد بث ' + esc(d.username || 'لاعب') + ' عبر المرحّل', 'ok');
       }
     } else if (name === 'arb:resolved') {
       delete st.sessions[d.room_id];
@@ -281,7 +291,7 @@
     if (winnerId != null) body.winner_id = winnerId;
     var r = await a.post('/api/matches/' + encodeURIComponent(roomId) + '/resolve', body).catch(function () { return null; });
     if (!r || !r.ok) {
-      if (root.toast) root.toast((r && r.data && r.data.message) || 'تعذر الحسم', 'err');
+      if (root.toast) root.toast(esc((r && r.data && r.data.message) || 'تعذر الحسم'), 'err');
       return r;
     }
     closePcs(roomId);
@@ -296,7 +306,7 @@
     if (!root.confirm || root.confirm('إلغاء المباراة وإرجاع رهانات اللاعبين؟')) {
       var r = await a.post('/api/matches/' + encodeURIComponent(roomId) + '/cancel', {}).catch(function () { return null; });
       if (!r || !r.ok) {
-        if (root.toast) root.toast((r && r.data && r.data.message) || 'تعذر الإلغاء', 'err');
+        if (root.toast) root.toast(esc((r && r.data && r.data.message) || 'تعذر الإلغاء'), 'err');
         return;
       }
       closePcs(roomId);

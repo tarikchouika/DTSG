@@ -12,6 +12,16 @@
         6. العودة بعد التنبيه ⇒ حدث recovered بصفه
         7. من لم ينشر قط لا يُنذر (انقطاع = لمن سبق له البث حصراً)
         8. الحراسة: 401 بلا جلسة · 403 للاعب · 404 غرفة مجهولة
+     أ·2) تغطية [v2.81·تدقيق] — ثغرات كانت تُبقي الجناح أخضر خطأً:
+        9. r3/r4/r5 حيّة في arbLive ⇒ حالة r5 لم تعد باطلة،
+           وr6 (انقطاع 120ث لمن سبق له البث لكن بلا جلسة حيّة) ⇒ لا تنبيه:
+           التغطية الوحيدة لنصف شرط sessionLive في evaluateWatch
+       10. فرع «ناشر متصل ميت» (ready:false مع بايتات) ⇒ offline + الأرقام سليمة
+       11. صيغ API الحديثة (online + inboundBytes + readyTime بلا readyDuration)
+       12. حارس مال ساكن: server-mediamtx.js بلا UPDATE/INSERT/DELETE على
+           users|transactions|rounds|bet_tickets|refunds إطلاقاً
+       13. حارس عدّاد: عدد النتائج = عدد مواضع ok() ⇒ لا يسقط تأكيد بصمت
+           والإصدار يُشتق من package.json (بلا رقم مكتوب في الجناح)
      ب) REST على خادم QA (fallback حقيقي: لا MediaMTX على 9997):
         - stream-status لأدمن على غرفة حقيقية ⇒ 200 + offline نظيف
      ج) فحوص ساكنة: mediamtx.yml (api:yes + apiAddress) · workflow بمفاتيحه
@@ -41,7 +51,11 @@ const ROOT = path.resolve(__dirname, '..');
     'dtsg-r2/2': null, 'dtsg/r2/1': null, 'dtsg-r2-1': null, 'dtsg-r2-2': null,
     'dtsg/r3/1': { ready: true, bytesReceived: 4096, readyDuration: 30 },  /* A عاد */
     'dtsg/r3/2': { ready: true, bytesReceived: 1024, readyDuration: 12 },
-    'dtsg/r5/1': null, 'dtsg-r5-1': null, 'dtsg/r5/2': null, 'dtsg-r5-2': null
+    'dtsg/r5/1': null, 'dtsg-r5-1': null, 'dtsg/r5/2': null, 'dtsg-r5-2': null,
+    /* [v2.81·تدقيق] ناشر متصل ميت: ready:false وبايتات واردة (يجب ألا تُمحى) */
+    'dtsg/r7/1': { ready: false, bytesReceived: 999999, readyDuration: 0 },
+    /* [v2.81·تدقيق] صيغ المرحّل الحديث: لا ready ولا readyDuration ولا bytesReceived */
+    'dtsg/r7/2': { online: true, inboundBytes: 3145728, readyTime: new Date(Date.now() - 42000).toISOString() }
   };
   const fake = http.createServer(function (req, res) {
     const name = decodeURIComponent(req.url.replace(/^\/v3\/paths\/get\//, ''));
@@ -61,12 +75,14 @@ const ROOT = path.resolve(__dirname, '..');
   const { createMediaMtxMonitor } = require('../server-mediamtx.js');
   const room = (id) => ({ id: id, status: 'playing', bet: 10, code: 'C' + id, players: [{ id: '1' }, { id: '2' }] });
   const roomHub = {
-    findById: (id) => (['r1', 'r2', 'r3', 'r4', 'r5'].indexOf(String(id)) !== -1) ? room(String(id)) : null,
+    findById: (id) => (['r1', 'r2', 'r3', 'r4', 'r5', 'r6', 'r7'].indexOf(String(id)) !== -1) ? room(String(id)) : null,
     io: { serializeRoom: () => ({ order: ['1', '2'] }) }
   };
   const users = { '1': { id: 1, username: 'playerA', role: 'user' }, '2': { id: 2, username: 'playerB', role: 'user' }, '9': { id: 9, username: 'adm', role: 'super' } };
   const sse = [{ userId: 9, res: { writes: [], write(s) { this.writes.push(s); } } }];
-  const arbLive = new Map([['r1', { status: 'live' }], ['r2', { status: 'live' }]]);
+  /* [v2.81·تدقيق] r3/r4/r5 حيّة أيضاً: وإلا كانت حالة «لم ينشر قط» باطلة
+     (شرط sessionLive غير مفعّل أصلاً). r6 وr7 تُبقيان خارج الخريطة عمداً. */
+  const arbLive = new Map([['r1', { status: 'live' }], ['r2', { status: 'live' }], ['r3', { status: 'live' }], ['r4', { status: 'live' }], ['r5', { status: 'live' }]]);
   const arb = { _live: arbLive, publicSession: function () { return null; } };
   const mtx = createMediaMtxMonitor({ db: db, roomHub: roomHub, users: users, sseClients: sse, arb: arb });
   const ADM = { id: 9, role: 'super', username: 'adm' };
@@ -100,6 +116,19 @@ const ROOT = path.resolve(__dirname, '..');
   /* 7: r5 — لم ينشر قط: لا تنبيه ولا صفوف */
   r = await mtx.streamStatus(ADM, 'r5');
   ok('r5: من لم يبث قط لا يُنذر ولا صفوف', r.body.player_a_status.alert === false && r.body.player_a_status.offline_since === null && rows('r5').length === 0);
+
+  /* [v2.81·تدقيق] نصف شرط sessionLive: انقطاع 120ث لمن سبق له البث لكن بلا
+     جلسة حيّة ⇒ لا تنبيه إطلاقاً (حذف sessionLive من evaluateWatch كان
+     سيُبقي الجناح أخضر لولا هذا) */
+  mtx._watch.set('r6:1', { offlineSince: Date.now() - 120000, alerted: false, wasOnline: true });
+  r = await mtx.streamStatus(ADM, 'r6');
+  ok('r6: بلا جلسة حيّة ⇒ لا تنبيه رغم انقطاع 120ث لمن سبق له البث', r.body.session_live === false && r.body.player_a_status.online === false && r.body.player_a_status.alert === false);
+  ok('r6: لا صف events ولا SSE (تنبيه الانقطاع للجلسة الحيّة حصراً)', rows('r6').length === 0 && !sseStreamEvents().some(w => w.includes('"room_id":"r6"')));
+
+  /* [v2.81·تدقيق] فرع probePath «ناشر متصل ميت» + صيغ API الحديثة */
+  r = await mtx.streamStatus(ADM, 'r7');
+  ok('r7: ready:false ⇒ offline مع حفظ البايتات + arbitration_ready=false', r.body.player_a_status.online === false && r.body.player_a_status.ready === false && r.body.player_a_status.bytes_rx === 999999 && r.body.arbitration_ready === false);
+  ok('r7: الصيغ الحديثة (online + inboundBytes + readyTime) تُقرأ بلا readyDuration', r.body.player_b_status.online === true && r.body.player_b_status.path === 'dtsg/r7/2' && r.body.player_b_status.bytes_rx === 3145728 && r.body.player_b_status.stream_duration >= 41 && r.body.player_b_status.stream_duration <= 60);
 
   /* 4: r4 — MediaMTX معطّل (منفذ ميت) ⇒ offline نظيف بلا انهيار */
   process.env.MEDIAMTX_API_URL = 'http://127.0.0.1:9399';
@@ -171,12 +200,12 @@ const ROOT = path.resolve(__dirname, '..');
   /* [v2.81·تثبيت لمرة واحدة] المصدر موثّق بـdocs/workflows/ — دفع .github/workflows يتطلب صلاحية workflow لا يملكها توكن النشر */
   const wf = fs.readFileSync(path.join(ROOT, 'docs/workflows/build-apk.yml'), 'utf8');
   ok('workflow: workflow_dispatch + push main/master', /workflow_dispatch/.test(wf) && /branches:\s*\[main, master\]/.test(wf));
-  ok('workflow: Node 20 + npm ci + كاش npm', /node-version:\s*'20'/.test(wf) && /npm ci/.test(wf) && /cache:\s*'npm'/.test(wf));
+  ok('workflow: Node 22 + npm ci + كاش npm', /node-version:\s*'22'/.test(wf) && /npm ci/.test(wf) && /cache:\s*'npm'/.test(wf));
   ok('workflow: Java 17 temurin + كاش gradle', /java-version:\s*'17'/.test(wf) && /distribution:\s*'temurin'/.test(wf) && /cache:\s*'gradle'/.test(wf));
   ok('workflow: mkdir www + cap sync android + chmod gradlew', /mkdir -p www/.test(wf) && /npx cap sync android/.test(wf) && /chmod \+x android\/gradlew/.test(wf));
   ok('workflow: assembleDebug --no-daemon + مسار APK الرسمي', /assembleDebug --no-daemon/.test(wf) && wf.includes('android/app/build/outputs/apk/debug/app-debug.apk'));
   ok('workflow: Artifact DSTG-Gaming-App-Debug لمدة 7 أيام', /DSTG-Gaming-App-Debug/.test(wf) && /retention-days:\s*7/.test(wf));
-  ok('workflow: استثناء ملفات التوثيق من المُحفّز', /paths-ignore:/.test(wf) && /'README\.md'/.test(wf));
+  ok('workflow: استثناء ملفات التوثيق من المُحفّز', /paths-ignore:/.test(wf) && /'\*\*\/\*\.md'/.test(wf));
   ok('workflow: صلاحية قراءة فقط (لا كتابة في المستودع)', /permissions:\s*\n\s*contents:\s*read/.test(wf));
 
   const gi = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
@@ -194,11 +223,25 @@ const ROOT = path.resolve(__dirname, '..');
   ok('server-arbitration.js: startStream يعرض mediamtx_rtmp + mine يحمل relay', /MEDIAMTX_RTMP_URL/.test(fs.readFileSync(path.join(ROOT, 'server-arbitration.js'), 'utf8')));
 
   ok('docs/APK_BUILD.md: دليل التنزيل والتثبيت موجود', fs.existsSync(path.join(ROOT, 'docs/APK_BUILD.md')));
+
+  /* [v2.81·تدقيق] حارس المال ساكناً: الوحدة أدمن وتدقّق فقط — لا تمسّ جداول المنصة */
+  const mtxSrc = fs.readFileSync(path.join(ROOT, 'server-mediamtx.js'), 'utf8');
+  ok('server-mediamtx.js: صفر كتابة مال (بلا UPDATE users · INSERT INTO users|transactions|rounds|bet_tickets|refunds · DELETE FROM users|transactions|rounds)',
+    !/\bUPDATE\s+users\b/i.test(mtxSrc)
+    && !/\bINSERT\s+INTO\s+(users|transactions|rounds|bet_tickets|refunds)\b/i.test(mtxSrc)
+    && !/\bDELETE\s+FROM\s+(users|transactions|rounds)\b/i.test(mtxSrc));
+
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  ok('الإصدار 2.81.0', pkg.version === '2.81.0');
+  const SELF = fs.readFileSync(__filename, 'utf8');
+  const TAG = 'v' + pkg.version;   /* [v2.81·تدقيق] مشتق من package.json: لا رقم مكتوب يُحمر مع كل رفع */
+  ok('الإصدار يُشتق من package.json ويوافق وسم الجناح (' + TAG + ')', (SELF.match(/\[(v[\d.]+)/) || [])[1] === TAG.replace(/\.\d+$/, ''));
 
   /* ═══ الخاتمة ═══ */
   fake.close();
+  /* [v2.81·تدقيق] حارس العدّاد: لا يُسقط تأكيد بصمت (النتيجة = عدد المواضع).
+     النمط يشترط ok في أول السطر حتى لا يحتسب ذكره في تعليق أو داخل نمط. */
+  const sites = (SELF.match(/^[ \t]*ok\s*\(/gm) || []).length;
+  ok('حارس العدّاد: عدد النتائج = عدد مواضع ok() في الجناح (' + sites + ')', pass + fail + 1 === sites);
   const total = pass + fail;
   console.log('\n' + (fail === 0 ? '✔ نجح' : '✗ فشل') + ': ' + pass + ' ✓ · ' + fail + ' ✗ (من ' + total + ')');
   process.exit(fail === 0 ? 0 : 1);

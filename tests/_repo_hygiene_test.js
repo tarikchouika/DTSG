@@ -16,7 +16,8 @@ const bad = m => { fail++; console.log('  ❌ ' + m); };
 const PATTERNS = [
   { name: 'توكن بوت تلغرام', re: /\b\d{8,12}:[A-Za-z0-9_-]{33,}\b/g },
   { name: 'سرّ ويبهوك دعم', re: /\bdtsgsup_[A-Za-z0-9]{8,}\b/g },
-  { name: 'توكن GitHub', re: /\b(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}\b/g },
+  { name: 'توكن GitHub', re: /\b(?:(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{22,})\b/g },
+  { name: 'سرّ ويبهوك Stripe', re: /\bwhsec_[A-Za-z0-9]{24,}\b/g },
   { name: 'توكن Cloudflare', re: /\bcfat_[A-Za-z0-9_-]{35,}\b/g },
   { name: 'مفتاح Google', re: /\bAIza[0-9A-Za-z_-]{33,}\b/g },
   { name: 'مفتاح AWS', re: /\bAKIA[0-9A-Z]{16}\b/g },

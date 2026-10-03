@@ -8,7 +8,8 @@
 
    ما يتحقق منه هذا الاختبار (ثابت، بلا متصفح):
      1) كل مجلد علوي يُشار إليه من صفحات HTML المنشورة يجب أن يكون في سطر
-        «cp -r» في scripts/deploy-pages.sh وفي deploy-clean.sh.
+        «cp -r» في scripts/deploy-pages.sh وفي deploy-clean.sh
+        وفي scripts/prepare-www.sh (بناء APK — نسيانها يُنتج APK ناقصاً بلا إنذار).
      2) لا مجلد منسوخ غير موجود أصلاً في المستودع (حماية من الأخطاء المطبعية).
      3) قواعد تقليم الملفات التطويرية (tests/README/INTEGRATION/QA index.html)
         موجودة لكل مجلد لعبة مستقلة.
@@ -72,7 +73,9 @@ function cpFolders(scriptPath) {
   return folders;
 }
 
-for (const script of ['scripts/deploy-pages.sh', 'deploy-clean.sh']) {
+/* [v2.81] الموقع الثالث لنسخ المجلدات: scripts/prepare-www.sh (تطبيق Capacitor).
+   نسيانه يعني APK ناقص المجلد بلا أي إنذار — نفس صنف حادثة أونو/البلوت. */
+for (const script of ['scripts/deploy-pages.sh', 'deploy-clean.sh', 'scripts/prepare-www.sh']) {
   const copied = cpFolders(script);
   if (!copied) { bad(`${script}: لا يوجد سطر cp -r صالح للتحليل`); continue; }
   const missing = refList.filter(f => !copied.has(f));
@@ -137,7 +140,10 @@ for (const b of ['uno-game/uno-bridge.js', 'baloot-game/baloot-bridge.js',
     .flatMap(s => (s.match(/[\w.*-]+/g) || []))
     .filter(f => f && !f.endsWith('.') && f !== 'in' && f !== 'f' && f !== 'g');
   const deployed = new Set([...cpDir, ...loopFiles]);
-  const IGNORE = new Set(['.git', '.gitattributes', '.gitignore', '.dockerignore', '.env', '.env.local', '.wrangler']);
+  /* [v2.81] مخرجات بناء محلية تُنشأ بـscripts/prepare-www.sh وبناء Android
+     (مستثنية من git ولا تُنشر إلى Pages) — تجاهُلها يمنع إيجابيات كاذبة. */
+  const IGNORE = new Set(['.git', '.gitattributes', '.gitignore', '.dockerignore', '.env', '.env.local', '.wrangler',
+                         'www', 'android', '.gradle']);
   const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const uncovered = fs.readdirSync('.').filter(e => {
     if (IGNORE.has(e) || deployed.has(e)) return false;

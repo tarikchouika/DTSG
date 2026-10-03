@@ -113,7 +113,10 @@ mkdir -p "$FULL"
 #       ([v2.80] حراس الأمن: 13/15 بدل 15/15 على قاعدة نظيفة).
 # القاعدة 13 قائمة أصلاً («خادم اختبار كامل بنسخة … وقاعدة نظيفة») — هذا التطبيق
 # هو ما كان ناقصاً.
-tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads --exclude=.env.local --exclude=.env --exclude=data -cf - . | tar -xf - -C "$FULL"
+# [v2.81] مخرجات بناء Capacitor/Android تُبنى محلياً بالوثائق (scripts/prepare-www.sh)
+# ⇒ www/ و android/ و .gradle/ تظهر في جذر المستودع، ونسخها إلى صندوق QA ثقيل بلا فائدة.
+tar -C "$REPO" --exclude=.git --exclude=node_modules --exclude=uploads --exclude=.env.local --exclude=.env --exclude=data \
+    --exclude=www --exclude=android --exclude=.gradle -cf - . | tar -xf - -C "$FULL"
 mkdir -p "$FULL/data"
 
 echo "── 4) تشغيل أولي لإنشاء المخطط ثم إيقافه"

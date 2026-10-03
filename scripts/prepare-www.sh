@@ -17,6 +17,24 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUT="${1:-$REPO/www}"
 
+# [v2.81] حاجز المعامل: العامل الأول يُمرَّر مباشرة إلى rm -rf بلا تحقّق —
+# نحوّله إلى مسار مطلق ثم نقبله داخل جذر المستودع حصراً (المجلد الافتراضي
+# www، والـ Workflow يمرّر «www» نسبياً، وdocs/APK_BUILD.md يوصي بالأمر نفسه).
+# ما عداه يُرفض بلا استثناء: »/« و»..« و»/tmp« نفسها وكل مسار خارج المستودع.
+case "$OUT" in /*) ;; *) OUT="$REPO/$OUT" ;; esac   # نسبي ⇒ داخل المستودع حتماً
+OUT_DIR="$(dirname "$OUT")"
+[ -d "$OUT_DIR" ] && OUT_DIR="$(cd "$OUT_DIR" && pwd)"
+OUT="$OUT_DIR/$(basename "$OUT")"
+while [[ "$OUT" == //* ]]; do OUT="${OUT#?}"; done   # «//tmp» غير معرّف في POSIX
+case "$OUT" in
+  "$REPO"/*) ;;
+  *)
+    echo "✖ prepare-www.sh: المسار الهدف خارج جذر المستودع — رُفض: $OUT" >&2
+    echo "  الاستعمال: bash scripts/prepare-www.sh [مجلد داخل المستودع]" >&2
+    exit 1
+    ;;
+esac
+
 rm -rf "$OUT"
 mkdir -p "$OUT"
 cd "$REPO"
@@ -41,7 +59,7 @@ for g in favicon*.png *.webp favicon.ico manifest.json robots.txt sitemap.xml; d
 done
 
 # تقليم مطابق للنشر: بلا اختبارات ولا وثائق دمج ولا صفحات QA مستقلة ولا قواعد بيانات
-rm -rf "$OUT"/ronda-game/tests "$OUT"/backgammon-game/tests "$OUT"/dominoes-game/tests 2>/dev/null || true
+rm -rf "$OUT"/ronda-game/tests "$OUT"/ronda-game/README.md "$OUT"/backgammon-game/tests "$OUT"/dominoes-game/tests 2>/dev/null || true
 rm -rf "$OUT"/uno-game/tests "$OUT"/baloot-game/tests "$OUT"/baloot-game/integration "$OUT"/baloot-game/assets 2>/dev/null || true
 rm -f "$OUT"/backgammon-game/INTEGRATION.md "$OUT"/dominoes-game/INTEGRATION.md \
       "$OUT"/uno-game/README.md "$OUT"/uno-game/INTEGRATION.md "$OUT"/uno-game/index.html \

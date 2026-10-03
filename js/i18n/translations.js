@@ -1230,6 +1230,9 @@ const TR = {
   'arb.stLive': [ '🟢 مباشر — الأدمن يشاهد', '🟢 En direct — l\'admin regarde', '🟢 Live — admin watching', '🟢 مباشر — الأدمن كيتفرج' ],
   'arb.stRelay': [ '🟠 مباشر عبر المرحّل', '🟠 Direct via relais', '🟠 Live via relay', '🟠 مباشر عبر المرحّل' ],
   'arb.stFailed': [ '🔴 منقطع — أعد المحاولة', '🔴 Interrompu — réessayez', '🔴 Disconnected — retry', '🔴 تنقطع — عاود' ],
+  /* [v2.81·relay] المرحّل (MediaMTX) لا يجيب على واجهة التحكّم أصلاً:
+     يميّزه الأدمن عن «لا أحد يبث» في سطر حالة البث */
+  'arb.relayDown': [ 'المرحّل لا يرد', 'Le relais ne répond pas', 'Relay not responding', 'المرحّل ما كيجاوبش' ],
   /* [v2.81·مشاركة شاشة الهاتف] بطاقة البديل التقني (RTMP عبر تطبيق خارجي)
      — متصفحات الجوال لا توفّر getDisplayMedia، فاللاعب يبث شاشته بتطبيق
      RTMP إلى المرحّل (MediaMTX) بمسار مفتاح خاص به يعرضه له */
