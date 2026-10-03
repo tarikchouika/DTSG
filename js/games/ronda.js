@@ -1615,8 +1615,17 @@ class RondaPlatformAdapter {
     if ((dlP && dlP.isBot) || (slP && slP.isBot)) return;
     const winnerId = (winnerSide === 'selector') ? selectorId : dealerId;
     if (winnerId == null) return;
+    /* [v2.80·خلل المالك «لا يسوى الرهان إلا بعد مغادرة اللعبة»] كانت البوابة
+       تقرأ !Rooms.state.settled — علماً مُخزَّناً يتحيّن بroom:update فقط،
+       بينما تسليح الجولة (حركة round) يصفّره خادمياً دون تزامن عميل
+       (استجابة sendMove تزامن room_state/rev حصراً) ⇒ العلم يبقى true
+       من بدء الغرفة (عقد rn) فتُحجب التسوية صامتة نهايةَ كل جولة، ولا
+       تقع إلا متأخرة بتحديثٍ لاحق أو أبداً حتى المغادرة (المغادرة تُسوّي
+       بالقوة). الخادم هو المرجع الوحيد: room.settled يمنع الازدواج
+       والنداء الثاني يُردّ 400 «مسبقاً» تبتلعها الواجهة صامتة — فالنداء
+       الآمن دائماً من كل لاعب نشط (فلسفة v2.69: أول تقرير يسوّي). */
     if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.status === 'playing' &&
-        !Rooms.state.settled && typeof Rooms.roomSettle === 'function') {
+        typeof Rooms.roomSettle === 'function') {
       try { Rooms.roomSettle('u' + winnerId); } catch (e) {}
     }
   }

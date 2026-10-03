@@ -1291,6 +1291,10 @@
         if (r.data && r.data.room && Rooms.state && Rooms.state.id === r.data.room.id) {
           Rooms.state.room_state = r.data.room.room_state;
           if (typeof r.data.room.rev === 'number') Rooms.state.rev = r.data.room.rev;
+          /* [v2.80] مزامنة علم التسوية أيضاً: تسليح الجولة (حركة round) يصفّره
+             خادمياً — كان يبقى قديماً في العميل حتى room:update تالٍ فيضلّل
+             أي بوابة عميل تقرأه (جذر حجب تسوية فلات دوغ في v2.80) */
+          if (typeof r.data.room.settled === 'boolean') Rooms.state.settled = r.data.room.settled;
         }
         /* [v2.68] رفض الخادم كتابة حالتنا (متقادمة/بلا ملكية) ⇒ مصالحة فورية:
            إعادة فتح القناة يجلب hello + room:replay فتُبنى اللوحة من سجل الخادم.

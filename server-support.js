@@ -920,7 +920,9 @@ async function handleHttp(req, res, pathname, bodyStr, query) {
   if (pathname === '/api/support/webhook') {
     const secret = process.env.SUPPORT_WEBHOOK_SECRET || '';
     const got = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-    if (secret && got && got !== secret) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+    /* [v2.80·أمن] فشل مغلق: كان السر فارغاً (غير مهيأ) أو الترويسة محذوفة
+       يُمرّران الطلب مزيفاً — الآن لا تحديث بلا سرٍّ صحيح (نمط private-chat) */
+    if (!secret || got !== secret) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
     let up = {};
     try { up = JSON.parse(bodyStr || '{}'); } catch (e) { json(res, { ok: false, error: 'bad-json' }, 400); return; }
     const r = await handleUpdate(up);

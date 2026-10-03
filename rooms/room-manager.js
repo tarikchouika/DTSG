@@ -491,6 +491,10 @@ function createRoomManager(gameId, io, ctx) {
     start: function (me, data) {
       if (me && me.role !== 'user') return { status: 403, body: { ok: false, message: 'المشرفون لا يمكنهم الدخول كلاعبين أو المراهنة' } };
       const room = rooms.get(data.room_id);
+      /* [v2.80·أمن — منع الاقتطاع المكرر] كان النداء بلا فحص حالة: مضيف غرفة
+         جارية كان يعيد الاقتطاع من الجميع ويكتب escrow من جديد (إتلاف أموال
+         ودفن سجلات الجرة الأولى). البدء من انتظار حصراً. */
+      if (room && room.status === 'playing') return { status: 400, body: { ok: false, message: 'الجولة جارية بالفعل' } };
       if (room && me && room.owner_id === me.id) {
         if (S.sweepExpiredRoom(room)) return { status: 410, body: { ok: false, message: 'انتهت صلاحية الغرفة' } };
         const bet = Number(room.bet) || 0;
@@ -842,7 +846,19 @@ function createRoomManager(gameId, io, ctx) {
           return id != null && a.indexOf(id) === i &&
                  actives.some(function (p) { return String(p.id) === String(id); });
         });
-        const prevJoined = (room.roundJoin && room.roundJoin.joined) || {};
+        /* [v2.80·خلل المالك «التصويت على الجولة التالية»] الحفاظ المشروط:
+           كان prevJoined يُحفظ بلا شرط لأي مطلوبٍ بإيداعٍ قائم — فإذا كانت
+           الجولة السابقة لم تُسوَّ (escrow ممتلئ — جذر v2.80 في ronda._settle
+           أو انقطاع لحظة النهاية) اعتُبر الطرفان «مصادقَين مسبقاً» في الجولة
+           الجديدة فتُختصر لوحة المشاركة/التصويت كلها وتنطلق الجولة آلياً
+           بلا موافقة وبلا اقتطاع (جولة مجانية) أو يتعطل الانتقال كلياً.
+           الصحيح: الحفظ في إعادة بث المرحلة نفسها فقط (settled truthy =
+           لا جولة مسلّحة قائمة)، وأي إيداعات معلّقة من جولة غير مسوّاة
+           تُستردّ أولاً بصف refund (عقد المال §الاستردادات) كي لا تضيع. */
+        if (!room.settled && S.escrowHasFunds(room)) {
+          S.refundAllEscrow(room, 'استرداد جولة غير مسوّاة قبل مرحلة المشاركة الجديدة');
+        }
+        const prevJoined = room.settled ? ((room.roundJoin && room.roundJoin.joined) || {}) : {};
         const joined = {};
         Object.keys(prevJoined).forEach(function (k) {
           if (req.some(function (id) { return String(id) === String(k); }) &&
@@ -1024,35 +1040,43 @@ function createRoomManager(gameId, io, ctx) {
       return { status: 200, body: { ok: true, room: S.serializeRoom(room) } };
     },
 
-    /* ═══════ التسوية القديمة بالأسماء (روندا الكلاسيكية) ═══════ */
+    /* ═══════ التسوية القديمة بالأسماء (روندا الكلاسيكية) ═══════
+       [v2.80·أمن — إغلاق مسار نقل الذهب الحر] كان المسار يقبل أي اسمَي
+       loser/winner من كل المستخدمين وأي مبلغ — مضيف غرفة كان يصادر رصيد
+       أي حساب خارج غرفته ويحوّله لشريكه (charge=0 على غرفة انتظار).
+       الآن: الطرفان من لاعبي الغرفة النشطين حصراً، والمبلغ محصور
+       بإيداع الخاسر في escrow (لا خصم من الرصيد الخارج إطلاقاً). */
     settleLegacy: function (me, data) {
       const room = rooms.get(data.room_id);
       const isHost = room && me && room.owner_id === me.id;
       if (!isHost || !data.loser || !data.winner) return { status: 403, body: { ok: false, message: 'غير مصرّح' } };
       const amt = parseInt(data.amount, 10);
       if (isNaN(amt) || amt <= 0) return { status: 400, body: { ok: false, message: 'مبلغ غير صالح' } };
+      const isActiveMember = function (u) {
+        return !!u && room.players.some(function (p) {
+          return String(p.id) === String(u.id) && !p.spectate && !p.isBot && !p.leftRound;
+        });
+      };
       const loser = Object.values(users).find(function (u) { return u.username === data.loser; });
       const winner = Object.values(users).find(function (u) { return u.username === data.winner; });
       if (!loser || !winner) return { status: 400, body: { ok: false, message: 'لاعب غير موجود' } };
       if (String(loser.id) === String(winner.id)) return { status: 400, body: { ok: false, message: 'لا يمكن أن يخسر اللاعب نفسه' } };
+      if (!isActiveMember(loser) || !isActiveMember(winner)) return { status: 403, body: { ok: false, message: 'التسوية القديمة للاعبي الغرفة النشطين حصراً' } };
       /* [v2.71·بلا تكرار] رهان الجولة مقتطع مسبقاً عند البدء (escrow) — كان
          هذا المسار يخصم المبلغ من الرصيد مرةً ثانية: الخاسر مقتطع مرتين في
-         السجل المالي. الآن: إن كان إيداع الخاسر مصروفاً فيستهلك منه، وإلا
-         يخصم من رصيده (مباراة فردية بلا جولة غرفة). */
+         السجل المالي. [v2.80·أمن] والحصيلة: القيد بمصروف escrow الخاسر
+         حصراً — لا مسار خصم من الرصيد الخارج بطلب المضيف بعد اليوم. */
       const escrowed = Number((room.escrow && room.escrow[loser.id]) || 0);
       const charge = (room.status === 'playing' && escrowed > 0) ? Math.min(amt, escrowed) : 0;
-      if (!charge && (loser.gold || 0) < amt) return { status: 400, body: { ok: false, message: 'رصيد الخاسر غير كافٍ' } };
-      const stake = charge || amt;
+      if (!charge) return { status: 400, body: { ok: false, message: 'لا إيداع قابلاً للتسوية لهذا اللاعب في الجولة الحالية' } };
+      const stake = charge;
       const fee = Math.round(stake * ctx.BET_FEE_RATE);
-      if (charge) { room.escrow[loser.id] = 0; }
-      else { loser.gold = (loser.gold || 0) - amt; }
+      room.escrow[loser.id] = 0;   /* [v2.80·أمن] المصدر escrow حصراً (charge>0 مضمون) */
       winner.gold = (winner.gold || 0) + (stake - fee);
       try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(loser.gold, loser.id); } catch (e) {}
       try { db.prepare('UPDATE users SET gold = ? WHERE id = ?').run(winner.gold, winner.id); } catch (e) {}
       roundKey(room);
       logTx(winner, 'win', stake - fee, { game_id: room.game_id, counterparty_id: loser.id, counterparty_name: loser.username, balance_after: winner.gold, round_id: room.roundId });
-      /* الخاسر بلا صف bet ثانٍ: الرهان قُطع عند البدء (أو من الرصيد هنا) */
-      if (!charge) logTx(loser, 'bet', amt, { game_id: room.game_id, counterparty_id: winner.id, counterparty_name: winner.username, note: 'خسارة جولة', balance_after: loser.gold });
       ticket(room, winner, stake, true, stake - fee, 'فوز جولة');
       ticket(room, loser, stake, false, 0, 'خسارة جولة');
       room.settled = true;

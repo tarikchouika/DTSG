@@ -877,7 +877,8 @@ async function handleHttp(req, res, pathname, bodyStr, query) {
     /* سرّ الويب هوك — نفس نمط بوت الدعم (قاعدة 10 في AGENTS.md) */
     const secret = process.env.FINANCIALS_WEBHOOK_SECRET || '';
     const got = String(req.headers['x-telegram-bot-api-secret-token'] || '');
-    if (secret && got && got !== secret) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
+    /* [v2.80·أمن] فشل مغلق: نفس إصلاح بوت الدعم — لا تحديث بلا سرٍّ صحيح */
+    if (!secret || got !== secret) { json(res, { ok: false, error: 'forbidden' }, 403); return; }
     let up = {};
     try { up = JSON.parse(bodyStr || '{}'); } catch (e) { json(res, { ok: false, error: 'bad-json' }, 400); return; }
     const r = await handleUpdate(up);

@@ -37,6 +37,7 @@
 /mediamtx.yml      /404.html  404
 /package.json      /404.html  404
 /package-lock.json /404.html  404
+/vercel.json       /404.html  404
 /tunnel-live.json  /404.html  404
 /deploy-server.js  /404.html  404
 /deploy-clean.sh   /404.html  404

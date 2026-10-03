@@ -22,7 +22,20 @@ async function setup(ctx, username, gold) {
 }
 
 (async () => {
-  const browser = await chromium.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    /* [v2.80] مطلقِق احتياطي (نمط v274): كاش المتصفحات أحدث من مكتبة Playwright */
+  const fsMod = require('fs');
+  const blArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'];
+  const launchBl = async () => {
+    try { return await chromium.launch({ args: blArgs }); } catch (e) {}
+    for (const v of ['1243', '1200']) {
+      for (const p of ['/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux64/chrome',
+                       '/home/z/.cache/ms-playwright/chromium-' + v + '/chrome-linux/chrome']) {
+        if (fsMod.existsSync(p)) { try { return await chromium.launch({ args: blArgs, executablePath: p }); } catch (e) {} }
+      }
+    }
+    throw new Error('تعذر إطلاق متصفح');
+  };
+  const browser = await launchBl();
   const results = [];
   const ok = (n, c) => { results.push([n, !!c]); console.log((c ? '  ✓ ' : '  ✗ ') + n); };
   const tag = Date.now() % 100000;

@@ -883,8 +883,35 @@ function isOriginAllowed(origin) {
    النسخة السابقة كانت 10 محاولات/دقيقة ثم قفل 60ث فقط (leaky bucket ⇒ التخمين مستدام). */
 const LOGIN_LADDER_MS = [60000, 120000, 240000, 480000, 900000];
 const loginAttempts = new Map();
+/* [v2.80·أمن] قفل ثانٍ على مستوى اسم المستخدم (مستقل عن IP): مفتاح IP القديم
+   كان يدور بحرية بتزييف ترويسة x-forwarded-for (القيمة الأولى يرسلها العميل
+   نفسه)، فتستمر هجمات التخمين على حسابٍ واحد بلا قفل إطلاقاً. القفل
+   الإسمي يعقّد الحساب المستهدف مهما دوّر المهاجم عنوانه (20 محاولة/15د)،
+   ويعمل جنباً إلى جنب مع قفل IP+اسم القائم — لا يحلّ مكانه. */
+const USER_LOGIN_LOCK_MS = 900000;
+const USER_LOGIN_LOCK_TRIES = 20;
+const userLoginFails = new Map();
+function checkUserLock(username) {
+  const now = Date.now();
+  const rec = userLoginFails.get(String(username || '').toLowerCase());
+  if (rec && rec.count >= USER_LOGIN_LOCK_TRIES && now < rec.lockedUntil) {
+    return { locked: true, retryAfter: Math.ceil((rec.lockedUntil - now) / 1000) };
+  }
+  return { locked: false };
+}
+function recordFailedUserLogin(username) {
+  const now = Date.now();
+  const key = String(username || '').toLowerCase();
+  const rec = userLoginFails.get(key);
+  if (!rec || now - rec.firstAt > 900000) { userLoginFails.set(key, { count: 1, firstAt: now, lockedUntil: 0 }); }
+  else { rec.count++; if (rec.count >= USER_LOGIN_LOCK_TRIES) rec.lockedUntil = now + USER_LOGIN_LOCK_MS; }
+}
+function clearUserLoginFails(username) { userLoginFails.delete(String(username || '').toLowerCase()); }
+
 function checkLoginRateLimit(ip, username) {
   const now = Date.now();
+  const ul = checkUserLock(username);
+  if (ul.locked) return { allowed: false, retryAfter: ul.retryAfter };
   const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
   const rec = loginAttempts.get(key);
   if (rec && rec.lockedUntil && now < rec.lockedUntil) {
@@ -894,6 +921,7 @@ function checkLoginRateLimit(ip, username) {
 }
 function recordFailedLogin(ip, username) {
   const now = Date.now();
+  recordFailedUserLogin(username);
   const key = String(ip || '0') + '|' + String(username || '').toLowerCase();
   let rec = loginAttempts.get(key);
   if (!rec || now - rec.firstAt > 60000) {
@@ -1037,9 +1065,24 @@ const server = http.createServer((req, res) => {
     return;
   }
   if (pathname.startsWith('/api/')) {
+    /* [v2.80·أمن] سقف حجم جسم الطلب (1MB): كان التراكم بلا حدّ — طلب بمقاييس
+       غيغابايتية يراكم في الذاكرة (DoS). تجاوز السقف ⇒ قطع فوري بـ413. */
+    const BODY_LIMIT = 1024 * 1024;
     let body = '';
-    req.on('data', chunk => { body += chunk; });
+    let bodyTooLarge = false;
+    req.on('data', chunk => {
+      if (bodyTooLarge) return;
+      body += chunk;
+      if (body.length > BODY_LIMIT) {
+        bodyTooLarge = true;
+        body = '';
+        try { res.writeHead(413, { 'Content-Type': 'application/json; charset=utf-8' }); } catch (e) {}
+        try { res.end(JSON.stringify({ ok: false, message: 'حجم الطلب كبير جداً' })); } catch (e) {}
+        try { req.destroy(); } catch (e) {}
+      }
+    });
     req.on('end', () => {
+      if (bodyTooLarge) return;   /* [v2.80·أمن] الطلب المرفوض لا يُعالَج */
       /* [NEW-6 v2.58] حارس عام: أي استثناء غير متوقع ⇒ 500 JSON موحّد
          (بدل انهيار العملية كاملة) وبلا كشف تفاصيل داخلية للعميل. */
       try {
@@ -1161,6 +1204,7 @@ const server = http.createServer((req, res) => {
             }
           }
           clearFailedLogin(clientIp, username);
+          clearUserLoginFails(username);   /* [v2.80·أمن] نجاح الدخول يصفّي القفل الإسمي أيضاً */
           try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), existing.id); } catch (e) {}
           existing.last_seen = Math.floor(Date.now() / 1000);
           startSession(res, existing);
@@ -1209,7 +1253,17 @@ const server = http.createServer((req, res) => {
         }
         const username = (data.username || '').toString().trim();
         const password = (data.password || '').toString();
-        const role = (data.role === 'admin' || data.role === 'super' || data.role === 'user') ? data.role : 'user';
+        /* [v2.80·أمن — إغلاق تصعيد الصلاحيات] كانت data.role تُقبل من أي أدمن:
+           admin يصنع حساب super (تصعيد كامل) — وdata.gold كانت تُصنع أرصدة
+           بلا سقف وبلا سجل معاملات (منشأ مال من الفراغ خارج مسار الشحن).
+           الآن: إدارة الأدوار المرتفعة والرصيد الابتدائي حكر على super حصراً،
+           وأي نداء آخر يُفرض فيه role='user' وgold=0. وإن مُنح رصيد من سوبر
+           فإنه يُسجّل صف deposit مدقق (لا مال بلا أثر في السجل). */
+        const isSuperCaller = !!(me && me.role === 'super');
+        const role = (isSuperCaller && (data.role === 'admin' || data.role === 'super' || data.role === 'user')) ? data.role : 'user';
+        if (!isSuperCaller && data.role && data.role !== 'user') {
+          json({ ok: false, message: 'إنشاء حسابات مشرفة متاح للسوبر أدمن حصراً' }, 403); return;
+        }
         if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
           json({ ok: false, message: 'اسم المستخدم غير صالح (3-20 حرفاً: حروف/أرقام/_)' }, 400); return;
         }
@@ -1221,9 +1275,21 @@ const server = http.createServer((req, res) => {
         /* [DM_TEST_MODE] بيئة الاختبار المحلية: المستخدم الجديد يبدأ برصيد وافر (100k)
            لأن إنشاء الغرف يتطلب رهاناً إلزامياً + رسم افتتاح (100)، والاختبارات تنشئ غرفاً
            بمستخدمين جدد رصيدهم 0. الإنتاج: الرصيد الافتراضي كما يحدده المسؤول (غالباً 0). */
-        const startGold = REGISTER_TEST_MODE && data.gold == null ? 100000 : (data.gold != null ? Number(data.gold) : 0);
+        /* [v2.80·أمن] والرصيد الافتتاحي الصريح (data.gold) سوبر حصراً — في الإنتاج
+           وفي الاختبار على السواء (البذر الذاتي للاختبار لا يمر من هنا: data.gold==null) */
+        let startGold = 0;
+        if (REGISTER_TEST_MODE && data.gold == null) startGold = 100000;
+        else if (isSuperCaller && data.gold != null) {
+          startGold = Math.floor(Number(data.gold));
+          if (!Number.isFinite(startGold) || startGold < 0) startGold = 0;
+        }
         const u = { username: username, passHash: hash, passSalt: salt, role: role, gold: startGold, lang: 'ar', banned: false };
         persistUser(u);
+        if (startGold > 0) {
+          /* [v2.80·أمن] لا مال من الفراغ: الرصيد الابتدائي الممنوح من سوبر يُسجّل
+           صف deposit في السجل المالي الموحّد (نفس مسار شحن الداشبورد) */
+          try { logTx(u, 'deposit', startGold, { game_id: 'admin', note: 'رصيد افتتاحي عند إنشاء الحساب (سوبر أدمن)', balance_after: u.gold }); } catch (e) {}
+        }
         /* [DM_TEST_MODE] في بيئة الاختبار المحلية فقط: التسجيل المفتوح يفتح جلسة تلقائياً
            (محاكاة سلوك بيئة التطوير القديمة الذي تفترضه اختبارات E2E الـ34 — «سجّل = ادخل»).
            الإنتاج: لا يفتح التسجيل جلسة أبداً (يبقى إنشاء المشرف فقط). */
