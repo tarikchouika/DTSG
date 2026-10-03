@@ -39,6 +39,45 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const http = require('http');
+const crypto = require('crypto');
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   [v2.81.1·مصادقة النشر] سرّ المسار — يُغلق ثغرة انتحال البثّ
+   ───────────────────────────────────────────────────────────────────────────
+   الخلل الذي عالجته: كتلة المسارات في mediamtx.yml تقبل أي ناشر بلا مصادقة،
+   والباكأند كان يستنتج «هذا اللاعب بعينه يبث» من مجرّد أن مسار
+   dtsg/<roomId>/<userId> جاهز — ومعرّفا الغرفة واللاعب قصيران متسلسلان
+   ⇒ يستطيع أي من يصل إلى منفذ RTMP أن ينشر في مسار خصمه ويُوهم الأدمن.
+
+   الحل: المفتاح داخل المسار نفسه، مشتقّاً بـHMAC من سرّ الخادم ⇒ لا يُ guessing
+   ولا استنتاج، ولا يحتاج إذناً من خادم خارجي:
+     · مسار RTMP : dtsg/<roomId>/<userId>_<token>
+     · مسار WHIP : dtsg-<roomId>-<userId>_<token>
+   والسرّ (ARB_STREAM_SECRET) في بيئة الخادم فقط، والرمز يُسلَّم للاعب الجالس
+   في غرفته حصراً (نفس نطاق التوزيع القائم على /api/matches/mine و
+   startStream) ⇒ لا يخرج عن كونه «مفتاحاً خاصاً بالاعب»، لكنه الآن غير قابل
+   للتخمين. والوسم نفسه (برمجي) هو ما يتحقّق منه المراقب.
+
+   الثبات حتمي بحكم التصميم: نفس (غرفة × لاعب) ⇒ نفس الرمز، فلا يحتاج
+   المراقب تخزيناً ولا مزامنة، ويعمل بعد إعادة تشغيل الخادم ما دام السرّ ثابتاً.
+   ═══════════════════════════════════════════════════════════════════════════ */
+const STREAM_SECRET = String(process.env.ARB_STREAM_SECRET || '').trim();
+if (!STREAM_SECRET) {
+  console.warn('[mediamtx] ⚠ ARB_STREAM_SECRET غير مضبوط في البيئة — سيُولَّد سرّ عشوائي لهذا التشغيل فقط، فتنتهي صلاحية كل مسارات النشر عند إعادة التشغيل. اضبطه في .env.local (scripts/phone-env-restart.sh).');
+}
+const RUNTIME_SECRET = STREAM_SECRET || crypto.randomBytes(32).toString('hex');
+
+function publishToken(roomId, userId) {
+  return crypto.createHmac('sha256', RUNTIME_SECRET)
+    .update(String(roomId) + ':' + String(userId)).digest('hex').slice(0, 16);
+}
+/* المساران اللذان يثق بهما المراقب — وصورتهما现代化的 بلا رمز */
+function publishPath(roomId, userId) {
+  return 'dtsg/' + String(roomId) + '/' + String(userId) + '_' + publishToken(roomId, userId);
+}
+function publishPathWhip(roomId, userId) {
+  return 'dtsg-' + String(roomId) + '-' + String(userId) + '_' + publishToken(roomId, userId);
+}
 
 function createMediaMtxMonitor(ctx) {
   /* ctx: { db, roomHub, users, sseClients, arb } */
@@ -182,9 +221,11 @@ function createMediaMtxMonitor(ctx) {
     });
   }
 
-  /* ── مسارات اللاعب (النمطان الموثّقان) ── */
+  /* ── مسارات اللاعب (النمطان الموثّقان — مُرمَّزة) ──
+     [v2.81.1] لا يُقبل المسار المجرّد `dtsg/<room>/<uid>` إطلاقاً: لا رمز =
+       لا ثقة، فاستدلال «الجاهز ⇒ هذا اللاعب» يفضح انتحال البثّ. */
   function pathVariants(roomId, userId) {
-    return ['dtsg/' + roomId + '/' + userId, 'dtsg-' + roomId + '-' + userId];
+    return [publishPath(roomId, userId), publishPathWhip(roomId, userId)];
   }
 
   /* حالة لاعب واحد: أول مسار جاهز هو الحكم */
@@ -326,4 +367,13 @@ function createMediaMtxMonitor(ctx) {
   };
 }
 
-module.exports = { createMediaMtxMonitor: createMediaMtxMonitor };
+module.exports = {
+  createMediaMtxMonitor: createMediaMtxMonitor,
+  /* [v2.81.1] يُستخدمان في server-arbitration.js لتسليم مسار النشر المُرمَّز
+     للاعب الجالس حصراً. الطرفان يتشاركان نسخة الوحدة نفسها في كاش Node، فيرى
+     المراقب والمسار المُسلَّم السر ذاته تماماً — بلا تكرار ولا تخزين. */
+  publishPath: publishPath,
+  publishPathWhip: publishPathWhip,
+  publishToken: publishToken,
+  secretConfigured: !!(STREAM_SECRET && STREAM_SECRET.length >= 16)
+};

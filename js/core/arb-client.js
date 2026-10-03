@@ -9,6 +9,8 @@
      4. مؤشر حالة (يتم الاتصال/مباشر/منقطع) + نبض كل 5ث (heartbeat)
      5. احتياطي: عند فشل P2P وتهيئة MediaMTX ⇒ نشر WHIP محلي
         (docs/ARBITRATION_SETUP.md) ووسم الجلسة relay
+        [v2.81.1] مسار النشر (WHIP) يُسلَّم من الخادم جاهزاً ومُرمَّزاً —
+                    لا يُبنى هنا من roomId/userId (قابل للانتحال)
    الأدمن هو الطرف الآخر الوحيد: الفيديو لا يمر بالخادم أبداً.
    ═══════════════════════════════════════════════════════════════════════ */
 (function (root) {
@@ -17,7 +19,7 @@
   var st = {
     token: null, roomId: null, pc: null, stream: null,
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-    mediamtx: null, hb: null, state: 'idle', startedAt: 0, retries: 0
+    mediamtx: null, mediamtxWhipPath: null, hb: null, state: 'idle', startedAt: 0, retries: 0
   };
   /* [v2.76·صفحة التحكيم] مشتركو تغيّر الحالة (صفحة التحكيم تعرض شريحة
      حالة البث خارج مودال الغرفة) — إلغاء الاشتراك بإرجاع دالة */
@@ -150,6 +152,11 @@
       st.roomId = room.id;
       if (r.data.ice_servers && r.data.ice_servers.length) st.iceServers = r.data.ice_servers;
       st.mediamtx = r.data.mediamtx || null;
+      /* [v2.81.1] مسار النشر المُرمَّز (dtsg-<room>-<user>_<token>) يعطيه
+         الخادم للاعب الجالس وحده — لا يُركَّب هنا إطلاقاً: معرّفا الغرفة
+         واللاعب عدادان صغيران فأي مسار مبنيّ محلياً قابل للانتحال، والمراقب
+         ما عاد يسلّم إلا المسار الموقّع فيقرّر به الأدمن وجود بثّ الخصم */
+      st.mediamtxWhipPath = r.data.mediamtx_publish_path_whip || null;
 
       /* 2) التقاط الشاشة — [v2.78] إعادة محاولة بقيود مجردة إن رفضتها
          المنصة (بعض محركات العرض لا تقبل قيود الدقة/الإطارات) */
@@ -223,9 +230,10 @@
   async function fallbackRelay() {
     if (!st.mediamtx || !st.stream || !st.stream.active) { setState('failed'); return; }
     destroyPc();
-    var u = me();
-    var streamKey = st.roomId + '-' + ((u && u.id) || 'p');
     try {
+      /* [v2.81.1] بلا مسار مُرمَّز من الخادم = لا نشر: ينقطع البث صراحةً
+         (catch أدناه: state=failed + تنبيه) بدل النشر على مسار انتحالي */
+      if (!st.mediamtxWhipPath) throw new Error('no publish path');
       var pc = new root.RTCPeerConnection({ iceServers: st.iceServers });
       st.pc = pc;
       st.stream.getTracks().forEach(function (t) { pc.addTrack(t, st.stream); });
@@ -236,7 +244,7 @@
       var offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
       var base = st.mediamtx.replace(/\/+$/, '');
-      var resp = await fetch(base + '/whip/dtsg-' + streamKey, {
+      var resp = await fetch(base + '/whip/' + st.mediamtxWhipPath, {
         method: 'POST',
         headers: { 'Content-Type': 'application/sdp' },
         body: pc.localDescription.sdp

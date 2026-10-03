@@ -234,16 +234,28 @@
   /* ═══ [v2.81] مشاركة شاشة الهاتف — البديل التقني (توجيه المالك) ═══
      متصفحات الجوال لا توفّر getDisplayMedia (قيد منصّي) — البديل المعتمد:
      تطبيق بث شاشة RTMP (مثل Larix Screencer) ينشر شاشة الهاتف إلى MediaMTX
-     على خادم المنصة عبر MEDIAMTX_RTMP_URL، ومسار النشر مفتاح خاص بك:
-     dtsg/<roomId>/<userId> — الأدمن يشاهد عبر المرحّل وتظهر حالة بثّك
-     في لوحته (انقطاع/عودة آلياً عبر مراقبة stream-status). */
-  function relayRtmpUrl(room, u) {
-    var base = st.mine && st.mine.relay && st.mine.relay.rtmp;
-    if (!base || !room || !u) return null;
-    return String(base).replace(/\/+$/, '') + '/dtsg/' + encodeURIComponent(room.id) + '/' + encodeURIComponent(u.id);
+     على خادم المنصة عبر MEDIAMTX_RTMP_URL، ومسار النشر — [v2.81.1] لا يُبنى
+     هنا إطلاقاً بل يُسلَّم من الخادم جاهزاً في mine().relay.publish_path:
+     dtsg/<roomId>/<userId>_<token>
+     و<token> هو ما يجعل المرحّل موثوقاً: معرّفا الغرفة واللاعب عدادان
+     صغيران متتاليان ⇒ المسار القديم وحده (<roomId>/<userId>) كان مفتوحاً
+     لكل ناشر يصل منفذ RTMP — أي أحد كان ينشر في بث الخصم فيقرأه الأدمن «بثّاً
+     حقيقياً» ويُبنى عليه قرار مال. الآن الخادم وحده يحسب الرمز (HMAC فوق
+     معرّفي الغرفة واللاعب)، ومراقبته تسأل المسار الموقّع وحده ⇒ بثٌ منتحَل
+     على مسار غير موقّع لا يُحسب بثّاً لأحد ولا يدخل قرار الأدمن. طريقة
+     الحساب تبقى في الخادم (لا تُفصح عنها الواجهة ولا يحتاجها اللاعب).
+     الأدمن يشاهد عبر المرحّل وتظهر حالة بثّك في لوحته
+     (انقطاع/عودة آلياً عبر مراقبة stream-status). */
+  function relayRtmpUrl(room) {
+    var relay = st.mine && st.mine.relay;
+    var base = relay && relay.rtmp;
+    var path = relay && relay.publish_path;
+    /* لا مسار من الخادم = لا بثّ — لا بديل محلي ولا مسار مُركَّب هنا */
+    if (!base || !room || !path) return null;
+    return String(base).replace(/\/+$/, '') + '/' + path;
   }
-  function mobileRelayHtml(room, u) {
-    var url = relayRtmpUrl(room, u);
+  function mobileRelayHtml(room) {
+    var url = relayRtmpUrl(room);
     if (!url) return '';
     /* مصادر الترجمة موثوقة (تضم <b> المقصود) — نمط arb.mrHint المعتمد */
     return '<div class="arb-mobile-relay" id="arbMobileRelay">' +
@@ -317,7 +329,7 @@
         '</div>' +
         (shareSupport().ok ? '' : '<div class="note" style="font-size:.72rem;text-align:start">ℹ️ ' + esc(shareSupportToast() || '') + '</div>') +
         /* [v2.81] البديل التقني لمتصفح الهاتف: بث RTMP عبر تطبيق خارجي */
-        (!shareSupport().ok && shareSupport().reason === 'mobile' ? mobileRelayHtml(room, u) : '') +
+        (!shareSupport().ok && shareSupport().reason === 'mobile' ? mobileRelayHtml(room) : '') +
         '<div class="note arb-privacy">🔒 ' + esc(T('arb.rule2') || 'الفيديو اتصال مباشر مع لوحة التحكيم وحدها — لا يمر بالخوادم ولا يُسجَّل') + '</div>' +
       '</div>';
     }

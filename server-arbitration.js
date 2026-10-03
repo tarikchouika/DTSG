@@ -187,10 +187,15 @@ function createArbitration(ctx) {
           ok: true,
           can_broadcast: room.status === 'playing',
           /* [v2.81] بيانات المرحّل لواجهة مشاركة شاشة الهاتف (بديل RTMP) —
-             بلا أسرار: عنوان عام يبنيه المالك في .env.local (المستند §5) */
+             بلا أسرار: عنوان عام يبنيه المالك في .env.local (المستند §5).
+             [v2.81.1] انحلال «بلا أسرار» للنصف الأول فقط: العنوان عام عمداً،
+             أمّا المسار فمُرمَّز بـHMAC (انتحال البثّ = انتحال لاعب) ويُسلَّم
+             للاعب الجالس في غرفته هو حصراً — لا لأحد غيره. */
           relay: {
             rtmp: process.env.MEDIAMTX_RTMP_URL || null,
-            whip: process.env.MEDIAMTX_WHIP_URL || null
+            whip: process.env.MEDIAMTX_WHIP_URL || null,
+            publish_path: require('./server-mediamtx.js').publishPath(room.id, me.id),
+            publish_path_whip: require('./server-mediamtx.js').publishPathWhip(room.id, me.id)
           },
           room: {
             id: room.id, code: room.code, game_id: room.game_id,
@@ -227,8 +232,11 @@ function createArbitration(ctx) {
           mediamtx: process.env.MEDIAMTX_WHIP_URL || null,
           /* [v2.81] مشاركة الشاشة من الهاتف (بديل getDisplayMedia غير المتاح
              على متصفحات الجوال): عنوان RTMP العام لنشر شاشة الهاتف عبر تطبيق
-             بث خارجي (Larix وأمثاله) — مفتاح النشر المتبقي: dtsg/<room>/<uid> */
+             بث خارجي (Larix وأمثاله) — مفتاح النشر المتبقي مُرمَّز [v2.81.1] */
           mediamtx_rtmp: process.env.MEDIAMTX_RTMP_URL || null,
+          /* [v2.81.1] المساران المُرمَّزان (RTMP وWHIP) — للاعب الجالس وحده */
+          mediamtx_publish_path: require('./server-mediamtx.js').publishPath(s.room_id, me.id),
+          mediamtx_publish_path_whip: require('./server-mediamtx.js').publishPathWhip(s.room_id, me.id),
           ice_servers: (process.env.ARB_STUN_URLS || 'stun:stun.l.google.com:19302,stun:stun1.l.google.com:19302').split(',').filter(Boolean).map(function (u) { return { urls: u.trim() }; })
         }
       };
