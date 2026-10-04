@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   [v2.81.3-APK] حرسات تطبيق الأندرويد — 15 حارساً
+   [v2.81.3-APK] حرسات تطبيق الأندرويد — 17 حارساً
    تُثبِّت إصلاحَي تقرير المالك الميداني (2026-10-04):
      1) تعذُّر تسجيل الدخول داخل WebView Capacitor — الجذر: اعتِبار
         «localhost» بلا منفذ بيئةَ تطوير same-origin فتُرسَل نداءات /api إلى
@@ -7,7 +7,9 @@
         في المواضع الأربعة (api · live-ws-bridge · auth · wallet).
      2) غياب لوغو المنصة — الجذر: لا توليد أيقونات في خط البناء إطلاقاً.
         الإصلاح: resources/icon.png + resources/splash.png من لوغو المنصة
-        وخطوة Generate app icons في النسختين المتطابقتين لسير البناء.
+        وخطوة Generate app icons في النسختين المتطابقتين لسير البناء
+        (بتثبيت أداة معزول في /tmp/capassets — بناء #2 الفاشل: التثبيت في
+        الجذر عبث بحزم Capacitor بعد cap add فانكسر تكوين :capacitor-android).
    تشغيل: node tests/_v2813_apk_native_test.js   (بلا خادم — فحوص مصدر ثابتة)
    ═══════════════════════════════════════════════════════════════════════════ */
 "use strict";
@@ -61,6 +63,12 @@ ok(wfTxt.includes("@capacitor/assets@3") && wfTxt.includes("--assetPath resource
    "سير البناء: خطوة الأيقونات موجودة بين cap sync وGradle");
 ok(wfLive.equals(wfDocs),
    "سير البناء: النسختان (.github وdocs) متطابقتان بايت-ببايت بعد إضافة الخطوة");
+const iconStep = wfTxt.slice(wfTxt.indexOf("Generate app icons"), wfTxt.indexOf("Setup Java 17"));
+ok(iconStep.includes("/tmp/capassets") && iconStep.includes("npm install @capacitor/assets@3") &&
+   !iconStep.includes("npm install --no-save"),
+   "سير البناء: تثبيت أداة الأيقونات معزول في /tmp/capassets — لا عبث بnode_modules بعد cap add");
+ok(!iconStep.includes("npx capacitor-assets") && iconStep.includes("node_modules/.bin/capacitor-assets"),
+   "سير البناء: الأداة تُستدعى من .bin المعزول لا npx من جذر المساحة");
 
 /* ── 4) أصول الشعار المشتقة (أبعاد IHDR حقيقية) ──────────────────────────── */
 function pngSize(p) {
@@ -88,7 +96,7 @@ ok(apkDoc.includes("### 2.3 الشعار وشاشة البدء وإصلاح ال
    "docs/APK_BUILD.md: §2.3 يشرح الشعار وإصلاح الدخول");
 
 /* ── حارس العدّاد ─────────────────────────────────────────────────────────── */
-const EXPECTED = 15;
+const EXPECTED = 17;
 ok(results.length === EXPECTED - 1,
    "حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (" + EXPECTED + ")");
 

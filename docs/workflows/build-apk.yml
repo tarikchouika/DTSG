@@ -102,10 +102,15 @@ jobs:
       #      يخرج بأيقونة Capacitor الافتراضية (روبوت) فلا يحمل التطبيق شعار
       #      المنصة. @capacitor/assets يقرأ resources/icon.png وresources/splash.png
       #      (مُلزَمان في المستودع) ويكتب res/mipmap* وres/drawable* داخل android/.
+      #      [إصلاح بناء #2 الفاشل] تثبيت الأداة في جذر المساحة كان يعبث بnode_modules
+      #      بعد cap add (npm أزال 3 حزم وغيّر 14) فانكسر تكوين :capacitor-android
+      #      أمام Gradle («None of the consumable configurations have attributes»)
+      #      ⇒ التثبيت الآن معزول في /tmp/capassets: حزم المساحة لا تُمسّ بعد cap add.
       - name: Generate app icons + splash from platform logo
         run: |
-          npm install --no-save @capacitor/assets@3
-          npx capacitor-assets generate --android --assetPath resources \
+          mkdir -p /tmp/capassets
+          ( cd /tmp/capassets && npm init -y >/dev/null && npm install @capacitor/assets@3 )
+          /tmp/capassets/node_modules/.bin/capacitor-assets generate --android --assetPath resources \
             --iconBackgroundColor '#0b1526' --iconBackgroundColorDark '#0b1526' \
             --splashBackgroundColor '#0b1526' --splashBackgroundColorDark '#0b1526'
 

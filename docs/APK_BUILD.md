@@ -111,7 +111,13 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
 v2.81.3: «localhost» بلا منفذ ليس same-origin أبداً، وحارس `IS_NATIVE_APP`
 يستثني Capacitor من الاختصار — فالتطبيق يقرأ `/api-url2.json` من حزمته ويوجّه
 النداءات إلى `casino-phone.dmgames-api.workers.dev` كما في المتصفح تماماً.
-الحارس: `node tests/_v2813_apk_native_test.js`.
+الحارس: `node tests/_v2813_apk_native_test.js` (17).
+
+**⚠ درس أول تشغيل للخطوة (بناء #2 الفاشل):** لا يُثبَّت `@capacitor/assets` في
+جذر المساحة أبداً — فالتثبيت بعد `cap add android` كان يعيد ترتيب node_modules
+(أزال 3 حزم وغيّر 14) فيفقد `:capacitor-android` تكويناتيه المتوافقة وينهار
+Gradle («None of the consumable configurations have attributes»). التثبيت
+معزول في `/tmp/capassets` والاستدعاء من `.bin` الخاص به، وحرسان يثبتان ذلك.
 
 ## 3. كيف أنزّل الـ APK وأثبّته؟ (طريقة التنزيل — المستند §3)
 
