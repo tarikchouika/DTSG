@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   [v2.81] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
+   [v2.82] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
    ───────────────────────────────────────────────────────────────────────────
    يغطي (بلا متصفح — خادمي وساكن):
      أ) الوحدة server-mediamtx.js بمرحّل وهمي محلي (Node http):
@@ -434,10 +434,11 @@ const ROOT = path.resolve(__dirname, '..');
   ok('workflow: Node 22 + npm ci + كاش npm', /node-version:\s*'22'/.test(wf) && /npm ci/.test(wf) && /cache:\s*'npm'/.test(wf));
   ok('workflow: Java 17 temurin + كاش gradle', /java-version:\s*'17'/.test(wf) && /distribution:\s*'temurin'/.test(wf) && /cache:\s*'gradle'/.test(wf));
   ok('workflow: mkdir www + cap sync android + chmod gradlew', /mkdir -p www/.test(wf) && /npx cap sync android/.test(wf) && /chmod \+x android\/gradlew/.test(wf));
-  ok('workflow: assembleDebug --no-daemon + مسار APK الرسمي', /assembleDebug --no-daemon/.test(wf) && wf.includes('android/app/build/outputs/apk/debug/app-debug.apk'));
-  ok('workflow: Artifact DSTG-Gaming-App-Debug لمدة 7 أيام', /DSTG-Gaming-App-Debug/.test(wf) && /retention-days:\s*7/.test(wf));
+  /* [v2.82] البناء صار Release موقّعاً بشهادة الإنتاج وينشر Release بتحميل مباشر (التوقيع والنشر في _v282_apk_release_test.js) */
+  ok('workflow: assembleRelease --no-daemon + مسار APK الرسمي [v2.82: إنتاج لا debug]', /assembleRelease --no-daemon/.test(wf) && wf.includes('android/app/build/outputs/apk/release/app-release.apk') && !/gradlew\s+assembleDebug/.test(wf));
+  ok('workflow: Artifact DSTG-Gaming-App-Release احتياطي 7 أيام + Release هو القناة الأولى', /DSTG-Gaming-App-Release/.test(wf) && /retention-days:\s*7/.test(wf) && /gh release create/.test(wf));
   ok('workflow: استثناء ملفات التوثيق من المُحفّز', /paths-ignore:/.test(wf) && /'\*\*\/\*\.md'/.test(wf));
-  ok('workflow: صلاحية قراءة فقط (لا كتابة في المستودع)', /permissions:\s*\n\s*contents:\s*read/.test(wf));
+  ok('workflow: صلاحية كتابة contents حصراً للـRelease [v2.82: كانت read]', /permissions:\s*\n\s*contents:\s*write/.test(wf));
 
   const gi = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
   ok('.gitignore: www/ + android/ + capacitor.config.json + *.apk', /^www\/$/m.test(gi) && /^android\/$/m.test(gi) && /capacitor\.config\.json/.test(gi) && /^\*\.apk$/m.test(gi));

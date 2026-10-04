@@ -1,28 +1,38 @@
 # ═══════════════════════════════════════════════════════════════════════════
-# [v2.81] الملف مثبَّت ومزدوج بقاعدة «نسختان متطابقتان» — لم يعد مصدراً عالقاً
+# [v2.82] الملف مثبَّت ومزدوج بقاعدة «نسختان متطابقتان» — لم يعد مصدراً عالقاً
 # في docs/ وحده (كان كذلك لأن توكن النشر الأول بلا صلاحية workflow ورفض
 # GitHub: «refusing to allow a Personal Access Token to create or update
 # workflow» — وفّر المالك توكناً بالصلاحية فثُبّت وفق APK_BUILD §0 الخيار 2).
 # النسخة العملية هي .github/workflows/، وdocs/workflows/ مرآةٌ للرجوع إليها،
 # والاثنتان تُحفظان **متطابقتين بايت ببايت** (`cmp` = 0) عمداً: أي تعديل
-# مستقبلي يطبَّق على الاثنتين معاً في المهمة نفسها.
+# مستقبلي يطبَّق على الاثنتين معاً في المهمة نفسها (القاعدة 18 في AGENTS.md).
 # ═══════════════════════════════════════════════════════════════════════════
-# [v2.81] سير عمل بناء تطبيق Android تلقائياً — Automated APK Build Workflow
+# [v2.82] سير عمل بناء تطبيق Android وتوقيعه ونشره — Signed Release → GitHub Releases
 # ───────────────────────────────────────────────────────────────────────────
-# الطلب (توجيه المالك 2026-10-03 — مستند Capacitor APK): بناء Debug APK
-# لتطبيق Capacitor الأندرويدي لموقع dtsg.pages.dev مجاناً عبر GitHub Actions،
-# بشكل منعزل تماماً لا يضر بنظافة المستودع ولا يرفع ملفات البناء الثقيلة.
+# الطلب (توجيه المالك 2026-10-05): ① توقيع إنتاجي بشهادة شخصية ذات صلاحية
+# 30 سنة — **لا شهادة Debug الافتراضية** — عبر الأسرار
+# (ANDROID_KEYSTORE_BASE64 · ANDROID_KEYSTORE_PASSWORD · ANDROID_KEY_ALIAS ·
+# ANDROID_KEY_PASSWORD). ② رابط تحميل مباشر أوتوماتيكي: كل بناء ينشئ
+# **GitHub Release** جديداً ويرفع الملف .apk إليه مباشرة — **بلا ZIP** —
+# بضغطة زر (workflow_dispatch) أو عند رفع كود جديد (push).
+#
+# رابط التحميل المباشر الدائم (أحدث إصدار دائماً — ثابت لأن اسم الملف ثابت):
+#   https://github.com/tarikchouika/DTSG/releases/latest/download/DTSG-Gaming-App.apk
 #
 # ملاحظة معمارية (تكيف ضروري): مجلد android/ **غير محفوظ في المستودع** —
 # يولَّد في كل تشغيل عبر `npx cap add android` من إعداد Capacitor المؤقت
 # مع webDir=www (يجهّزه scripts/prepare-www.sh). بهذا يبقى المستودع نظيفاً
-# بلا ملفات منصّة ثقيلة، وكل بناء من إعداد حديث واحد.
+# بلا ملفات منصّة ثقيلة، وكل بناء من إعداد حديث واحد. ولأن القالب لا يوقّع
+# الإصدارات أصلاً (لا signingConfig فيه)، تُحقن شهادة الإنتاج في
+# android/app/build.gradle خطوةً مخصصة (8.7) قبل Gradle — على مولَّد حديث
+# في كل مرة، فلا أثر دائم ولا ملف منصّة في المستودع.
 #
-# المُخرج: Artifact باسم DSTG-Gaming-App-Debug (app-debug.apk — يُحمَّل من
-# صفحة تشغيل الـ Workflow ويبقى 7 أيام). طريقة التنزيل والتثبيت:
-# docs/APK_BUILD.md
+# المُخرج الابتدائي: **Release** بوسم apk-v<إصدار الحزمة>-build<رقم التشغيل>
+# يحمل DTSG-Gaming-App.apk (موقَّع بشهادة المالك) + بصمة SHA-256. ويبقى
+# Artifact ‏DSTG-Gaming-App-Release ‏(ZIP لمدة 7 أيام) نسخة احتياطية
+# للتشخيص فقط — طريقة التنزيل والتثبيت: docs/APK_BUILD.md §7
 # ═══════════════════════════════════════════════════════════════════════════
-name: Build Android APK (Debug)
+name: Build Android APK (Release → GitHub Releases)
 
 on:
   push:
@@ -38,10 +48,10 @@ on:
       - '.gitignore'
   workflow_dispatch: {}   # تشغيل يدوي بضغطة زر من واجهة GitHub (المستند §أ)
 
-# أقل الصلاحيات: قراءة الكود فقط — لا يكتب الـ Workflow أي شيء إلى المستودع
-# (المستند §3: ممنوع إعادة رفع ملفات مبنية أو مجلدات ثقيلة إلى المصدر)
+# [v2.82] كانت contents: read — إنشاء Release ووسمه يتطلب **كتابة contents**
+# عبر GITHUB_TOKEN (الوسم والإصدار يُنشآن في المستودع؛ لا شيء آخر يُكتب).
 permissions:
-  contents: read
+  contents: write
 
 # [v2.81] دفعات سريعة متتابعة = ثلاثة بناءات Gradle متوازية بلا فائدة؛
 # وتنزيلٌ معلّق لا يجوز أن يحرق ست ساعات من زمن العدّاد.
@@ -49,9 +59,14 @@ concurrency:
   group: apk-build
   cancel-in-progress: true
 
+# [v2.82] اسم ملف الـAPK في الـRelease — **ثابت عمداً** ليظل رابط
+# /releases/latest/download/DTSG-Gaming-App.apk صالحاً للأبد.
+env:
+  APK_NAME: DTSG-Gaming-App
+
 jobs:
   build-apk:
-    name: Capacitor Android Debug APK
+    name: Capacitor Android Release APK (signed → GitHub Release)
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -103,7 +118,7 @@ jobs:
       #      المنصة. @capacitor/assets يقرأ resources/icon.png وresources/splash.png
       #      (مُلزَمان في المستودع) ويكتب res/mipmap* وres/drawable* داخل android/.
       #      [إصلاح بناء #2 الفاشل] تثبيت الأداة في جذر المساحة كان يعبث بnode_modules
-      #      بعد cap add (npm أزال 3 حزم وغيّر 14) فانكسر تكوين :capacitor-android
+      #      بعد cap add (npm أزال 3 حزم وغيّر 14) فانكسر :capacitor-android
       #      أمام Gradle («None of the consumable configurations have attributes»)
       #      ⇒ التثبيت الآن معزول في /tmp/capassets: حزم المساحة لا تُمسّ بعد cap add.
       - name: Generate app icons + splash from platform logo
@@ -123,18 +138,174 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      # 8) بناء APK تجريبي (المستند §ب-6): صلاحية تنفيذ للـ wrapper ثم
-      #    assembleDebug بلا دايمون (بيئة CI نظيفة بلا عمليات عالقة)
-      - name: Gradle assembleDebug
+      # 8.1) [v2.82] فحص أسرار التوقيع **قبل أي عمل ثقيل** — فشل فوري برسالة
+      #      واضحة بدل انهيار Gradle غامض بعد دقائق. الأسرار الأربعة تُضبط
+      #      مرة واحدة في Settings ⇒ Secrets and variables ⇒ Actions
+      #      (القيم والتعليمات مع المالك — لا تُكتب في المستودع أبداً، قاعدة 5).
+      - name: Verify signing secrets are configured (fail fast)
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          missing=0
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            if [ -z "${!v:-}" ]; then echo "✗ السر $v غير مضبوط (Settings ⇒ Secrets and variables ⇒ Actions)"; missing=1; fi
+          done
+          if [ "$missing" = "1" ]; then
+            echo ""
+            echo "════════════════════════════════════════════════════════════"
+            echo "إعداد لمرة واحدة: أضِف الأسرار الأربعة أعلاه (شهادة توقيع"
+            echo "الإنتاج بـBase64 + كلمة السر + الاسم المستعار) ثم أعد"
+            echo "تشغيل الـWorkflow (Re-run). تفاصيل: docs/APK_BUILD.md §6"
+            echo "════════════════════════════════════════════════════════════"
+            exit 1
+          fi
+          echo "✓ أسرار التوقيع الأربعة موجودة"
+
+      # 8.2) [v2.82] فك ترميز شهادة الإنتاج (Base64 ⇒ ملف) والتحقق منها بمفتاح
+      #      Java **قبل البناء**: كلمة السر صحيحة + الاسم المستعار موجود، ويُطبع
+      #      صاحب الشهادة وتاريخ انتهائها (30 سنة) في السجل. الملف يُكتب في
+      #      $RUNNER_TEMP خارج المستودع ولا يُرفع ولا يُطبع محتواه أبداً.
+      - name: Decode production keystore + verify with keytool
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 -d > "$RUNNER_TEMP/dtsg-production.keystore"
+          KEYTOOL_INFO="$(keytool -list -v -keystore "$RUNNER_TEMP/dtsg-production.keystore" \
+            -storepass "$ANDROID_KEYSTORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS")" || {
+            echo "✗ الشهادة لا تُفتح بالسرّ/الاسم المستعار المُمرَّر — راجع قيم الأسرار الثلاثة"; exit 1; }
+          echo "$KEYTOOL_INFO" | grep -E 'Owner:|Valid from' || true
+          echo "✓ شهادة الإنتاج جاهزة: alias=$ANDROID_KEY_ALIAS (30 سنة) — $RUNNER_TEMP/dtsg-production.keystore"
+
+      # 8.3) [v2.82] حقن توقيع الإنتاج في build.gradle المولَّد حديثاً: قالب
+      #      Capacitor 6 **لا يعرّف signingConfig للإصدار أصلاً** (فحص قالب
+      #      6.2.2) — فتُخرج assembleRelease ملفاً غير موقَّع. الحقن: كتلة
+      #      signingConfigs.dtsgRelease تقرأ الشهادة من متغيرات البيئة + سطر
+      #      signingConfig داخل buildTypes.release. ويُستثمار نفس الخطوة لكتابة
+      #      إصدار الحزمة وversionCode (رقم التشغيل — يزداد رتيباً) داخل الـAPK
+      #      بدل 1.0/1 القالبية. python3 بدل sed: مطابقة نصية دقيقة وفشل صريح
+      #      إن تغيّر القالب مستقبلاً.
+      - name: Inject production signingConfig + app version into generated build.gradle
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          PKG_VERSION="$PKG_VERSION" VERSION_CODE="$VERSION_CODE" python3 - <<'PY'
+          import io, os, sys
+          p = "android/app/build.gradle"
+          s = io.open(p, encoding="utf-8").read()
+          sig_cfg = (
+              "    signingConfigs {\n"
+              "        dtsgRelease {\n"
+              "            storeFile file(System.getenv(\"ANDROID_KEYSTORE_FILE\"))\n"
+              "            storePassword System.getenv(\"ANDROID_KEYSTORE_PASSWORD\")\n"
+              "            keyAlias System.getenv(\"ANDROID_KEY_ALIAS\")\n"
+              "            keyPassword System.getenv(\"ANDROID_KEY_PASSWORD\")\n"
+              "        }\n"
+              "    }\n"
+          )
+          old = "    buildTypes {\n        release {\n"
+          if old not in s:
+              sys.exit("✗ قالب build.gradle تغيّر: لم أجد مرساة buildTypes — راجع خطوة الحقن (8.3)")
+          s = s.replace(old, sig_cfg + old, 1)
+          s = s.replace("        release {\n",
+                        "        release {\n            signingConfig signingConfigs.dtsgRelease // [v2.82] توقيع إنتاجي بشهادة المالك (CI)\n", 1)
+          if 'versionCode 1\n' not in s or 'versionName "1.0"' not in s:
+              sys.exit("✗ قالب build.gradle تغيّر: لم أجد versionCode/versionName القالبية")
+          s = s.replace("versionCode 1\n", "versionCode " + os.environ["VERSION_CODE"] + "\n", 1)
+          s = s.replace('versionName "1.0"', 'versionName "' + os.environ["PKG_VERSION"] + '"', 1)
+          io.open(p, "w", encoding="utf-8").write(s)
+          print("✓ signingConfig dtsgRelease + version " + os.environ["PKG_VERSION"]
+                + " (" + os.environ["VERSION_CODE"] + ") حُقنت — الإصدار يُوقَّع بشهادة المالك")
+          PY
+
+      # 8) بناء APK إصدار موقَّع [v2.82] — كان assembleDebug بشهادة debug
+      #    الافتراضية: صلاحية تنفيذ للـ wrapper ثم assembleRelease بلا دايمون
+      #    (بيئة CI نظيفة بلا عمليات عالقة)، والشهادة تُمرَّر بالبيئة حصراً.
+      - name: Gradle assembleRelease (signed with production keystore)
+        env:
+          ANDROID_KEYSTORE_FILE: ${{ runner.temp }}/dtsg-production.keystore
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           chmod +x android/gradlew
-          cd android && ./gradlew assembleDebug --no-daemon
+          cd android && ./gradlew assembleRelease --no-daemon
 
-      # 9) حفظ الـ APK كمُخرج قابل للتحميل لمدة 7 أيام (المستند §ب-7)
-      - name: Upload APK artifact
+      # 9) [v2.82] تحقق مستقل من التوقيع بعد البناء: apksigner يفحص الـAPK
+      #    ويجب أن يكون الموقِّع شهادة الإنتاج (CN=DTSG…) — لا debug ولا غير
+      #    موقَّع. فشل هنا = البناء كله يفشل قبل أي نشر.
+      - name: Verify APK signature is the production cert (apksigner)
+        run: |
+          APK="android/app/build/outputs/apk/release/app-release.apk"
+          [ -f "$APK" ] || { echo "✗ $APK غير موجود — راجع سجل Gradle"; exit 1; }
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)"
+          CERTS="$("$APKSIGNER" verify --print-certs "$APK")"
+          echo "$CERTS"
+          echo "$CERTS" | grep -q 'CN=DTSG' || { echo "✗ الموقِّع ليس شهادة الإنتاج (CN=DTSG…) — يُمنع النشر"; exit 1; }
+          echo "✓ الـAPK موقَّع بشهادة الإنتاج (DTSG) — التوقيع صحيح"
+
+      # 9.5) [v2.82] تجهيز ملف التحميل النهائي باسمه الثابت + بصمة SHA-256
+      #      (البصمة تُنشر مع الإصدار ليتحقق المالك من سلامة التنزيل)
+      - name: Stage APK with stable name + SHA-256 checksum
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/${APK_NAME}.apk"
+          sha256sum "$RUNNER_TEMP/${APK_NAME}.apk" > "$RUNNER_TEMP/${APK_NAME}.apk.sha256"
+          echo "-- SHA-256 --"; cat "$RUNNER_TEMP/${APK_NAME}.apk.sha256"
+
+      # 9.7) Artifact احتياطي (7 أيام) — طريقة الوصول الأولى هي الـRelease
+      #      أدناه (تحميل مباشر بلا ZIP). الـArtifact للطوارئ/التشخيص فقط.
+      - name: Upload APK artifact (backup — official download is the Release)
         uses: actions/upload-artifact@v4
         with:
-          name: DSTG-Gaming-App-Debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: DSTG-Gaming-App-Release
+          path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 7
           if-no-files-found: error
+
+      # 10) [v2.82] نشر GitHub Release: الوسم apk-v<الإصدار>-build<رقم التشغيل>
+      #     فريد لكل تشغيل، والعلم --latest يجعله «أحدث إصدار» ⇒ رابط
+      #     /releases/latest/download/ يخدم آخر APK دائماً. الملفان يُرفعان
+      #     **كأصلين مباشرين** (apk + sha256) — بلا ضغط ZIP. وإعادة تشغيل
+      #     نفس التشغيل تُنظف وسم/إصدار سابقاً نصف مكتمل ثم تعيد الإنشاء.
+      - name: Publish GitHub Release (direct APK download)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_NUMBER: ${{ github.run_number }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          TAG="apk-v${VERSION}-build${RUN_NUMBER}"
+          STAMP="$(date -u '+%Y-%m-%d %H:%M UTC')"
+          SHORT_SHA="$(git rev-parse --short HEAD)"
+          NOTES="$RUNNER_TEMP/release-notes.md"
+          cat > "$NOTES" <<EOF
+          ## DTSG Android App v${VERSION} (بناء #${RUN_NUMBER})
+
+          - **الملف:** ${APK_NAME}.apk — توقيع إنتاجي بشهادة المالك (صلاحية 30 سنة)
+          - **الكود:** ${SHORT_SHA} (${COMMIT_SHA}) — ${STAMP}
+          - **الإصدار داخل التطبيق:** ${VERSION} · versionCode ${RUN_NUMBER}
+          - **التحقق من السلامة:** بصمة SHA-256 مرفقة (${APK_NAME}.apk.sha256)
+
+          ### رابط التحميل المباشر الدائم (أحدث إصدار دائماً)
+          https://github.com/tarikchouika/DTSG/releases/latest/download/${APK_NAME}.apk
+
+          ### التثبيت
+          1. نزّل الملف إلى هاتف الأندرويد.
+          2. انقره ⇒ اسمح بالتثبيت «من مصادر غير معروفة» لهذا المدير إن طُلب ⇒ تثبيت.
+          3. **من نسخة Debug القديمة:** احذف التطبيق القديم أولاً — التوقيعان مختلفان
+             والأندرويد يمنع التحديث فوق توقيع مغاير. من إصدار إنتاج سابق يتحدث مباشرة.
+          EOF
+          gh release delete "$TAG" --yes --cleanup-tag 2>/dev/null || true
+          git push origin ":refs/tags/$TAG" 2>/dev/null || true
+          gh release create "$TAG" \
+            "$RUNNER_TEMP/${APK_NAME}.apk" \
+            "$RUNNER_TEMP/${APK_NAME}.apk.sha256" \
+            --title "DTSG Android App v${VERSION} (build ${RUN_NUMBER})" \
+            --notes-file "$NOTES" \
+            --latest
+          echo "✓ نُشر Release ${TAG} — التحميل المباشر: https://github.com/tarikchouika/DTSG/releases/latest/download/${APK_NAME}.apk"

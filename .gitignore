@@ -41,10 +41,20 @@ tool-results/
 
 # [v2.81] تطبيق الأندرويد (Capacitor): يُبنى محلياً وفي GitHub Actions فقط —
 # المستودع يبقى نظيفاً بلا ملفات المنصة الثقيلة (المستند §3: لا android/ ولا
-# build ولا .gradle في المصدر؛ الـ APK يُسلَّم Artifact من صفحة Actions)
+# build ولا .gradle في المصدر؛ [v2.82] الـ APK يُسلَّم Release بتحميل مباشر
+# من github.com/tarikchouika/DTSG/releases/latest/download/DTSG-Gaming-App.apk)
 www/
 android/
 .gradle/
 *.apk
 capacitor.config.json
 local.properties
+
+# [v2.82] شهادة توقيع الإنتاج: **لا تُودَع أبداً** — المستودع عام (قاعدة 5)
+# والشهادة تنتقل إلى GitHub Secrets كـANDROID_KEYSTORE_BASE64 حصراً؛ النسخة
+# الأم مع المالك خارج المستودع. أي نمط شهادة/مفتاح محتمل محجوب وقائياً.
+*.keystore
+*.jks
+*.keystore.b64*
+*keystore-password*
+dtsg-keystore/
