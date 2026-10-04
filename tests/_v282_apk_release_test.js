@@ -106,8 +106,13 @@ ok('Artifact احتياطي DSTG-Gaming-App-Release (7 أيام) — القنا�
   wfLive.indexOf('Upload APK artifact') < wfLive.indexOf('Publish GitHub Release'));
 
 /* ── 8) الشهادة لا تُودَع في المستودع العام أبداً (قاعدة 5) ──────────────── */
-ok('git ls-files: لا keystore/jks متتبَّع في المستودع',
-  execSync('git ls-files "*keystore*" "*jks*"', { encoding: 'utf8' }).trim() === '');
+/* تبييض صريح [2026-10-05]: pathspec "*keystore*" يلتقط سكربت التوثيق المتتبَّع
+   عمداً scripts/make-production-keystore.sh (غير سري — ويستهدفه الحرس نفسه في
+   هذا القسم)، فهو المسموح الوحيد في المخرجات: أي ملف keystore/jks آخر متتبَّع،
+   أو اختفاء السكربت المبيَّض من التتبع، يُسقط الحارس (قاعدة 19 توثّق ظهوره حصراً). */
+const ksTracked = execSync('git ls-files "*keystore*" "*jks*"', { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+ok('git ls-files: لا keystore/jks متتبَّع عدا سكربت التوثيق المبيَّض (المسموح الوحيد scripts/make-production-keystore.sh — أي شيء آخر ممنوع)',
+  ksTracked.length > 0 && ksTracked.every(f => f === 'scripts/make-production-keystore.sh'));
 const gi = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
 ok('.gitignore يحجب كل أنماط الشهادات (*.keystore · *.jks · كلمة السر · مجلد التسليم)',
   /^\*\.keystore$/m.test(gi) && /^\*\.jks$/m.test(gi) &&
