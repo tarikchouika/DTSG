@@ -5,6 +5,9 @@
    openAuthModal, closeAuthModal, authTab, renderAuthChip, authRestore
    ═══════════════════════════════════════════ */
 "use strict";
+/* [v2.81.3-APK] تطبيق الأندرويد (Capacitor): المنصّة أصلية وhostname «localhost»
+   بلا منفذ — لا خادم API محلي، فالأساس يُقرأ من المخزن (rc_api_base) أو وسيط الهاتف. */
+var IS_NATIVE_APP = (typeof window !== 'undefined' && !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
 
 /* ── حالة المصادقة ── */
 const AUTH = {
@@ -595,8 +598,9 @@ if (typeof document !== 'undefined') {
       try {
         /* [v2.42-Bugfix] API_BASE_URL نص فقط (كان قد يكون Promise ⇒ [object Promise]/api/sync) */
         fetch(((typeof window.API_BASE_URL === 'string' && window.API_BASE_URL) ||
-          (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname) ? location.origin :
-            (/(^|\.)dmgames\.pages\.dev$|(^|\.)dtsg\.pages\.dev$/.test(location.hostname) ? 'https://casino-api.dmgames-api.workers.dev' : 'https://casino-api.tarikc.workers.dev'))) + '/api/sync', {
+          (/^(localhost|127\.0\.0\.1):\d+$/.test(location.hostname) ? location.origin :
+            (/(^|\.)dmgames\.pages\.dev$|(^|\.)dtsg\.pages\.dev$/.test(location.hostname) ? 'https://casino-api.dmgames-api.workers.dev' :
+              (IS_NATIVE_APP ? (function () { try { return localStorage.getItem('rc_api_base') || 'https://casino-phone.dmgames-api.workers.dev'; } catch (e) { return 'https://casino-phone.dmgames-api.workers.dev'; } })() : 'https://casino-api.tarikc.workers.dev')))) + '/api/sync', {
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },

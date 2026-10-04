@@ -21,6 +21,7 @@
 /tests/*           /404.html  404
 /data/*            /404.html  404
 /node_modules/*    /404.html  404
+/resources/*       /404.html  404
 /backups/*         /404.html  404
 /logs/*            /404.html  404
 /telegram-voucher-bot/* /404.html 404

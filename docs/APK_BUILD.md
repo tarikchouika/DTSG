@@ -96,6 +96,23 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
 `ronda-game/README.md` تماماً كما يفعل `scripts/deploy-pages.sh` — فكان
 الـAPK يشحن ملفاً لا يشحنه الموقع.
 
+### 2.3 الشعار وشاشة البدء وإصلاح الدخول [v2.81.3]
+
+**أيقونة التطبيق:** كل بناء يولّد `android/` حديثاً بأيقونة Capacitor الافتراضية
+إن لم تُولَّد أيقونات صراحةً — لذلك صار في السير (بعد `cap sync` وقبل Gradle) خطوة
+`Generate app icons + splash from platform logo` تشغّل `@capacitor/assets@3`
+على `resources/icon.png` (1024×1024) و`resources/splash.png` (2732×2732) —
+الاثنتان مشتقتان من `assets/dtsg/dtsg-logo-main.webp` على خلفية `#0b1526`
+ومُلزَمان في المستودع، فلا يعود البناء يخرج بالروبوت الافتراضي أبداً.
+
+**تسجيل الدخول داخل التطبيق (إصلاح جذري):** الـWebView يعمل على
+`https://localhost` **بلا منفذ**، وكانت الواجهة تظنه خادماً تطويرياً same-origin
+فترسل الطلبات إلى التطبيق نفسه بدل وسيط الهاتف ⇒ فشل الدخول على أي جهاز. منذ
+v2.81.3: «localhost» بلا منفذ ليس same-origin أبداً، وحارس `IS_NATIVE_APP`
+يستثني Capacitor من الاختصار — فالتطبيق يقرأ `/api-url2.json` من حزمته ويوجّه
+النداءات إلى `casino-phone.dmgames-api.workers.dev` كما في المتصفح تماماً.
+الحارس: `node tests/_v2813_apk_native_test.js`.
+
 ## 3. كيف أنزّل الـ APK وأثبّته؟ (طريقة التنزيل — المستند §3)
 
 1. افتح المستودع `github.com/tarikchouika/DTSG` ⇒ تبويب **Actions**.

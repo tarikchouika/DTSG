@@ -98,6 +98,17 @@ jobs:
           [ -d android ] || npx cap add android
           npx cap sync android
 
+      # 6.5) [v2.81.3] أيقونة التطبيق وشاشة البدء من لوغو المنصة — كان القالب
+      #      يخرج بأيقونة Capacitor الافتراضية (روبوت) فلا يحمل التطبيق شعار
+      #      المنصة. @capacitor/assets يقرأ resources/icon.png وresources/splash.png
+      #      (مُلزَمان في المستودع) ويكتب res/mipmap* وres/drawable* داخل android/.
+      - name: Generate app icons + splash from platform logo
+        run: |
+          npm install --no-save @capacitor/assets@3
+          npx capacitor-assets generate --android --assetPath resources \
+            --iconBackgroundColor '#0b1526' --iconBackgroundColorDark '#0b1526' \
+            --splashBackgroundColor '#0b1526' --splashBackgroundColorDark '#0b1526'
+
       # 7) Java 17 (OpenJDK) المتوافق تماماً مع Gradle/Capacitor 6 + كاش Gradle
       #    (المستند §ب-5)
       - name: Setup Java 17 (Temurin)

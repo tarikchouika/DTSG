@@ -63,7 +63,7 @@ const crypto = require('crypto');
    ═══════════════════════════════════════════════════════════════════════════ */
 const STREAM_SECRET = String(process.env.ARB_STREAM_SECRET || '').trim();
 if (!STREAM_SECRET) {
-  console.warn('[mediamtx] ⚠ ARB_STREAM_SECRET غير مضبوط في البيئة — سيُولَّد سرّ عشوائي لهذا التشغيل فقط، فتنتهي صلاحية كل مسارات النشر عند إعادة التشغيل. اضبطه في .env.local (scripts/phone-env-restart.sh).');
+  console.warn('[m[m[mediamtx] ⚠ ARB_STREAM_SECRET غير مضبوط في البيئة — سيُولَّد سرّ عشوائي لهذا التشغيل فقط، فتنتهي صلاحية كل مسارات النشر عند إعادة التشغيل. اضبطه في .env.local (scripts/phone-env-restart.sh).');
 }
 const RUNTIME_SECRET = STREAM_SECRET || crypto.randomBytes(32).toString('hex');
 
@@ -95,10 +95,10 @@ function createMediaMtxMonitor(ctx) {
     /* القيد 1 من المستند: المحلية حصراً — عنوان خارجي = انحراف عن العقد.
        تحذير لا منع: الوحدة تعمل بأي حال (عزل تام) لكن المالك يعرف. */
     if (u.hostname !== '127.0.0.1' && u.hostname !== 'localhost' && u.hostname !== '[::1]' && u.hostname !== '::1') {
-      console.warn('[mediamtx] ⚠ MEDIAMTX_API_URL ليس عنواناً محلياً (' + API_URL + ') — عقد المستند يوجّه الاستعلام عبر Loopback حصراً حفاظاً على باندويث النفق');
+      console.warn('[m[m[mediamtx] ⚠ MEDIAMTX_API_URL ليس عنواناً محلياً (' + API_URL + ') — عقد المستند يوجّه الاستعلام عبر Loopback حصراً حفاظاً على باندويث النفق');
     }
   } catch (e) {
-    console.warn('[mediamtx] ⚠ MEDIAMTX_API_URL غير صالح (' + API_URL + ') — ستُعاد حالة offline حتى يُصحَّح');
+    console.warn('[m[m[mediamtx] ⚠ MEDIAMTX_API_URL غير صالح (' + API_URL + ') — ستُعاد حالة offline حتى يُصحَّح');
   }
 
   /* ── المخطط (SQLite — نفس قاعدة المنصة، بلا هجرة يدوية) ──
@@ -194,7 +194,7 @@ function createMediaMtxMonitor(ctx) {
         /* القيد 3: MediaMTX غير مجيب ⇒ offline فوري + تحذير مهدَّد */
         if (now - lastWarnAt > LOG_THROTTLE_MS) {
           lastWarnAt = now;
-          console.warn('[mediamtx] تعذر الوصول إلى API المرحّل (' + API_URL + '): ' + (err && err.message ? err.message : err));
+          console.warn('[m[m[mediamtx] تعذر الوصول إلى API المرحّل (' + API_URL + '): ' + (err && err.message ? err.message : err));
         }
         val = { online: false, ready: false, bytes_rx: 0, duration: 0, path: name, reachable: false, reason: 'unreachable' };
       } else if (status === 200 && body) {

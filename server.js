@@ -18,7 +18,7 @@ const STATIC_DENY = [
      لا تُقدَّم للويب مثل server.js نفسه (كشف كود بلا داعٍ).
      [v2.75·تحكيم] mediamtx.yml إعداد خادم الوسائط كذلك */
   /^\/?(server[^\/]*\.js|package(-lock)?\.json|tunnel-live\.json|mediamtx\.yml|\.env[^\/]*)/i,
-  /^\/?(data|cf-worker|scripts|tests|node_modules|logs|backup|backups|tmp|games|rooms)(\/|$)/i,
+  /^\/?(data|cf-worker|scripts|tests|node_modules|logs|backup|backups|tmp|games|rooms|resources)(\/|$)/i,
   /(^|\/)\.(env|git|gitignore|htaccess|npmrc)/i,
   /(\.db|\.db-wal|\.db-shm|\.sqlite3?|\/dump\.sql)(\?|$)/i
 ];
@@ -1095,7 +1095,8 @@ const server = http.createServer((req, res) => {
          (بدل انهيار العملية كاملة) وبلا كشف تفاصيل داخلية للعميل. */
       try {
       let data = {};
-      try { data = body ? JSON.parse(body) : {}; } catch (e) {}
+      let jsonBad = false;   /* [v2.81.3·تدقيق P3] جسم JSON تالف ⇒ 400 لا 401 */
+      try { data = body ? JSON.parse(body) : {}; } catch (e) { jsonBad = true; }
       const me = getUser(req);
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
@@ -1112,6 +1113,12 @@ const server = http.createServer((req, res) => {
 
       /* ── [Payments] مسارات المحفظة تُدار بمنطق payments-core فوق القاعدة المحلية ── */
       if (pay.isPaymentsPath(pathname)) { pay.handlePayments(req, res, body, me); return; }
+
+      /* ── [v2.81.3·تدقيق P3] جسم JSON تالف ⇒ 400 فوراً — كان data={} صامتاً فيسقط
+         الطلب في بوابات المصادقة فيعود 401 «يلزم تسجيل الدخول» بدل 400 «صيغة
+         تالفة» (آمن لكنه خاطئ دلالياً). يُفحص بعد المعالجات الخاصة (الدعم/
+         المالية/المحادثة/الدفع) لأنها تدير أجسامها بنفسها. ── */
+      if (jsonBad) { json({ ok: false, message: 'صيغة JSON في جسم الطلب تالفة' }, 400); return; }
 
       /* ── [v2.40.5] نموذج «اتصل بنا» — كان يرسل إلى مسار غير موجود (405 من Pages)
          فيبقى الزر بلا نتيجة. يُخزَّن في contact_messages + إشعار تيليغرام إن توفّر. ── */

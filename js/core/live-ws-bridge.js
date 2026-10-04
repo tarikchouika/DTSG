@@ -8,13 +8,15 @@
    ═════════════════════════════════════════════════════════ */
 (function () {
   'use strict';
+  /* [v2.81.3-APK] تطبيق الأندرويد (Capacitor): لا same-origin على localhost بلا منفذ. */
+  var IS_NATIVE_APP = (typeof window !== 'undefined' && !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
   /* [PhoneLink] نفس منطق api.js: العنوان يُقرأ من api-url2.json (ووركر الوسيط الدائم).
      الووركر الوسيط يمرر SSE لكن خادم الهاتف (server.js) لا يدعم WebSocket —
      لذا في وضع الووركر الوسيط/النفق نُبقي EventSource الأصلي ولا نستبدله. */
   var API_BASE = (typeof window !== 'undefined' && typeof window.API_BASE_URL === 'string') ? window.API_BASE_URL : null;
   var basePromise = (API_BASE !== null)
     ? Promise.resolve(API_BASE)
-    : ((typeof location !== 'undefined' && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname))
+    : ((typeof location !== 'undefined' && !IS_NATIVE_APP && /^(localhost|127\.0\.0\.1):\d+$/.test(location.hostname))
       ? Promise.resolve(location.origin)
       : fetch('/api-url2.json', { cache: 'no-store' })
           .then(function (r) { return r.ok ? r.json() : null; })

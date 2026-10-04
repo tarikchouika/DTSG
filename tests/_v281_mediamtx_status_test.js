@@ -33,15 +33,15 @@
        20. السرّ من ARB_STREAM_SECRET (‎>=16 خانة) وsecretConfigured ينقلب
        21. server-arbitration.js يسلّم المسارين في mine() وstartStream() معاً
        22. mediamtx.yml: كل المستمعين (api/rtmp/rtsp/hls/webrtc) على 127.0.0.1
-     أ·4) تغطية [v2.81.2·مساران للنشر] — لا مسار واحد ولا ادّاء «مشفَّر» كذب:
-       23. mine() يسلّم relay.rtmp_secure وstartStream() يسلّم mediamtx_rtmp_secure
-       24. المصدر الوحيد هو MEDIAMTX_RTMP_URL_WARP وغيابه ⇒ null بالضبط (خيار
-           واحد في البطاقة، لا صندوق فارغ ولا رابط مزيّف)
-       25. حارس انحدار [v2.81.1]: المسار المُرمَّز باقٍ كما هو — relay.rtmp
-           الأول لم يتغيّر، وpublish_path في mine() وmediamtx_publish_path في
-           startStream() لا يزالان من publishPath() (الرمز = خاصية الأمان)
-       26. js/core/arb-page.js يقرأ relay.rtmp وrelay.rtmp_secure معاً (اللاعب
-           يُبلَّغ بالطريقين لا بواحد)، ولا رابط rtmp:// مكتوب في الواجهة أصلاً
+     أ·4) تغطية [v2.81.3·مسار واحد] — صفر أثر WARP بعد قرار المالك (بطاقة
+           بنكية Zero Trust غير متاحة) ولا رجوع صامت للمسار المشفَّر:
+       23. server-arbitration.js بلا حقل مسار مشفَّر ولا متغيّر WARP إطلاقاً
+       24. حارس انحدار [v2.81.1]: المسار العام الأول باقٍ كما هو — relay.rtmp
+           وmediamtx_rtmp من MEDIAMTX_RTMP_URL، وpublish_path في mine()
+           وmediamtx_publish_path في startStream() من publishPath()
+           (الرمز = خاصية الأمان)
+       26. js/core/arb-page.js يقرأ relay.rtmp وحده (بطاقة مسار واحد)، ولا
+           ذكر للمسار المشفَّر ولا رابط rtmp:// مكتوب في الواجهة أصلاً
        27. js/i18n/translations.js: كل مفتاح T('arb.mr…') المستعمل في arb-page.js
            موجود بأربع خانات غير فارغة بترتيب ar/fr/en/da — والقائمة المتوقعة
            مُشتقّة من مواضع النداء الفعلية ⇒ صيانة ذاتية بلا اعتماد YAML
@@ -380,34 +380,26 @@ const ROOT = path.resolve(__dirname, '..');
     && PUBPATH.test(arbStart) && PUBWHIP.test(arbStart));
 
   /* ═══════════════════════════════════════════════════════════════════════
-     [v2.81.2·مساران للنشر] عقد التسليم الثنائي — لا مسار واحد ولا ادّاء
-     «مشفَّر» كذب على نفق عام
+     [v2.81.3·مسار واحد] حارس إزالة المسار المشفَّر — صفر أثر WARP بعد قرار
+     المالك 2026-10-04 (تفعيل Zero Trust يتطلّب بطاقة بنكية لا يملكها)
      ───────────────────────────────────────────────────────────────────────
-    _paths_ الاستضافة صارت لها مدخلان محتملان، واللاعب يُبلَّغ بالاثنين مع
-     فرقهما الصريح (تشفير · حساب · إعداد على الهاتف): (أ) نفق TCP عام =
-     MEDIAMTX_RTMP_URL ⇒ صفر إعداد لكنه يمرّ صريحاً عبر طرف ثالث؛ (ب) شبكة
-     خاصة عبر Cloudflare WARP = MEDIAMTX_RTMP_URL_WARP ⇒ مشفَّر طرف-لطرف
-     لكنه يتطلّب تطبيق Cloudflare One وهو غير مضبوط بعد (Zero Trust معطّل
-     على الحساب ⇒ يلزم فعل لوح واحد من المالك). لذلك الحقل null عند الغياب
-     شرط وظيفي لا زينة: يرسم به الخيار الأول وحده بدل صندوق فارغ أو رابط
-     مخترَع. وحتى يثبت (ب) تشغيلاً حقيقياً لا يُفترض في الاختبار.
+    كان للنشر مدخلان [v2.81.2]: نفق TCP عام (MEDIAMTX_RTMP_URL) وشبكة
+     Cloudflare WARP الخاصة (MEDIAMTX_RTMP_URL_WARP) بحقلَي
+     rtmp_secure/mediamtx_rtmp_secure في المخرجين. قرار المالك: حذف المسار
+     المشفَّر كلياً — فلا يبقى في الكود ولا الواجهة ولا الترجمة أي مرجع
+     لِـWARP أو لحقل «آمن» ثانٍ. هذه الحراسات تمنع رجوعه صامتاً من أي جهة،
+     وتثبت أن المسار العام الأول بقي كما هو بعنوانه ومساره المُرمَّز.
      ═══════════════════════════════════════════════════════════════════════ */
 
-  /* (23) الحقلان الجديدان في مخرجَيه — أحدهما لكل واجهة: mine() لمّا لا جلسة
-     بعد، وstartStream() لمّا يفتح اللاعب البثّ. */
-  ok('server-arbitration.js: mine() يسلّم relay.rtmp_secure (المسار الآمن للجالس في غرفته)',
-    /rtmp_secure:/.test(arbMine) && /MEDIAMTX_RTMP_URL_WARP/.test(arbMine));
-  ok('server-arbitration.js: startStream() يسلّم mediamtx_rtmp_secure (نفس القيمة للمشارك الجالس)',
-    /mediamtx_rtmp_secure:/.test(arbStart) && /MEDIAMTX_RTMP_URL_WARP/.test(arbStart));
+  /* (23) انعدام المسار المشفَّر في مخرج الخادم كله: لا حقل ولا متغيّر ولا تعليق. */
+  ok('v2.81.3: server-arbitration.js بلا rtmp_secure إطلاقاً (المسار المشفَّر أُزيل)',
+    !/rtmp_secure/.test(arbSrc));
+  ok('v2.81.3: لا أثر لِـMEDIAMTX_RTMP_URL_WARP في server-arbitration.js إطلاقاً',
+    !/MEDIAMTX_RTMP_URL_WARP/.test(arbSrc) && !/[Ww]ARP/.test(arbSrc));
 
-  /* (24) التدهور الأني: غياب المتغيّر ⇒ null صريح في المخرجين، ولا قيمة
-     افتراضية مخترَعة في المصدر كله (رابط مزيّف أسوأ من خيار ناقص). */
-  ok('v2.81.2: غياب MEDIAMTX_RTMP_URL_WARP ⇒ null في المخرجين (خيار واحد لا صندوق فارغ)',
-    /rtmp_secure:[^\n]*\|\|\s*null/.test(arbMine) && /mediamtx_rtmp_secure:[^\n]*\|\|\s*null/.test(arbStart)
-    && !/MEDIAMTX_RTMP_URL_WARP\s*\|\|\s*['"]/.test(arbSrc));
-
-  /* (25) حارس انحدار [v2.81.1]: إضافة المسار الثاني لا يجوز أن تمسّ الأول ولا
-     أن تُضعف الرمز — publish_path يبقى من publishPath() (HMAC) في المخرجين. */
+  /* (24) حارس انحدار [v2.81.1→باقٍ]: المسار العام الأول لم يتغيّر — العنوان
+     من MEDIAMTX_RTMP_URL والمسار المُرمَّز من publishPath() (الرمز = خاصية
+     الأمان) في المخرجين معاً. */
   ok('حارس انحدار: relay.rtmp وmediamtx_rtmp بلا تغيير (المسار العام الأول باقٍ كما هو)',
     /rtmp:\s*process\.env\.MEDIAMTX_RTMP_URL\s*\|\|\s*null/.test(arbMine)
     && /mediamtx_rtmp:\s*process\.env\.MEDIAMTX_RTMP_URL\s*\|\|\s*null/.test(arbStart));
@@ -415,13 +407,14 @@ const ROOT = path.resolve(__dirname, '..');
     /publish_path:\s*require\('\.\/server-mediamtx\.js'\)\.publishPath\(/.test(arbMine)
     && /mediamtx_publish_path:\s*require\('\.\/server-mediamtx\.js'\)\.publishPath\(/.test(arbStart));
 
-  /* (26) جانب العميل: البطاقة تقرأ الحقلين معاً (لقاعدة «يُبلَّغ بالطريقين»)،
-     ولا تكتب أي عنوان RTMP في الواجهة — العرض من الخادم وحده. */
+  /* (26) جانب العميل: البطاقة تعرض المسار الواحد — تقرأ relay.rtmp ولا تذكر
+     rtmp_secure ولا WARP بشتى صيغهما، ولا تكتب أي عنوان RTMP في الواجهة —
+     العرض من الخادم وحده. */
   const arbPageSrc = fs.readFileSync(path.join(ROOT, 'js/core/arb-page.js'), 'utf8');
-  ok('js/core/arb-page.js: بطاقة الهاتف تقرأ relay.rtmp وrelay.rtmp_secure معاً (لا أحدهما وحده)',
-    /\brelay\.rtmp\b/.test(arbPageSrc) && /\brelay\.rtmp_secure\b/.test(arbPageSrc));
-  ok('js/core/arb-page.js: لا رابط rtmp:// مكتوب في الواجهة ولا قيمة احتياطية مزيّفة للمسار الآمن',
-    !/rtmp:\/\//.test(arbPageSrc) && !/relay\.rtmp_secure\s*\|\|\s*['"]/.test(arbPageSrc));
+  ok('js/core/arb-page.js: بطاقة الهاتف تقرأ relay.rtmp (مسار واحد) وبلا rtmp_secure ولا WARP',
+    /\brelay\.rtmp\b/.test(arbPageSrc) && !/rtmp_secure/.test(arbPageSrc) && !/[Ww]ARP/.test(arbPageSrc));
+  ok('js/core/arb-page.js: لا رابط rtmp:// مكتوب في الواجهة ولا قيمة احتياطية مزيّفة للمسار',
+    !/rtmp:\/\//.test(arbPageSrc) && !/relay\.rtmp\s*\|\|\s*['"]/.test(arbPageSrc));
 
   /* (27) الترجمة: قائمة المفاتيح المتوقعة مُشتقّة من مواضع T('arb.mr…')
      الفعلية في arb-page.js — فلو أُضيف مفتاح للبطاقة بلا ترجمة بأربع لغات يسقط

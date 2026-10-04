@@ -6,16 +6,22 @@
 "use strict";
 /* [PhoneLink] اختيار خادم الـAPI حسب نطاق الاستضافة:
    - window.API_BASE_URL (تجاوز يدوي) له الأولوية.
-   - localhost/127.0.0.1 وArena preview (.e2b.app) → same-origin (server.js يخدم الواجهة والـAPI معاً).
+   - localhost/127.0.0.1 **بمنفذ صريح** وArena preview (.e2b.app) → same-origin (server.js يخدم الواجهة والـAPI معاً)؛
+   - أما «localhost» بلا منفذ فهو WebView Capacitor في تطبيق الأندرويد [v2.81.3-APK] → لا same-origin أبداً.
    - الإنتاج → يقرأ /api-url2.json (بلا كاش) للحصول على عنوان الووركر الوسيط الدائم
      (casino-phone.dmgames-api.workers.dev) الذي يمرر الطلبات إلى نفق الهاتف
      حيث تعمل server.js + SQLite المحلية. عند فشل الجلب → Worker السحابي (D1) كاحتياط.
    [PhoneLink-fallback] الفشل يُكتشف ديناميكياً أيضاً: إن ردّ الووركر الوسيط خطأ/HTML غير JSON
      نتراجع تلقائياً إلى Worker السحابي في نفس الطلب — لا حاجة لإعادة تحميل الصفحة. */
 const API_BASE_FALLBACK = 'https://casino-api.dmgames-api.workers.dev';
+/* [v2.81.3-APK] تطبيق الأندرويد (Capacitor WebView): window.Capacitor متاح
+   والمنصّة أصلية، وhostname هو «localhost» بلا منفذ — لا خادم API محلي إطلاقاً
+   فيجب ألّا يُطبَّق اختصار same-origin الخاص بالتطوير المحلي، بل يُقرأ
+   /api-url2.json من الحزمة كالإنتاج تماماً. */
+var IS_NATIVE_APP = (typeof window !== 'undefined' && !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
 var API_BASE_PROMISE = (typeof window !== 'undefined' && typeof window.API_BASE_URL === 'string')
   ? Promise.resolve(window.API_BASE_URL)
-  : ((typeof location !== 'undefined' && (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname) || /\.e2b\.app$/i.test(location.hostname)))
+  : ((typeof location !== 'undefined' && !IS_NATIVE_APP && (/^(localhost|127\.0\.0\.1):\d+$/.test(location.hostname) || /\.e2b\.app$/i.test(location.hostname)))
     ? Promise.resolve(location.origin)
     : fetch('/api-url2.json', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })

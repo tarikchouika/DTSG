@@ -722,3 +722,26 @@ Stage Summary:
 - ملاحظات مفتوحة: P2 ترويسة Referrer-Policy ناقصة على vercel.app (pages يخدمها) · P3 تالف JSON ⇒ 401 بدل 400 (آمن) · P3 بادئة سجل [ediamtx] بدل [mediamtx] · متابعة مساعد الموثقة (pm2 save · حذف playitd) لا تُتحقق عن بُعد
 - على المالك: تفعيل Zero Trust للمسار ب · نزول APK من التشغيل #1 قبل 2026-10-10 · إعادة نشر Vercel للترويسة
 - سكربتات الفحص الأربعة محفوظة في مساحة عمل التدقيق قابلة لإعادة التشغيل على أي إصدار قادم
+---
+Task ID: v2.81.3
+Agent: main (Super Z)
+Task: توجيه المالك 2026-10-04 — (1) «أزل المسار المشفَّر WARP لأن Zero Trust يحتاج بطاقة بنكية وأنا لا أملكها» + معالجة ملاحظات تدقيق v2.81.2 (P2/P3) · (2) «يوجد خلل في تطبيق APK: لا أستطيع تسجيل الدخول، والتطبيق لا يحمل لوغو المنصة — تفحص السبب وأصلحه باحترافية» · (3) تحديث سجلَّي العمل والإيداع والدفع لإطلاق بناء APK #2
+
+Work Log:
+- **إزالة WARP (قرار مالك موثَّق):** `server-arbitration.js` حذف `relay.rtmp_secure`/`mediamtx_rtmp_secure`/`MEDIAMTX_RTMP_URL_WARP` · `arb-page.js` بطاقة خيار واحد بلا `relayRtmpSecureUrl()` · `translations.js` حذف `arb.mrOptB*` وإعادة صياغة البطاقة بأربع لغات · `mediamtx.yml` تعليق النقل · الوثائق §5.4/§5.4.2/§4.3 · المسار الحي لم يُلمس (`rtmpAddress` = `127.0.0.1:1935` والمسار المُرمَّز HMAC كما هو)
+- **P2:** إلغاء استثناء `vercel.json` من `.gitignore` (نشر ڤيرسيل رسمي ثانٍ) ⇒ ترويسات الأمان التسع (CSP/HSTS/XFO/nosniff/Referrer-Policy/Permissions-Policy/COOP/CORP) تدخل git — يتطلب إعادة نشر Vercel لتفعيلها
+- **P3:** بادئة السجل `ediamtx]` ⇒ `[mediamtx]` في 4 مواضع · جسم JSON التالف يعود **400** بدل 401
+- **تشخيص APK الميداني (تثبيت المالك للبناء #1):** (أ) **الدخول:** WebView Capacitor يعمل على `localhost` **بلا منفذ** فكانت الواجهة تظنه خادماً تطويرياً same-origin وترسل `/api/*` إلى التطبيق نفسه ⇒ فشل دخول حتمي على أي جهاز — والوسيط سليم أصلاً (تحقق حي: `access-control-allow-origin: https://localhost` مع credentials) · (ب) **الشعار:** `npx cap add android` يولّد `android/` حديثاً كل تشغيل بأيقونة الروبوت الافتراضية — لا خطوة توليد أيقونات في الخط إطلاقاً
+- **إصلاح الدخول (جذري في 4 مواضع):** `api.js` · `auth.js` · `live-ws-bridge.js` · `wallet.js` — «localhost» **بلا منفذ ليس same-origin أبداً** (البحث اشترط `:\d+`) + حارس `IS_NATIVE_APP` (`window.Capacitor.isNativePlatform()`) يستثني التطبيق ⇒ يقرأ `/api-url2.json` من حزمته ويوجّه إلى وسيط الهاتف كالمتصفح، مع أساس `rc_api_base` في مزامنة beforeunload
+- **إصلاح الشعار (جذري):** `resources/icon.png` (1024×1024) + `resources/splash.png` (2732×2732) مشتقتان من `assets/dtsg/dtsg-logo-main.webp` على خلفية `#0b1526`، مُلزَمان في المستودع، وخطوة «Generate app icons + splash from platform logo» (`@capacitor/assets@3 --assetPath resources`) بعد `cap sync` قبل Gradle في **النسختين المتطابقتين** (`cmp` = 0) لسير البناء
+- **حجب `resources/` عن الويب:** `_redirects` قاعدة `/resources/* ⇒ 404` + `STATIC_DENY` في `server.js` — حرس تغطية النشر بقي أخضر
+- **بصمات الكاش:** `?v=v2813` (translations · arb-page · main) + `?v=dtsg13` (live-ws-bridge) · `?v=dtsg11` (api · auth) · `?v=pay12` (wallet) — و`DTSG_BUILD = 'v2.81.3'` = `package.json` 2.81.3
+- **حارس جديد:** `tests/_v2813_apk_native_test.js` (**15**) — شرط المنفذ في المواضع الأربعة، وعي beforeunload الأصلي، واستبعاد origin في المحفظة، وخطوة الأيقونات في النسختين متطابقتين، وأبعاد resources، وعقد `api-url2.json` في `prepare-www.sh`
+- **توثيق:** كتلة `## v2.81.3` في CHANGELOG (أ: WARP · ب: P2/P3 · ج: إصلاحا APK · د: البصمة) + ترويسة الملف · قاعدة 17 في AGENTS.md (صفر أثر WARP + حرسات APK) · `docs/APK_BUILD.md` §2.3 · هذا المدخل
+- **سلامة قبل الإيداع:** استُعيد انحدار عَرَضي في شجرة العمل كان أعاد `ediamtx]` على أسطر السجل الأربعة (النسخة المُرحَّلة سليمة) · فحص نحوي `node --check` لعشرة ملفات معدّلة = OK · `bash scripts/qa-env.sh` أقام معزولة v2.81.3 من شجرة العمل نفسها بقاعدة نظيفة
+
+Stage Summary:
+- **الحراسات على المعزولة (123/123 ✓):** `_v281_mediamtx_status` **82/82** · `_deploy_coverage` **21/21** · `_repo_hygiene` **5/5** · `_v2813_apk_native` **15/15** — صفر فشل وصفر انحدار
+- **الإيداع والدفع:** commit موحَّد لجولتي v2.81.3 (WARP + APK) ودفع إلى main ⇒ سير البناء يلتقط تعديل `.github/workflows/build-apk.yml` و`resources/` ويطلق **بناء APK #2** بالشعار والدخول المُصلَحان تلقائياً (تم التحقق من الانطلاق من طرف هذا الجلسة)
+- **على المالك بعد البناء #2:** نزول الـAPK الجديد من صفحة التشغيل وتثبيته — الدخول سيمر عبر وسيط الهاتف والشعار سيظهر (يُلزم إلغاء تثبيت النسخة القديمة أولاً لأن التوقيع نفسه يمنع التحديث فوقها إن اختلفت بصمته)
+- **⚠ بنود نشر معلّقة (خارج نطاق الكود):** إعادة نشر Cloudflare Pages لنشر إصلاحات الويب (بصمات الكاش) · إعادة نشر Vercel لترويسات P2 · لا تُؤخَّر فوق بناء #2 لأنها مستقلة عنه

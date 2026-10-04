@@ -11,6 +11,9 @@ window.PWAL = window.PWAL || {};
   var METHODS = null;
   var PROBED = null;       /* نتيجة الفحص الأولى (توفير طلب مكرر) */
   var overlay = null;
+  /* [v2.81.3-APK] تطبيق الأندرويد (Capacitor): نفس الأصل هو WebView الداخلي
+     بلا API — لا يُضاف مرشّحاً لعنوان المدفوعات. */
+  var IS_NATIVE_APP = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 
   function base() { return (BASE || '').replace(/\/$/, ''); }
   /* [PayRoute v2.40] حلّ عنوان المدفوعات بذكاء:
@@ -40,7 +43,7 @@ window.PWAL = window.PWAL || {};
     } catch (e) { fileUrl = ''; }
     var cands = [];
     if (fileUrl) cands.push(fileUrl);
-    if (typeof location !== 'undefined' && location.origin) cands.push(location.origin);
+    if (typeof location !== 'undefined' && location.origin && !IS_NATIVE_APP) cands.push(location.origin);
     try {
       var ab = (typeof window !== 'undefined') ? (window.API_BASE_URL || window.API_BASE_PROMISE) : null;
       if (ab && typeof ab.then === 'function') ab = await ab;

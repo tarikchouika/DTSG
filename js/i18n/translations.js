@@ -1238,24 +1238,20 @@ const TR = {
      RTMP إلى المرحّل (MediaMTX) بمسار مفتاح خاص به يعرضه له */
   'arb.mrTitle': [ '📱 مشاركة شاشة الهاتف — عبر تطبيق RTMP', '📱 Partage d\'écran mobile — via une appli RTMP', '📱 Mobile screen sharing — via an RTMP app', '📱 مشاركة السكرانة من التيليفون — عبر تطبيق RTMP' ],
   'arb.mrStep1': [ 'ثبّت تطبيق بث شاشة مجانياً (مثل <b>Larix Screencer</b> من متجر التطبيقات)', 'Installez une appli gratuite de diffusion d\'écran (ex. <b>Larix Screencer</b> du store)', 'Install a free screen-broadcast app (e.g. <b>Larix Screencer</b> from the store)', 'ثبّت تطبيق باش تبث السكرانة بلا فلوس (بحال <b>Larix Screencer</b> من الستور)' ],
-  'arb.mrStep2': [ 'في إعدادات البث بالتطبيق: اختر RTMP ثم الصق عنوان الخيار الذي تختاره أدناه', 'Dans les réglages de diffusion : choisissez RTMP puis collez ci-dessous l\'adresse de l\'option choisie', 'In the app\'s broadcast settings: choose RTMP then paste the address of your chosen option below', 'فإعدادات البث ديال التطبيق: ختار RTMP ولصق عنوان الخيار اللي اخترتي لتحت' ],
+  'arb.mrStep2': [ 'في إعدادات البث بالتطبيق: اختر RTMP ثم الصق عنوان النشر أدناه', 'Dans les réglages de diffusion : choisissez RTMP puis collez ci-dessous l\'adresse de publication', 'In the app\'s broadcast settings: choose RTMP then paste the publish address below', 'فإعدادات البث ديال التطبيق: ختار RTMP ولصق عنوان النشر لتحت' ],
   'arb.mrStep3': [ 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ثم ابدأ البث', 'Dans l\'appli, activez « Capture d\'écran / Screen capture » puis démarrez', 'Inside the app enable “Screen capture” then start broadcasting', 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ومن بعد بدا البث' ],
   'arb.mrStep4': [ 'الأدمن يشاهد شاشتك عبر المرحّل ويظهر بثّك مباشرة في لوحته', 'L\'admin regarde votre écran via le relais — votre diffusion apparaît dans son panneau', 'The admin watches your screen via the relay — your stream appears in their panel', 'الأدمن كيتفرج فالشاشة ديالك عبر المرحّل والبث ديالك كيبان عندو دغيا' ],
   'arb.mrCopy': [ '📋 نسخ', '📋 Copier', '📋 Copy', '📋 كوپي' ],
   'arb.mrCopied': [ '📋 نُسخ عنوان البث — الصقه في تطبيق RTMP', '📋 Adresse de diffusion copiée — collez-la dans l\'appli RTMP', '📋 Broadcast URL copied — paste it into the RTMP app', '📋 العنوان تنسخ — لصقو فتطبيق RTMP' ],
   'arb.mrNote': [ 'ℹ️ هذا البث عبر المرحّل يعمل من الهاتف دون حاسوب — ومشاركة المتصفح من حاسوب تبقى ممكنة كما كانت', 'ℹ️ Cette diffusion via relais fonctionne depuis le téléphone sans ordinateur — le partage depuis un ordinateur reste possible comme avant', 'ℹ️ This relayed broadcast works from a phone without a computer — desktop browser sharing remains available as before', 'ℹ️ البث عبر المرحّل كيخدم من التيليفون بلا أورديناتور — ومشاركة المتصفح من الأورديناتور باقة ممكنة بحال قبل' ],
   'arb.mrHint': [ '📱 البديل على الهاتف: بث RTMP عبر تطبيق خارجي — افتح صفحة <b>التحكيم المباشر</b> لنسخ عنوان بثّك الخاص', '📱 Alternative mobile : diffusion RTMP via une appli externe — ouvrez la page <b>Arbitrage en direct</b> pour copier votre adresse', '📱 Mobile alternative: RTMP broadcast via an external app — open the <b>Live Arbitration</b> page to copy your personal URL', '📱 البديل فالتيليفون: بث RTMP عبر تطبيق خارجي — حل صفحة <b>التحكيم المباشر</b> باش تنسخ العنوان ديالك' ],
-  /* [v2.81.2·خيارا البث] ناشران لا ناشر واحد، والفرق محور الخصوصية لا
-     الراحة ⇒ كل خيار يُسمّى ويُوصى به ويُذَكر تحذيره، ولا يُخفى خلف
-     مفتاح لا يجده اللاعب. (ب) لا يظهر إلا إن سلّمه الخادم (rtmp_secure)،
-     وأدناه (أ) هو الافتراضي لمباراة عادية و(ب) لمباراة حسّاسة. */
-  'arb.mrOptTitle': [ '⚖️ خيارا البث — لكل واحد مقايضة', '⚖️ Deux modes de diffusion — chacun a ses compromis', '⚖️ Two broadcast options — each has a trade-off', '⚖️ جوج خيارات ديال البث — كل واحد فيهم بشنو كيتنازل' ],
-  'arb.mrOptA': [ 'الخيار 1 — نفق عام (الأسهل)', 'Option 1 — tunnel public (le plus simple)', 'Option 1 — public tunnel (simplest)', 'الخيار 1 — نفق عام (الأسهل)' ],
-  'arb.mrOptARec': [ '✅ موصى به — مباراة عادية', '✅ Recommandé — match normal', '✅ Recommended — normal match', '✅ موصى بيه — ماتش عادي' ],
+  /* [v2.81.3·مسار واحد] ناشر واحد عبر المرحّل العام — يُسمّى ويُوصى به
+     ويُذكَر تحذير الخصوصية، ولا يُخفى خلف مفتاح لا يجده اللاعب. [أُزيل
+     خيار الشبكة المشفَّرة بتوجيه المالك 2026-10-04 — بطاقة بنكية Zero Trust] */
+  'arb.mrOptTitle': [ '📡 عنوان النشر — عبر المرحّل', '📡 Adresse de publication — via le relais', '📡 Publish address — via the relay', '📡 عنوان النشر — عبر المرحّل' ],
+  'arb.mrOptA': [ 'نفق عام (الأسهل)', 'Tunnel public (le plus simple)', 'Public tunnel (simplest)', 'نفق عام (الأسهل)' ],
+  'arb.mrOptARec': [ '✅ المسار المعتمد — صفر إعداد', '✅ Voie standard — zéro configuration', '✅ Standard path — zero setup', '✅ المسار المعتمد — بلا إعدادات' ],
   'arb.mrOptAInfo': [ 'غير مشفَّر — السلامة مضمونة برمز المسار، أما ظهور شاشتك لمشغّل المرحّل فلا يستطيع أحد منعه', 'Non chiffré : le jeton de chemin garantit l\'intégrité, mais personne ne peut empêcher l\'opérateur du relais de voir votre écran', 'Not encrypted — the path token guarantees integrity, but nobody can stop the relay operator from seeing your screen', 'ماشي مشفّر — رمز المسار كيضمن السلامة، ولكن حد ما يمكنو يمنع مشغّل المرحّل من يشوف السكرانة ديالك' ],
-  'arb.mrOptB': [ 'الخيار 2 — شبكة خاصة مشفّرة', 'Option 2 — réseau privé chiffré', 'Option 2 — encrypted private network', 'الخيار 2 — شبكة خاصة مشفّرة' ],
-  'arb.mrOptBRec': [ '🔒 للمباريات الحسّاسة', '🔒 Pour les matchs sensibles', '🔒 For sensitive matches', '🔒 للماتشات الحسّاسة' ],
-  'arb.mrOptBInfo': [ 'مشفَّر طرف-لطرف بلا طرف ثالث في المسار — لكن يتطلّب تطبيق Cloudflare One على هاتفك', 'Chiffré de bout en bout, aucun tiers dans le chemin — mais exige l\'appli Cloudflare One sur votre téléphone', 'Encrypted end to end with no third party in the path — but it needs the Cloudflare One app on your phone', 'مشفّر من طرف لطرف، وحتى طرف ثالث فالمسار — ولكن كيطلب تطبيق Cloudflare One فالهاتف ديالك' ],
   /* ══ [v2.76·ترتيب حقيقي] المتصدرون من بيانات الرهان الفعلية ══ */
   'lb.sub': [ 'ترتيب حقيقي حسب صافي أرباح اللعب — لكل لعبة على حدة وترتيب عام شامل', 'Classement réel par profits nets de jeu — par jeu et général', 'Real ranking by net game profit — per game and overall', 'ترتيب حقيقي حسب الربح الصافي — لكل لعبة وترتيب عام' ],
   'lb.overall': [ 'الترتيب العام', 'Général', 'Overall', 'الترتيب العام' ],
