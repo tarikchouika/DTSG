@@ -28,12 +28,15 @@ const SG = path.join(ROOT, 'scripts/set-github-secrets.sh');
 const vb = fs.readFileSync(VB, 'utf8');
 const sg = fs.readFileSync(SG, 'utf8');
 
-/* ── أ) سكربتا المعرفة المشتركة موجودان بعقد hygiene (644 · bash -n) ─────── */
+/* ── أ) سكربتا المعرفة المشتركة موجودان بعقد hygiene (بلا تنفيذ · bash -n) ── */
+/* [إصلاح ما بعد الدمج مع v2.81.5]: العقد الحقيقي هو «بلا أي صلاحية تنفيذ» —
+   والفهرس 100644 يفرضه _repo_hygiene؛ فحص 644 الحرفي على نظام الملفات كان
+   هشّاً أمام umask البيئات (664 بعد rebase) دون أن يمس العقد نفسه. */
 ok('سكربتا المعرفة المشتركة موجودان في scripts/ (VERIFY-BUNDLE.sh · set-github-secrets.sh)',
   fs.existsSync(VB) && fs.existsSync(SG));
-const mode644 = f => (fs.statSync(f).mode & 0o777) === 0o644;
-ok('لا صلاحية تنفيذ: السكربتان 644 بالضبط (يُستدعيان بbash حصراً — عقد hygiene في _repo_hygiene)',
-  mode644(VB) && mode644(SG));
+const noExec = f => (fs.statSync(f).mode & 0o111) === 0;
+ok('لا صلاحية تنفيذ: السكربتان بلا أي بت x (يُستدعيان بbash حصراً — عقد hygiene في _repo_hygiene)',
+  noExec(VB) && noExec(SG));
 const bashOk = f => spawnSync('bash', ['-n', f], { encoding: 'utf8' }).status === 0;
 ok('bash -n سليم للسكربتين معاً (لا خطأ نحوي في أي منهما)',
   bashOk(VB) && bashOk(SG));

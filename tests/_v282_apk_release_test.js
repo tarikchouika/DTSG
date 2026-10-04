@@ -108,11 +108,14 @@ ok('Artifact احتياطي DSTG-Gaming-App-Release (7 أيام) — القنا�
 /* ── 8) الشهادة لا تُودَع في المستودع العام أبداً (قاعدة 5) ──────────────── */
 /* تبييض صريح [2026-10-05]: pathspec "*keystore*" يلتقط سكربت التوثيق المتتبَّع
    عمداً scripts/make-production-keystore.sh (غير سري — ويستهدفه الحرس نفسه في
-   هذا القسم)، فهو المسموح الوحيد في المخرجات: أي ملف keystore/jks آخر متتبَّع،
-   أو اختفاء السكربت المبيَّض من التتبع، يُسقط الحارس (قاعدة 19 توثّق ظهوره حصراً). */
+   هذا القسم)، وهما المسموحان الحصريان مع حرس العقد نفسه
+   tests/_v282_keystore_knowledge_test.js (اسمه يحمل الكلمة — تبييض ما بعد
+   الدمج مع v2.81.5): أي ملف keystore/jks آخر متتبَّع،
+   أو اختفاء أحدهما من التتبع، يُسقط الحارس (قاعدة 19 توثّق ظهورهما حصراً). */
+const KS_ALLOWED = new Set(['scripts/make-production-keystore.sh', 'tests/_v282_keystore_knowledge_test.js']);
 const ksTracked = execSync('git ls-files "*keystore*" "*jks*"', { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
-ok('git ls-files: لا keystore/jks متتبَّع عدا سكربت التوثيق المبيَّض (المسموح الوحيد scripts/make-production-keystore.sh — أي شيء آخر ممنوع)',
-  ksTracked.length > 0 && ksTracked.every(f => f === 'scripts/make-production-keystore.sh'));
+ok('git ls-files: لا keystore/jks متتبَّع عدا المبيَّضَين (سكربت التوثيق + حرس العقد — أي شيء آخر ممنوع)',
+  ksTracked.length > 0 && ksTracked.every(f => KS_ALLOWED.has(f)));
 const gi = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
 ok('.gitignore يحجب كل أنماط الشهادات (*.keystore · *.jks · كلمة السر · مجلد التسليم)',
   /^\*\.keystore$/m.test(gi) && /^\*\.jks$/m.test(gi) &&
