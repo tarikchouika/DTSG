@@ -24,6 +24,10 @@
        — الاستعلام على الطلب حصراً: بلا لوحة مفتوحة لا استعلام إطلاقاً) */
     rt: {},                /* roomId -> { available, players: { uid: {...} } } */
     rtBusy: false,
+    /* [v2.81.4·بروكسي HLS] مشغّلات بث المرحّل لكل لاعب (uid -> Hls|{native})
+       — تُنشأ عند وصول البث وتُدمّر عند انقطاعه أو تفكيك اللوحة؛ عناصر
+       الفيديو P2P الحيّة لا تُمسّ إطلاقاً (قاعدة 17) */
+    rtHls: {},
     /* [v2.76·صفحة التحكيم] حاوية الرسم قابلة للتبديل: التبويب الأصلي في
        لوحة الأدمن (adminContent) أو مركز التحكيم بالصفحة المخصّصة
        (arbConsole) — اتصالات WebRTC تعاد إرفاقها بالفيديوهات الجديدة
@@ -121,7 +125,72 @@
         ? '<span class="arb-chip arb-failed">⚫ ' + (T('arb.relayDown') || 'المرحّل لا يرد') + '</span>'
         : rtHtml(rt.players[String(p.user_id)]);
       if (el.dataset.sig !== html) { el.dataset.sig = html; el.innerHTML = html; }
+      /* [v2.81.4·بروكسي HLS] مشغّل مشاهدة بث المرحّل — يظهر عند اتصال البث
+         (online + hls_path) ويُزال عند انقطاعه؛ بلا مسّ لأي عنصر آخر */
+      renderRtPlay(roomId, p, rt);
     });
+  }
+  /* ── [v2.81.4] مشغّل بث المرحّل (HLS عبر بروكسي المنصة) ──
+     الرمز الموقّع يأتي من stream-status (hls_path) — لا يُبنى هنا إطلاقاً */
+  function relayBaseUrl() {
+    return (typeof root.API_BASE_URL === 'string' && root.API_BASE_URL) ? root.API_BASE_URL : '';
+  }
+  function stopRelayPlayer(uid) {
+    var inst = st.rtHls[uid];
+    if (inst) {
+      try { if (inst.destroy) inst.destroy(); } catch (e) {}
+      try { if (inst.video) inst.video.removeAttribute('src'); inst.video.load(); } catch (e) {}
+    }
+    delete st.rtHls[uid];
+    var box = document.getElementById('arbRtPlay-' + uid);
+    if (box) { box.dataset.on = ''; box.dataset.src = ''; box.innerHTML = ''; }
+  }
+  function startRelayPlayer(uid, hlsPath) {
+    var box = document.getElementById('arbRtPlay-' + uid);
+    if (!box || box.dataset.on === '1') return;
+    box.dataset.on = '1';
+    var url = relayBaseUrl() + hlsPath;
+    box.innerHTML = '<div class="arb-rtp-hd"><span>' + (T('arb.rtRelayView') || '🟠 مشاهدة عبر المرحّل') + '</span>' +
+      '<span class="arb-rtp-note">' + esc(T('arb.rtRelayHlsNote') || 'HLS — تأخير ثوانٍ قليلة') + '</span></div>' +
+      '<video id="arbRtVid-' + esc(String(uid)) + '" autoplay playsinline muted></video>';
+    var vid = document.getElementById('arbRtVid-' + uid);
+    try {
+      if (root.Hls && root.Hls.isSupported && root.Hls.isSupported()) {
+        var hls = new root.Hls({ lowLatencyMode: true, backBufferLength: 30, maxBufferLength: 10, liveSyncDurationCount: 3 });
+        hls.loadSource(url);
+        hls.attachMedia(vid);
+        st.rtHls[uid] = hls;
+        hls.on(root.Hls.Events.ERROR, function (ev, data) {
+          if (data && data.fatal) {
+            stopRelayPlayer(uid);
+            if (box) box.innerHTML = '<div style="padding:0 0 8px"><span class="arb-chip arb-failed">🔴 ' +
+              esc(T('arb.rtRelayFail') || 'تعذر عرض بث المرحّل') + '</span></div>';
+          }
+        });
+      } else if (vid && vid.canPlayType && vid.canPlayType('application/vnd.apple.mpegurl')) {
+        vid.src = url;                 /* Safari: HLS أصلي */
+        st.rtHls[uid] = { native: true, video: vid };
+      } else {
+        box.innerHTML = '<div style="padding:0 0 8px"><span class="arb-chip arb-failed">🔴 ' +
+          esc(T('arb.rtRelayNoSupport') || 'المتصفح لا يدعم عرض HLS') + '</span></div>';
+      }
+    } catch (e) { stopRelayPlayer(uid); }
+  }
+  function renderRtPlay(roomId, p, rt) {
+    var uid = String(p.user_id);
+    var box = document.getElementById('arbRtPlay-' + uid);
+    if (!box) return;
+    var rp = rt.players[uid];
+    var want = (rt.available !== false && rp && rp.online && rp.hls_path) ? rp.hls_path : '';
+    if (want) {
+      if (box.dataset.on !== '1' || box.dataset.src !== want) {
+        stopRelayPlayer(uid);
+        box.dataset.src = want;
+        startRelayPlayer(uid, want);
+      }
+    } else if (box.dataset.on === '1' || box.innerHTML) {
+      stopRelayPlayer(uid);
+    }
   }
   function startPolling() {
     stopPolling();
@@ -398,6 +467,7 @@
           ' <span id="arbstate-' + esc(String(p.user_id)) + '">' + (STATE_LBL[p.state] || esc(p.state)) + '</span></div>' +
         '<video id="arbvid-' + esc(String(p.user_id)) + '" autoplay playsinline muted></video>' +
         '<div class="arb-rt" id="arbRt-' + esc(String(p.user_id)) + '"></div>' +
+        '<div class="arb-rtplay" id="arbRtPlay-' + esc(String(p.user_id)) + '"></div>' +
       '</div>';
     }).join('');
     return '<div class="arb-view">' +
@@ -442,6 +512,9 @@
   function unmount() {
     stopPolling();
     Object.keys(st.pcs).forEach(closePcs);
+    /* [v2.81.4] تفكيك مشغّلات بث المرحّل (مصادر HLS نشطة) */
+    Object.keys(st.rtHls).forEach(stopRelayPlayer);
+    st.rtHls = {};
     st.viewing = null;
     st.listSig = '';
     st.viewSig = '';

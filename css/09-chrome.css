@@ -1307,6 +1307,27 @@ html[dir="ltr"] .botchat { direction: ltr; }
 .arb-rt { padding: 6px 12px 8px; font-size: .74rem; min-height: 0; }
 .arb-rt:empty { display: none; }
 .arb-rt .arb-chip { font-size: .72rem; }
+/* [v2.81.4·بروكسي HLS] مشغّل مشاهدة الأدمن لبث المرحّل — بلا خصائص
+   حديثة (قاعدة التوافق): flex بسيط وفيديو بنسبة ثابتة */
+.arb-rtplay { padding: 0 12px 10px; }
+.arb-rtplay:empty { display: none; }
+.arb-rtplay .arb-rtp-hd {
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  font-size: .76rem; font-weight: 800; color: #fdba74; margin: 2px 0 6px;
+}
+.arb-rtplay .arb-rtp-note { font-weight: 600; font-size: .68rem; color: rgba(243,229,192,0.6); }
+.arb-rtplay video {
+  display: block; width: 100%; aspect-ratio: 16/9; background: #000;
+  border-radius: 10px; object-fit: contain;
+}
+/* [v2.81.4·بطاقة اللاعب] شارة حالة المرحّل الحيّة في بطاقة الهاتف */
+.arb-mr-status {
+  margin: 10px 0 2px; padding: 8px 11px; border-radius: 11px; font-weight: 800;
+  font-size: .78rem; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.12);
+}
+.arb-mr-status.on { color: #86efac; border-color: rgba(134,239,172,0.45); }
+.arb-mr-status.wait { color: #fde68a; border-color: rgba(253,230,138,0.4); }
+.arb-mr-status.err { color: #fca5a5; border-color: rgba(252,165,165,0.45); }
 
 /* بطاقات جلسات الأدمن */
 .arb-card {

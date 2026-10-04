@@ -1252,6 +1252,17 @@ const TR = {
   'arb.mrOptA': [ 'نفق عام (الأسهل)', 'Tunnel public (le plus simple)', 'Public tunnel (simplest)', 'نفق عام (الأسهل)' ],
   'arb.mrOptARec': [ '✅ المسار المعتمد — صفر إعداد', '✅ Voie standard — zéro configuration', '✅ Standard path — zero setup', '✅ المسار المعتمد — بلا إعدادات' ],
   'arb.mrOptAInfo': [ 'غير مشفَّر — السلامة مضمونة برمز المسار، أما ظهور شاشتك لمشغّل المرحّل فلا يستطيع أحد منعه', 'Non chiffré : le jeton de chemin garantit l\'intégrité, mais personne ne peut empêcher l\'opérateur du relais de voir votre écran', 'Not encrypted — the path token guarantees integrity, but nobody can stop the relay operator from seeing your screen', 'ماشي مشفّر — رمز المسار كيضمن السلامة، ولكن حد ما يمكنو يمنع مشغّل المرحّل من يشوف السكرانة ديالك' ],
+  /* ══ [v2.81.4·حالة المرحّل الحيّة] شارة البطاقة + مشغّل الأدمن ══
+     mrStatus*: علاج «البطاقة العمياء» الموثّق في تسجيل المالك 2026-10-04 —
+     mrLarixTip: من التسجيل ذاته (Larix جرّب WebRTC فوق عنوان RTMP ففشل) */
+  'arb.mrStatusLive': [ '🟠 المرحّل يستقبل بثّك الآن', '🟠 Le relais reçoit votre flux', '🟠 Relay is receiving your stream now', '🟠 الريلي كيتوصل بالبث ديالك دابا' ],
+  'arb.mrStatusIdle': [ '⚪ لا بثّ وارد بعد — ابدأ النشر من تطبيق البث ثم انتظر ثوانٍ', '⚪ Aucun flux reçu — démarrez la diffusion puis attendez quelques secondes', '⚪ No stream received yet — start broadcasting in the app then wait a few seconds', '⚪ حتى بث دابا — بدا النشر من التطبيق وتسنى ثواني' ],
+  'arb.mrStatusDown': [ '⚫ المرحّل لا يستجيب — أعد تشغيل خادم الهاتف/النفق ثم حدّث', '⚫ Le relais ne répond pas — redémarrez le serveur/tunnel puis actualisez', '⚫ Relay not responding — restart the phone server/tunnel then refresh', '⚫ الريلي ما كيجاوبش — عاود شغّل السيرفر/التونل ثم حدّث' ],
+  'arb.mrLarixTip': [ '⚠️ في Larix أنشئ اتصالاً من نوع RTMP حصراً (لا WebRTC ولا SRT) والصق العنوان كما هو', '⚠️ Dans Larix, créez une connexion de type RTMP uniquement (pas WebRTC ni SRT) et collez l\'adresse telle quelle', '⚠️ In Larix create an RTMP-type connection only (not WebRTC nor SRT) and paste the address as-is', '⚠️ فLarix دير اتصال من نوع RTMP بوحدو (ماشي WebRTC ولا SRT) ولصق العنوان كيفما هو' ],
+  'arb.rtRelayView': [ '🟠 مشاهدة عبر المرحّل', '🟠 Vue via le relais', '🟠 Watch via relay', '🟠 مشاهدة عبر الريلي' ],
+  'arb.rtRelayHlsNote': [ 'HLS — تأخير ثوانٍ قليلة', 'HLS — quelques secondes de latence', 'HLS — few seconds of delay', 'HLS — تأخير ديال ثواني' ],
+  'arb.rtRelayFail': [ 'تعذر عرض بث المرحّل', 'Impossible d\'afficher le flux du relais', 'Relay stream could not be displayed', 'ما قدرناش نعرضو بث الريلي' ],
+  'arb.rtRelayNoSupport': [ 'المتصفح لا يدعم عرض HLS', 'Le navigateur ne prend pas en charge HLS', 'Browser does not support HLS playback', 'المتصفح ما كيدعمش عرض HLS' ],
   /* ══ [v2.76·ترتيب حقيقي] المتصدرون من بيانات الرهان الفعلية ══ */
   'lb.sub': [ 'ترتيب حقيقي حسب صافي أرباح اللعب — لكل لعبة على حدة وترتيب عام شامل', 'Classement réel par profits nets de jeu — par jeu et général', 'Real ranking by net game profit — per game and overall', 'ترتيب حقيقي حسب الربح الصافي — لكل لعبة وترتيب عام' ],
   'lb.overall': [ 'الترتيب العام', 'Général', 'Overall', 'الترتيب العام' ],

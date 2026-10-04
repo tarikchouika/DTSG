@@ -776,6 +776,10 @@ setInterval(function () { try { arb.sweep(); } catch (e) {} }, 5000);
 const mtx = require('./server-mediamtx.js').createMediaMtxMonitor({
   db: db, roomHub: roomHub, users: users, sseClients: sseClients, arb: arb
 });
+/* [v2.81.4] ربط المراقب بوحدة التحكيم (بعد إنشاءهما — arb أسبق من mtx):
+   mine() يستعلم حالة بثّ اللاعب عبر المرحّل ويفتح جلسة التحكيم آلياً
+   عند وصول بثّ موقّع — انظر server-arbitration.js mine() */
+try { if (arb.setMediaMtxMonitor) arb.setMediaMtxMonitor(mtx); } catch (e) {}
 function sendSSE(res, event, data) {
   try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); } catch (e) {}
 }
@@ -2126,8 +2130,10 @@ const server = http.createServer((req, res) => {
       /* [v2.76·صفحة التحكيم] جلستي: غرفة المستخدم الجارية + جلسة التحكيم
          المرتبطة بها — قبل كتلة المسارات كي لا يلتقطها regex المطابقة */
       if (pathname === '/api/matches/mine' && req.method === 'GET') {
-        const rMn = arb.mine(me);
-        json(rMn.body, rMn.status);
+        /* [v2.81.4] mine صارت Promise (استقصاء المرحّل + الجلسة الآلية) */
+        Promise.resolve(arb.mine(me)).then(function (rMn) {
+          json(rMn.body, rMn.status);
+        }).catch(function () { json({ ok: false, message: 'تعذر جلب جلستي' }, 500); });
         return;
       }
       /* [v2.81·mediamtx] حالة بث اللاعبين عبر المرحّل — استعلام Loopback محلي
@@ -2142,6 +2148,79 @@ const server = http.createServer((req, res) => {
           return;
         }
       }
+      /* ═══════ [v2.81.4·بروكسي HLS] مشاهدة الأدمن لبث المرحّل ═══════
+         MediaMTX كله على Loopback (عقد v2.81.1) ⇒ متصفح الأدمن لا يصل إلى
+         8888 مباشرة. البروكسي داخل خادم المنصة نفسه (واسع الوصول أصلاً):
+           GET /api/matches/:room/hls/:uid/index.m3u8?t=<viewToken>
+           GET /api/matches/:room/hls/:uid/<seg>?t=<viewToken>
+         الرمز HMAC موقّع بانتهاء (server-mediamtx signViewToken) يُسكب
+         خادمياً في stream-status للأدمن حصراً — لا كوكيز ولا CORS ولا
+         حالة. القوائم تُعاد كتابتها (rewriteHlsPlaylist) والمقاطع تمرّ
+         أنقلاً (pipe). عقد الباندويث سليم: هذا هو فيديو المرحّل نفسه —
+         كان سيخرج من الهاتف عبر أي حل مشاهدة كانا. */
+      {
+        const hlsM = pathname.match(/^\/api\/matches\/([^\/]+)\/hls\/([^\/]+)\/([A-Za-z0-9_.\-]+)$/);
+        if (hlsM && req.method === 'GET') {
+          const MMX = require('./server-mediamtx.js');
+          const hRoom = decodeURIComponent(hlsM[1] || ''), hUid = decodeURIComponent(hlsM[2] || ''), hFile = hlsM[3] || '';
+          const q = new URL(req.url, 'http://x').searchParams;
+          const qTok = String(q.get('t') || '');
+          if (!MMX.verifyViewToken(hRoom, hUid, qTok)) { json({ ok: false, message: 'رمز مشاهدة غير صالح أو منتهٍ' }, 403); return; }
+          const hlsUp = MMX.hlsUrl;
+          let hHost = '';
+          try { hHost = new URL(hlsUp).hostname; } catch (e) { hHost = '?'; }
+          if (hHost !== '127.0.0.1' && hHost !== 'localhost' && hHost !== '[::1]') {
+            json({ ok: false, message: 'بروكسي HLS معطّل — MEDIAMTX_HLS_URL ليس محلياً' }, 503); return;
+          }
+          /* المسار المصدري يُشتق خادمياً بالرمز نفسه (publishPath موقّع حصراً —
+             لا مسار مجرّد من العميل أبداً [v2.81.1])، ونقطة الدخول (index.m3u8)
+             تتطلب جلسة تحكيم حية كي لا يُستعمل الرمز لنوافذ بلا جلسة */
+          let upPath;
+          try {
+            const arbLive = arb._live && arb._live.get(String(hRoom));
+            const pl = arbLive && (arbLive.players || []).find(function (p) { return String(p.userId) === String(hUid); });
+            if (!pl && hFile === 'index.m3u8') { json({ ok: false, message: 'لا جلسة تحكيم حية لهذا اللاعب' }, 404); return; }
+            upPath = '/' + MMX.publishPath(hRoom, hUid) + '/' + hFile;
+          } catch (e) { json({ ok: false, message: 'بروكسي HLS فشل' }, 500); return; }
+          /* [v2.81.4·إصلاح الميدان] hlsFetch يتبع 302 cookieCheck الخاص
+             بالمرحّل (آلية تحقق جلسة HLS في MediaMTX v1.21) مع جمع كوكيزه
+             داخل الخادم — http.get الخام كان يُرجع 302 كما هي فيتحول
+             للبروكسي 502 ولا يفتح المشغّل البث أبداً (كشفه الفحص الحيّ). */
+          MMX.hlsFetch(upPath, function (hRes, hErr) {
+            if (hErr) {
+              json({ ok: false, message: hErr === 'timeout' ? 'انتهت مهلة المرحّل' : 'المرحّل لا يستجيب (HLS)' }, hErr === 'timeout' ? 504 : 502);
+              return;
+            }
+            if (hRes.statusCode !== 200) {
+              /* 404 المرحّل = لا بثّ بعد — JSON نظيف لا HTML */
+              hRes.resume();
+              json({ ok: false, message: 'لا بث متاحاً عبر المرحّل حالياً', upstream: hRes.statusCode }, hRes.statusCode === 404 ? 404 : 502);
+              return;
+            }
+            /* [v2.81.4] كل ملفات m3u8 تُعاد كتابتها (الرئيسية + قوائم المتغيرات
+               والوسائط video1_stream.m3u8) — إذ تُحمل القوائم الفرعية عبر
+               البروكسي نفسه ومقاطعها النسبية تحتاج الرمز وإلا 403 */
+            const isPlaylist = /\.m3u8$/i.test(hFile);
+            if (isPlaylist) {
+              let chunks = '';
+              hRes.setEncoding('utf8');
+              hRes.on('data', function (c) { if (chunks.length < 524288) chunks += c; });
+              hRes.on('end', function () {
+                try {
+                  res.writeHead(200, { 'Content-Type': 'application/vnd.apple.mpegurl', 'Cache-Control': 'no-store' });
+                  res.end(MMX.rewriteHlsPlaylist(chunks, hRoom, hUid, qTok));
+                } catch (e) { try { res.destroy(); } catch (e2) {} }
+              });
+              hRes.on('error', function () { try { res.destroy(); } catch (e2) {} });
+            } else {
+              try { res.writeHead(200, { 'Content-Type': hRes.headers['content-type'] || 'video/mp2t', 'Cache-Control': 'no-store' }); } catch (e) {}
+              hRes.pipe(res);
+              hRes.on('error', function () { try { res.destroy(); } catch (e2) {} });
+            }
+          });
+          return;
+        }
+      }
       {
         const arbMatch = pathname.match(/^\/api\/matches(?:\/([^\/]+)\/(start-stream|resolve|cancel))?$/);
         if (arbMatch && req.method === 'POST' && arbMatch[2] === 'start-stream') {
@@ -2150,8 +2229,10 @@ const server = http.createServer((req, res) => {
           return;
         }
         if (arbMatch && !arbMatch[2] && pathname === '/api/matches' && req.method === 'GET') {
-          const rLs = arb.listSessions(me);
-          json(rLs.body, rLs.status);
+          /* [v2.81.4] listSessions صارت Promise (اكتشاف غرف المرحّل الحيّة) */
+          Promise.resolve(arb.listSessions(me)).then(function (rLs) {
+            json(rLs.body, rLs.status);
+          }).catch(function () { json({ ok: false, message: 'تعذر جلب الجلسات' }, 500); });
           return;
         }
         if (arbMatch && req.method === 'POST' && arbMatch[2] === 'resolve') {

@@ -21,7 +21,11 @@ const API_BASE_FALLBACK = 'https://casino-api.dmgames-api.workers.dev';
 var IS_NATIVE_APP = (typeof window !== 'undefined' && !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()));
 var API_BASE_PROMISE = (typeof window !== 'undefined' && typeof window.API_BASE_URL === 'string')
   ? Promise.resolve(window.API_BASE_URL)
-  : ((typeof location !== 'undefined' && !IS_NATIVE_APP && (/^(localhost|127\.0\.0\.1):\d+$/.test(location.hostname) || /\.e2b\.app$/i.test(location.hostname)))
+  /* [v2.81.4·إصلاح] كان الفحص على location.hostname (لا يحمل منفذاً أبداً) بنمط
+     يشترط «:\d+» ⇒ لا يطابق 127.0.0.1:PORT قط، وحتى بيئة QA المحلية كانت
+     تنطلق نحو ووركر الإنتاج وكوكي الجلسة المحلية لا يفيد شيئاً (كشفه فحص
+     e2e الحيّ: AUTH.user بقي null). الفحص الآن على location.host (بالمنفذ). */
+  : ((typeof location !== 'undefined' && !IS_NATIVE_APP && (/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(location.host) || /\.e2b\.app$/i.test(location.hostname)))
     ? Promise.resolve(location.origin)
     : fetch('/api-url2.json', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })

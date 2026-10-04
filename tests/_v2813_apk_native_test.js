@@ -28,9 +28,15 @@ const LB = String.fromCharCode(91), RB = String.fromCharCode(93);   /* [ ] */
 const api = read("js/core/api.js");
 ok(/IS_NATIVE_APP\s*=\s*\(typeof window !== .undefined. && !!\(window\.Capacitor/.test(api),
    "api.js: حارس IS_NATIVE_APP مع window.Capacitor معرَّف");
-ok(!/\(localhost\|127\\\.0\\\.0\\\.1\)\(:\\d\+\)\?\$/.test(api) &&
-   /\(localhost\|127\\\.0\\\.0\\\.1\):\\d\+\$\//.test(api),
-   "api.js: المنفذ إلزامي والاختصار القديم بالمنفذ الاختياري أُزيل كلياً");
+/* [v2.81.4] نفس المصدر صار على location.host (بالمنفذ) والنمط الجديد يقبل
+   [::1] — الاختصار القديم على location.hostname بنمط «:\d+» إلزامي كان لا
+   يطابق 127.0.0.1:PORT قط (كشفه e2e الحيّ: AUTH.user بقي null). الحرس
+   يُحدَّث للعقد الجديد: الفحص على host حصراً + بقاء حارس IS_NATIVE_APP قبلَه. */
+ok(!/location\.hostname\s*&&\s*\/\^\(localhost/.test(api) &&
+   !/\(localhost\|127\\\.0\\\.0\\\.1\):\\d\+\$\/\.test\(location\.hostname\)/.test(api) &&
+   /\(\/\^\(localhost\|127\\\.0\\\.0\\\.1\|\\\[::1\\\]\)\(\:\\d\+\)\?\$\/\.test\(location\.host\)/.test(api) &&
+   /!IS_NATIVE_APP &&\s*\(\/\^\(localhost/.test(api),
+   "api.js: نفس المصدر على location.host (بالمنفذ) مع حارس IS_NATIVE_APP — اختصار hostname القديم أُزيل");
 
 const ws = read("js/core/live-ws-bridge.js");
 ok(ws.includes("IS_NATIVE_APP") &&
@@ -48,9 +54,11 @@ ok(/location\.origin && !IS_NATIVE_APP\) cands\.push/.test(wallet),
 
 /* ── 2) بصمات التخزين المؤقت في index.html ───────────────────────────────── */
 const idx = read("index.html");
-ok(idx.includes("live-ws-bridge.js?v=dtsg13") && idx.includes("api.js?v=dtsg11") &&
+/* [v2.81.4] api.js تغيّر (إصلاح same-origin) فبصمته صارت v2814 — والملفات
+   الثلاثة غير المماسة تبقى على بصماتها (dtsg13/dtsg11/pay12). */
+ok(idx.includes("live-ws-bridge.js?v=dtsg13") && idx.includes("api.js?v=v2814") &&
    idx.includes("auth.js?v=dtsg11") && idx.includes("wallet.js?v=pay12"),
-   "index.html: بصمات الملفات الأربعة المُصلَحة مرفوعة (dtsg13/dtsg11/pay12)");
+   "index.html: بصمات الملفات الأربعة محدَّثة (dtsg13/v2814/dtsg11/pay12) — api.js رُفعت إلى v2814");
 
 /* ── 3) خط بناء APK: أيقونات من لوغو المنصة ──────────────────────────────── */
 const wfLive = fs.readFileSync(path.join(ROOT, ".github/workflows/build-apk.yml"));

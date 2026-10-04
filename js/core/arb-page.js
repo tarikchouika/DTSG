@@ -284,6 +284,24 @@
         '<button type="button" class="btn mini" onclick="ARB_PAGE.copyRtmp(\'' + id + '\')">' + esc(T('arb.mrCopy') || '📋 نسخ') + '</button></div>' +
     '</div>';
   }
+  /* ── [v2.81.4·حالة المرحّل الحيّة] شارة حالة بثّ اللاعب كما يستعلمها الخادم
+     من MediaMTX (Loopback، عند الطلب حصراً) — علاج «البطاقة العمياء» الموثّق
+     في تسجيل المالك: البطاقة كانت تبقى «لم أبدأ البث» حتى والبث يصل المرحّل */
+  function relayStatusHtml(rs) {
+    if (!rs || rs.configured === false) return '';
+    var mb = (rs.bytes_rx || 0) / 1048576;
+    var dur = rs.duration || 0;
+    var mm = Math.floor(dur / 60), ss = Math.floor(dur % 60);
+    var clock = (mm > 0 || ss > 0) ? ' · ' + mm + ':' + (ss < 10 ? '0' : '') + ss : '';
+    var size = (mb >= 0.01) ? ' · ' + (mb >= 1 ? mb.toFixed(1) + 'MB' : Math.round(mb * 1024) + 'KB') : '';
+    if (rs.available === false) {
+      return '<div class="arb-mr-status err">⚫ ' + esc(T('arb.mrStatusDown') || 'المرحّل لا يستجيب — أعد تشغيل خادم الهاتف/النفق ثم حدّث') + '</div>';
+    }
+    if (rs.online) {
+      return '<div class="arb-mr-status on">🟠 ' + esc(T('arb.mrStatusLive') || 'المرحّل يستقبل بثّك الآن') + esc(size + clock) + '</div>';
+    }
+    return '<div class="arb-mr-status wait">⚪ ' + esc(T('arb.mrStatusIdle') || 'لا بثّ وارد بعد — ابدأ النشر من تطبيق البث ثم انتظر ثوانٍ') + '</div>';
+  }
   function mobileRelayHtml(room) {
     var url = relayRtmpUrl(room);
     /* لا مسار من الخادم = لا نشر على الإطلاق — لا بديل محلي */
@@ -297,6 +315,10 @@
         '<li>' + esc(T('arb.mrStep3') || 'داخل التطبيق فعّل «بث الشاشة / Screen capture» ثم ابدأ البث') + '</li>' +
         '<li>' + esc(T('arb.mrStep4') || 'الأدمن يشاهد شاشتك عبر المرحّل ويظهر بثّك مباشرة في لوحته') + '</li>' +
       '</ol>' +
+      /* [v2.81.4] تنبيه من تسجيل المالك: Larix جرّب WebRTC فوق عنوان RTMP
+         فظهر «Webrtc: Unknown connection failure» — الاتصال RTMP حصراً */
+      '<div class="note" style="font-size:.7rem;text-align:start">⚠️ ' +
+        esc(T('arb.mrLarixTip') || 'في Larix أنشئ اتصالاً من نوع RTMP حصراً (لا WebRTC ولا SRT) والصق العنوان كما هو') + '</div>' +
       /* [v2.81.3] الخيار الواحد ظاهر بلا أي مفتاح خفي — والعامل الوحيد
          الحاكم للظهور هو وجود المضيف في mine() */
       '<div class="arb-mr-opts" style="margin-top:10px;font-weight:800;color:#f3e5c0;font-size:.8rem">' +
@@ -306,6 +328,8 @@
         T('arb.mrOptARec') || '✅ المسار المعتمد — صفر إعداد',
         T('arb.mrOptAInfo') || 'غير مشفَّر — السلامة مضمونة برمز المسار أما ظهور شاشتك لمشغّل المرحّل فلا يستطيع أحد منعه',
         url) : '') +
+      /* [v2.81.4] الحالة الحيّة — من استقصاء الخادم للمرحّل (relay_stream) */
+      relayStatusHtml(st.mine && st.mine.relay_stream) +
       '<div class="note" style="font-size:.7rem;text-align:start">' + (T('arb.mrNote') || 'ℹ️ هذا البث عبر المرحّل يعمل من الهاتف دون حاسوب — ومشاركة المتصفح من حاسوب تبقى ممكنة كما كانت') + '</div>' +
     '</div>';
   }

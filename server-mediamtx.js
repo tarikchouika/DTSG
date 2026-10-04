@@ -63,9 +63,119 @@ const crypto = require('crypto');
    ═══════════════════════════════════════════════════════════════════════════ */
 const STREAM_SECRET = String(process.env.ARB_STREAM_SECRET || '').trim();
 if (!STREAM_SECRET) {
-  console.warn('[m[m[mediamtx] ⚠ ARB_STREAM_SECRET غير مضبوط في البيئة — سيُولَّد سرّ عشوائي لهذا التشغيل فقط، فتنتهي صلاحية كل مسارات النشر عند إعادة التشغيل. اضبطه في .env.local (scripts/phone-env-restart.sh).');
+  console.warn('[mediamtx] ⚠ ARB_STREAM_SECRET غير مضبوط في البيئة — سيُولَّد سرّ عشوائي لهذا التشغيل فقط، فتنتهي صلاحية كل مسارات النشر عند إعادة التشغيل. اضبطه في .env.local (scripts/phone-env-restart.sh).');
 }
 const RUNTIME_SECRET = STREAM_SECRET || crypto.randomBytes(32).toString('hex');
+
+/* ═══════════════════════════════════════════════════════════════════════
+   [v2.81.4·رمز المشاهدة] توقيع روابط HLS للأدمن بلا كوكيز ولا CORS
+   ───────────────────────────────────────────────────────────────────────
+   لماذا؟ مشغّل الأدمن (hls.js) يجلب قوائم التشغيل بمقاطع fetch عادية لا
+   تستطيع حمل ترويسة توثيق المنصة (والكوكيز عبر النطاقات المتقاطعة
+   مجهدة ومكسورة). البديل الاحترافي: رمز مشاهدة HMAC بوقت انتهاء —
+   يُسكب خادمياً في stream-status (أدمن حصراً) ويُتحقق منه عند كل
+   طلب مقطع. لا حالة ولا تخزين: exp داخل الرمز نفسه.
+   الصيغة:  <exp-ms>.<16hex HMAC(secret, "view|<room>|<uid>|<exp-ms>")
+   انتهاء افتراضي 15د (MEDIAMTX_VIEW_TTL_MS) — لوحة الأدمن تستطلع كل 10ث
+   فتأخذ رمزاً جديداً باستمرار، وانقطاعها يُوقف السحب طبيعياً. */
+function signViewToken(roomId, userId, ttlMs) {
+  const exp = String(Date.now() + Math.max(60000, Number(ttlMs) || 900000));
+  const sig = crypto.createHmac('sha256', RUNTIME_SECRET)
+    .update('view|' + String(roomId) + '|' + String(userId) + '|' + exp)
+    .digest('hex').slice(0, 16);
+  return exp + '.' + sig;
+}
+function verifyViewToken(roomId, userId, token) {
+  try {
+    const s = String(token || '');
+    const dot = s.indexOf('.');
+    if (dot <= 0) return false;
+    const exp = s.slice(0, dot);
+    if (!/^\d{10,}$/.test(exp) || Number(exp) <= Date.now()) return false;
+    const sig = crypto.createHmac('sha256', RUNTIME_SECRET)
+      .update('view|' + String(roomId) + '|' + String(userId) + '|' + exp)
+      .digest('hex').slice(0, 16);
+    const a = Buffer.from(s.slice(dot + 1));
+    const b = Buffer.from(sig);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  } catch (e) { return false; }
+}
+
+/* [v2.81.4·بروكسي HLS] عنوان HLS الداخلي — Loopback حصراً كنظيره API_URL.
+   الأدمن يشاهد بث المرحّل عبر بروكسي قوائم/مقاطع HLS داخل خادم المنصة نفسه
+   (واسع الوصول أصلاً) ⇒ لا نفق إضافي ولا فتح أي منفذ خارجاً — متسق مع
+   عقد v2.81.1 (كل مستمعي المرحّل على Loopback). */
+const HLS_URL = String(process.env.MEDIAMTX_HLS_URL || 'http://127.0.0.1:8888').replace(/\/+$/, '');
+try {
+  const hu = new URL(HLS_URL);
+  if (hu.hostname !== '127.0.0.1' && hu.hostname !== 'localhost' && hu.hostname !== '[::1]' && hu.hostname !== '::1') {
+    console.warn('[mediamtx] ⚠ MEDIAMTX_HLS_URL ليس عنواناً محلياً (' + HLS_URL + ') — عقد Loopback يوجّه مشاهدة الأدمن عبر خادم المنصة نفسه');
+  }
+} catch (e) {
+  console.warn('[mediamtx] ⚠ MEDIAMTX_HLS_URL غير صالح (' + HLS_URL + ') — مشاهدة الأدمن عبر المرحّل ستعيد 503 حتى يُصحَّح');
+}
+const VIEW_TTL_MS = Math.max(60000, Number(process.env.MEDIAMTX_VIEW_TTL_MS) || 900000);
+
+/* ═══════════════════════════════════════════════════════════════════════
+   [v2.81.4·إصلاح الميدان] hlsFetch — جلب HLS خلف 302 cookieCheck
+   ───────────────────────────────────────────────────────────────────────
+   كشفه الفحص الحيّ بالكيرل (2026-10-04): MediaMTX v1.21 يردّ على كل طلب
+   HLS أول (قوائم ومقاطع على السواء) بـ«302 Found → نفس العنوان +
+   ?cookieCheck=1» + ترويسة Set-Cookie: cookieCheck=1 — آلية تحقق جلسة
+   يتبعها المتصفح تلقائياً، بينما http.get الخام يعيدها كما هي فتحوّلها
+   بروكسي المنصة إلى 502 («upstream: 302») ويعجز مشغّل الأدمن عن فتح
+   البث إطلاقاً. وبعد المتابعة تبيّن طبقة ثانية: على cookieCheck يمنح
+   المرحّل «Set-Cookie: hlsSession=…» وعندها **كل** الطلبات اللاحقة
+   (قوائم فرعية ومقاطع) يجب أن تحمل هذا الكوكي وإلا ردّ «401» — أي أن
+   الجرة لكل طلب لا تكفي؛ الجرة يجب أن تكون مشتركة عبر طلبات البروكسي
+   كلها (سلوك المتصفح ذاته مع لوحة أدمن واحدة). العلاج هنا: متبع
+   توجيهات صغير داخل خادم المنصة بجرة كوكيز مشتركة على مستوى العملية،
+   وعند «401» (انتهت جلسة المرحّل مثلاً) يُفرَّغ الجرة ويُعاد رقص
+   cookieCheck مرة واحدة — شفاء ذاتي بلا تدخل. الكوكيز لا تخرج من
+   الخادم — المتصفح لا يرى كوكيز المرحّل أبداً (عقد v2.81.1 يبقى صحيحاً). */
+const MTX_COOKIE_JAR = Object.create(null);   /* كوكيز المرحّل داخل الخادم حصراً */
+function hlsFetch(upPath, cb) {
+  let hops = 0, settled = false, retried = false;
+  function done(hRes, err) {
+    if (settled) { try { if (hRes) hRes.resume(); } catch (e) {} return; }
+    settled = true;
+    cb(hRes, err);
+  }
+  function jarHeader() {
+    const ks = Object.keys(MTX_COOKIE_JAR);
+    return ks.length ? { Cookie: ks.map(function (k) { return k + '=' + MTX_COOKIE_JAR[k]; }).join('; ') } : undefined;
+  }
+  function absorb(hRes) {
+    (hRes.headers['set-cookie'] || []).forEach(function (sc) {
+      const kv = String(sc).split(';')[0];
+      const i = kv.indexOf('=');
+      if (i > 0) MTX_COOKIE_JAR[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
+    });
+  }
+  function go(p) {
+    const req = http.get(HLS_URL + p, { timeout: 8000, headers: jarHeader() }, function (hRes) {
+      absorb(hRes);
+      if (hRes.statusCode >= 300 && hRes.statusCode < 400 && hRes.headers.location) {
+        hRes.resume();
+        if (++hops > 3) return done(null, 'toomanyredirects');
+        const loc = String(hRes.headers.location);
+        return go(loc.indexOf('://') !== -1 ? loc.replace(/^[a-z]+:\/\/[^\/]+/i, '') : loc);
+      }
+      if (hRes.statusCode === 401 && !retried) {
+        /* جلسة المرحّل انتهت/فقدت ⇒ تفريغ الجرة ورقص cookieCheck من جديد */
+        hRes.resume();
+        retried = true;
+        Object.keys(MTX_COOKIE_JAR).forEach(function (k) { delete MTX_COOKIE_JAR[k]; });
+        hops = 0;
+        return go(String(upPath || '/'));
+      }
+      done(hRes, null);
+    });
+    req.on('timeout', function () { try { req.destroy(); } catch (e) {} done(null, 'timeout'); });
+    req.on('error', function () { done(null, 'error'); });
+  }
+  go(String(upPath || '/'));
+}
 
 function publishToken(roomId, userId) {
   return crypto.createHmac('sha256', RUNTIME_SECRET)
@@ -95,10 +205,10 @@ function createMediaMtxMonitor(ctx) {
     /* القيد 1 من المستند: المحلية حصراً — عنوان خارجي = انحراف عن العقد.
        تحذير لا منع: الوحدة تعمل بأي حال (عزل تام) لكن المالك يعرف. */
     if (u.hostname !== '127.0.0.1' && u.hostname !== 'localhost' && u.hostname !== '[::1]' && u.hostname !== '::1') {
-      console.warn('[m[m[mediamtx] ⚠ MEDIAMTX_API_URL ليس عنواناً محلياً (' + API_URL + ') — عقد المستند يوجّه الاستعلام عبر Loopback حصراً حفاظاً على باندويث النفق');
+      console.warn('[mediamtx] ⚠ MEDIAMTX_API_URL ليس عنواناً محلياً (' + API_URL + ') — عقد المستند يوجّه الاستعلام عبر Loopback حصراً حفاظاً على باندويث النفق');
     }
   } catch (e) {
-    console.warn('[m[m[mediamtx] ⚠ MEDIAMTX_API_URL غير صالح (' + API_URL + ') — ستُعاد حالة offline حتى يُصحَّح');
+    console.warn('[mediamtx] ⚠ MEDIAMTX_API_URL غير صالح (' + API_URL + ') — ستُعاد حالة offline حتى يُصحَّح');
   }
 
   /* ── المخطط (SQLite — نفس قاعدة المنصة، بلا هجرة يدوية) ──
@@ -194,7 +304,7 @@ function createMediaMtxMonitor(ctx) {
         /* القيد 3: MediaMTX غير مجيب ⇒ offline فوري + تحذير مهدَّد */
         if (now - lastWarnAt > LOG_THROTTLE_MS) {
           lastWarnAt = now;
-          console.warn('[m[m[mediamtx] تعذر الوصول إلى API المرحّل (' + API_URL + '): ' + (err && err.message ? err.message : err));
+          console.warn('[mediamtx] تعذر الوصول إلى API المرحّل (' + API_URL + '): ' + (err && err.message ? err.message : err));
         }
         val = { online: false, ready: false, bytes_rx: 0, duration: 0, path: name, reachable: false, reason: 'unreachable' };
       } else if (status === 200 && body) {
@@ -332,6 +442,21 @@ function createMediaMtxMonitor(ctx) {
         if (done < 2) return;
         const pA = A ? publicPlayer(A, evaluateWatch(room.id, A, stA, sessionLive)) : null;
         const pB = B ? publicPlayer(B, evaluateWatch(room.id, B, stB, sessionLive)) : null;
+        /* [v2.81.4] رابط HLS الموقّع لكل لاعب — مشاهدة الأدمن عبر بروكسي
+           المنصة (هلوكات 8888 محلية حصراً) بلا كوكيز ولا CORS — راجع
+           signViewToken أعلاه؛ انتهاؤه 15د وتجديده آلي مع كل استطلاع */
+        if (pA) pA.hls_path = hlsViewPath(room.id, A.userId);
+        if (pB) pB.hls_path = hlsViewPath(room.id, B.userId);
+        /* [v2.81.4·الجلسة الآلية من طرف الأدمن] بثّ مرحّل حيّ + لا جلسة ⇒
+           افتحها فوراً (كانت الجلسة تُفتح فقط إن فتح اللاعب صفحته — فتبقى
+           غرفة Larix خفية عن الأدمن حتى لو كان بثّها يصل المرحّل) */
+        const onlineIds = [];
+        if (pA && pA.online) onlineIds.push(A.userId);
+        if (pB && pB.online) onlineIds.push(B.userId);
+        let sessLive = sessionLive;
+        if (onlineIds.length && !sessionLive && arb && typeof arb.ensureLiveSession === 'function') {
+          try { arb.ensureLiveSession(room, onlineIds); sessLive = true; } catch (e) {}
+        }
         resolve({
           status: 200,
           body: {
@@ -339,7 +464,7 @@ function createMediaMtxMonitor(ctx) {
             match_id: String(room.id),
             available: lastReachable !== false,
             watch_timeout_ms: WATCH_TIMEOUT_MS,
-            session_live: sessionLive,
+            session_live: sessLive,
             player_a_status: pA,
             player_b_status: pB,
             /* جاهزية التحكيم: الطرفان يبثّان معاً (دلالة المستند: false عندما يغيب أحد الطرفين) */
@@ -355,14 +480,41 @@ function createMediaMtxMonitor(ctx) {
     });
   }
 
+  /* ═════════════════════════════════════════════════════════════════
+     [v2.81.4] مسار مشاهدة HLS الموقّع — يُسكب في stream-status فقط */
+  function hlsViewPath(roomId, userId) {
+    return '/api/matches/' + encodeURIComponent(String(roomId)) + '/hls/' + encodeURIComponent(String(userId)) + '/index.m3u8?t=' + signViewToken(roomId, userId, VIEW_TTL_MS);
+  }
+
   /* ═══ فحوص داخلية للاختبارات (لا يستهلكها الإنتاج) ═══ */
   return {
     streamStatus: streamStatus,
+    /* [v2.81.4] حالة بثّ لاعب واحد عبر المرحّل — تستعملها mine() لبطاقة
+       اللاعب الحيّة (متاحة لصاحبها حصراً) وللجلسة الآلية عند وصول البث */
+    relayStatusFor: function (roomId, userId) {
+      return new Promise(function (resolve) {
+        playerStatus(String(roomId), Number(userId), function (e, st) {
+          resolve(st ? {
+            available: st.reachable !== false,
+            online: !!st.online,
+            bytes_rx: st.bytes_rx || 0,
+            duration: st.duration || 0,
+            path: st.path || null,
+            reason: st.reason || null
+          } : { available: false, online: false, bytes_rx: 0, duration: 0, path: null, reason: 'unreachable' });
+        });
+      });
+    },
+    /* [v2.81.4] رابط HLS الموقّع لمشاهدة بث لاعب عبر بروكسي المنصة —
+       يُسكب في stream-status (أدمن حصراً) ولا يُبنى في أي مكان آخر */
+    hlsViewPath: hlsViewPath,
     _probePath: probePath,
     _pathVariants: pathVariants,
     _watch: watch,
     _setNow: null,
     _apiUrl: API_URL,
+    _hlsUrl: HLS_URL,
+    _viewTtlMs: VIEW_TTL_MS,
     _watchTimeoutMs: WATCH_TIMEOUT_MS
   };
 }
@@ -375,5 +527,35 @@ module.exports = {
   publishPath: publishPath,
   publishPathWhip: publishPathWhip,
   publishToken: publishToken,
-  secretConfigured: !!(STREAM_SECRET && STREAM_SECRET.length >= 16)
+  secretConfigured: !!(STREAM_SECRET && STREAM_SECRET.length >= 16),
+  /* [v2.81.4] رمز مشاهدة HLS — يستهلكه server.js (بروكسي HLS) والاختبارات */
+  signViewToken: signViewToken,
+  verifyViewToken: verifyViewToken,
+  hlsUrl: HLS_URL,
+  viewTtlMs: VIEW_TTL_MS,
+  /* [v2.81.4·إصلاح الميدان] جلب HLS خلف 302 cookieCheck — يستهلكه بروكسي server.js */
+  hlsFetch: hlsFetch,
+  /* [v2.81.4] إعادة كتابة قائمة m3u8 للبروكسي: كل مرجع مقطع/قائمة فرعية
+     يصير مساراً عبر بروكسي المنصة بنفس رمز المشاهدة. التعليقات وأسطر #
+     تبقى (وتُعالج uri="…" داخل EXT-X-KEY/MAP)، والمراجع المطلقة تُترك.
+     دالّة نقية قابلة للاختبار المباشر. */
+  rewriteHlsPlaylist: function (body, roomId, userId, token) {
+    const s = String(body || '');
+    const prox = '/api/matches/' + encodeURIComponent(String(roomId)) + '/hls/' + encodeURIComponent(String(userId)) + '/';
+    function mapRef(ref) {
+      if (!ref) return ref;
+      if (/^(https?:)?\/\//i.test(ref) || ref.charAt(0) === '/') return ref;   /* مطلق — لا يُمسّ */
+      const clean = String(ref).split('?')[0];
+      if (!/^[A-Za-z0-9_.\-]+$/.test(clean)) return ref;                        /* غير مقطع متوقع — اتركه */
+      return prox + clean + '?t=' + token;
+    }
+    return s.split('\n').map(function (line) {
+      const t = line.trim();
+      if (!t) return line;
+      if (t.charAt(0) === '#') {
+        return line.replace(/URI="([^"]+)"/g, function (m, u) { return 'URI="' + mapRef(u) + '"'; });
+      }
+      return mapRef(t);
+    }).join('\n');
+  }
 };

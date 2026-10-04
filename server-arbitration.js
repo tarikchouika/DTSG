@@ -61,6 +61,36 @@ function createArbitration(ctx) {
   /* ── الحالة الحية (الإشارات عابرة — لا تُخزَّن؛ الجلسات فقط) ── */
   const live = new Map();   /* roomId -> session (في الذاكرة، مرآة الجدول) */
 
+  /* [v2.81.4·حالة المرحّل للبطاقة الحيّة + الجلسة الآلية]
+     المراقب (server-mediamtx) يُربَط بعد الإنشاء (server.js يركّب arb أسبق
+     من mtx) عبر setMediaMtxMonitor. mine() يستعمله لـ:
+       1) إخبار اللاعب الحقيقة: هل المرحّل يستقبل بثّك الآن؟ (كانت البطاقة
+          عمياء — تبقى «لم أبدأ البث» حتى لو كان تطبيق البث يبث فعلاً —
+          وهذا ما ظهر حرفياً في تسجيل المالك 2026-10-04)
+       2) إنشاء جلسة التحكيم آلياً عند وصول بثّ موقّع: مسار Larix لا يمر
+          بـstart-stream (الزر محجوب على الهاتف أصلاً) ⇒ غرفة اللاعب كانت
+          لا تظهر بلوحة الأدمن إطلاقاً — وهذا جذر «بدون جدوى» الثالث */
+  let mtxMonitor = null;
+  function setMediaMtxMonitor(m) { mtxMonitor = m; }
+
+  /* [v2.81.4] يضمن وجود جلسة حيّة عند رصد بثّ مرحّل موقّع — من أي طرف
+     (mine لصاحبها / streamStatus واكتشاف listSessions للأدمن). يوسم
+     اللاعبين الباثّين «عبر المرحّل» ويبثّ الحدث مرة عند التغيّر فقط. */
+  function ensureLiveSession(room, onlineUserIds) {
+    const existed = live.has(room.id) && live.get(room.id).status === 'live';
+    const s = getOrCreateSession(room);
+    let changed = !existed;
+    (onlineUserIds || []).forEach(function (uid) {
+      const pl = s.players.find(function (p) { return String(p.userId) === String(uid); });
+      if (pl) {
+        pl.lastSeen = Date.now();
+        if (pl.state !== 'relay') { pl.state = 'relay'; pl.relay = true; changed = true; }
+      }
+    });
+    if (changed) broadcast(s, 'arb:session', { reason: 'relay' });
+    return s;
+  }
+
   function rowToSession(r) {
     if (!r) return null;
     return {
@@ -168,53 +198,90 @@ function createArbitration(ctx) {
   return {
     /* [v2.76·صفحة التحكيم] جلستي: غرفة المستخدم الجارية (إن كان لاعباً
        نشطاً فيها) + جلسة التحكيم المرتبطة بها إن وُجدت — لتشغيل صفحة
-       التحكيم عند اللاعب بلا الاعتماد على مودال الغرفة. بلا توكنات. */
+       التحكيم عند اللاعب بلا الاعتماد على مودال الغرفة. بلا توكنات.
+       [v2.81.4] صارت Promise: تستعلم المرحّل محلياً (Loopback، عند الطلب
+       حصراً — عقد stream-status نفسه) عن حالة بثّ اللاعب نفسه وترفقها
+       في relay_stream، وتفتح جلسة التحكيم آلياً عند وصول بثّ موقّع. */
     mine: function (me) {
-      if (!me) return { status: 401, body: { ok: false, message: 'يلزم تسجيل الدخول' } };
+      if (!me) return Promise.resolve({ status: 401, body: { ok: false, message: 'يلزم تسجيل الدخول' } });
       const myRooms = roomHub.roomsOfUser(me.id) || [];
       const room = myRooms.find(function (r) {
         const p = r.players.find(function (x) { return String(x.id) === String(me.id); });
         return p && !p.spectate;
       }) || null;
       if (!room) {
-        return { status: 200, body: { ok: true, room: null, session: null, can_broadcast: false } };
+        return Promise.resolve({ status: 200, body: { ok: true, room: null, session: null, can_broadcast: false } });
       }
-      const s = live.get(room.id);
-      const session = (s && s.status === 'live') ? s : null;
-      return {
-        status: 200,
-        body: {
-          ok: true,
-          can_broadcast: room.status === 'playing',
-          /* [v2.81] بيانات المرحّل لواجهة مشاركة شاشة الهاتف (بديل RTMP) —
-             بلا أسرار: عنوان عام يبنيه المالك في .env.local (المستند §5).
-             [v2.81.1] انحلال «بلا أسرار» للنصف الأول فقط: العنوان عام عمداً،
-             أمّا المسار فمُرمَّز بـHMAC (انتحال البثّ = انتحال لاعب) ويُسلَّم
-             للاعب الجالس في غرفته هو حصراً — لا لأحد غيره. */
-          relay: {
-            rtmp: process.env.MEDIAMTX_RTMP_URL || null,
-            whip: process.env.MEDIAMTX_WHIP_URL || null,
-            /* [v2.81.3] مسار نشر واحد: نفق TCP عام (bore) — صفر إعداد على
-               الهاتف، مجاني، بلا حساب. [أُزيل المسار المشفَّر القديم ومتغيّره
-               بتوجيه المالك 2026-10-04: تفعيل Zero Trust يتطلّب بطاقة بنكية
-               لا يملكها ⇒ حُذف حقل المسار المشفَّر من المخرجين مع كل أثر
-               للواجهة] — خصوصية الشاشة عند مشغّل المرحّل تحفّظ معروفة. */
-            publish_path: require('./server-mediamtx.js').publishPath(room.id, me.id),
-            publish_path_whip: require('./server-mediamtx.js').publishPathWhip(room.id, me.id)
-          },
-          room: {
-            id: room.id, code: room.code, game_id: room.game_id,
-            bet: Number(room.bet) || 0, status: room.status,
-            round_id: room.roundId || null,
-            players: (room.players || []).filter(function (p) { return !p.spectate; })
-              .map(function (p) {
-                const u = users[p.id];
-                return { id: p.id, username: (u && u.username) || p.username || ('#' + p.id), ready: !!p.ready, is_bot: !!p.isBot };
-              })
-          },
-          session: session ? publicSession(session) : null
+      const body = {
+        ok: true,
+        can_broadcast: room.status === 'playing',
+        /* [v2.81] بيانات المرحّل لواجهة مشاركة شاشة الهاتف (بديل RTMP) —
+           بلا أسرار: عنوان عام يبنيه المالك في .env.local (المستند §5).
+           [v2.81.1] انحلال «بلا أسرار» للنصف الأول فقط: العنوان عام عمداً،
+           أمّا المسار فمُرمَّز بـHMAC (انتحال البثّ = انتحال لاعب) ويُسلَّم
+           للاعب الجالس في غرفته هو حصراً — لا لأحد غيره. */
+        relay: {
+          rtmp: process.env.MEDIAMTX_RTMP_URL || null,
+          whip: process.env.MEDIAMTX_WHIP_URL || null,
+          /* [v2.81.3] مسار نشر واحد: نفق TCP عام (bore) — صفر إعداد على
+             الهاتف، مجاني، بلا حساب. [أُزيل المسار المشفَّر القديم ومتغيّره
+             بتوجيه المالك 2026-10-04: تفعيل Zero Trust يتطلّب بطاقة بنكية
+             لا يملكها ⇒ حُذف حقل المسار المشفَّر من المخرجين مع كل أثر
+             للواجهة] — خصوصية الشاشة عند مشغّل المرحّل تحفّظ معروفة. */
+          publish_path: require('./server-mediamtx.js').publishPath(room.id, me.id),
+          publish_path_whip: require('./server-mediamtx.js').publishPathWhip(room.id, me.id)
+        },
+        room: {
+          id: room.id, code: room.code, game_id: room.game_id,
+          bet: Number(room.bet) || 0, status: room.status,
+          round_id: room.roundId || null,
+          players: (room.players || []).filter(function (p) { return !p.spectate; })
+            .map(function (p) {
+              const u = users[p.id];
+              return { id: p.id, username: (u && u.username) || p.username || ('#' + p.id), ready: !!p.ready, is_bot: !!p.isBot };
+            })
+        },
+        session: null,
+        /* [v2.81.4] تُملأ أدناه من الاستقصاء الحيّ — الشكل الثابت يمنع
+           الواجهة من تمييز حالات الغياب */
+        relay_stream: {
+          configured: !!process.env.MEDIAMTX_RTMP_URL,
+          available: false, online: false, bytes_rx: 0, duration: 0,
+          path: null, reason: 'no_probe'
         }
       };
+      const s0 = live.get(room.id);
+      body.session = (s0 && s0.status === 'live') ? publicSession(s0) : null;
+
+      /* لا جولة جارية أو لا مراقب أو لا عنوان نشر ⇒ لا استقصاء — عقد
+         «عند الطلب حصراً» يبقى قائماً والاستعلام Loopback خفيف (كاش 1.5ث) */
+      if (room.status !== 'playing' || !mtxMonitor || !process.env.MEDIAMTX_RTMP_URL) {
+        return Promise.resolve({ status: 200, body: body });
+      }
+      return mtxMonitor.relayStatusFor(room.id, me.id).then(function (rs) {
+        body.relay_stream = Object.assign({ configured: true }, rs);
+        /* [v2.81.4·الجلسة الآلية] وصول بثّ موقّع (online بلا رمز صحيح مستحيل
+           — pathVariants موقّعة حصراً) ⇒ جلسة موجودة وحالة اللاعب «عبر
+           المرحّل» — البث (SSE) عند الانتقال فقط، وlastSeen يتجدد مع كل
+           استقصاء كي لا يوسمه منظف الانقطاع (15ث) زوراً */
+        if (rs && rs.online) {
+          const s = getOrCreateSession(room);
+          const pl = s.players.find(function (p) { return String(p.userId) === String(me.id); });
+          if (pl) {
+            pl.lastSeen = Date.now();
+            if (pl.state !== 'relay') {
+              pl.state = 'relay';
+              pl.relay = true;
+              broadcast(s, 'arb:session', { reason: 'relay' });
+            }
+          }
+          body.session = publicSession(s);
+        }
+        return { status: 200, body: body };
+      }).catch(function () {
+        /* عزل تام: أي خلل في الاستقصاء لا يمسّ بقيّة الجواب */
+        return { status: 200, body: body };
+      });
     },
 
     /* لاعب نشط في غرفة جارية: يفتح/يجلب جلسة التحكيم ويستلم توكنه */
@@ -247,9 +314,15 @@ function createArbitration(ctx) {
       };
     },
 
-    /* أدمن: الجلسات النشطة (مع خيار المكتملة حديثاً) */
+    /* أدمن: الجلسات النشطة (مع خيار المكتملة حديثاً)
+       [v2.81.4·اكتشاف غرف المرحّل] صارت Promise: حين لوحة الأدمن مفتوحة
+       تُستطلع الغرف الجارية بلا جلسة — إن كان يبثّ أحد لاعبيها عبر المرحّل
+       (بثّ Larix المباشر) تُفتح الجلسة فوراً وتظهر باللوحة بلا أي فعل من
+       اللاعب (كانت غرفة Larix خفية كلياً حتى يفتح اللاعب صفحته — جذر
+       «بدون جدوى» الثالث). الاستعلام Loopback عند الطلب حصراً (اللوحة
+       مفتوحة = طلب) وعلى الغرف بلا جلسة فقط — العقد محفوظ. */
     listSessions: function (me) {
-      if (!adminOnly(me)) return { status: 403, body: { ok: false, message: 'للأدمن حصراً' } };
+      if (!adminOnly(me)) return Promise.resolve({ status: 403, body: { ok: false, message: 'للأدمن حصراً' } });
       const out = [];
       live.forEach(function (s) {
         if (s.status === 'live') out.push(publicSession(s));
@@ -282,7 +355,31 @@ function createArbitration(ctx) {
           }
         });
       } catch (e) {}
-      return { status: 200, body: { ok: true, sessions: out } };
+      /* [v2.81.4·الاكتشاف] غرف جارية بلا جلسة — استطلع بثّ لاعبيها عبر
+         المرحّل (Loopback، عند الطلب: لوحة مفتوحة حصراً) وافتح الجلسة
+         لمن يبث فعلاً. الغرف المكتملة/المنتظرة لا تُستطلع (لا بث فيها أصلاً). */
+      if (mtxMonitor && process.env.MEDIAMTX_RTMP_URL) {
+        const candidates = (roomHub.allRooms ? (roomHub.allRooms() || []) : [])
+          .filter(function (r) { return r && r.status === 'playing' && !live.has(r.id); })
+          .slice(0, 12);   /* سقف حماية: 12 غرفة جارية كحد أقصى لكل استطلاع */
+        return Promise.all(candidates.map(function (r) {
+          const order = roomHub.io.serializeRoom(r).order || [];
+          return Promise.all(order.slice(0, 2).map(function (pid) {
+            return mtxMonitor.relayStatusFor(r.id, pid).catch(function () { return null; });
+          })).then(function (sts) {
+            const onlineIds = [];
+            sts.forEach(function (st, i) { if (st && st.online) onlineIds.push(order[i]); });
+            if (onlineIds.length && !live.has(r.id)) {
+              try { const s = ensureLiveSession(r, onlineIds); out.push(publicSession(s)); } catch (e) {}
+            }
+          });
+        })).then(function () {
+          return { status: 200, body: { ok: true, sessions: out } };
+        }).catch(function () {
+          return { status: 200, body: { ok: true, sessions: out } };
+        });
+      }
+      return Promise.resolve({ status: 200, body: { ok: true, sessions: out } });
     },
 
     /* أدمن حصراً: حسم المباراة — إفراج عن الإيداعات عبر نواة التسوية المعتمدة */
@@ -445,6 +542,9 @@ function createArbitration(ctx) {
     },
 
     publicSession: publicSession,
+    /* [v2.81.4] مرجع عام للمراقب (streamStatus يفتح جلسة عند رصد بثّ) */
+    ensureLiveSession: ensureLiveSession,
+    setMediaMtxMonitor: setMediaMtxMonitor,
     _live: live
   };
 }

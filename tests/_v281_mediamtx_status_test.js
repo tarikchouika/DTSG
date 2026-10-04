@@ -50,6 +50,17 @@
      ج) فحوص ساكنة: mediamtx.yml (api:yes + apiAddress) · workflow بمفاتيحه
         · .gitignore · _redirects · prepare-www.sh · server.js مركّب · الدليل
    تشغيل:  QA_BASE=http://127.0.0.1:3971/ node tests/_v281_mediamtx_status_test.js
+   ───────────────────────────────────────────────────────────────────────────
+   أ·5) [v2.81.4·إصلاح خلل مشاركة الشاشة الميداني] علاج الجذور الثلاثة
+       الموثّقة في تسجيل المالك 2026-10-04 (Larix بثّ والبطاقة «لم أبدأ»،
+       وغرفة Larix لا تظهر بلوحة الأدمن إطلاقاً، ولا مشغّل مشاهدة للمرحّل):
+       رمز مشاهدة HMAC (صحة/انتهاء/عبث/ارتباط بالزوج) · hls_path موقّع في
+       stream-status · rewriteHlsPlaylist نقية (نسبية/مطلقة/EXT-X-MAP) ·
+       relayStatusFor (حيّ/ميت) · mine() الحيّة Promise + relay_stream +
+       الجلسة الآلية عند وصول بثّ موقّع (حارس «الغرفة لا تظهر للأدمن») ·
+       حارسات ساكنة: بروكسي HLS في server.js، مشغّل الأدمن بلا بناء رمز
+       (الرمز من الخادم حصراً)، بطاقة اللاعب تقرأ relay_stream، ومفاتيح
+       الترجمة الجديدة بأربع لغات.
    ═══════════════════════════════════════════════════════════════════════════ */
 'use strict';
 const http = require('http');
@@ -278,6 +289,86 @@ const ROOT = path.resolve(__dirname, '..');
   ok('secretConfigured ينقلب مع السرّ: غياب المتغيّر ⇒ false (سرّ عابر ينتهي بإعادة التشغيل)',
     secOf(null) === 'false');
 
+  /* ═══════════════════════════════════════════════════════════════════════
+     [v2.81.4·إصلاح الميدان] رمز المشاهدة + بروكسي HLS + mine الحيّة
+     ───────────────────────────────────────────────────────────────────── */
+  console.log('── أ·5) v2.81.4 — رمز المشاهدة + بروكسي HLS + الجلسة الآلية');
+
+  /* (أ·5-1) رمز المشاهدة HMAC — باب مشغّل الأدمن الوحيد */
+  const vt = MMX.signViewToken('r1', 1, 60000);
+  ok('signViewToken: الشكل <exp-ms>.<16hex>', /^\d{13}\.[0-9a-f]{16}$/.test(vt));
+  ok('verifyViewToken: رمز صحيح ⇒ true', MMX.verifyViewToken('r1', 1, vt) === true);
+  ok('verifyViewToken: زوج آخر ⇒ false (الرمز مربوط بغرفة×لاعب لا بالتوقيع وحده)',
+    MMX.verifyViewToken('r1', 2, vt) === false && MMX.verifyViewToken('r9', 1, vt) === false);
+  ok('verifyViewToken: عبث بآخر محرف ⇒ false',
+    MMX.verifyViewToken('r1', 1, vt.slice(0, -1) + (vt.endsWith('0') ? '1' : '0')) === false);
+  ok('verifyViewToken: رمز منتهٍ (exp ماضٍ) ⇒ false',
+    MMX.verifyViewToken('r1', 1, String(Date.now() - 1000) + '.' + vt.split('.')[1]) === false);
+  ok('verifyViewToken: مدخلات فاسدة (null/فارغ/بلا نقطة) ⇒ false بلا انهيار',
+    MMX.verifyViewToken('r1', 1, null) === false && MMX.verifyViewToken('r1', 1, '') === false && MMX.verifyViewToken('r1', 1, 'abc') === false);
+
+  /* (أ·5-2) stream-status يحمل hls_path موقّعاً يعمل فعلاً */
+  r = await mtx.streamStatus(ADM, 'r1');
+  const tokInUrl = (() => { try { return new URL('http://x' + r.body.player_a_status.hls_path).searchParams.get('t'); } catch (e) { return null; } })();
+  ok('stream-status: hls_path للاعب A هو مسار بروكسي المنصة الموحد',
+    typeof r.body.player_a_status.hls_path === 'string' &&
+    r.body.player_a_status.hls_path.indexOf('/api/matches/r1/hls/1/index.m3u8?t=') === 0);
+  ok('stream-status: رمز hls_path صالح لهذا الزوج تحديداً', !!tokInUrl && MMX.verifyViewToken('r1', 1, tokInUrl) === true);
+  ok('stream-status: رمز B مختلف ومستقل (لا رمز مشترك بين لاعبي الجلسة)',
+    r.body.player_b_status.hls_path !== r.body.player_a_status.hls_path);
+
+  /* (أ·5-3) rewriteHlsPlaylist — دالّة نقية */
+  const SRC_PL = '#EXTM3U\n#EXT-X-VERSION:9\n#EXT-X-MAP:URI="init.mp4"\nseg_1.m4s\n# comment stays\nhttps://cdn.abs/keep.m4s\n';
+  const REW = MMX.rewriteHlsPlaylist(SRC_PL, 'r1', 1, vt);
+  ok('rewriteHlsPlaylist: المقطع النسبي يتحول لمسار البروكسي بنفس الرمز',
+    REW.indexOf('/api/matches/r1/hls/1/seg_1.m4s?t=' + vt) !== -1);
+  ok('rewriteHlsPlaylist: EXT-X-MAP URI يُعاد كتابته', REW.indexOf('URI="/api/matches/r1/hls/1/init.mp4?t=' + vt) !== -1);
+  ok('rewriteHlsPlaylist: المطلق يُترك والتعليق يبقى كما هو',
+    REW.indexOf('https://cdn.abs/keep.m4s') !== -1 && REW.indexOf('# comment stays') !== -1);
+  ok('rewriteHlsPlaylist: اسم غير متوقع لا يُمسّ (حارس فساد المسارات)',
+    MMX.rewriteHlsPlaylist('weird name.m4s\n', 'r1', 1, vt) === 'weird name.m4s\n');
+
+  /* (أ·5-4) relayStatusFor — لبطاقة اللاعب الحيّة */
+  const rsA = await mtx.relayStatusFor('r1', 1);
+  ok('relayStatusFor: لاعب يبث فعلاً ⇒ online + bytes_rx سليمة + available=true',
+    rsA.online === true && rsA.bytes_rx === 5242880 && rsA.available === true && rsA.path === P('r1', 1));
+  const rsDead = await mtxDead.relayStatusFor('r4', 1);
+  ok('relayStatusFor: مرحّل ميت ⇒ available=false وonline=false بلا انهيار',
+    rsDead.available === false && rsDead.online === false);
+
+  /* (أ·5-5) mine() الحيّة + الجلسة الآلية — الوحدة الحقيقية بسياق مزيّف */
+  const roomHub2 = {
+    roomsOfUser: function (uid) { return String(uid) === '2' ? [room('r5')] : [room('r1')]; },
+    findById: function (id) { return String(id) === 'r1' ? room('r1') : (String(id) === 'r5' ? room('r5') : null); },
+    io: { serializeRoom: function () { return { order: ['1', '2'] }; } },
+    exec: function () { return { status: 200, body: { ok: true } }; }
+  };
+  const ARB = require('../server-arbitration.js').createArbitration({
+    users: users, db: db, roomHub: roomHub2, sendToUser: function () {}, sseClients: sse,
+    pushWallet: function () {}, r2: null, logTx: function () {}, BET_FEE_RATE: 0.05
+  });
+  ok('mine: الوحدة تكشف setMediaMtxMonitor (الربط بعد الإنشاء — arb أسبق من mtx)', typeof ARB.setMediaMtxMonitor === 'function');
+  ARB.setMediaMtxMonitor(mtx);
+  process.env.MEDIAMTX_RTMP_URL = 'rtmp://bore.pub:1935';
+  const mNoRoom = await ARB.mine({ id: 99 });
+  ok('mine: بلا غرفة ⇒ room null (Promise — التوافق مُدار في الخادم)', mNoRoom.body.room === null && mNoRoom.body.can_broadcast === false);
+  const mRelay = await ARB.mine({ id: 1 });
+  ok('mine: relay_stream.configured=true (MEDIAMTX_RTMP_URL مضبوط)', mRelay.body.relay_stream.configured === true);
+  ok('mine: relay_stream.online=true لمن يبث فعلاً + البايتات والمسار الموقّع سليمة',
+    mRelay.body.relay_stream.online === true && mRelay.body.relay_stream.bytes_rx === 5242880 && mRelay.body.relay_stream.path === P('r1', 1));
+  ok('mine: الجلسة الآلية أُنشئت عند وصول بثّ موقّع (كانت غرفة Larix لا تظهر بلوحة الأدمن إطلاقاً — جذر «بدون جدوى» الثالث)',
+    !!mRelay.body.session && mRelay.body.session.room_id === 'r1' &&
+    (mRelay.body.session.players || []).some(function (p) { return p.user_id === 1 && p.state === 'relay'; }));
+  ok('mine: الغرفة ظهرت الآن بلوحة الأدمن (listSessions يراها حيّة)',
+    (await ARB.listSessions(ADM)).body.sessions.some(function (s) { return s.room_id === 'r1'; }));
+  const mIdle = await ARB.mine({ id: 2 });
+  ok('mine: لاعب لا يبث ⇒ online=false وبلا جلسة (بطاقة صادقة لا «عمياء»)',
+    mIdle.body.relay_stream.online === false && mIdle.body.session === null);
+  delete process.env.MEDIAMTX_RTMP_URL;
+  const mNoUrl = await ARB.mine({ id: 1 });
+  ok('mine: بلا MEDIAMTX_RTMP_URL ⇒ configured=false ولا استقصاء (عند الطلب حصراً)',
+    mNoUrl.body.relay_stream.configured === false && mNoUrl.body.relay_stream.online === false);
+
   /* ═══ ب) REST على خادم QA — fallback حقيقي (لا MediaMTX على 9997) ═══ */
   console.log('── ب) REST على خادم QA');
   const SB = require('./_safe_base.js');
@@ -333,9 +424,9 @@ const ROOT = path.resolve(__dirname, '..');
      RTMP بلا رمز يستطيع نشر ما يشاء داخل /^dtsg/، فالحماية طبقتان متكاملتان:
      سرّ في المسار، وعزل المنافذ. كل سطر عنوان في mediamtx.yml يجب أن يحمل
      127.0.0.1. */
-  const addrLines = yml.split('\n').filter(function (l) { return /^\s*(apiAddress|rtmpAddress|rtspAddress|hlsAddress|webrtcAddress)\s*:/.test(l); });
-  ok('mediamtx.yml: كل المستمعين الخمسة (api/rtmp/rtsp/hls/webrtc) على 127.0.0.1 — لا شيء مكشوف على شبكة الهاتف',
-    addrLines.length === 5 && addrLines.every(function (l) { return /:\s*127\.0\.0\.1:\d+\s*$/.test(l.trim()); }));
+  const addrLines = yml.split('\n').filter(function (l) { return /^\s*(apiAddress|rtmpAddress|rtspAddress|hlsAddress|webrtcAddress|srtAddress)\s*:/.test(l); });
+  ok('mediamtx.yml: كل المستمعين الستة (api/rtmp/rtsp/hls/webrtc/srt) على 127.0.0.1 — لا شيء مكشوف على شبكة الهاتف [v2.81.4: SRT انضم للحارس]',
+    addrLines.length === 6 && addrLines.every(function (l) { return /:\s*127\.0\.0\.1:\d+\s*$/.test(l.trim()); }));
 
   /* [v2.81·تثبيت لمرة واحدة] المصدر موثّق بـdocs/workflows/ — دفع .github/workflows يتطلب صلاحية workflow لا يملكها توكن النشر */
   const wf = fs.readFileSync(path.join(ROOT, 'docs/workflows/build-apk.yml'), 'utf8');
@@ -455,6 +546,68 @@ const ROOT = path.resolve(__dirname, '..');
   });
   ok('arb.mr*: ترتيب اللغات ar/fr/en/da سليم (الأول عربي، الثاني والثالث لاتيني، والرابع خانة دنماركية غير فارغة)',
     mrOrder.length === 0);
+
+  /* ═══════════════════════════════════════════════════════════════════════
+     (أ·5-6) [v2.81.4] حارسات ساكنة: بروكسي HLS في server.js + مشغّل الأدمن
+     بلا بناء رمز + بطاقة اللاعب relay_stream + ملفات الجولة والترجمة
+     ═══════════════════════════════════════════════════════════════════ */
+  const svSrc = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  ok('server.js: بروكسي HLS مركّب — المسار قبل كتلة arbMatch (لا يبتلعها regex) + حارس Loopback',
+    svSrc.indexOf('/api\\/matches\\/([^\\/]+)\\/hls') !== -1
+    && svSrc.indexOf('stream-status') < svSrc.indexOf('/hls\\/([^\\/]+)')
+    && /MEDIAMTX_HLS_URL[^\n]*ليس محلياً/.test(svSrc));
+  ok('server.js: الرمز يُتحقق خادمياً (verifyViewToken) والقوائم تُعاد كتابتها (rewriteHlsPlaylist) — لا مسار من العميل',
+    /MMX\.verifyViewToken\(hRoom, hUid, qTok\)/.test(svSrc)
+    && /MMX\.rewriteHlsPlaylist\(chunks, hRoom, hUid, qTok\)/.test(svSrc)
+    && /MMX\.publishPath\(hRoom, hUid\)/.test(svSrc));
+  /* [v2.81.4·إصلاح الميدان] MediaMTX v1.21 يردّ 302 cookieCheck ثم يشترط كوكي
+     hlsSession على كل طلب لاحق (401 بلا كوكي) ⇒ البروكسي يجب أن يستعمل
+     hlsFetch (متبع توجيهات بجرة كوكيز مشتركة + شفاء ذاتي عند 401) لا http.get خام */
+  const mtxSrcHls = fs.readFileSync(path.join(ROOT, 'server-mediamtx.js'), 'utf8');
+  ok('server.js: البروكسي يجلب عبر MMX.hlsFetch لا http.get خام (302 cookieCheck تُتبَّع خادمياً)',
+    /MMX\.hlsFetch\(upPath, function \(hRes, hErr\)/.test(svSrc)
+    && !/http\.get\(hlsUp \+ upPath/.test(svSrc));
+  ok('server-mediamtx.js: hlsFetch بجرة كوكيز مشتركة على مستوى العملية + متابعة توجيهات (≤3) + شفاء ذاتي عند 401',
+    /const MTX_COOKIE_JAR = Object\.create\(null\)/.test(mtxSrcHls)
+    && /hops > 3/.test(mtxSrcHls)
+    && /statusCode === 401 && !retried/.test(mtxSrcHls)
+    && /hlsFetch: hlsFetch/.test(mtxSrcHls));
+  ok('server.js: mine ملفوفة بـPromise.resolve (صارت غير متزامنة استقصاءً للمرحّل)',
+    /Promise\.resolve\(arb\.mine\(me\)\)/.test(svSrc));
+  ok('server.js: المراقب مربوط بوحدة التحكيم (setMediaMtxMonitor بعد الإنشاء)',
+    /arb\.setMediaMtxMonitor\(mtx\)/.test(svSrc));
+  ok('server-arbitration.js: mine يستعلم relayStatusFor ويفتح جلسة آلية (reason relay) ويحدّث lastSeen',
+    /relayStatusFor\(room\.id, me\.id\)/.test(arbSrc)
+    && /reason: 'relay'/.test(arbSrc)
+    && /pl\.lastSeen = Date\.now\(\)/.test(arbSrc)
+    && /relay_stream:/.test(arbSrc));
+  const arbAdminSrc = fs.readFileSync(path.join(ROOT, 'js/core/arb-admin.js'), 'utf8');
+  ok('arb-admin.js: مشغّل المرحّل موجود (arbRtPlay + Hls.isSupported) ويُدمّر عند التفكيك',
+    /arbRtPlay-/.test(arbAdminSrc) && /Hls\.isSupported/.test(arbAdminSrc)
+    && /stopRelayPlayer/.test(arbAdminSrc)
+    && /Object\.keys\(st\.rtHls\)\.forEach\(stopRelayPlayer\)/.test(arbAdminSrc));
+  ok('arb-admin.js: الرمز لا يُبنى ولا يُوقّع في العميل إطلاقاً (hls_path من stream-status حصراً)',
+    !/signViewToken/.test(arbAdminSrc) && !/publishPath/.test(arbAdminSrc) && !/publishToken/.test(arbAdminSrc));
+  ok('arb-page.js: البطاقة تقرأ relay_stream (الحالة الحيّة) + تنبيه Larix RTMP حصراً',
+    /relay_stream/.test(arbPageSrc) && /arb\.mrStatusLive/.test(arbPageSrc) && /arb\.mrLarixTip/.test(arbPageSrc));
+  const idxSrc = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  ok('index.html: hls.light.min.js مُستضاف محلياً قبل سكربتات التحكيم (لا CDN خارجي)',
+    idxSrc.indexOf('js/vendor/hls.light.min.js') !== -1
+    && idxSrc.indexOf('js/vendor/hls.light.min.js') < idxSrc.indexOf('js/core/arb-admin.js'));
+  ok('index.html: إصدارات v2814 لملفات الجولة (arb-admin + arb-page + translations)',
+    /arb-admin\.js\?v=v2814/.test(idxSrc) && /arb-page\.js\?v=v2814/.test(idxSrc) && /translations\.js\?v=v2814/.test(idxSrc));
+  const hlsFile = path.join(ROOT, 'js/vendor/hls.light.min.js');
+  const hlsSz = fs.existsSync(hlsFile) ? fs.statSync(hlsFile).size : 0;
+  ok('js/vendor/hls.light.min.js: موجود بحجم سليم (100KB–1MB) وبرمجية مصغّرة',
+    hlsSz > 102400 && hlsSz < 1048576 && fs.readFileSync(hlsFile, 'utf8').slice(0, 20).indexOf('!function') === 0);
+  const RT_KEYS = ['arb.mrStatusLive', 'arb.mrStatusIdle', 'arb.mrStatusDown', 'arb.mrLarixTip',
+    'arb.rtRelayView', 'arb.rtRelayHlsNote', 'arb.rtRelayFail', 'arb.rtRelayNoSupport'];
+  const rtBad = RT_KEYS.filter(function (k) {
+    const e = trEntries(k);
+    return !e || e.length !== 4 || e.some(function (v) { return !String(v).trim(); });
+  });
+  ok('translations.js: مفاتيح v2.81.4 الثمانية موجودة بأربع لغات غير فارغة' + (rtBad.length ? ' (الناقص: ' + rtBad.join(', ') + ')' : ''),
+    rtBad.length === 0);
 
   ok('docs/APK_BUILD.md: دليل التنزيل والتثبيت موجود', fs.existsSync(path.join(ROOT, 'docs/APK_BUILD.md')));
 
