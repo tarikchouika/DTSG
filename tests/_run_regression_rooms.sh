@@ -192,6 +192,10 @@ run "طلب 6/7/8"                      "tests/_req678_test.js"
 run "عزل عام"                        "tests/_isolate_test.js"
 run "أمن الملفات الساكن"             "tests/_security_static_test.js"
 run "v281 مراقبة MediaMTX + APK"     "tests/_v281_mediamtx_status_test.js"
+# [v2.81.4-audit] حراسات APK (دخول WebView + لوغو المنصة) كانت خارج البطارية
+# كلياً ⇒ انحدارٌ في إصلاحَي v2.81.3 كان يمرّ بصمت. فحوص مصدر ثابتة: بلا خادم
+# وبلا متصفح، فآمنة في أي بيئة معزولة.
+run "v2813 حمايات APK الأصلية"        "tests/_v2813_apk_native_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"
