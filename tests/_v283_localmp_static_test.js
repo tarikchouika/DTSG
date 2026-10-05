@@ -30,9 +30,15 @@ ok(/jsQR\.js/.test(lmp), 'فك الرمز عبر jsQR المحلي (تحميل �
 const rooms = read('js/core/rooms.js');
 ok(!/LocalMP|local-mp|lmp/i.test(rooms), 'rooms.js بلا أي أثر للغرفة المحلية (تغليف خارجي — لا تعديل)');
 const idx = read('index.html');
-ok(/js\/core\/rooms\.js\?v=/.test(idx) && /js\/core\/local-mp\.js\?v=v283/.test(idx) &&
+/* [v2.84.1-audit] البصمات تُشتق من package.json ولا تُثبَّت على رقم إصدار:
+   التثبيت الحرفي يجعل الحارس أحمر مع كل إصدار جديد بلا أي انحدار فعلي
+   (حصل مرتين: v2.84 ثم v2.84.1). العقد المقصود هو قاعدة 15 نفسها: الحضور + التطابق. */
+const PKG = JSON.parse(read('package.json'));
+const hasStamp = (file) => new RegExp(file.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\?v=[A-Za-z0-9]+').test(idx);
+
+ok(/js\/core\/rooms\.js\?v=/.test(idx) && hasStamp('js/core/local-mp.js') &&
    idx.indexOf('local-mp.js') > idx.indexOf('rooms.js'),
-   'index.html يحمّل local-mp.js?v=v283 بعد rooms.js (بصمة قاعدة 15)');
+   'index.html يحمّل local-mp.js ببصمة ?v= بعد rooms.js (قاعدة 15)');
 
 /* ── 3) حرس الهوية المحلية في auth.js ── */
 const auth = read('js/core/auth.js');
@@ -78,17 +84,20 @@ ok(netCalls.length === 0, 'صفر نداءات شبكة في local-mp.js (لعب
 ok(fs.existsSync(path.join(ROOT, 'js/vendor/jsQR.js')), 'jsQR مُستضاف محلياً (لا CDN — قاعدة CSP)');
 ok(!/https?:\/\/[^"']*(jsqr|jsQR)/i.test(lmp), 'لا مرجع خارجي لمكتبة فك الرموز');
 
-/* ── 10) بصمات الأصول المعدَّلة (قاعدة 15) ── */
-ok(idx.includes('baloot-app.js?v=v283') && idx.includes('auth.js?v=v283') &&
-   idx.includes('09-chrome.css?v=v283') && idx.includes('translations.js?v=v283'),
-   'بصمات v283 للأصول الأربعة المعدَّلة (baloot-app · auth · chrome · translations)');
+/* ── 10) بصمات الأصول المعدَّلة (قاعدة 15 — بلا تثبيت على رقم إصدار) ── */
+const STAMPED = ['baloot-game/js/ui/baloot-app.js', 'js/core/auth.js', 'css/09-chrome.css', 'js/i18n/translations.js'];
+const missing = STAMPED.filter((f) => !hasStamp(f.split('/').pop()));
+ok(missing.length === 0,
+   'بصمات ?v= للأصول الأربعة المعدَّلة (baloot-app · auth · chrome · translations)',
+   missing.join(','));
 
 /* ── 11) البصمة الكاملة للإصدار (القاعدة 15: الثلاثة معاً) ── */
 const pkg = JSON.parse(read('package.json'));
 const lock = JSON.parse(read('package-lock.json'));
 const main = read('js/main.js');
-ok(pkg.version === '2.83.0' && lock.version === '2.83.0' && /DTSG_BUILD = 'v2\.83\.0'/.test(main),
-   'بصمة الإصدار الثلاثية 2.83.0 (package · lock · DTSG_BUILD)');
+const lockRoot = (lock.packages && lock.packages['']) ? lock.packages[''].version : lock.version;
+ok(lock.version === pkg.version && lockRoot === pkg.version && main.includes("DTSG_BUILD = 'v" + pkg.version + "'"),
+   'بصمة الإصدار الثلاثية متسقة مع package.json (' + pkg.version + ')', JSON.stringify({ pkg: pkg.version, lock: lock.version, lockRoot: lockRoot }));
 
 /* ── 12) عقد الدلالة: الطبقات الثلاث للمرشحين والمرآة ── */
 ok(/① IPv4 خاص/.test(lmp) && /② mDNS/.test(lmp) && /③ أي مرشح مضيف/.test(lmp), 'مرشحو الاتصال بثلاث طبقات (خاص → mDNS → أي مضيف)');
