@@ -244,7 +244,7 @@ jobs:
               }
           
               @Override
-              protected void onResume() {
+              public void onResume() {   /* BridgeActivity.onResume عامة — التجاوز كذلك وإلا صلاحية أضعف (درس بناء #14) */
                   super.onResume();
                   bindJsInterface();
                   pushInsetsToPage();

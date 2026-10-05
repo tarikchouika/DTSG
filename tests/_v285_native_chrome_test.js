@@ -127,6 +127,9 @@ ok(/evaluateJavascript\(js, null\)/.test(wf),
    'دفع المساحات للصفحة من جافا عند كل تغيّر (evaluateJavascript)');
 ok(/setOnApplyWindowInsetsListener/.test(wf) && /onResume\(\)/.test(wf),
    'مستمع التغيّرات + إعادة الضبط في onResume');
+/* [درس بناء #14] BridgeActivity.onResume عامة — التجاوز المحمي = صلاحية أضعف فتنهار الترجمة */
+ok(/public void onResume\(\)/.test(wf) && !/protected void onResume\(\)/.test(wf),
+   'تجاوز onResume عام مثل الأصل (وإلا: attempting to assign weaker access privileges)');
 /* صياغة بايثون الخطوة سليمة (استخراج الهيريدوك وإزالة إزاحة YAML ثم تحليله ببايثون) */
 const heredoc = wf.split("<<'PY3'\n", 2)[1];
 const rawBody = heredoc ? heredoc.split('\n          PY3', 1)[0] : '';
@@ -172,7 +175,7 @@ ok(/edge-to-edge/.test(agents) && /DTSGNative/.test(agents),
    'AGENTS.md: عقد ملء الشاشة والجسر موثّق');
 
 /* ── حارس العدّاد ───────────────────────────────────────────────────────── */
-const EXPECTED = 39;
+const EXPECTED = 40;
 ok(results.length === EXPECTED - 1,
    'حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (' + EXPECTED + ')');
 
