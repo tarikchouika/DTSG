@@ -173,9 +173,21 @@ ok(/\[v2\.85/.test(chlog) && /ملء الشاشة 100%/.test(chlog),
 const agents = read('AGENTS.md');
 ok(/edge-to-edge/.test(agents) && /DTSGNative/.test(agents),
    'AGENTS.md: عقد ملء الشاشة والجسر موثّق');
+/* [القاعدة 22] الرقم المنشور للحرس ليس حرفاً يُثبَّت: يشتق من عدّاد هذا
+   الملف نفسه. تدقيق 2026-10-05 كشف انحرافاً حقيقياً — CHANGELOG وAGENTS
+   وAPK_BUILD نشرت «39» والعدّاد يقول غيره (الرقم قُدِّم قبل إضافة حارس
+   التوثيق)، فقرأ القارئ عدداً غير موجود. الفحص أدناه يمنع تكراره: كل ذكر
+   للحرس في الوثائق الثلاث يجب أن يحمل الرقم نفسه. */
+const DOCS = [agents, chlog, read('docs/APK_BUILD.md')];
+const docCounts = DOCS.map(t => [...t.matchAll(/_v285_native_chrome_test\.js`\s*\((?:\*\*)?(\d+)(?:\*\*)?/g)]
+                            .map(m => Number(m[1])));
+const docNums = [...new Set(docCounts.flat())];
+ok(docCounts.every(l => l.length > 0) && docNums.length === 1,
+   'الوثائق الثلاث تذكر حارس v2.85 برقم واحد متّسق',
+   'الأرقام الواردة: ' + (docNums.join(', ') || 'لا ذكر'));
 
 /* ── حارس العدّاد ───────────────────────────────────────────────────────── */
-const EXPECTED = 40;
+const EXPECTED = 41;
 ok(results.length === EXPECTED - 1,
    'حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (' + EXPECTED + ')');
 
