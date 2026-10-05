@@ -1089,3 +1089,17 @@ Stage Summary:
 - عقد v2.85 كلّه محفوظ (الشفافية + shortEdges + جسر DTSGNative + المساحات الآمنة) — جراحة سطر جوهري واحد + خلفيتين + تحديث أيقونات
 - درس موثّق للأبد: شفافية الشريطين بلا setDecorFitsSystemWindows لا تملأ الشاشة — يحرسه _v286_e2e_layout_test.js في البطارية
 - المعلَّق على المالك بعد الدفع: مراقبة بناء Actions ونشر الإصدار + تثبيت APK الجديد + (لاحقاً) تدوير توكن GitHub
+---
+Task ID: 11-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.86.0 — البناء والنشر والتحقق من الAPK المنشور
+
+Work Log:
+- الدفع 384a481 (بعد rebase نظيف على d4c004a بتوحيد اتحادي: عدّاد v285 الموحَّد 42 في الوثائق الثلاث + إدخالا worklog كلاهما بترقيم 10/11) أطلق البناء #22
+- **البناء نجح** (تشغيل 37359767500 — ~2 دقائق بكاش Gradle/npm) و**Release apk-v2.86.0-build22 منشور** بعلم latest: DTSG-Gaming-App.apk 26.5MB + بصمة sha256
+- **تحقق الAPK المنشور نفسه:** تنزيله وفكّه — DEX يحمل الإصلاحات الثلاثة (setDecorFitsSystemWindows=1 · WindowInsetsControllerCompat=12 · setBackgroundDrawable+ColorDrawable=1/3) وجسر DTSGNative كامل، وcapacitor.config.json المضمّن يحمل backgroundColor #0b1526، وثيم AppTheme.NoActionBar شفاف الشريطين كما كان، وsha256 للملف المنزَّل مطابق لأصل الإصدار حرفياً (140199ff…)
+- جولة الحراس النهائية: v286 23/23 · v285 42/42 · v282 23/23 · v2813 21/21 · hygiene 5/5 · preflight سليم · النسختان متطابقتان
+
+Stage Summary:
+- v2.86.0 حيّة على GitHub main (384a481) والرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّم التطبيق المصحوب
+- المعلَّق على المالك: تثبيت APK الجديد على الهاتف (يتحدث مباشرة فوق build20 — نفس شهادة الإنتاج) والتحقق البصري من ملء الشاشة + تدوير توكن GitHub لاحقاً
