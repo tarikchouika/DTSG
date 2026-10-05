@@ -445,8 +445,10 @@ jobs:
               public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
                   super.onRequestPermissionsResult(requestCode, permissions, grantResults);
                   if (requestCode == 4287) {
-                      ln.pushEvent(new JSONObject().put("t", "btPerms")
-                          .put("granted", ln.btPermsGranted()).toString());
+                      try {
+                          ln.pushEvent(new JSONObject().put("t", "btPerms")
+                              .put("granted", ln.btPermsGranted()).toString());
+                      } catch (Throwable ignored) { }
                   }
               }
           

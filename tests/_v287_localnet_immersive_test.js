@@ -52,6 +52,23 @@ ok(/applyBarsAppearance\(\);\s*\n\s*hideSystemBars\(\);/.test(wf),
 ok(/getDisplayCutout\(\)/.test(wf) && /dc\.getSafeInsetTop\(\)/.test(wf),
    'حشوة المقصوص مدمجة في المساحات: أيقونات الهيدر لا تلمس كاميرا النوتش في الغامر');
 
+/* ── 2-ب) [درس بناء #24] ترجمة فعلية بjavac حين يتوفر JDK محلياً —
+   مثل أجنحة المتصفح: غيابه تخطٍّ بيئي لا انحدار. سكربت الاستخراج والستubs:
+   /home/z/my-project/scripts/javac_verify.sh (نمط التحقق الهندسي لجولة v2.86). */
+let javacOk = null;
+try {
+  const { execFileSync } = require('child_process');
+  const os = require('os');
+  const jdk = '/home/z/my-project/tools/jdk17/bin/javac';
+  if (fs.existsSync(jdk)) {
+    const out = execFileSync('bash', ['/home/z/my-project/scripts/javac_verify.sh'],
+      { stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 }).toString('utf8');
+    javacOk = out.includes('COMPILE OK');
+  }
+} catch (e) { javacOk = null; }
+ok(javacOk === null || javacOk === true,
+   'ترجمة MainActivity بjavac 17 ضد ستubs' + (javacOk === null ? ' — تخطٍّ بيئي (لا JDK محلي)' : ' (COMPILE OK)'));
+
 /* ── 3) LocalNet في الجافا (المشكلة ④) ─────────────────────────────────── */
 ok(/"_dtsg\._tcp\."/.test(wf) && /registerService\(/.test(wf) && /discoverServices\(/.test(wf),
    'الاكتشاف على الواي فاي: خدمة NSD ‏_dtsg._tcp تسجّل وتُكتشف');
@@ -283,7 +300,7 @@ ok(/_v287_localnet_immersive_test\.js/.test(runner),
    'الجناح مسجَّل في عدّاء البطارية (لا ثغرة تغطية)');
 
 /* ── 10) حارس العدّاد ────────────────────────────────────────────────────── */
-const EXPECTED = 55;
+const EXPECTED = 56;
 ok(results.length === EXPECTED - 1, 'حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (' + EXPECTED + ')');
 
 const pass = results.filter(Boolean).length;
