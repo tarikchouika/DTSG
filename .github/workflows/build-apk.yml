@@ -125,13 +125,21 @@ jobs:
       #      بعد cap add (npm أزال 3 حزم وغيّر 14) فانكسر :capacitor-android
       #      أمام Gradle («None of the consumable configurations have attributes»)
       #      ⇒ التثبيت الآن معزول في /tmp/capassets: حزم المساحة لا تُمسّ بعد cap add.
-      # 6.5) [v2.83·إصلاح ميداني] أيقونة بلا حاوية: لوغو كبير شفاف على طبقات
-      #      تكيفية شفافة بالكامل — كان السير يمرر --iconBackgroundColor '#0b1526'
-      #      فتظهر أيقونة «لوغو صغير داخل مربع أسود» (بلاغ المالك 2026-10-05).
-      #      الآن: resources/icon-foreground.png (لوغو 76% شفاف) + icon-background.png
-      #      (شفافة 100%) تُستخدمان للطبقات التكيفية، وicon.png نفسه صار اللوغو
-      #      الكبير الشفاف (الأيقونات القديمة + المتجر). ألوان الخلفية أُبقيت
-      #      لشاشة البدء حصراً — لا علاقة لها بالأيقونة بعد الآن.
+      # 6.5) [v2.87·إصلاح ميداني] أيقونة كبيرة جذابة بلا حاوية سوداء — كان
+      #      السير (منذ v2.83) يبني الطبقات التكيفية شفافة بالكامل، لكن أندرويد
+      #      يركّب الأيقونة التكيفية فوق خلفية سوداء كلما كانت طبقة الخلفية
+      #      شفافة، فظهر «لوغو صغير داخل حاوية مربعة سوداء» (بلاغ المالك
+      #      2026-10-06). والقياس الفعلي لمخرجات @capacitor/assets@3 أثبت أن
+      #      ملف المصدر يُمدّد ليطابق منطقة الرؤية المقنّعة (72dp) حرفياً
+      #      (inset 16.7%) — أي أن لوغو v2.83 (69-76% من اللوحة) كان يُعرض
+      #      صغيراً داخل الشكل المقنّع والباقي أسود. الإصلاح:
+      #      icon-foreground.png = اللوغو يغطي 90% من منطقة الرؤية (كبير
+      #      وجذاب) + icon-background.png = تدرّج كحلي من هوية المنصة
+      #      (#0b1526) — لأن أندرويد يقنّع كل أيقونة شكلَ دائرة/مربع مستدير
+      #      ولا توجد أيقونة بلا خلفية أصلاً: ملء القناع بكحلي المنصة يجعل
+      #      الأيقونة «المنصة نفسها» ولا يظهر أسود أبداً + icon.png (الأجهزة
+      #      القديمة والمتجر) = شارة كحلية بحدّ ذهبي رقيق وعملة فاخرة.
+      #      ألوان شاشة البدء كما هي حصراً — لا علم --iconBackgroundColor.
       - name: Generate app icons + splash from platform logo
         run: |
           mkdir -p /tmp/capassets
@@ -172,6 +180,19 @@ jobs:
       #      الشريطين (تستدعيه updateThemeIcon في utils.js). ③ الصفحة:
       #      viewport-fit=cover موجود أصلاً وenv() هي الافتراض.
       #      python3 بمرساة نصية دقيقة وفشل صريح إن تغيّر القالب (نمط 8.4).
+      #      [v2.87·الوضع الغامر — بلاغ المالك 2026-10-06: «الشريطان يتداخلان
+      #      مع أزرار المنصة والألعاب»]: الشفافية وحدها أبقت شريطي النظام فوق
+      #      المحتوى فتداخلا مع أزرار الواجهة. الإصلاح الاحترافي المعتمد في
+      #      التطبيقات الكبرى: الشريطان مخفيان آلياً عند فتح التطبيق
+      #      (hide(systemBars)) ويظهران مؤقتاً بالسحب من الحافة فقط
+      #      (BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE) ثم يختفيان وحدهما —
+      #      فلا تداخل إطلاقاً والمساحات الآمنة تُصفَّر تلقائياً.
+      #      [v2.87·LocalNet — جسر اللعب المحلي المباشر]: نفس الجسر يضم وحدة
+      #      LocalNet (NSD/mDNS اكتشافاً على الواي فاي + إعلان/مسح BLE على
+      #      البلوتوث + قنوات TCP/RFCOMM مباشرة بين الهواتف بلا خادم وبلا
+      #      روابط) — كود غرفة من 8 حروف وأرقام والأحداث عبر
+      #      window.__dtsgLnEvt. الكود بلا أي شرطة مائلة عكسية عمداً فهو
+      #      يسكن سلسلة python ثلاثية.
       #      [v2.86·درس ميداني 2026-10-06 — بلاغ «فراغ أسود أعلى وأسفل»]:
       #      شفافية الشريطين وحدها لا تملأ الشاشة: إطار المحتوى بقي محشوراً
       #      بينهما فظهرت خلفية النافذة الفاتحة (Theme.AppCompat.DayNight في
@@ -217,29 +238,81 @@ jobs:
           if s2.strip() != tpl.strip():
               sys.exit("X قالب MainActivity تغيّر: لم أجد الصنف الفارغ المتوقع — راجع خطوة الحقن (8.5)")
           new = '''package com.dtsg.app;
+          package com.dtsg.app;
           
+          import android.bluetooth.BluetoothAdapter;
+          import android.bluetooth.BluetoothDevice;
+          import android.bluetooth.BluetoothManager;
+          import android.bluetooth.BluetoothServerSocket;
+          import android.bluetooth.BluetoothSocket;
+          import android.bluetooth.le.AdvertiseCallback;
+          import android.bluetooth.le.AdvertiseData;
+          import android.bluetooth.le.AdvertiseSettings;
+          import android.bluetooth.le.BluetoothLeAdvertiser;
+          import android.bluetooth.le.BluetoothLeScanner;
+          import android.bluetooth.le.ScanCallback;
+          import android.bluetooth.le.ScanFilter;
+          import android.bluetooth.le.ScanRecord;
+          import android.bluetooth.le.ScanResult;
+          import android.bluetooth.le.ScanSettings;
+          import android.content.Context;
+          import android.content.Intent;
+          import android.content.pm.PackageManager;
           import android.graphics.drawable.ColorDrawable;
+          import android.net.nsd.NsdManager;
+          import android.net.nsd.NsdServiceInfo;
+          import android.os.Build;
           import android.os.Bundle;
           import android.view.Window;
           import android.view.WindowManager;
+          import androidx.core.app.ActivityCompat;
           import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsCompat;
           import androidx.core.view.WindowInsetsControllerCompat;
           import com.getcapacitor.Bridge;
           import com.getcapacitor.BridgeActivity;
+          import java.io.BufferedReader;
+          import java.io.IOException;
+          import java.io.InputStreamReader;
+          import java.io.OutputStream;
+          import java.net.InetSocketAddress;
+          import java.net.ServerSocket;
+          import java.net.Socket;
+          import java.nio.charset.StandardCharsets;
+          import java.util.ArrayList;
+          import java.util.Arrays;
+          import java.util.List;
+          import java.util.Map;
+          import java.util.UUID;
+          import java.util.concurrent.ConcurrentHashMap;
+          import java.util.concurrent.ConcurrentLinkedQueue;
+          import java.util.concurrent.atomic.AtomicBoolean;
+          import java.util.concurrent.atomic.AtomicInteger;
+          import org.json.JSONObject;
           
-          /* [v2.86] ملء الشاشة 100% (edge-to-edge) + جسر safe-area للويب — يُحقن من
-             سير البناء (خطوة 8.5). الشريطان شفافان والويب يرسم خلفهما
-             (setDecorFitsSystemWindows(false) — جوهر v2.86: بدونها يبقى إطار
-             المحتوى محشوراً بين الشريطين فتظهر خلفية النافذة الفاتحة عبرهما)،
-             والمساحات الآمنة تُدفع للصفحة (متغيرا --safe-top/--safe-bottom)
-             وتُسحب أيضاً من getInsets() بصيغة "top|bottom"، وsetBarsLight يتبع
-             ثيم المنصة لأيقونات الشريطين (فاتحة فوق الكحلي / داكنة فوق العاجي
-             عبر WindowInsetsControllerCompat). */
+          /* [v2.87] ملء الشاشة الغامر + جسر الكروم الأصلي + شبكة اللعب المحلي (LocalNet).
+             يُحقن من سير البناء (خطوة 8.5) ويحافظ على كل عقد v2.85/v2.86 حرفياً:
+             (1) شريطا النظام شفافان والويب يرسم خلفهما (setDecorFitsSystemWindows=false)
+             (2) خلفية كحلية مزدوجة (النافذة + WebView من capacitor.config.json)
+             (3) WindowInsetsControllerCompat لأيقونات الشريطين حسب ثيم المنصة
+             الجديد في v2.87 (بلاغ المالك 2026-10-06: الشريطان يتداخلان مع أزرار
+             المنصة والألعاب):
+             (4) الوضع الغامر الاحترافي: الشريطان مخفيان آلياً عند فتح التطبيق
+                 ويظهران مؤقتاً بالسحب من الأعلى/الأسفل فقط
+                 (BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE) ثم يختفيان وحدهما —
+                 صفر تداخل مع أزرار المنصة والألعاب.
+             (5) جسر DTSGNative للّعب المحلي: الغرف المحلية تُكتشف آلياً على شبكة
+                 الواي فاي (NSD/mDNS) وعبر البلوتوث (إعلان ومسح BLE) وتربط الهواتف
+                 مباشرة (TCP على الواي فاي · RFCOMM غير الآمن على البلوتوث) — بلا
+                 خادم وبلا إنترنت وبلا أي روابط: كود قصير من 8 حروف وأرقام فقط.
+             ملاحظة بناء: الكود بلا أي شرطة مائلة عكسية عمداً — فهو يسكن سلسلة
+             نصية ثلاثية داخل سكربت الحقن (python3) فأي تهرّب فيها يعبث بالجافا. */
           public class MainActivity extends BridgeActivity {
               private volatile int insetTop = 0;
               private volatile int insetBottom = 0;
               private volatile boolean barsLight = false;
               private boolean jsBound = false;
+              private final LocalNet ln = new LocalNet();
           
               @Override
               public void onCreate(Bundle savedInstanceState) {
@@ -248,15 +321,9 @@ jobs:
                   w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                   w.setStatusBarColor(android.graphics.Color.TRANSPARENT);
                   w.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
-                  /* [v2.86] جوهر ملء الشاشة (بلاغ المالك 2026-10-06: «فراغ أسود
-                     أعلى وأسفل»): شفافية الشريطين وحدها تركت إطار المحتوى
-                     محشوراً بينهما فظهرت خلفية النافذة الفاتحة خلفهما.
-                     setDecorFitsSystemWindows(false) تمدّد الويب خلف الشريطين
-                     على كل الإصدارات (تُترجم إلى أعمال LAYOUT_* قبل API 30). */
+                  /* [v2.86] جوهر ملء الشاشة: إطار المحتوى خلف الشريطين على كل الإصدارات */
                   WindowCompat.setDecorFitsSystemWindows(w, false);
-                  /* خلفية النافذة كحلية كهوية المنصة (#0b1526): لا وميض فاتح
-                     خلف الشريطين عند الإقلاع أو تغيّر الحجم — والويب نفسه
-                     يلوَّن كحلياً من backgroundColor في capacitor.config.json. */
+                  /* خلفية النافذة كحلية كهوية المنصة (#0b1526) — لا وميض فاتح أبداً */
                   w.setBackgroundDrawable(new ColorDrawable(0xFF0B1526));
                   try {
                       w.getAttributes().layoutInDisplayCutoutMode =
@@ -271,29 +338,64 @@ jobs:
                   } catch (Throwable ignored) { }
                   bindJsInterface();
                   applyBarsAppearance();
+                  hideSystemBars();          /* [v2.87] الوضع الغامر منذ الإقلاع */
               }
           
               @Override
-              public void onResume() {   /* BridgeActivity.onResume عامة — التجاوز كذلك وإلا صلاحية أضعف (درس بناء #14) */
+              public void onResume() {   /* BridgeActivity.onResume عامة — التجاوز كذلك (درس بناء #14) */
                   super.onResume();
                   bindJsInterface();
                   pushInsetsToPage();
                   applyBarsAppearance();
+                  hideSystemBars();
               }
           
-              /* systemBars حصراً (بلا IME): stable insets قبل API 30 — قيم الشريطين
-                 نفسها التي يجب أن يحترمها الكروم، ولا تتغير بفتح لوحة المفاتيح. */
+              /* [v2.87] الوضع الغامر: أي حوار/عودة تركيز يعيد الإخفاء آلياً —
+                 والسحب من الحافة يُظهر الشريطين مؤقتاً فوق المحتوى ثم يخفيهما النظام. */
+              @Override
+              public void onWindowFocusChanged(boolean hasFocus) {
+                  super.onWindowFocusChanged(hasFocus);
+                  if (hasFocus) hideSystemBars();
+              }
+          
+              private void hideSystemBars() {
+                  try {
+                      runOnUiThread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  Window w = getWindow();
+                                  if (w == null) return;
+                                  WindowInsetsControllerCompat ctl =
+                                      WindowCompat.getInsetsController(w, w.getDecorView());
+                                  if (ctl == null) return;
+                                  ctl.setSystemBarsBehavior(
+                                      WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                                  ctl.hide(WindowInsetsCompat.Type.systemBars());
+                              } catch (Throwable ignored) { }
+                          }
+                      });
+                  } catch (Throwable ignored) { }
+              }
+          
+              /* systemBars حصراً (بلا IME) + حشوة المقصوص عند إخفاء الشريط (كاميرا النوتش) */
               private void cacheInsets(android.view.WindowInsets insets) {
                   try {
+                      int top = 0, bottom = 0, cutTop = 0;
                       if (android.os.Build.VERSION.SDK_INT >= 30) {
                           android.graphics.Insets sb =
                               insets.getInsets(android.view.WindowInsets.Type.systemBars());
-                          insetTop = Math.max(0, sb.top);
-                          insetBottom = Math.max(0, sb.bottom);
+                          top = Math.max(0, sb.top);
+                          bottom = Math.max(0, sb.bottom);
                       } else {
-                          insetTop = Math.max(0, insets.getStableInsetTop());
-                          insetBottom = Math.max(0, insets.getStableInsetBottom());
+                          top = Math.max(0, insets.getStableInsetTop());
+                          bottom = Math.max(0, insets.getStableInsetBottom());
                       }
+                      if (android.os.Build.VERSION.SDK_INT >= 28) {
+                          android.view.DisplayCutout dc = insets.getDisplayCutout();
+                          if (dc != null) cutTop = Math.max(0, dc.getSafeInsetTop());
+                      }
+                      insetTop = Math.max(top, cutTop);
+                      insetBottom = bottom;
                   } catch (Throwable ignored) { }
               }
           
@@ -326,10 +428,6 @@ jobs:
                       runOnUiThread(new Runnable() {
                           @Override public void run() {
                               try {
-                                  /* [v2.86] WindowInsetsControllerCompat (AndroidX): يعمل
-                                     على كل الإصدارات ويُترجم تلقائياً إلى أعلام
-                                     systemUiVisibility القديمة قبل API 30 — أيقونات
-                                     فاتحة فوق الكحلي / داكنة فوق العاجي. */
                                   Window w = getWindow();
                                   if (w == null) return;
                                   WindowInsetsControllerCompat ctl =
@@ -343,7 +441,17 @@ jobs:
                   } catch (Throwable ignored) { }
               }
           
-              /* جسر JS إلى Java: استعلام متزامن للمساحات (top|bottom) + ضبط أيقونات الشريطين */
+              /* [v2.87] نتيجة أذونات البلوتوث (طلب سياقي عند فتح الغرف المحلية/استضافتها) */
+              @Override
+              public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  if (requestCode == 4287) {
+                      ln.pushEvent(new JSONObject().put("t", "btPerms")
+                          .put("granted", ln.btPermsGranted()).toString());
+                  }
+              }
+          
+              /* جسر JS إلى Java: المساحات + أيقونات الشريطين + اللعب المحلي المباشر */
               private class NativeChrome {
                   @android.webkit.JavascriptInterface
                   public String getInsets() {
@@ -354,12 +462,669 @@ jobs:
                       barsLight = light;
                       applyBarsAppearance();
                   }
+                  /* ── LocalNet v2.87: الغرف المحلية بلا روابط وبلا خادم ── */
+                  @android.webkit.JavascriptInterface
+                  public String lnVersion() { return "2"; }
+                  @android.webkit.JavascriptInterface
+                  public void hostRoom(String json) { ln.host(json); }
+                  @android.webkit.JavascriptInterface
+                  public void hostUpdate(String json) { ln.hostUpdate(json); }
+                  @android.webkit.JavascriptInterface
+                  public void discoverStart(String json) { ln.discoverStart(json); }
+                  @android.webkit.JavascriptInterface
+                  public void discoverStop() { ln.discoverStop(); }
+                  @android.webkit.JavascriptInterface
+                  public void joinRoom(String json) { ln.join(json); }
+                  @android.webkit.JavascriptInterface
+                  public void sendMsg(int peerId, String msg) { ln.send(peerId, msg); }
+                  @android.webkit.JavascriptInterface
+                  public void leaveRoom() { ln.leave(); }
+                  @android.webkit.JavascriptInterface
+                  public String btPerms() { return ln.btPermsGranted() ? "granted" : "denied"; }
+                  @android.webkit.JavascriptInterface
+                  public void requestBtPerms() { ln.requestBtPerms(); }
+                  @android.webkit.JavascriptInterface
+                  public boolean btOn() { return ln.btOn(); }
+                  @android.webkit.JavascriptInterface
+                  public void btEnable() { ln.btEnable(); }
+              }
+          
+              /* ═══════════════════════════════════════════════════════════════════
+                 [v2.87] LocalNet — شبكة اللعب المحلي المباشر بين الهواتف
+                 ─────────────────────────────────────────────────────────────────
+                 الاكتشاف : NSD/mDNS على الواي فاي (خدمة _dtsg._tcp مع سجلات TXT:
+                            الكود/اللعبة/الاسم/اللاعبون) + إعلان BLE على البلوتوث
+                            (بيانات المصنّع تحمل الكود واللعبة وعدد اللاعبين).
+                 الاتصال  : TCP مباشر (واي فاي / نقطة اتصال) أو RFCOMM غير آمن
+                            (بلوتوث) — قناة جهاز-إلى-جهاز حصراً بلا خادم وبلا إنترنت.
+                 الرسائل : أسطر JSON (البروتوكول نفسه الذي كان يسري على DataChannel
+                            في نسخ الويب) — الأحداث تُدفع للصفحة عبر
+                            window.__dtsgLnEvt(json) بلا أي استطلاع.
+                 كل شيء داخل try/catch: عطل الشبكة لا يُسقط التطبيق أبداً.
+                 ═══════════════════════════════════════════════════════════════ */
+              private class LocalNet {
+                  final String NSD_TYPE = "_dtsg._tcp.";
+                  final UUID DTSG_UUID = UUID.fromString("8f0c7170-4d5a-4c6e-9d3a-2f6b8a9c1e40");
+                  final int MANUF_ID = 0x04D5;
+          
+                  NsdManager nsd = null;
+                  /* المضيف */
+                  final AtomicBoolean hosting = new AtomicBoolean(false);
+                  ServerSocket tcpServer = null;
+                  NsdManager.RegistrationListener nsdReg = null;
+                  BluetoothServerSocket btServer = null;
+                  BluetoothLeAdvertiser bleAdv = null;
+                  AdvertiseCallback advCb = null;
+                  volatile String hostCode = "", hostGame = "", hostName = "";
+                  volatile int hostMax = 4, hostPlayers = 1, hostPort = 0;
+                  /* الضيف: الاكتشاف */
+                  final AtomicBoolean discovering = new AtomicBoolean(false);
+                  NsdManager.DiscoveryListener nsdDisc = null;
+                  BluetoothLeScanner bleScanner = null;
+                  ScanCallback scanCb = null;
+                  final ConcurrentLinkedQueue<NsdServiceInfo> resolveQ = new ConcurrentLinkedQueue<NsdServiceInfo>();
+                  final AtomicBoolean resolving = new AtomicBoolean(false);
+                  final Map<String, Long> bleSeen = new ConcurrentHashMap<String, Long>();
+                  /* الأطراف: المضيف يرقّم ضيوفه من 1 · الضيف يستعمل 0 للمضيف */
+                  final Map<Integer, Link> links = new ConcurrentHashMap<Integer, Link>();
+                  final AtomicInteger linkSeq = new AtomicInteger(1);
+                  final AtomicBoolean joining = new AtomicBoolean(false);
+          
+                  /* ── طبقة تجريد المقبس (TCP أو بلوتوث) ── */
+                  abstract class Link {
+                      abstract OutputStream out() throws IOException;
+                      abstract BufferedReader reader() throws IOException;
+                      abstract void close();
+                      abstract String kind();
+                      final Object writeLock = new Object();
+                  }
+                  class TcpLink extends Link {
+                      final Socket s;
+                      TcpLink(Socket s) { this.s = s; }
+                      OutputStream out() throws IOException { return s.getOutputStream(); }
+                      BufferedReader reader() throws IOException {
+                          return new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+                      }
+                      void close() { try { s.close(); } catch (Throwable ignored) { } }
+                      String kind() { return "wifi"; }
+                  }
+                  class BtLink extends Link {
+                      final BluetoothSocket s;
+                      BtLink(BluetoothSocket s) { this.s = s; }
+                      OutputStream out() throws IOException { return s.getOutputStream(); }
+                      BufferedReader reader() throws IOException {
+                          return new BufferedReader(new InputStreamReader(s.getInputStream(), StandardCharsets.UTF_8));
+                      }
+                      void close() { try { s.close(); } catch (Throwable ignored) { } }
+                      String kind() { return "bt"; }
+                  }
+          
+                  /* ── أدوات ── */
+                  NsdManager nsd() {
+                      if (nsd == null) {
+                          try { nsd = (NsdManager) getSystemService(Context.NSD_SERVICE); } catch (Throwable ignored) { }
+                      }
+                      return nsd;
+                  }
+                  BluetoothAdapter btAdapter() {
+                      try {
+                          BluetoothManager bm = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+                          return bm == null ? null : bm.getAdapter();
+                      } catch (Throwable t) { return null; }
+                  }
+                  boolean btOn() {
+                      try {
+                          BluetoothAdapter a = btAdapter();
+                          return a != null && a.isEnabled();
+                      } catch (Throwable t) { return false; }
+                  }
+                  boolean btPermsGranted() {
+                      if (Build.VERSION.SDK_INT < 31) return true;   /* أذونات BLUETOOTH القديمة عادية */
+                      return perm("android.permission.BLUETOOTH_SCAN")
+                          && perm("android.permission.BLUETOOTH_ADVERTISE")
+                          && perm("android.permission.BLUETOOTH_CONNECT");
+                  }
+                  boolean perm(String p) {
+                      try {
+                          return ActivityCompat.checkSelfPermission(MainActivity.this, p) == PackageManager.PERMISSION_GRANTED;
+                      } catch (Throwable t) { return false; }
+                  }
+                  void requestBtPerms() {
+                      try {
+                          if (Build.VERSION.SDK_INT >= 31 && !btPermsGranted()) {
+                              ActivityCompat.requestPermissions(MainActivity.this, new String[] {
+                                  "android.permission.BLUETOOTH_SCAN",
+                                  "android.permission.BLUETOOTH_ADVERTISE",
+                                  "android.permission.BLUETOOTH_CONNECT" }, 4287);
+                          }
+                      } catch (Throwable ignored) { }
+                  }
+                  void btEnable() {
+                      try {
+                          BluetoothAdapter ada = btAdapter();
+                          if (ada == null || ada.isEnabled()) return;
+                          Intent i = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+                          i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                          startActivity(i);
+                      } catch (Throwable ignored) { }
+                  }
+                  void pushEvent(String json) {
+                      try {
+                          final Bridge b = getBridge();
+                          if (b == null || b.getWebView() == null) return;
+                          final String js = "try{window.__dtsgLnEvt&&window.__dtsgLnEvt(" + json + ")}catch(e){}";
+                          runOnUiThread(new Runnable() {
+                              @Override public void run() {
+                                  try { b.getWebView().evaluateJavascript(js, null); } catch (Throwable ignored) { }
+                              }
+                          });
+                      } catch (Throwable ignored) { }
+                  }
+                  void pushRoom(String code, String game, String name, int max, int players,
+                                String ip, int port, String mac, String transport) {
+                      try {
+                          JSONObject room = new JSONObject();
+                          room.put("code", code).put("game", game).put("name", name)
+                              .put("max", max).put("players", players);
+                          if (ip != null) room.put("ip", ip);
+                          if (port > 0) room.put("port", port);
+                          if (mac != null) room.put("mac", mac);
+                          room.put("transport", transport);
+                          pushEvent(new JSONObject().put("t", "room").put("room", room).toString());
+                      } catch (Throwable ignored) { }
+                  }
+                  void pushSimple(String t, String key, String val) {
+                      try {
+                          pushEvent(new JSONObject().put("t", t).put(key, val).toString());
+                      } catch (Throwable ignored) { }
+                  }
+                  void pushEventId(String t, int id) {
+                      try {
+                          pushEvent(new JSONObject().put("t", t).put("id", id).toString());
+                      } catch (Throwable ignored) { }
+                  }
+                  /* قيمة سمة TXT — متوافقة مع كل مستويات API (byte[] أو List<byte[]>) */
+                  String attr(NsdServiceInfo info, String key) {
+                      try {
+                          Map<String, ?> m = info.getAttributes();
+                          Object v = m.get(key);
+                          if (v instanceof List) {
+                              List<?> l = (List<?>) v;
+                              if (!l.isEmpty() && l.get(0) instanceof byte[]) {
+                                  return new String((byte[]) l.get(0), StandardCharsets.UTF_8);
+                              }
+                          } else if (v instanceof byte[]) {
+                              return new String((byte[]) v, StandardCharsets.UTF_8);
+                          }
+                      } catch (Throwable t) { }
+                      return "";
+                  }
+                  int safeInt(String s, int d) {
+                      try { return Integer.parseInt(s.trim()); } catch (Throwable t) { return d; }
+                  }
+                  void send(int id, String msg) {
+                      Link l = links.get(Integer.valueOf(id));
+                      if (l == null || msg == null) return;
+                      try {
+                          synchronized (l.writeLock) {
+                              OutputStream os = l.out();
+                              os.write(msg.getBytes(StandardCharsets.UTF_8));
+                              os.write(10);                              /* سطر جديد */
+                              os.flush();
+                          }
+                      } catch (Throwable t) {
+                          dropLink(Integer.valueOf(id), l);
+                      }
+                  }
+                  void dropLink(Integer id, Link l) {
+                      try { l.close(); } catch (Throwable ignored) { }
+                      if (links.remove(id) != null) {
+                          pushEventId("peerClose", id.intValue());
+                      }
+                  }
+                  void pumpRead(final Integer id, final Link l) {
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  BufferedReader r = l.reader();
+                                  String line;
+                                  while ((line = r.readLine()) != null) {
+                                      String t = line.trim();
+                                      if (t.length() == 0) continue;
+                                      if (t.length() > 262144) t = t.substring(0, 262144);
+                                      try {
+                                          pushEvent(new JSONObject().put("t", "data")
+                                              .put("id", id.intValue()).put("s", t).toString());
+                                      } catch (Throwable ignored) { }
+                                  }
+                              } catch (Throwable ignored) { }
+                              dropLink(id, l);
+                          }
+                      }, "ln-read-" + id).start();
+                  }
+          
+                  /* ── المضيف: فتح الغرفة (TCP + NSD + بلوتوث) ── */
+                  void host(String json) {
+                      String code = "", game = "", name = "Host";
+                      int max = 4;
+                      try {
+                          JSONObject o = new JSONObject(json == null ? "" : json);
+                          code = o.optString("code", "");
+                          game = o.optString("game", "");
+                          name = o.optString("name", "Host");
+                          max = Math.max(2, Math.min(6, o.optInt("max", 4)));
+                      } catch (Throwable ignored) { }
+                      if (code.length() != 8) {
+                          pushSimple("hostErr", "err", "bad-code");
+                          return;
+                      }
+                      final String fCode = code, fGame = game, fName = name;
+                      final int fMax = max;
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  leave();                                    /* نظافة أولاً */
+                                  hostCode = fCode; hostGame = fGame; hostName = fName;
+                                  hostMax = fMax; hostPlayers = 1;
+                                  tcpServer = new ServerSocket(0);
+                                  hostPort = tcpServer.getLocalPort();
+                                  hosting.set(true);
+                                  acceptTcpLoop();
+                                  registerNsd();
+                                  /* البلوتوث: إن كانت الأذونات ناقصة نطلبها (طلب سياقي
+                                     من نقر زر الاستضافة) — والصفحة تعيد المحاولة عند
+                                     حدث btPerms عبر hostUpdate */
+                                  if (btOn() && !btPermsGranted()) requestBtPerms();
+                                  ensureBtHost();
+                                  try {
+                                      pushEvent(new JSONObject().put("t", "hostReady")
+                                          .put("code", fCode).put("port", hostPort).toString());
+                                  } catch (Throwable ignored) { }
+                              } catch (Throwable t) {
+                                  hosting.set(false);
+                                  pushSimple("hostErr", "err", String.valueOf(t));
+                              }
+                          }
+                      }, "ln-host").start();
+                  }
+                  void acceptTcpLoop() {
+                      final ServerSocket ss = tcpServer;
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              while (hosting.get()) {
+                                  try {
+                                      Socket s = ss.accept();
+                                      if (!hosting.get()) { try { s.close(); } catch (Throwable ignored) { } continue; }
+                                      Integer id = Integer.valueOf(linkSeq.getAndIncrement());
+                                      Link l = new TcpLink(s);
+                                      links.put(id, l);
+                                      pumpRead(id, l);
+                                      pushEventId("peerOpen", id.intValue());
+                                  } catch (Throwable t) {
+                                      if (!hosting.get()) return;
+                                      try { Thread.sleep(400); } catch (Throwable ignored) { return; }
+                                  }
+                              }
+                          }
+                      }, "ln-tcp-accept").start();
+                  }
+                  void registerNsd() {
+                      try {
+                          NsdManager m = nsd();
+                          if (m == null) return;
+                          NsdServiceInfo si = new NsdServiceInfo();
+                          si.setServiceName("DTSG-" + hostCode);
+                          si.setServiceType(NSD_TYPE);
+                          si.setPort(hostPort);
+                          si.setAttribute("v", "2");
+                          si.setAttribute("code", hostCode);
+                          si.setAttribute("game", hostGame);
+                          si.setAttribute("name", hostName);
+                          si.setAttribute("max", String.valueOf(hostMax));
+                          si.setAttribute("players", String.valueOf(hostPlayers));
+                          nsdReg = new NsdManager.RegistrationListener() {
+                              @Override public void onServiceRegistered(NsdServiceInfo s) { }
+                              @Override public void onRegistrationFailed(NsdServiceInfo s, int e) { }
+                              @Override public void onServiceUnregistered(NsdServiceInfo s) { }
+                              @Override public void onUnregistrationFailed(NsdServiceInfo s, int e) { }
+                          };
+                          m.registerService(si, NsdManager.PROTOCOL_DNS_SD, nsdReg);
+                      } catch (Throwable ignored) { }
+                  }
+                  /* مستمع RFCOMM (مرة واحدة) + إعلان BLE — يُعاد عند توفر الأذونات */
+                  void ensureBtHost() {
+                      try {
+                          if (!hosting.get() || !btOn() || !btPermsGranted()) return;
+                          BluetoothAdapter ada = btAdapter();
+                          if (btServer == null && ada != null) {
+                              btServer = ada.listenUsingInsecureRfcommWithServiceRecord("DTSG", DTSG_UUID);
+                              acceptBtLoop();
+                          }
+                          if (bleAdv == null || advCb == null) {
+                              bleAdv = ada.getBluetoothLeAdvertiser();
+                              if (bleAdv != null) bleAdvertise();
+                          }
+                      } catch (Throwable ignored) { }
+                  }
+                  void acceptBtLoop() {
+                      final BluetoothServerSocket bs = btServer;
+                      if (bs == null) return;
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              while (hosting.get()) {
+                                  try {
+                                      BluetoothSocket s = bs.accept();
+                                      if (!hosting.get()) { try { s.close(); } catch (Throwable ignored) { } continue; }
+                                      Integer id = Integer.valueOf(linkSeq.getAndIncrement());
+                                      Link l = new BtLink(s);
+                                      links.put(id, l);
+                                      pumpRead(id, l);
+                                      pushEventId("peerOpen", id.intValue());
+                                  } catch (Throwable t) {
+                                      if (!hosting.get()) return;
+                                  }
+                              }
+                          }
+                      }, "ln-bt-accept").start();
+                  }
+                  byte[] advPayload() {
+                      try {
+                          byte[] g = hostGame.getBytes(StandardCharsets.UTF_8);
+                          if (g.length > 6) g = Arrays.copyOf(g, 6);
+                          byte[] p = new byte[1 + 8 + 1 + g.length + 1];
+                          p[0] = 1;                                   /* نسخة الحزمة */
+                          byte[] c = hostCode.getBytes(StandardCharsets.UTF_8);
+                          for (int i = 0; i < 8 && i < c.length; i++) p[1 + i] = c[i];
+                          p[9] = (byte) g.length;
+                          System.arraycopy(g, 0, p, 10, g.length);
+                          p[10 + g.length] = (byte) hostPlayers;
+                          return p;
+                      } catch (Throwable t) { return new byte[] { 1 }; }
+                  }
+                  void bleAdvertise() {
+                      try {
+                          if (bleAdv == null) return;
+                          AdvertiseSettings st = new AdvertiseSettings.Builder()
+                              .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
+                              .setConnectable(false)
+                              .setTimeout(0)
+                              .build();
+                          AdvertiseData data = new AdvertiseData.Builder()
+                              .addManufacturerData(MANUF_ID, advPayload())
+                              .setIncludeDeviceName(false)
+                              .setIncludeTxPowerLevel(false)
+                              .build();
+                          advCb = new AdvertiseCallback() { };
+                          bleAdv.startAdvertising(st, data, advCb);
+                      } catch (Throwable ignored) { }
+                  }
+                  void stopBleAdvertise() {
+                      try {
+                          if (bleAdv != null && advCb != null) bleAdv.stopAdvertising(advCb);
+                      } catch (Throwable ignored) { }
+                      bleAdv = null; advCb = null;
+                  }
+                  /* تحديث عدد اللاعبين في الإعلانات (NSD يُعاد تسجيله · BLE يُعاد بثّه) */
+                  void hostUpdate(String json) {
+                      try {
+                          JSONObject o = new JSONObject(json == null ? "{}" : "{}");
+                          hostPlayers = Math.max(1, Math.min(6, o.optInt("players", hostPlayers)));
+                      } catch (Throwable ignored) { }
+                      if (!hosting.get()) return;
+                      try {
+                          if (nsdReg != null && nsd() != null) {
+                              NsdManager.RegistrationListener old = nsdReg;
+                              try { nsd().unregisterService(old); } catch (Throwable ignored) { }
+                              nsdReg = null;
+                              registerNsd();
+                          }
+                          stopBleAdvertise();
+                          ensureBtHost();
+                      } catch (Throwable ignored) { }
+                  }
+          
+                  /* ── الضيف: الاكتشاف الآلي (NSD + BLE) ── */
+                  void discoverStart(String json) {
+                      boolean wantBt = false;
+                      try {
+                          JSONObject o = new JSONObject(json == null ? "{}" : "{}");
+                          wantBt = o.optBoolean("bt", false);
+                      } catch (Throwable ignored) { }
+                      if (wantBt) requestBtPerms();          /* طلب سياقي — مرة واحدة */
+                      try {
+                          NsdManager m = nsd();
+                          if (m != null && !discovering.get()) {
+                              discovering.set(true);
+                              nsdDisc = new NsdManager.DiscoveryListener() {
+                                  @Override public void onStartDiscoveryFailed(String t, int e) { discovering.set(false); }
+                                  @Override public void onStopDiscoveryFailed(String t, int e) { }
+                                  @Override public void onDiscoveryStarted(String t) { }
+                                  @Override public void onDiscoveryStopped(String t) { }
+                                  @Override public void onServiceFound(NsdServiceInfo s) {
+                                      if (s.getServiceType() != null && s.getServiceType().contains("dtsg")) enqueueResolve(s);
+                                  }
+                                  @Override public void onServiceLost(NsdServiceInfo s) {
+                                      pushSimple("roomGone", "name", s.getServiceName() == null ? "" : s.getServiceName());
+                                  }
+                              };
+                              m.discoverServices(NSD_TYPE, NsdManager.PROTOCOL_DNS_SD, nsdDisc);
+                          }
+                      } catch (Throwable ignored) { }
+                      if (wantBt) startBleScan();
+                  }
+                  void discoverStop() {
+                      try {
+                          if (nsd != null && nsdDisc != null) nsd.stopServiceDiscovery(nsdDisc);
+                      } catch (Throwable ignored) { }
+                      nsdDisc = null;
+                      discovering.set(false);
+                      stopBleScan();
+                      resolveQ.clear();
+                  }
+                  void enqueueResolve(NsdServiceInfo svc) {
+                      resolveQ.add(svc);
+                      drainResolve();
+                  }
+                  void drainResolve() {
+                      if (!resolving.compareAndSet(false, true)) return;
+                      NsdServiceInfo svc = resolveQ.poll();
+                      if (svc == null) {
+                          resolving.set(false);
+                          if (!resolveQ.isEmpty()) drainResolve();   /* نافذة سباق مغلقة */
+                          return;
+                      }
+                      try {
+                          nsd().resolveService(svc, new NsdManager.ResolveListener() {
+                              @Override public void onResolveFailed(NsdServiceInfo s, int e) {
+                                  resolving.set(false);
+                                  drainResolve();
+                              }
+                              @Override public void onServiceResolved(NsdServiceInfo info) {
+                                  try {
+                                      String code = attr(info, "code");
+                                      if (code.length() == 8 && info.getHost() != null) {
+                                          pushRoom(code, attr(info, "game"), attr(info, "name"),
+                                              safeInt(attr(info, "max"), 4), safeInt(attr(info, "players"), 1),
+                                              info.getHost().getHostAddress(), info.getPort(), null, "wifi");
+                                      }
+                                  } catch (Throwable ignored) { }
+                                  resolving.set(false);
+                                  drainResolve();
+                              }
+                          });
+                      } catch (Throwable t) {
+                          resolving.set(false);
+                          drainResolve();
+                      }
+                  }
+                  void startBleScan() {
+                      try {
+                          if (Build.VERSION.SDK_INT < 21) return;
+                          if (!btPermsGranted() || !btOn()) return;
+                          BluetoothAdapter ada = btAdapter();
+                          if (ada == null) return;
+                          if (bleScanner != null && scanCb != null) return;   /* يعمل أصلاً */
+                          bleScanner = ada.getBluetoothLeScanner();
+                          if (bleScanner == null) return;
+                          scanCb = new ScanCallback() {
+                              @Override public void onScanResult(int cb, ScanResult result) {
+                                  try {
+                                      ScanRecord rec = result.getScanRecord();
+                                      if (rec == null) return;
+                                      byte[] p = rec.getManufacturerSpecificData(MANUF_ID);
+                                      if (p == null || p.length < 10) return;
+                                      String code = new String(p, 1, 8, StandardCharsets.UTF_8).trim();
+                                      if (code.length() != 8) return;
+                                      long now = android.os.SystemClock.elapsedRealtime();
+                                      Long last = bleSeen.get(code);
+                                      if (last != null && now - last < 2500) return;   /* مضاد للتكرار */
+                                      bleSeen.put(code, now);
+                                      int gl = p[9] & 0xFF;
+                                      String game = gl > 0 && 10 + gl <= p.length
+                                          ? new String(p, 10, gl, StandardCharsets.UTF_8) : "";
+                                      int players = (10 + gl < p.length) ? (p[10 + gl] & 0xFF) : 1;
+                                      pushRoom(code, game, "", 4, Math.max(1, players),
+                                          null, 0, result.getDevice().getAddress(), "bt");
+                                  } catch (Throwable ignored) { }
+                              }
+                              @Override public void onScanFailed(int e) { }
+                          };
+                          List<ScanFilter> fl = new ArrayList<ScanFilter>();
+                          fl.add(new ScanFilter.Builder()
+                              .setManufacturerData(MANUF_ID, new byte[0], new byte[0])
+                              .build());
+                          ScanSettings st = new ScanSettings.Builder()
+                              .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+                              .build();
+                          bleScanner.startScan(fl, st, scanCb);
+                      } catch (Throwable ignored) { }
+                  }
+                  void stopBleScan() {
+                      try {
+                          if (bleScanner != null && scanCb != null) bleScanner.stopScan(scanCb);
+                      } catch (Throwable ignored) { }
+                      bleScanner = null; scanCb = null;
+                  }
+          
+                  /* ── الضيف: الانضمام (TCP أو RFCOMM — مباشرة بالراديو) ── */
+                  void join(String json) {
+                      String code = "", ip = "", mac = "";
+                      int port = 0;
+                      try {
+                          JSONObject o = new JSONObject(json == null ? "" : json);
+                          code = o.optString("code", "");
+                          ip = o.optString("ip", "");
+                          mac = o.optString("mac", "");
+                          port = o.optInt("port", 0);
+                      } catch (Throwable ignored) { }
+                      final String fCode = code, fIp = ip, fMac = mac;
+                      final int fPort = port;
+                      if (!joining.compareAndSet(false, true)) return;
+                      new Thread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  leave();
+                                  Link l = null;
+                                  if (fMac.length() >= 12 && btPermsGranted()) {
+                                      try {
+                                          BluetoothAdapter ada = btAdapter();
+                                          if (ada != null && ada.isEnabled()) {
+                                              BluetoothDevice dev = ada.getRemoteDevice(fMac);
+                                              BluetoothSocket s = dev.createInsecureRfcommSocketToServiceRecord(DTSG_UUID);
+                                              s.connect();
+                                              l = new BtLink(s);
+                                          }
+                                      } catch (Throwable t) { l = null; }
+                                  }
+                                  if (l == null && fIp.length() > 6 && fPort > 0) {
+                                      Socket s = new Socket();
+                                      s.connect(new InetSocketAddress(fIp, fPort), 6000);
+                                      try { s.setTcpNoDelay(true); } catch (Throwable ignored) { }
+                                      l = new TcpLink(s);
+                                  }
+                                  if (l == null) {
+                                      joining.set(false);
+                                      pushSimple("joinErr", "err", "connect");
+                                      return;
+                                  }
+                                  Integer zero = Integer.valueOf(0);
+                                  links.put(zero, l);
+                                  pumpRead(zero, l);
+                                  try {
+                                      pushEvent(new JSONObject().put("t", "joined")
+                                          .put("code", fCode).put("kind", l.kind()).toString());
+                                  } catch (Throwable ignored) { }
+                                  joining.set(false);
+                              } catch (Throwable t) {
+                                  joining.set(false);
+                                  pushSimple("joinErr", "err", String.valueOf(t));
+                              }
+                          }
+                      }, "ln-join").start();
+                  }
+          
+                  /* ── التفكيك الكامل ── */
+                  void leave() {
+                      hosting.set(false);
+                      for (Map.Entry<Integer, Link> e : links.entrySet()) {
+                          try { e.getValue().close(); } catch (Throwable ignored) { }
+                      }
+                      links.clear();
+                      try { if (tcpServer != null) tcpServer.close(); } catch (Throwable ignored) { }
+                      tcpServer = null;
+                      try { if (btServer != null) btServer.close(); } catch (Throwable ignored) { }
+                      btServer = null;
+                      try {
+                          if (nsd != null && nsdReg != null) nsd.unregisterService(nsdReg);
+                      } catch (Throwable ignored) { }
+                      nsdReg = null;
+                      try {
+                          if (nsd != null && nsdDisc != null) nsd.stopServiceDiscovery(nsdDisc);
+                      } catch (Throwable ignored) { }
+                      nsdDisc = null;
+                      discovering.set(false);
+                      stopBleAdvertise();
+                      stopBleScan();
+                      resolveQ.clear();
+                      bleSeen.clear();
+                  }
               }
           }
           '''
           io.open(p2, "w", encoding="utf-8").write(new)
           print("OK MainActivity: جسر DTSGNative (getInsets + setBarsLight) + أشرطة شفافة")
           PY3
+
+      # 8.6) [v2.87·LocalNet] أذونات الشبكة المحلية للّعب المباشر: اكتشاف
+      #      NSD/mDNS يحتاج البث المتعدد على الواي فاي، والبلوتوث (إعلان BLE
+      #      + مسح + قنوات RFCOMM غير الآمنة بين الهواتف) يحتاج الأذونات
+      #      الثلاث على Android 12+ والقديمتين قبلها — كلها عادية بلا موقع.
+      #      python3 بمرساة إذن الكاميرا المحقون في 8.4 وفشل صريح إن تغيّر
+      #      القالب (نمط 8.4/8.5).
+      - name: Inject local-network permissions (NSD multicast + Bluetooth)
+        run: |
+          python3 - <<'PY25'
+          import io, sys
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = io.open(p, encoding="utf-8").read()
+          if "android.permission.BLUETOOTH_CONNECT" in s:
+              print("OK أذونات الشبكة المحلية موجودة مسبقاً"); sys.exit(0)
+          anchor = '<uses-permission android:name="android.permission.CAMERA" /> <!-- [v2.83] LocalMP QR -->'
+          if anchor not in s:
+              sys.exit("X قالب AndroidManifest تغيّر: لم أجد مرساة CAMERA — راجع خطوة الحقن (8.6)")
+          add = (
+              "\n    <!-- [v2.87·LocalNet] الغرفة المحلية: اكتشاف NSD على الواي فاي + بلوتوث مباشر -->\n"
+              "    <uses-permission android:name=\"android.permission.CHANGE_WIFI_MULTICAST_STATE\" />\n"
+              "    <uses-permission android:name=\"android.permission.BLUETOOTH\" android:maxSdkVersion=\"30\" />\n"
+              "    <uses-permission android:name=\"android.permission.BLUETOOTH_ADMIN\" android:maxSdkVersion=\"30\" />\n"
+              "    <uses-permission android:name=\"android.permission.BLUETOOTH_SCAN\" android:usesPermissionFlags=\"neverForLocation\" />\n"
+              "    <uses-permission android:name=\"android.permission.BLUETOOTH_ADVERTISE\" />\n"
+              "    <uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\" /> <!-- [v2.87] LocalNet -->"
+          )
+          s = s.replace(anchor, anchor + add, 1)
+          io.open(p, "w", encoding="utf-8").write(s)
+          print("OK أذونات LocalNet (بث متعدد + بلوتوث) — الغرف المحلية المباشرة")
+          PY25
 
       - name: Setup Java 17 (Temurin)
         uses: actions/setup-java@v4

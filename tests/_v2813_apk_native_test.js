@@ -140,8 +140,14 @@ ok(pngSize("resources/splash.png") === "2732x2732", "resources/splash.png بأب
 /* [v2.83] عقد الأيقونة الجديدة: ثلاثة أصول شفافة — اللوغو بلا حاوية */
 ok(pngSize("resources/icon-foreground.png") === "1024x1024" && pngHasAlpha("resources/icon-foreground.png"),
    "resources/icon-foreground.png: 1024×1024 وأركانها شفافة بالكامل (الطبقة الأمامية بلا حاوية)");
-ok(pngSize("resources/icon-background.png") === "1024x1024" && pngHasAlpha("resources/icon-background.png"),
-   "resources/icon-background.png: 1024×1024 شفافة بالكامل (لا خلفية للأيقونة التكيفية)");
+/* [v2.87·تصحيح عقد] كان هذا الحرس يفرض شفافية الخلفية 100% (عقد v2.83) —
+   لكن القياس الفعلي لمخرجات @capacitor/assets@3 أثبت أن أندرويد يركّب الطبقة
+   الخلفية الشفافة فوق أسود، فظهر بلاغ المالك 2026-10-06: «لوغو صغير داخل
+   حاوية مربعة سوداء». العقد الصحيح الآن: خلفية كحلية معتمة من هوية المنصة
+   (#0b1526) — لا أسود من المشغّل أبداً (تدقيقها الكامل بحكم التغطية في
+   حرس v287: معتمة ≥98.5% + كحلية + لوغو 86-95%). */
+ok(pngSize("resources/icon-background.png") === "1024x1024" && !pngHasAlpha("resources/icon-background.png"),
+   "resources/icon-background.png: 1024×1024 معتمة كحلية من هوية المنصة (عقد v2.87 — الشفافية تُركَّب فوق أسود)");
 ok(pngHasAlpha("resources/icon.png"),
    "resources/icon.png: أركانه شفافة — اللوغو كبير عائم لا مربع ملوّن (أيقونات قديمة/متجر)");
 

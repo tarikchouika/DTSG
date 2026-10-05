@@ -2,23 +2,35 @@
    [v2.83] LocalMP — الغرفة المحلية: اللعب مع الأصدقاء عبر شبكة الواي فاي
    أو مشاركة البلوتوث (tethering) داخل تطبيق الأندرويد والموقع — بلا إنترنت
    ───────────────────────────────────────────────────────────────────────────
-   المبدأ: WebRTC DataChannel قناة مباشرة جهاز-إلى-جهاز على الشبكة المحلية
-   (iceServers: [] ⇒ مرشحو المضيف بعناوين LAN حصراً — لا خادم ولا إنترنت).
-   «البلوتوث»: مشاركة اتصال الهاتف عبر البلوتوث (Bluetooth tethering) تُنشئ
-   شبكة محلية بين الجهازين فيسري عليها نفس مسار الواي فاي تماماً.
+   [v2.87] المساران:
+   • الأندرويد (جسر DTSGNative موجود): شبكة اللعب المحلي الأصلية LocalNet —
+     المضيف يفتح غرفة بكود قصير من 8 حروف وأرقام، والغرف تُكتشف آلياً
+     لكل من فتح التطبيق (NSD/mDNS على الواي فاي + إعلان/مسح BLE على
+     البلوتوث)، والاتصال مباشر بالراديو (TCP على الواي فاي · RFCOMM غير
+     الآمن على البلوتوث) — بلا رموز QR ولا بصمات طويلة ولا أي روابط.
+   • الويب (بلا جسر): مسار WebRTC DataChannel الأصلي كما هو —
+     مرشحو مضيف حصراً + بصمة مضغوطة L1.* + رمز QR (QRMini/jsQR).
 
-   البصمة المضغوطة: بدل تبادل SDP كاملاً (~1.5KB) نستخرج الحقول الحاكمة فقط
-   (ice-ufrag · ice-pwd · بصمة DTLS · setup · المرشحون الخاصيون) في رمز
-   ~120-260 حرفاً يُعرض رمز QR (QRMini المُستضاف محلياً) أو يُنسخ نصاً.
-   المضيف يعرض رمز الجلسة ⇐ الضيف يمسحه (كاميرا + jsQR المُستضاف محلياً)
-   أو يلصقه ⇐ يُنشئ رمز الإجابة ويعرضه ⇐ المضيف يمسحه/يلصقه ⇐ اتصال مباشر.
+   المبدأ (ويب): WebRTC DataChannel قناة مباشرة جهاز-إلى-جهاز على الشبكة
+   المحلية (iceServers: [] ⇒ مرشحو المضيف بعناوين LAN حصراً — لا خادم
+   ولا إنترنت). «البلوتوث»: مشاركة اتصال الهاتف عبر البلوتوث (Bluetooth
+   tethering) تُنشئ شبكة محلية بين الجهازين فيسري عليها نفس مسار الواي
+   فاي تماماً.
+
+   البصمة المضغوطة (ويب): بدل تبادل SDP كاملاً (~1.5KB) نستخرج الحقول
+   الحاكمة فقط (ice-ufrag · ice-pwd · بصمة DTLS · setup · المرشحون
+   الخاصيون) في رمز ~120-260 حرفاً يُعرض رمز QR (QRMini المُستضاف محلياً)
+   أو يُنسخ نصاً. المضيف يعرض رمز الجلسة ⇐ الضيف يمسحه (كاميرا + jsQR
+   المُستضاف محلياً) أو يلصقه ⇐ يُنشئ رمز الإجابة ويعرضه ⇐ المضيف
+   يمسحه/يلصقه ⇐ اتصال مباشر.
 
    العمارة: «المضيف مرحّل» — جهاز المضيف يقوم بدور الخادم للغرفة (يبني
    كائن الغرفة بنفس شكل serializeRoom الخادمي، يبثّ room:update وroom:move
-   لكل الأطراف، يجمع الجاهزية، يبدأ الجولة). التدخل في Rooms جراحي إضافي:
-   لا سطر واحد في rooms.js يُمسّ — local-mp يغلّف نقاط النقل الثمانية عند
-   التحميل ويوجّهها للطبقة المحلية حصراً حين الغرفة المحلية نشطة، فيعمل
-   كل نظام الغرف القائم (اللوبي، الجاهزية، البدء، الحركات، السجل) كما هو.
+   لكل الأطراف، يجمع الجاهزية، يبدأ الجولة) — في المسارين سواء. التدخل
+   في Rooms جراحي إضافي: لا سطر واحد في rooms.js يُمسّ — local-mp يغلّف
+   نقاط النقل الثمانية عند التحميل ويوجّهها للطبقة المحلية حصراً حين
+   الغرفة المحلية نشطة، فيعمل كل نظام الغرف القائم (اللوبي، الجاهزية،
+   البدء، الحركات، السجل) كما هو.
 
    المال: الغرف المحلية ودّية بلا رهان (bet=0) — عقد المال من الخادم وحده.
    الهوية: إن لم يكن المستخدم مسجلاً (بلا إنترنت) تُنشأ هوية محلية مؤقتة
@@ -37,13 +49,72 @@
     history: [],           /* سجل الحركات (لإعادة البناء — المضيف حصراً) */
     votes: {},             /* تصويت الريماتش */
     settleDone: false,
-    pendingPair: null,     /* {pc, chan, offerCode} زوج قيد الإنشاء */
-    peers: [],             /* المضيف: [{pc, chan, userId, name}] */
+    pendingPair: null,     /* {pc, chan, offerCode} زوج قيد الإنشاء (ويب) */
+    peers: [],             /* المضيف: [{pc, chan, userId, name}] أو [{id, chan, userId, name}] (أصلي) */
     guestChan: null,       /* الضيف: قناة الاتصال بالمضيف */
     localIdentity: false,  /* أنشأنا هوية محلية مؤقتة؟ */
+    lnRooms: {},           /* [v2.87·أصلي] الغرف المكتشفة: code → {code,game,name,max,players,ip,port,mac,transport,ts} */
+    lnJoinCode: null,      /* [v2.87·أصلي] كود منتظر ظهوره في الاكتشاف للانضمام الآلي */
+    lnJoined: false,       /* [v2.87·أصلي] تمّ الانضمام للمضيف؟ */
+    replayBuf: null,       /* [v2.87] تجميع أجزاء السجل المرسلة على دفعات */
     destroyed: false
   };
   var LAN_PREFIX = 'L1.';
+
+  /* [v2.87·أصلي] كشف جسر DTSGNative (تطبيق الأندرويد) — الإصدار 2 يضمّ LocalNet.
+     على الويب يبقى NATIVE=false فيسري مسار WebRTC+QR الأصلي بحرفيته. */
+  var NATIVE = false;
+  try {
+    NATIVE = !!(root.DTSGNative && typeof root.DTSGNative.hostRoom === 'function' &&
+      typeof root.DTSGNative.lnVersion === 'function' && root.DTSGNative.lnVersion() === '2');
+  } catch (e) { NATIVE = false; }
+
+  /* [v2.87] كود الغرفة: 8 حروف وأرقام بلا عناصر مُلبِسة (لا 0/O ولا 1/I/L)
+     — يُعرض كبيراً للمضيف ويُبحث به عند الضيف. */
+  function genCode8() {
+    var alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    var bytes = null;
+    try { var a = new Uint8Array(8); root.crypto.getRandomValues(a); bytes = a; } catch (e) {}
+    var out = '';
+    for (var i = 0; i < 8; i++) {
+      var b = bytes ? bytes[i] : Math.floor(Math.random() * 256);
+      out += alphabet.charAt(b % alphabet.length);
+    }
+    return out;
+  }
+
+  /* [v2.87] غلاف قناة أصلي بنفس واجهة DataChannel (send/close/readyState)
+     — الكود فوقه لا يفرّق بين المسارين. الإغلاق الفعلي من جافا (leaveRoom). */
+  function nativeChan(id) {
+    return {
+      readyState: 'open',
+      send: function (s) { try { root.DTSGNative.sendMsg(id, s); } catch (e) {} },
+      close: function () { /* الإغلاق من Java — لا رسالة فارغة */ }
+    };
+  }
+  function peerById(id) {
+    for (var i = 0; i < S.peers.length; i++) if (S.peers[i].id === id) return S.peers[i];
+    return null;
+  }
+  /* [v2.87] مزامنة عدد اللاعبين في إعلانات الاكتشاف (NSD/BLE) — تُستدعى
+     عند كل تغيّر في قائمة اللاعبين عند المضيف. */
+  function lnSyncCount() {
+    if (!NATIVE || S.mode !== 'host' || !S.room) return;
+    try { root.DTSGNative.hostUpdate('{"players":' + S.room.players.length + '}'); } catch (e) {}
+  }
+  function gameLabel(id) {
+    try {
+      if (typeof GAMES !== 'undefined' && GAMES) {
+        for (var i = 0; i < GAMES.length; i++) {
+          if (GAMES[i] && GAMES[i].id === id) {
+            return (GAMES[i].em ? GAMES[i].em + ' ' : '') +
+              (typeof gname === 'function' ? gname(GAMES[i]) : (GAMES[i].n && GAMES[i].n[0]) || id);
+          }
+        }
+      }
+    } catch (e) {}
+    return String(id || '');
+  }
 
   function log() { try { if (root.console && root.console.log) root.console.log.apply(console, ['[local-mp]'].concat([].slice.call(arguments))); } catch (e) {} }
   function warn() { try { if (root.console && root.console.warn) root.console.warn.apply(console, ['[local-mp]'].concat([].slice.call(arguments))); } catch (e) {} }
@@ -322,7 +393,7 @@
   }
   function makeRoom(gameId) {
     var u = root.AUTH.user;
-    var code = 'L' + Math.random().toString(36).slice(2, 8).toUpperCase();
+    var code = NATIVE ? genCode8() : ('L' + Math.random().toString(36).slice(2, 8).toUpperCase());
     return {
       id: 'local-' + code,
       code: code,
@@ -374,6 +445,7 @@
       sendRaw(peer.chan, { t: 'welcome', room: refreshDerived(S.room) });
       broadcast({ t: 'room', room: serialize(S.room) });
       feedRoom(serialize(S.room));
+      lnSyncCount();          /* [v2.87] تحديث اللاعبين في إعلانات الاكتشاف */
       uiRefresh();
       return;
     }
@@ -400,7 +472,7 @@
       return;
     }
     if (m.t === 'replayReq') {
-      sendRaw(peer.chan, { t: 'replay', history: S.history.slice() });
+      lnSendReplay(peer.chan);
       return;
     }
     if (m.t === 'bye') {
@@ -412,6 +484,19 @@
     room.players.forEach(function (p) { used[p.seat] = 1; });
     for (var s = 0; s < room.max_players; s++) if (!used[s]) return room.players.length >= room.max_players ? -1 : s;
     return -1;
+  }
+  /* [v2.87] إرسال السجل على دفعات صغيرة (150 حركة) — قناة البلوتوث (RFCOMM)
+     أنعم مع الرسائل القصيرة من رسالة واحدة ضخمة قد تُغرق مخزنها المؤقت. */
+  function lnSendReplay(chan) {
+    var hist = S.history.slice();
+    if (!NATIVE || hist.length <= 150) {
+      sendRaw(chan, { t: 'replay', history: hist });
+      return;
+    }
+    var parts = Math.ceil(hist.length / 150);
+    for (var i = 0; i < parts; i++) {
+      sendRaw(chan, { t: 'replay', part: i + 1, parts: parts, history: hist.slice(i * 150, (i + 1) * 150) });
+    }
   }
   function serialize(room) {
     /* نسخة نظيفة قابلة للإرسال — نفس شكل serializeRoom الخادمي */
@@ -446,6 +531,7 @@
       }
       broadcast({ t: 'room', room: serialize(S.room) });
       feedRoom(serialize(S.room));
+      lnSyncCount();          /* [v2.87] تحديث اللاعبين في إعلانات الاكتشاف */
     }
     if (reason && typeof root.toast === 'function') root.toast('📶 ' + reason, 'info');
     uiRefresh();
@@ -509,6 +595,15 @@
          كان يظل null فتذهب النداءات للخادم الحقيقي وتضيع. */
       if (m.room && m.room.id) S.room = m.room;
       feedRoom(m.room);
+      /* [v2.87·أصلي] أول غرفة تصل للضيف = الاتصال قائم: انتقال آلي للوبي
+         الحقيقي (مودال الغرف) بدل البقاء على نافذة الانضمام. */
+      if (NATIVE && S.lnJoined) {
+        var _ov = overlayEl();
+        if (_ov && _ov.classList.contains('show')) {
+          uiClose();
+          try { root.Rooms.openModal(); } catch (e) {}
+        }
+      }
       uiRefresh();
       return;
     }
@@ -518,6 +613,16 @@
       return;
     }
     if (m.t === 'replay') {
+      /* [v2.87] السجل يُرسل على دفعات (replayBuf) — الرسائل القديمة أحادية
+         الجزء تُقبل كما هي (توافق الويب/النسخ السابقة). */
+      if (m.parts && m.parts > 1) {
+        if (!S.replayBuf || S.replayBuf.parts !== m.parts) S.replayBuf = { parts: m.parts, got: 0, hist: [] };
+        if (Array.isArray(m.history)) S.replayBuf.hist = S.replayBuf.hist.concat(m.history);
+        S.replayBuf.got = (S.replayBuf.got || 0) + 1;
+        if (S.replayBuf.got < S.replayBuf.parts) return;
+        m.history = S.replayBuf.hist;
+        S.replayBuf = null;
+      }
       try {
         var Rooms = root.Rooms;
         var d = { room_id: Rooms.state && Rooms.state.id, history: m.history || [] };
@@ -548,7 +653,9 @@
     /* المضيف: فتح غرفة محلية على لعبة — يرجع Promise مثل Rooms.createRoom.
        [v2.85] opts = إعدادات اللعبة المختارة من نافذة الإعدادات (نفس
        game_opts الخادمية) — تُخزّن في الغرفة وتُطبّق على كل الأطراف عبر
-       _onUpdate عند البدء (المسار نفسه للغرف الخادمية). */
+       _onUpdate عند البدء (المسار نفسه للغرف الخادمية).
+       [v2.87·أصلي] في التطبيق: يُفتح مستمع TCP+NSD+بلوتوث فوراً ويُعرض
+       كود الغرفة (8 حروف) كبيراً — الضيوف يكتشفونه آلياً أو يدخلونه. */
     hostRoom: function (gameId, opts) {
       if (!ensureIdentityOrAsk()) return Promise.resolve();
       S.mode = 'host';
@@ -563,12 +670,38 @@
       S.settleDone = false;
       feedRoom(serialize(S.room));
       uiOpen('host');
+      if (NATIVE) {
+        var j = { code: S.room.code, game: String(gameId || ''), name: myName(), max: S.room.max_players };
+        try { root.DTSGNative.hostRoom(JSON.stringify(j)); } catch (e) { warn('hostRoom', e && e.message); }
+        return Promise.resolve();
+      }
       return LocalMP.newPairing().then(function () {});
     },
 
-    /* الضيف: ينضم برمز جلسة المضيف (لصق نصي — أو من الماسح) */
+    /* الضيف: ينضم برمز جلسة المضيف — ويب: بصمة L1. مضغوطة (لصق/مسح) ·
+       [v2.87·أصلي]: كود الغرفة من 8 حروف وأرقام — يُبحث في الغرف المكتشفة
+       آلياً وإن لم يظهر بعد يبقى البحث منتظراً ظهوره ثم ينضم بنفسه. */
     joinByCode: function (hostCode, name) {
       if (!ensureIdentityOrAsk(name)) return Promise.resolve();
+      if (NATIVE) {
+        var code = String(hostCode || '').trim().toUpperCase();
+        if (!/^[A-Z0-9]{8}$/.test(code)) {
+          uiOpen('guest');
+          uiShowError(T('lmp.badCode8', 'كود الغرفة 8 حروف وأرقام'));
+          return Promise.resolve();
+        }
+        S.mode = 'guest';
+        S.lnJoinCode = code;
+        S.lnJoined = false;
+        uiOpen('guest');
+        var r = S.lnRooms[code];
+        if (r) { LocalMP.lnJoinRoom(r); }
+        else {
+          lnDiscover(true);
+          uiShowError(T('lmp.searching', 'جارٍ البحث عن الغرفة قربك… تأكد أنك وصاحبك على نفس الواي فاي أو البلوتوث'));
+        }
+        return Promise.resolve();
+      }
       S.mode = 'guest';
       uiOpen('guest');
       return guestAnswer(hostCode).then(function (r) {
@@ -725,7 +858,46 @@
     },
     leaveRoom: function () { teardown(true); return Promise.resolve({ ok: true }); },
     leaveQuiet: function () { teardown(true); },
-    _refreshGold: function () { /* ودّية بلا مال — لا رصيد يُجلب */ }
+    _refreshGold: function () { /* ودّية بلا مال — لا رصيد يُجلب */ },
+
+    /* ═══ [v2.87·أصلي] واجهة LocalNet — الاكتشاف والانضمام بالراديو ═══ */
+    lnJoinRoom: function (room) {
+      if (!NATIVE || !room || S.lnJoined) return;
+      var j = { code: String(room.code || '') };
+      if (room.ip && room.port) { j.ip = room.ip; j.port = parseInt(room.port, 10) || 0; }
+      if (room.mac) j.mac = String(room.mac);
+      if (!j.ip && !j.mac) { uiShowError(T('lmp.connectFail', 'فشل الاتصال')); return; }
+      try { root.DTSGNative.joinRoom(JSON.stringify(j)); } catch (e) {}
+    },
+    uiLnRefresh: function () {
+      lnDiscover(true, true);
+      uiRefresh();
+    },
+    uiLnBt: function () {
+      if (!NATIVE) return;
+      try {
+        var st = root.DTSGNative.btPerms && root.DTSGNative.btPerms();
+        if (st !== 'granted') { root.DTSGNative.requestBtPerms(); return; }
+        if (!root.DTSGNative.btOn()) { root.DTSGNative.btEnable(); return; }
+        lnDiscover(true, true);
+      } catch (e) {}
+      uiRefresh();
+    },
+    uiJoinRoom: function (code) {
+      var r = S.lnRooms[String(code || '').toUpperCase()];
+      if (!r) return;
+      if (!ensureIdentityOrAsk()) return;
+      S.lnJoinCode = r.code;
+      LocalMP.lnJoinRoom(r);
+      uiRefresh();
+    },
+    uiJoinCode: function () {
+      var inp = el('lmpCodeIn');
+      var v = inp ? String(inp.value || '').trim().toUpperCase() : '';
+      if (!/^[A-Z0-9]{8}$/.test(v)) { uiShowError(T('lmp.badCode8', 'كود الغرفة 8 حروف وأرقام')); return; }
+      if (!ensureIdentityOrAsk()) return;
+      LocalMP.joinByCode(v);
+    }
   };
 
   /* جاهزية الضيف تصل برسالة ready مستقلة — تُعالج قبل بقية الرسائل */
@@ -766,6 +938,14 @@
     S.mode = null;
     S.history = [];
     S.settleDone = false;
+    S.lnJoinCode = null;
+    S.lnJoined = false;
+    S.replayBuf = null;
+    if (NATIVE) {
+      try { root.DTSGNative.leaveRoom(); } catch (e) {}
+      /* الاكتشاف الخلفي يستمر — الغرف تظل مرئية لكل من فتح التطبيق (عقد المالك) */
+      try { root.DTSGNative.discoverStart('{"bt":false}'); } catch (e) {}
+    }
     dropLocalIdentity();
     try { if (root.Rooms && root.Rooms._persistRoom) root.Rooms._persistRoom(null); } catch (e) {}
     /* الغرفة المحلية في Rooms.state تُصفَّر أيضاً — وإلا بقي اللوبي شبحاً بعد المغادرة */
@@ -777,6 +957,119 @@
     } catch (e) {}
     uiClose();
   }
+
+  /* ═══════════ 5-ب) [v2.87·أصلي] شبكة اللعب المحلي — الأحداث والاكتشاف ═══════════
+     Java يدفع كل شيء عبر window.__dtsgLnEvt(json): رسائل الأقران
+     (data/peerOpen/peerClose) ونتائج الاكتشاف (room/roomGone) وحالات
+     الاتصال (hostReady/hostErr/joined/joinErr) وأذونات البلوتوث
+     (btPerms). هنا فقط تُعالَج — لا استطلاع ولا شبكة من الويب. */
+  var _lnBtPoll = null;
+
+  function lnDiscover(withBt, force) {
+    if (!NATIVE) return;
+    try {
+      root.DTSGNative.discoverStart(JSON.stringify({ bt: !!withBt }));
+    } catch (e) {}
+    if (withBt && force) {
+      /* بعد طلب الأذونات/تشغيل البلوتوث: النتيجة تصل حدثاً، وإن تأخرت
+         الواجهة (بعض الشركات لا تمرر النتيجة) نستطلع مرة بعد قليل. */
+      if (_lnBtPoll) clearTimeout(_lnBtPoll);
+      _lnBtPoll = setTimeout(function () {
+        _lnBtPoll = null;
+        try { if (root.DTSGNative.btPerms() === 'granted' && root.DTSGNative.btOn()) lnDiscover(true, true); } catch (e) {}
+      }, 2500);
+    }
+  }
+  function lnRoomKey(code) { return String(code || '').trim().toUpperCase(); }
+  function lnRoomsUpsert(r) {
+    if (!r || !r.code) return;
+    var k = lnRoomKey(r.code);
+    if (!/^[A-Z0-9]{8}$/.test(k)) return;
+    var prev = S.lnRooms[k];
+    r.ts = Date.now();
+    S.lnRooms[k] = r;
+    /* انضمام آلي بالكود: الغرفة المنتظَرة ظهرت في الاكتشاف */
+    if (S.lnJoinCode && S.mode === 'guest' && !S.lnJoined && k === S.lnJoinCode) {
+      LocalMP.lnJoinRoom(r);
+    }
+    if (!prev || prev.players !== r.players || prev.transport !== r.transport) uiRefresh();
+  }
+  function lnRoomsRemove(name) {
+    /* اسم الخدمة قد يلحق به لاحقة تكرار من NSD — نستخرج الكود الأخير */
+    var m = /([A-Z0-9]{8})\s*(?:\(\d+\))?\s*$/i.exec(String(name || ''));
+    if (!m) return;
+    var k = m[1].toUpperCase();
+    if (S.lnRooms[k]) { delete S.lnRooms[k]; uiRefresh(); }
+  }
+  function lnOnJoined(ev) {
+    S.lnJoined = true;
+    S.guestChan = nativeChan(0);
+    sendRaw(S.guestChan, { t: 'hello', userId: myId(), name: myName() });
+    /* توفير البطارية: توقف الاكتشاف بعد الاتصال — الغرفة قائمة الآن */
+    try { root.DTSGNative.discoverStop(); } catch (e) {}
+    uiShowError('');
+    uiRefresh();
+    if (typeof root.toast === 'function') {
+      root.toast('📶 ' + (ev && ev.kind === 'bt' ? T('lmp.joinedBt', 'متصل عبر البلوتوث') : T('lmp.joinedWifi', 'متصل عبر الواي فاي')), 'ok');
+    }
+  }
+  function lnOnEvent(ev) {
+    if (!ev || !ev.t) return;
+    switch (ev.t) {
+      case 'data':
+        var fake = { data: ev.s };
+        if (S.mode === 'host') {
+          var peer = peerById(ev.id);
+          if (peer) hostOnMessage(peer, fake);
+        } else if (S.mode === 'guest' && ev.id === 0) {
+          guestOnMessage(fake);
+        }
+        return;
+      case 'peerOpen':            /* المضيف: مقبس ضيف جديد — ينتظر hello */
+        if (S.mode !== 'host') return;
+        var p = { id: ev.id, kind: ev.kind || 'wifi', pc: null, chan: nativeChan(ev.id), userId: null, name: null };
+        S.peers.push(p);
+        return;
+      case 'peerClose':
+        if (S.mode === 'host') {
+          var p2 = peerById(ev.id);
+          if (p2) dropPeer(p2, T('lmp.peerFail', 'انقطع أحد اللاعبين'));
+        } else if (S.mode === 'guest' && ev.id === 0) {
+          if (typeof root.toast === 'function') root.toast('📶 ' + T('lmp.hostClosed', 'أغلق المضيف الغرفة'), 'warn');
+          teardown();
+        }
+        return;
+      case 'room':
+        lnRoomsUpsert(ev.room);
+        return;
+      case 'roomGone':
+        lnRoomsRemove(ev.name);
+        return;
+      case 'joined':
+        if (S.mode === 'guest') lnOnJoined(ev);
+        return;
+      case 'joinErr':
+        S.lnJoined = false;
+        uiShowError(T('lmp.connectFail', 'فشل الاتصال — تأكدا من نفس شبكة الواي فاي أو البلوتوث'));
+        uiRefresh();
+        return;
+      case 'hostReady':
+        uiRefresh();
+        return;
+      case 'hostErr':
+        uiShowError(T('lmp.hostFail', 'تعذر فتح الغرفة المحلية — تحقق من الشبكة'));
+        teardown();
+        return;
+      case 'btPerms':
+        if (ev.granted && S.mode === 'host') lnSyncCount();   /* يعيد إعلان BLE بعد الأذونات */
+        if (ev.granted && S.mode === 'guest') lnDiscover(true, true);
+        return;
+    }
+  }
+  /* مسجَّل فور تحميل الوحدة — Java يستدعيه عند كل حدث */
+  root.__dtsgLnEvt = function (ev) {
+    try { lnOnEvent(ev && typeof ev === 'object' ? ev : JSON.parse(ev)); } catch (e) {}
+  };
 
   /* ═══════════ 6) الواجهة — تراكب مستقل بلا أي تعديل في rooms.js ═══════════ */
   function el(id) { return document.getElementById(id); }
@@ -873,6 +1166,25 @@
     }).join('') + '</div>';
   }
   function uiHostBody() {
+    /* [v2.87·أصلي] لوبي المضيف في التطبيق: كود الغرفة كبيراً وفوقه دعوة
+       واضحة — لا رمز QR ولا خطوات إقتران إطلاقاً؛ الضيوف يرون الغرفة آلياً. */
+    if (NATIVE) {
+      var h = '';
+      if (S.room && S.room.code) {
+        h += '<div class="lmp-bignum" dir="ltr">' + esc(S.room.code) + '</div>' +
+          '<div class="lmp-bighint">' + esc(T('lmp.hostCodeHint', 'شارك هذا الكود مع أصحابك — أو ستجد غرفتك عندهم تلقائياً في «الغرف المحلية»')) + '</div>';
+      }
+      var connectedN = S.peers.length;
+      var maxN = S.room ? S.room.max_players : 4;
+      h += '<div class="lmp-status"><span class="lmp-pill"><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i> ' + esc(T('lmp.connected', 'متصل')) + ' <b>' + connectedN + '/' + maxN + '</b></span></div>' + playersChips();
+      if (connectedN >= 1) {
+        h += '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.uiStart()"><i class="fa-solid fa-play" aria-hidden="true"></i> ' + esc(T('lmp.start', 'فتح اللوبي وبدء اللعب')) + '</button></div>';
+      } else {
+        h += '<div class="lmp-row lmp-waitrow"><span class="lmp-pill lmp-wait"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> ' + esc(T('lmp.waitGuest', 'بانتظار انضمام لاعبين…')) + '</span></div>';
+      }
+      h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()"><i class="fa-solid fa-door-open" aria-hidden="true"></i> ' + esc(T('lmp.leave', 'إغلاق الغرفة المحلية')) + '</button></div>';
+      return h;
+    }
     var pair = S.pendingPair;
     var connected = S.peers.length;
     var max = S.room ? S.room.max_players : 4;
@@ -898,6 +1210,9 @@
     return h;
   }
   function uiGuestBody() {
+    /* [v2.87·أصلي] متصفّح الغرف المحلية: الغرف تظهر آلياً (واي فاي/بلوتوث)
+       بلا أي إقتران — نقرة واحدة للانضمام، أو كود الغرفة للبحث المباشر. */
+    if (NATIVE) return uiGuestNativeBody();
     var h = '';
     if (S.guestAnswerCode) {
       h += stepCard('٢', 'lmp.guestStep2', 'اعرض هذا الرمز على المضيف ليمسحه أو يلصقه') +
@@ -911,6 +1226,54 @@
         '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiJoin()"><i class="fa-solid fa-link" aria-hidden="true"></i> ' + esc(T('lmp.join', 'انضمام')) + '</button>' +
         '<button class="lmp-btn lmp-scan" onclick="LocalMP.uiScan(true)"><i class="fa-solid fa-camera" aria-hidden="true"></i> ' + esc(T('lmp.scan', 'مسح')) + '</button></div>';
     }
+    h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()"><i class="fa-solid fa-door-open" aria-hidden="true"></i> ' + esc(T('lmp.leave', 'إلغاء الانضمام')) + '</button></div>';
+    return h;
+  }
+  /* [v2.87·أصلي] بطاقة غرفة مكتشفة — تظهر آلياً لكل من فتح التطبيق */
+  function lnRoomCard(r, i) {
+    var isBt = r.transport === 'bt';
+    var label = gameLabel(r.game);
+    return '<div class="lmp-roomcard" role="button" tabindex="0" onclick="LocalMP.uiJoinRoom(\'' + esc(r.code) + '\')" onkeydown="if(event.key===\'Enter\')LocalMP.uiJoinRoom(\'' + esc(r.code) + '\')">' +
+      '<div class="lmp-room-info"><span class="lmp-room-game">' + esc(label) + '</span>' +
+      '<span class="lmp-room-meta">' + esc(r.name ? (r.name + ' · ') : '') + esc(lnRoomKey(r.code)) + ' · ' + Math.max(1, r.players || 1) + '/' + (r.max || 4) + '</span></div>' +
+      '<span class="lmp-badge' + (isBt ? ' bt' : '') + '"><i class="fa-solid ' + (isBt ? 'fa-bluetooth-b' : 'fa-wifi') + '" aria-hidden="true"></i> ' + esc(isBt ? T('lmp.btBadge', 'بلوتوث') : T('lmp.wifiBadge', 'واي فاي')) + '</span>' +
+      '<button class="lmp-btn lmp-go lmp-joinbtn"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> ' + esc(T('lmp.joinBtn', 'انضمام')) + '</button>' +
+      '</div>';
+  }
+  function lnBtRow() {
+    var st = '', on = false;
+    try { st = root.DTSGNative.btPerms(); on = !!root.DTSGNative.btOn(); } catch (e) {}
+    if (st === 'granted' && on) return '';     /* البلوتوث جاهز — لا صف إضافي */
+    return '<div class="lmp-row lmp-btrow">' +
+      '<span class="lmp-pill lmp-wait"><i class="fa-brands fa-bluetooth-b" aria-hidden="true"></i> ' + esc(T('lmp.btHint2', 'لتظهر غرف البلوتوث:')) + '</span>' +
+      '<button class="lmp-btn lmp-mini" onclick="LocalMP.uiLnBt()"><i class="fa-solid fa-power-off" aria-hidden="true"></i> ' + esc(T('lmp.btEnable', 'تشغيل البلوتوث')) + '</button>' +
+      '</div>';
+  }
+  function uiGuestNativeBody() {
+    var rooms = [];
+    var k;
+    for (k in S.lnRooms) if (Object.prototype.hasOwnProperty.call(S.lnRooms, k)) rooms.push(S.lnRooms[k]);
+    rooms.sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); });
+    var h = '';
+    if (S.lnJoined) {
+      h += '<div class="lmp-status"><span class="lmp-pill"><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i> ' + esc(T('lmp.waitHost', 'بانتظار اكتمال الاتصال من المضيف…')) + '</span></div>' +
+        '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()"><i class="fa-solid fa-door-open" aria-hidden="true"></i> ' + esc(T('lmp.leave', 'إلغاء الانضمام')) + '</button></div>';
+      return h;
+    }
+    h += '<div class="lmp-rooms-head">' +
+      '<span class="lmp-pill lmp-wait"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> ' + esc(T('lmp.roomsScan', 'البحث الجاري عن الغرف القريبة…')) + '</span>' +
+      '<button class="lmp-btn lmp-mini" onclick="LocalMP.uiLnRefresh()"><i class="fa-solid fa-rotate" aria-hidden="true"></i> ' + esc(T('lmp.refresh', 'تحديث')) + '</button>' +
+      '</div>';
+    h += lnBtRow();
+    if (!rooms.length) {
+      h += '<div class="lmp-empty"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i><div>' +
+        esc(T('lmp.roomsEmpty', 'لا توجد غرف قريبة بعد — تأكد أنك وصاحبك على نفس الواي فاي (أو نقطة اتصاله) وأنه فتح غرفة، أو فعّل البلوتوث في الجهازين')) + '</div></div>';
+    } else {
+      h += '<div class="lmp-rooms">' + rooms.map(function (r) { return lnRoomCard(r); }).join('') + '</div>';
+    }
+    h += '<div class="lmp-codejoin"><div class="lmp-codejoin-t">' + esc(T('lmp.code8', 'أو انضم بكود الغرفة (8 حروف وأرقام)')) + '</div>' +
+      '<div class="lmp-row"><input id="lmpCodeIn" class="lmp-in lmp-code" maxlength="8" autocomplete="off" autocapitalize="characters" spellcheck="false" inputmode="text" placeholder="XXXXXXXX" dir="ltr" oninput="this.value=this.value.toUpperCase()"></div>' +
+      '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiJoinCode()"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i> ' + esc(T('lmp.join', 'انضمام لغرفة صديق')) + '</button></div></div>';
     h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()"><i class="fa-solid fa-door-open" aria-hidden="true"></i> ' + esc(T('lmp.leave', 'إلغاء الانضمام')) + '</button></div>';
     return h;
   }
@@ -1259,9 +1622,18 @@
   };
   LocalMP.joinHere = function () {
     S.mode = 'guest';
+    S.lnJoined = false;
     uiOpen('guest');
+    /* [v2.87·أصلي] فتح المتصفّح = اكتشاف كامل (واي فاي + بلوتوث) فوراً */
+    if (NATIVE) lnDiscover(true, true);
   };
   function uiChooseBody() {
+    if (NATIVE) {
+      /* [v2.87·أصلي] نفس الزرّين بمسار أبسط: الغرف تُكتشف آلياً */
+      return '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.hostHere()"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> ' + esc(T('lmp.host', 'إنشاء غرفة (أنا المضيف)')) + '</button></div>' +
+        '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.joinHere()"><i class="fa-solid fa-users-viewfinder" aria-hidden="true"></i> ' + esc(T('lmp.joinNearby', 'الغرف المحلية القريبة')) + '</button></div>' +
+        '<p class="lmp-hint"><i class="fa-brands fa-bluetooth-b" aria-hidden="true"></i> ' + esc(T('lmp.autoHint', 'الغرف تظهر تلقائياً لكل من فتح التطبيق على نفس الواي فاي أو البلوتوث — بلا إقتران وبلا إنترنت')) + '</p>';
+    }
     return '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.hostHere()"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> ' + esc(T('lmp.host', 'إنشاء غرفة (أنا المضيف)')) + '</button></div>' +
       '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.joinHere()"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> ' + esc(T('lmp.join', 'انضمام لغرفة صديق')) + '</button></div>' +
       '<p class="lmp-hint"><i class="fa-brands fa-bluetooth-b" aria-hidden="true"></i> ' + esc(T('lmp.btHint', 'البلوتوث: فعّل «مشاركة الاتصال عبر البلوتوث» في إعدادات نقطة الاتصال بهاتف المضيف ثم انضم — نفس مسار الواي فاي تماماً')) + '</p>';
@@ -1269,9 +1641,22 @@
 
   root.LocalMP = LocalMP;
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { patchRooms(); injectRoomMode(); });
+    document.addEventListener('DOMContentLoaded', function () { patchRooms(); injectRoomMode(); lnAutostart(); });
   } else {
-    patchRooms(); injectRoomMode();
+    patchRooms(); injectRoomMode(); lnAutostart();
+  }
+  /* [v2.87·أصلي] «الغرف المحلية تظهر آلياً لكل لاعب فتح التطبيق» (عقد المالك):
+     اكتشاف NSD الخلفي منذ التحميل — بلا أي طلب أذونات (البلوتوث يُطلب عند
+     فتح صفحة الغرف المحلية فقط)، والنتائج تتراكم في S.lnRooms فتكون القائمة
+     جاهزة فور فتح النافذة. */
+  function lnAutostart() {
+    if (!NATIVE) return;
+    lnDiscover(false);
+    /* الأجهزة التي تفصل الاكتشاف عند سكون الشبكة: تنشيط دوري خفيف كل 25ث */
+    setInterval(function () {
+      if (S.mode === 'guest' && S.lnJoined) return;   /* داخل غرفة — لا اكتشاف */
+      try { root.DTSGNative.discoverStart('{"bt":false}'); } catch (e) {}
+    }, 25000);
   }
   /* حقن متأخر: نافذة الإعدادات موجودة في index.html الثابت فتُحقن فوراً
      عادة — والمحاولتان الإضافيتان لأي تحميل بطيء (لا ضرر من التكرار) */

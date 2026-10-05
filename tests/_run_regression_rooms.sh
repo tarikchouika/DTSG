@@ -225,6 +225,9 @@ run "v285 كروم الأندرويد (ساكن)"      "tests/_v285_native_chrom
 # setDecorFitsSystemWindows تترك الويب محشوراً بينهما (بلاغ «فراغ أسود أعلى
 # وأسفل») — فحص مصدر ثابت بلا خادم وبلا متصفح: آمن في أي بيئة معزولة.
 run "v286 ملء الشاشة الحقيقي (ساكن)"  "tests/_v286_e2e_layout_test.js"
+# [v2.87] الغرفة المحلية الأصلية + الوضع الغامر + الأيقونة + هيدر/شريط سفلي —
+# فحص مصدر ثابت بلا خادم وبلا متصفح (يشمل فك PNG للأيقونة): آمن في أي بيئة.
+run "v287 الغامر وLocalNet (ساكن)"   "tests/_v287_localnet_immersive_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

@@ -18,7 +18,9 @@
   z-index: 130;
   direction: ltr;          /* الحساب/اللغة/الثيم دائمًا يسار، القائمة يمين */
   display: flex;
-  align-items: flex-start;
+  align-items: center;      /* [v2.87] محور أفقي واحد لكل أيقونات الهيدر — كانت flex-start
+                               فكانت أيقونة القائمة (دوك يمين وحيد) ترتفع عن بقية
+                               الأيقونات عند اختلاف ارتفاع رقاقة الحساب (بلاغ المالك) */
   justify-content: space-between;
   gap: 10px;
   padding: calc(8px + var(--safe-top)) 14px 8px;
@@ -1594,6 +1596,87 @@ html[dir="ltr"] .botchat { direction: ltr; }
   font-size: .78rem; font-weight: 700; text-align: center;
 }
 .lmp-toolong i { color: var(--gold, #d9b45c); }
+/* ═══════════ [v2.87] الغرفة المحلية الأصلية — كود كبير + متصفّح الغرف ═══════════ */
+.lmp-bignum {
+  margin: 6px auto 2px; text-align: center; direction: ltr;
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: clamp(1.55rem, 8vw, 2.15rem); font-weight: 900;
+  letter-spacing: .28em; padding: 12px 10px 10px; width: fit-content; min-width: 60%;
+  color: var(--gold2, #f2d489);
+  background:
+    radial-gradient(circle at 50% 0%, rgba(217, 180, 92, .12), rgba(0, 0, 0, 0) 70%),
+    linear-gradient(160deg, #131c2e, #0a0f1c);
+  border: 1.5px solid rgba(217, 180, 92, .5); border-radius: 16px;
+  box-shadow: 0 0 0 1px rgba(217, 180, 92, .18), 0 10px 26px rgba(0, 0, 0, .4);
+  text-shadow: 0 0 18px rgba(217, 180, 92, .35);
+  user-select: all; -webkit-user-select: all;        /* الكود يُنسخ بلمسة */
+}
+.lmp-bighint {
+  text-align: center; font-size: .74rem; line-height: 1.7; margin: 8px 4px 2px;
+  color: var(--t2, #9aa5b8);
+}
+.lmp-waitrow { justify-content: center; }
+.lmp-rooms-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin: 4px 0 8px; flex-wrap: wrap;
+}
+.lmp-btrow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin: 0 0 10px; flex-wrap: wrap;
+}
+.lmp-rooms { display: flex; flex-direction: column; gap: 9px; margin: 4px 0 8px; }
+.lmp-roomcard {
+  display: flex; align-items: center; gap: 10px;
+  padding: 11px 12px; border-radius: 14px; cursor: pointer;
+  background: linear-gradient(160deg, #131c2e, #0a0f1c);
+  border: 1px solid var(--bd, #24354f);
+  transition: border-color .18s var(--ease), transform .18s var(--ease), box-shadow .18s var(--ease);
+}
+.lmp-roomcard:hover, .lmp-roomcard:focus-visible {
+  border-color: rgba(217, 180, 92, .55); transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+}
+.lmp-room-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.lmp-room-game {
+  font-size: .86rem; font-weight: 800; color: var(--t1, #e9e2cf);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lmp-room-meta { font-size: .7rem; color: var(--t3, #66708A); direction: ltr; text-align: start; }
+.lmp-badge {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 5px;
+  font-size: .66rem; font-weight: 800; padding: 4px 9px; border-radius: 999px;
+  background: rgba(96, 165, 250, .12); border: 1px solid rgba(96, 165, 250, .4);
+  color: var(--blue2, #60A5FA);
+}
+.lmp-badge.bt {
+  background: rgba(52, 211, 153, .12); border-color: rgba(52, 211, 153, .4);
+  color: var(--green2, #34D399);
+}
+.lmp-joinbtn { flex-shrink: 0; padding: 8px 14px; font-size: .74rem; }
+.lmp-btn.lmp-mini {
+  padding: 7px 12px; font-size: .72rem; width: auto;
+}
+.lmp-empty {
+  display: flex; align-items: center; gap: 10px; margin: 8px 0;
+  padding: 14px; border-radius: 14px; text-align: start;
+  border: 1px dashed var(--bd, #24354f); color: var(--t3, #66708A);
+  font-size: .74rem; line-height: 1.7;
+}
+.lmp-empty i { font-size: 1.3rem; color: var(--t3, #66708A); opacity: .7; }
+.lmp-codejoin {
+  margin: 12px 0 4px; padding: 12px; border-radius: 14px;
+  border: 1px solid var(--bd, #24354f); background: var(--bg3, #16263c);
+}
+.lmp-codejoin-t {
+  font-size: .72rem; font-weight: 800; color: var(--gold2, #f2d489);
+  margin: 0 0 8px; text-align: center;
+}
+.lmp-in.lmp-code {
+  text-align: center; direction: ltr; text-transform: uppercase;
+  font-family: 'Orbitron', monospace, sans-serif;
+  font-size: 1.15rem; letter-spacing: .22em; font-weight: 800;
+  padding: 10px 8px; height: auto; resize: none; line-height: 1.4;
+}
 video.lmp-scanvid {
   display: block; width: 100%; max-height: 300px; object-fit: cover;
   border-radius: 12px; margin: 10px 0; background: #000;

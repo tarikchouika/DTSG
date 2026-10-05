@@ -2165,6 +2165,25 @@ const TR = {
   "lmp.localNote": ["لعب مباشر مع صديق على نفس شبكة الواي فاي أو مشاركة البلوتوث بلا إنترنت — جولة ودّية بلا رهان وبلا رسوم. اختر اللعبة وإعداداتها ثم افتح الغرفة وشارك الرمز.", "Jeu direct avec un ami sur le même Wi-Fi ou partage Bluetooth, sans Internet — manche amicale sans mise ni frais. Choisissez le jeu et ses réglages puis ouvrez la partie et partagez le code.", "Direct play with a friend on the same WiFi or Bluetooth tethering, no Internet — a friendly round with no bets and no fees. Pick the game and its settings, then open the room and share the code.", "لعب مباشر مع صاحبك فنفس الواي فاي ولا البلوتوث بلا أنترنت — جولة ودّية بلا رهان وبلا رسوم. ختار اللعبة والإعدادات ديالها ومن بعد حلّ الغرفة وشارك الكود."],
   "lmp.tooLong": ["الرمز أطول من سعة مسح QR — انسخه نصاً لصاحبك", "Code trop long pour le QR — copiez-le en texte", "Code too long for QR scanning — copy it as text", "الكود أطول من الـQR — نسخو نص لصاحبك"],
   "lmp.needGame": ["اختر لعبة أولاً", "Choisissez d\u2019abord un jeu", "Pick a game first", "ختار اللعبة الأول"],
+  /* ── [v2.87] الغرفة المحلية الأصلية في التطبيق: كود 8 حروف + اكتشاف آلي ── */
+  "lmp.hostCodeHint": ["شارك هذا الكود مع أصحابك — أو ستجد غرفتك عندهم تلقائياً في «الغرف المحلية»", "Partagez ce code avec vos amis — ils trouveront aussi votre salle automatiquement dans les salles locales", "Share this code with your friends — they will also find your room automatically under Local rooms", "شارك هاد الكود مع صحابك — ولا غادي يلقاو الغرفة ديالك أوتوماتيك فالغرف المحلية"],
+  "lmp.waitGuest": ["بانتظار انضمام لاعبين…", "En attente de joueurs…", "Waiting for players to join…", "خناص اللاعبين يدخلوا…"],
+  "lmp.joinNearby": ["الغرف المحلية القريبة", "Salles locales à proximité", "Nearby local rooms", "الغرف المحلية اللي قريبين"],
+  "lmp.autoHint": ["الغرف تظهر تلقائياً لكل من فتح التطبيق على نفس الواي فاي أو البلوتوث — بلا إقتران وبلا إنترنت", "Les salles apparaissent automatiquement pour tous ceux qui ouvrent l\u2019appli sur le même Wi-Fi ou Bluetooth — sans jumelage ni Internet", "Rooms appear automatically for everyone who opens the app on the same WiFi or Bluetooth — no pairing, no Internet", "الغرف كتبان أوتوماتيك لكل واحد حلّ التطبيق فنفس الواي فاي ولا البلوتوث — بلا إقتران وبلا أنترنت"],
+  "lmp.roomsScan": ["البحث الجاري عن الغرف القريبة…", "Recherche des salles à proximité…", "Searching for nearby rooms…", "كنقلبو على الغرف اللي قريبين…"],
+  "lmp.refresh": ["تحديث", "Rafraîchir", "Refresh", "جدّد"],
+  "lmp.roomsEmpty": ["لا توجد غرف قريبة بعد — تأكد أنك وصاحبك على نفس الواي فاي (أو نقطة اتصاله) وأنه فتح غرفة، أو فعّل البلوتوث في الجهازين", "Aucune salle à proximité — vérifiez que vous êtes sur le même Wi-Fi (ou son point d\u2019accès) et qu\u2019il a ouvert une salle, ou activez le Bluetooth sur les deux", "No nearby rooms yet — make sure both phones are on the same WiFi (or his hotspot) and he opened a room, or turn Bluetooth on for both", "ما كاينة حتى غرفة دابا — تأكد بجوج فنفس الواي فاي (ولا الپوان ديالو) وحلّ غرفة، ولا فعّل البلوتوث فالجوج"],
+  "lmp.wifiBadge": ["واي فاي", "Wi-Fi", "WiFi", "واي فاي"],
+  "lmp.btBadge": ["بلوتوث", "Bluetooth", "Bluetooth", "بلوتوث"],
+  "lmp.joinBtn": ["انضمام", "Rejoindre", "Join", "دخل"],
+  "lmp.code8": ["أو انضم بكود الغرفة (8 حروف وأرقام)", "Ou rejoignez avec le code de la salle (8 lettres et chiffres)", "Or join with the room code (8 letters and digits)", "ولا دخل بكود الغرفة (8 حروف وأرقام)"],
+  "lmp.badCode8": ["كود الغرفة 8 حروف وأرقام", "Le code de la salle fait 8 lettres et chiffres", "The room code is 8 letters and digits", "كود الغرفة 8 حروف وأرقام"],
+  "lmp.searching": ["جارٍ البحث عن الغرفة قربك… تأكد أنك وصاحبك على نفس الواي فاي أو البلوتوث", "Recherche de la salle… vérifiez que vous êtes sur le même Wi-Fi ou Bluetooth", "Searching for the room… make sure both are on the same WiFi or Bluetooth", "كنقلبو على الغرفة… تأكد بجوج فنفس الواي فاي ولا البلوتوث"],
+  "lmp.btHint2": ["لتظهر غرف البلوتوث:", "Pour voir les salles Bluetooth :", "To see Bluetooth rooms:", "باش تبان غرف البلوتوث:"],
+  "lmp.btEnable": ["تشغيل البلوتوث", "Activer le Bluetooth", "Turn on Bluetooth", "شعّل البلوتوث"],
+  "lmp.joinedWifi": ["متصل عبر الواي فاي", "Connecté via Wi-Fi", "Connected over WiFi", "مربوط عبر الواي فاي"],
+  "lmp.joinedBt": ["متصل عبر البلوتوث", "Connecté via Bluetooth", "Connected over Bluetooth", "مربوط عبر البلوتوث"],
+  "lmp.hostFail": ["تعذر فتح الغرفة المحلية — تحقق من الشبكة", "Impossible d\u2019ouvrir la salle locale — vérifiez le réseau", "Could not open the local room — check the network", "ما قدرناش نحلّو الغرفة المحلية — شوف الشبكة"],
 };
 
 /* ── Export to window and module ── */

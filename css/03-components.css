@@ -1656,14 +1656,18 @@ box-shadow: 0 0 22px rgba(217, 180, 92, 0.45);
   bottom: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  /* [v2.87] ارتفاع الحاوية كله من منطقة الرؤية (border-box): كانت 60px
+     بمحتوى مضاف فوقها (content-box) فإذا كبرت --safe-bottom تضخّم الشريط
+     إلى «مربع كبير مشوه» (بلاغ المالك 2026-10-06). الآن: مناطق المحتوى
+     ثابتة 60px أياً كانت المساحة الآمنة — شريط نحيف احترافي دائماً. */
+  height: calc(64px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+  box-sizing: border-box;
   background: rgba(11, 21, 38, 0.92);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 250;
   padding: 0 10px calc(4px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
-  box-sizing: content-box;
 }
 .mobile-bottom-nav .bnav-item {
   flex: 1;
@@ -1682,6 +1686,16 @@ box-shadow: 0 0 22px rgba(217, 180, 92, 0.45);
   transition: all 0.2s ease;
   padding: 6px 0;
   border-radius: 8px;
+  /* [v2.87] التسميات الطويلة (غرف اللعب/البطولات) كانت تنضغط معاً بلا فواصل —
+     الآن قصّ أنيق بنقاط وأيقونة سليمة */
+  min-width: 0;
+  overflow: hidden;
+}
+.mobile-bottom-nav .bnav-item span {
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .mobile-bottom-nav .bnav-item i {
   font-size: 1.15rem;
