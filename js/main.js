@@ -1343,14 +1343,16 @@ function lbMeCardHtml(meRow, scopeLabel) {
    [v2.84.1] ألعاب بلا أصل أيقونة (الطاولة الرقمية: mines/plinko/dice…)
    تسقط على إيموجي اللعبة نفسه من الفهرس — هوية بصرية موحّدة لكل رقاقة. */
 function lbChipIcon(gid) {
+  const g = (typeof GAMES !== 'undefined' && GAMES) ? GAMES.find(function (x) { return x.id === gid; }) : null;
+  const em = ((g && g.em) ? g.em : '🎮').replace(/['\\<>"]/g, '');   /* رموز آمنة داخل السمة */
   const img = (typeof GAME_IMG !== 'undefined') ? GAME_IMG[gid] : null;
   if (img) {
+    /* [v2.84.1] إدخال بلا مجلد فعلي (ألعاب الطاولة الرقمية) — onerror يستبدل
+       الصورة الفاشلة بإيموجي اللعبة بدل محوها (رقاقة بلا رمز وإلا) */
     return '<img class="lb-ico" src="assets/games/' + img + '/icon.webp?v=230" alt="" loading="eager" ' +
-      'onerror="this.remove()">';
+      'onerror="var s=document.createElement(\'span\');s.className=\'lb-ico lb-ico-em\';s.textContent=\'' + em + '\';this.replaceWith(s);">';
   }
   /* احتياطي: إيموجي اللعبة من الفهرس (g.em) بنفس مقاس الأيقونة */
-  const g = (typeof GAMES !== 'undefined' && GAMES) ? GAMES.find(function (x) { return x.id === gid; }) : null;
-  const em = g && g.em ? g.em : '🎮';
   return '<span class="lb-ico lb-ico-em" aria-hidden="true">' + em + '</span>';
 }
 function renderLBFilters(games) {
