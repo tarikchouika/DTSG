@@ -113,7 +113,8 @@ ok('Artifact احتياطي DSTG-Gaming-App-Release (7 أيام) — القنا�
    الدمج مع v2.81.5): أي ملف keystore/jks آخر متتبَّع،
    أو اختفاء أحدهما من التتبع، يُسقط الحارس (قاعدة 19 توثّق ظهورهما حصراً). */
 const KS_ALLOWED = new Set(['scripts/make-production-keystore.sh', 'tests/_v282_keystore_knowledge_test.js']);
-const ksTracked = execSync('git ls-files "*keystore*" "*jks*"', { encoding: 'utf8' }).trim().split('\n').filter(Boolean);
+const lsFiles = (args) => execSync(`git ls-files ${args}`, { encoding: 'utf8', cwd: ROOT }).trim().split('\n').filter(Boolean);
+const ksTracked = lsFiles('"*keystore*" "*jks*"');
 ok('git ls-files: لا keystore/jks متتبَّع عدا المبيَّضَين (سكربت التوثيق + حرس العقد — أي شيء آخر ممنوع)',
   ksTracked.length > 0 && ksTracked.every(f => KS_ALLOWED.has(f)));
 const gi = fs.readFileSync(path.join(ROOT, '.gitignore'), 'utf8');
@@ -122,7 +123,7 @@ ok('.gitignore يحجب كل أنماط الشهادات (*.keystore · *.jks ·
   /^\*keystore-password\*$/m.test(gi) && /^dtsg-keystore\/$/m.test(gi));
 ok('المستودع لا يحمل قيمة الشهادة بـBase64 ولا كلمة سر مولّدة (فحص نمط)',
   (() => {
-    const tracked = execSync('git ls-files', { encoding: 'utf8' }).trim().split('\n');
+    const tracked = lsFiles('');
     const suspects = ['ANDROID_KEYSTORE_BASE64.txt', 'keystore-password.txt', 'dtsg-production.keystore'];
     return !tracked.some(f => suspects.some(s => f.endsWith(s)));
   })());

@@ -196,6 +196,13 @@ run "v281 مراقبة MediaMTX + APK"     "tests/_v281_mediamtx_status_test.js"
 # كلياً ⇒ انحدارٌ في إصلاحَي v2.81.3 كان يمرّ بصمت. فحوص مصدر ثابتة: بلا خادم
 # وبلا متصفح، فآمنة في أي بيئة معزولة.
 run "v2813 حمايات APK الأصلية"        "tests/_v2813_apk_native_test.js"
+# [v2.82-audit] جناحا التوقيع الإنتاجي كانا خارج البطارية كلياً ⇒ انحدارٌ في عقد
+# السير (الأسرار الأربعة · الحقن · apksigner · النشر في Releases) أو في حزمة
+# الشهادة كان يمرّ بصمت. كلاهما فحوص مصدر/مستند ثابتة: بلا خادم وبلا متصفح.
+# وثالثهما $REPO (= نفس معالجة _repo_hygiene_test.js): حراساتهما تقرأ فهرس git،
+# والنسخة المعزولة /tmp/full ليست مستودعاً ⇒ بدونه يفشل الأول ويمرّ الثاني بلا فحص.
+run "v282 توقيع APK + Releases"        "tests/_v282_apk_release_test.js"      "$REPO"
+run "v282 حزمة الشهادة والمعرفة"      "tests/_v282_keystore_knowledge_test.js" "$REPO"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"
