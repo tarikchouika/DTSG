@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.84.0';
+window.DTSG_BUILD = 'v2.84.1';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -1339,12 +1339,19 @@ function lbMeCardHtml(meRow, scopeLabel) {
    بلا اسم نصي — الاسم يبقى في title/aria-label فقط. الجذر البصري للخلل
    الميداني (2026-10-05): أسماء الألعاب النصية كانت تُضغط داخل الرقائق
    (flex-shrink افتراضي مع white-space:nowrap) فتظهر مبتورة ومزاحة عن
-   حاويتها على الجوال («Ove» / «Penalt» / «Classi»). */
+   حاويتها على الجوال («Ove» / «Penalt» / «Classi»).
+   [v2.84.1] ألعاب بلا أصل أيقونة (الطاولة الرقمية: mines/plinko/dice…)
+   تسقط على إيموجي اللعبة نفسه من الفهرس — هوية بصرية موحّدة لكل رقاقة. */
 function lbChipIcon(gid) {
   const img = (typeof GAME_IMG !== 'undefined') ? GAME_IMG[gid] : null;
-  if (!img) return '';
-  return '<img class="lb-ico" src="assets/games/' + img + '/icon.webp?v=230" alt="" loading="eager" ' +
-    'onerror="this.remove()">';
+  if (img) {
+    return '<img class="lb-ico" src="assets/games/' + img + '/icon.webp?v=230" alt="" loading="eager" ' +
+      'onerror="this.remove()">';
+  }
+  /* احتياطي: إيموجي اللعبة من الفهرس (g.em) بنفس مقاس الأيقونة */
+  const g = (typeof GAMES !== 'undefined' && GAMES) ? GAMES.find(function (x) { return x.id === gid; }) : null;
+  const em = g && g.em ? g.em : '🎮';
+  return '<span class="lb-ico lb-ico-em" aria-hidden="true">' + em + '</span>';
 }
 function renderLBFilters(games) {
   const bar = document.getElementById('lbFilters');

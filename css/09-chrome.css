@@ -1451,6 +1451,12 @@ html[dir="ltr"] .botchat { direction: ltr; }
   object-fit: cover; flex: 0 0 auto;
   box-shadow: 0 0 0 1px rgba(217,180,92,0.25);
 }
+/* [v2.84.1] احتياطي الألعاب بلا أصل أيقونة: إيموجي بنفس مربع الأيقونة */
+#lbFilters .fchip .lb-ico.lb-ico-em {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .95rem; line-height: 1;
+  background: rgba(217,180,92,0.10);
+}
 #lbFilters .fchip {
   display: inline-flex; align-items: center; gap: 7px;
   flex: 0 0 auto;                /* لا انكماش — جذر الابتدار البصري */

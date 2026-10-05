@@ -101,8 +101,13 @@ const ok = (l, c, x) => { c ? (pass++, console.log('  ✅ ' + l + (x ? '  ' + x 
     const cs = Array.from(bar.querySelectorAll('.fchip'));
     return cs.map(c => ({
       html: c.innerHTML,
-      hasIcon: !!c.querySelector('img.lb-ico'),
-      iconLoaded: (function () { const i = c.querySelector('img.lb-ico'); return !!(i && i.complete && i.naturalWidth > 0); })(),
+      hasIcon: !!(c.querySelector('img.lb-ico') || c.querySelector('.lb-ico-em')),
+      iconLoaded: (function () {
+        const i = c.querySelector('img.lb-ico');
+        if (i) return !!(i.complete && i.naturalWidth > 0);
+        const em = c.querySelector('.lb-ico-em');
+        return !!(em && (em.textContent || '').trim());
+      })(),
       text: (c.textContent || '').trim(),
       shrink: getComputedStyle(c).flexShrink,
       title: c.getAttribute('title') || '',
@@ -113,8 +118,8 @@ const ok = (l, c, x) => { c ? (pass++, console.log('  ✅ ' + l + (x ? '  ' + x 
   if (chips) {
     ok('الرقاقة العامة: تاج + «الكل» (كلمة واحدة لا تُبتور)', chips.length > 0 && chips[0].text.indexOf('الكل') >= 0 && chips[0].html.indexOf('fa-crown') >= 0, '(' + chips[0].text + ')');
     const gameChips = chips.slice(1);
-    ok('رقائق الألعاب: أيقونات موجودة (' + gameChips.filter(c => c.hasIcon).length + '/' + gameChips.length + ')', gameChips.length > 0 && gameChips.every(c => c.hasIcon));
-    ok('أيقونات الألعاب محمَّلة فعلاً (naturalWidth>0)', gameChips.every(c => c.iconLoaded));
+    ok('رقائق الألعاب: أيقونة أو إيموجي احتياطي (' + gameChips.filter(c => c.hasIcon).length + '/' + gameChips.length + ')', gameChips.length > 0 && gameChips.every(c => c.hasIcon));
+    ok('كل رمز مرئي فعلاً (صورة محمّلة أو إيموجي)', gameChips.every(c => c.iconLoaded));
     ok('لا اسم لعبة نصياً في الرقائق (أيقونة + عدّاد فقط)', gameChips.every(c => c.text.replace(/[\d\s\u200f\u200e]/g, '') === ''));
     ok('كل رقاقة تحمل title باسم اللعبة (وصولية)', gameChips.every(c => c.title.length > 1));
     ok('الرقائق لا تنكمش (flex-shrink: 0)', chips.every(c => c.shrink === '0'));
