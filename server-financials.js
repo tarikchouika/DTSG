@@ -1,4 +1,7 @@
 'use strict';
+/* [v2.84·register] تشفير كلمة المرور بنفس مخطط المنصة (scrypt) — من داخل
+   نفس عملية server.js فلا تكرار منطق ولا اختلاف تخزين */
+const crypto = require('crypto');
 /* ═══════════════════════════════════════════════════════════════════════════
    DTSG — بوت المالية للسوپر أدمن (Financials Bot Engine)  v2.66.0
    @dtsgfinancials_bot  ⟷  نفس قاعدة SQLite (royalcoin.db) التي يقرأها داشبورد
@@ -40,6 +43,31 @@ const now = () => Date.now();
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 function cut(s, n) { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+/* [v2.84·تحصين الإرسال] اقتطاع آمن للـHTML: لا يقطع داخل وسم ويغلق الوسوم
+   المفتوحة — الاقتطاع الأعمى كان قادراً على ترك <b> أو <code> مقطوعاً فيرفض
+   تيليغرام الرسالة كاملة (400 can't parse entities) فيصمت البوت بلا ردّ
+   أصلاً (بلاغ المالك 2026-10-05: أزرار السجلات «لا تستجيب»). */
+function cutHtml(s, n) {
+  s = String(s == null ? '' : s);
+  if (s.length <= n) return s;
+  let out = s.slice(0, n);
+  const lt = out.lastIndexOf('<');
+  const gt = out.lastIndexOf('>');
+  if (lt > gt) out = out.slice(0, lt);          /* لا تقطع داخل وسم مفتوح */
+  ['b', 'code', 'i', 'u', 's', 'blockquote', 'pre'].forEach(function (t) {
+    let open = 0;
+    const re = new RegExp('<(/?)' + t + '[>\\s]', 'g');
+    let m;
+    while ((m = re.exec(out))) { if (m[1] !== '/') open++; else open = Math.max(0, open - 1); }
+    for (let k = 0; k < open; k++) out += '</' + t + '>';
+  });
+  return out + '…';
+}
+/* [v2.84] تطهير نص زر اللوحة قبل المطابقة — تيليغرام قد يسلّم الشيارات
+   غير المرئية (ZWSP/RLM/عيون ثنائية الاتجاه) فتُسقط المطابقة الحرفية */
+function normMenuKey(t) {
+  return String(t || '').replace(/[\u200b-\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g, '').replace(/\s+/g, ' ').trim();
+}
 function fmt(n) { return Number(n || 0).toLocaleString('ar-MA'); }
 function usd(n) { return Number(n || 0).toFixed(2) + ' $'; }
 function apiBase() { return (process.env.FINANCIALS_TG_API || 'https://api.telegram.org').replace(/\/$/, ''); }
@@ -90,8 +118,24 @@ async function tg(method, body) {
 }
 async function send(chat, text, extra) {
   if (!chat) return null;
-  const body = Object.assign({ chat_id: String(chat), text: cut(text, MAXLEN), parse_mode: 'HTML', disable_web_page_preview: true }, extra || {});
-  return tg('sendMessage', body);
+  const body = Object.assign({ chat_id: String(chat), text: cutHtml(text, MAXLEN), parse_mode: 'HTML', disable_web_page_preview: true }, extra || {});
+  let r = await tg('sendMessage', body);
+  /* [v2.84·تحصين] فشل تحليل الكيانات/الطول من تيليغرام ⇒ أعد الإرسال نصاً
+     خاماً (بلا HTML) بدل الصمت — الميزات الثلاث (📜/📥/💰) كانت تظهر
+     معلّقة إن رُفضت رسالتها لأي سبب صياغي، والخطأ كان مبتلعاً بلا أثر. */
+  if (r && r.ok === false) {
+    const code = Number(r.error_code || 0);
+    const desc = String(r.description || ('error ' + code));
+    if (code === 400 || code === 413 || code === 414) {
+      const plain = Object.assign({}, body, { text: cut(String(text).replace(/<[^>]+>/g, ''), MAXLEN) });
+      delete plain.parse_mode;
+      r = await tg('sendMessage', plain);
+      audit(chat, 'send-retry-plain', 'أعيدت كنص خام بعد رفض HTML: ' + cut(desc, 80));
+    } else {
+      audit(chat, 'send-fail', cut(desc, 120));
+    }
+  }
+  return r;
 }
 function kb(rows) { return { inline_keyboard: rows }; }
 
@@ -101,7 +145,8 @@ const MENU = {
     [{ text: '📊 الإحصاءات' }, { text: '⏳ الطلبات المعلقة' }],
     [{ text: '📥 سجل الشحن' }, { text: '💸 سجل السحب' }],
     [{ text: '👥 سجلات المستخدمين' }, { text: '📜 جميع السجلات' }],
-    [{ text: '💰 سجل المال' }, { text: '🎮 إحصاءات الألعاب' }]
+    [{ text: '💰 سجل المال' }, { text: '🎮 إحصاءات الألعاب' }],
+    [{ text: '👤 تسجيل مستخدم جديد' }]
   ],
   resize_keyboard: true
 };
@@ -393,6 +438,7 @@ const HELP =
   '📜 <code>/log [نوع] [صفحة]</code> — جميع السجلات (رهان/فوز/تحويل/شحن/خصم…)\n' +
   '💰 <code>/money</code> — سجل المال + مجاميع الشحن/السحب\n' +
   '🎮 <code>/games</code> — إحصاءات مالية لكل لعبة\n' +
+  '👤 <code>/register &lt;اسم&gt; &lt;كلمة المرور&gt;</code> — تسجيل مستخدم جديد (لاعب · رصيد 0)</n>' +
   '🔎 <code>/tx &lt;مرجع&gt;</code> — تفاصيل معاملة\n' +
   '⚡ <code>/charge &lt;مستخدم&gt; &lt;مبلغ&gt;</code> — شحن كوينز\n' +
   '⚙️ <code>/deduct &lt;مستخدم&gt; &lt;مبلغ&gt;</code> — خصم كوينز\n' +
@@ -677,6 +723,74 @@ async function cmdSetBalance(chat, q, goldV) {
     fmt(before) + ' ← <b>' + fmt(target.gold) + '</b> 🪙');
 }
 
+/* [register tab] تسجيل مستخدم جديد من البوت — نفس قواعد المنصة حرفياً:
+   اسم 3-20 (حروف/أرقام/_) · كلمة مرور 6+ · تشفير scrypt بنفس المخطط ·
+   دور 'user' حصراً (لا تصعيد من هنا أبداً — مثل قاعدة v2.80 في /api/register) ·
+   رصيد 0 (الشحن عبر /charge المسجَّل) · رمز إحالة فريد.
+   [H1·v2.67] scrypt غير محجِب (طاقم libuv) لا scryptSync — لا تجميد حلقة الأحداث. */
+function hashPasswordAsync(password) {
+  return new Promise(function (resolve, reject) {
+    const salt = crypto.randomBytes(16);
+    crypto.scrypt(String(password), salt, 64, function (err, hash) {
+      if (err) return reject(err);
+      resolve({ salt: salt.toString('hex'), hash: hash.toString('hex') });
+    });
+  });
+}
+function genRefCodeBot(id) {
+  for (let guard = 0; guard < 50; guard++) {
+    const code = 'GV' + id.toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+    if (!Object.values(CTX.users).some(function (u) { return u.ref_code === code; })) return code;
+  }
+  return 'GV' + id + '-' + Date.now().toString(36).toUpperCase();
+}
+async function cmdRegister(chat, username, password) {
+  username = String(username || '').trim();
+  password = String(password || '');
+  if (!username || !password) {
+    await send(chat, '👤 <b>تسجيل مستخدم جديد</b>\n\nالصيغة: <code>/register اسم_المستخدم كلمة_المرور</code>\nمثال: <code>/register player7 secret123</code>\n\n• الاسم: 3-20 حرفاً (حروف/أرقام/_)\n• كلمة المرور: 6 أحرف على الأقل\n• الدور: لاعب · الرصيد الابتدائي: 0 (اشحنها بـ <code>/charge</code>)', { reply_markup: MENU });
+    return;
+  }
+  if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) {
+    await send(chat, '❌ اسم المستخدم غير صالح — 3-20 حرفاً: حروف/أرقام/_ حصراً (لا فراغات ولا رموز).');
+    return;
+  }
+  if (password.length < 6) { await send(chat, '❌ كلمة المرور قصيرة جداً — 6 أحرف على الأقل.'); return; }
+  if (password.length > 100) { await send(chat, '❌ كلمة المرور طويلة جداً — 100 حرفاً كحد أقصى.'); return; }
+  if (Object.values(CTX.users).some(function (x) { return x.username === username; })) {
+    await send(chat, '❌ اسم المستخدم محجوز — جرّب اسماً آخر أو <code>/user ' + esc(username) + '</code>.');
+    return;
+  }
+  let cred;
+  try { cred = await hashPasswordAsync(password); }
+  catch (e) { await send(chat, '⚠️ تعذّر تشفير كلمة المرور — أعد المحاولة.'); return; }
+  /* نفس INSERT persistUser في server.js (بالأعمدة الأساسية) */
+  let uid = 0;
+  try {
+    const t = Math.floor(Date.now() / 1000);
+    const info = CTX.db.prepare('INSERT INTO users (username, pass_hash, pass_salt, role, gold, lang, created_at, last_seen) VALUES (?,?,?,?,?,?,?,?)')
+      .run(username, cred.hash, cred.salt, 'user', 0, 'ar', t, 0);
+    uid = Number(info.lastInsertRowid);
+  } catch (e) {
+    audit(chat, 'register-fail', 'INSERT فشل: ' + cut(String(e && e.message), 90));
+    await send(chat, '⚠️ تعذّر إنشاء الحساب (خطأ قاعدة بيانات) — أعد المحاولة.');
+    return;
+  }
+  /* رمز إحالة فريد — نفس منطق genRefCode في server.js */
+  const refCode = genRefCodeBot(uid);
+  try { CTX.db.prepare('UPDATE users SET ref_code = ? WHERE id = ?').run(refCode, uid); } catch (e) {}
+  /* مرآة الذاكرة — نفس شكل كائن users في server.js */
+  const u = { id: uid, username: username, passHash: cred.hash, passSalt: cred.salt, role: 'user', gold: 0, lang: 'ar', banned: false, ref_code: refCode, created_at: Math.floor(Date.now() / 1000), last_seen: 0 };
+  CTX.users[uid] = u;
+  audit(chat, 'register', 'مستخدم جديد #' + uid + ' (' + username + ') · دور user · رصيد 0');
+  await send(chat, '✅ <b>أُنشئ الحساب بنجاح</b>\n\n' +
+    '👤 الاسم: <b>' + esc(username) + '</b> (#' + uid + ')\n' +
+    '🔑 كلمة المرور: كما أدخلتها (ولا تُعرض هنا أبداً)\n' +
+    '🎭 الدور: لاعب · 🪙 الرصيد: 0\n' +
+    '🎁 رمز الإحالة: <code>' + esc(refCode) + '</code>\n\n' +
+    '⚡ اشحن رصيداً ابتدائياً: <code>/charge ' + uid + ' [مبلغ]</code> · ملفه: <code>/user ' + uid + '</code>', { reply_markup: MENU });
+}
+
 /* [audit] آخر أفعال البوت */
 async function cmdAudit(chat, n) {
   let rows = [];
@@ -772,14 +886,20 @@ async function onMessage(msg) {
   if (!text) { await send(chat, '🏦 اكتب أمراً — /help للقائمة الكاملة.', { reply_markup: MENU }); return; }
   audit(chat, 'cmd', cut(text, 80));
 
-  /* أزرار القائمة الثابتة → أوامر */
+  /* أزرار القائمة الثابتة → أوامر
+     [v2.84·مطابقة مطهّرة] تيليغرام قد يسلّم نص الزر بشيارات خفية (ZWSP/RLM)
+     أو فراغات مضاعفة من بعض لوحات المفاتيح — التطابق الحرفي الصارم كان يسقط
+     الزر إلى «أمر غير معروف» فيبدو معطّلاً. الآن: تطهير الشيارات غير المرئية
+     وضغط الفراغات قبل المطابقة. */
   const menuMap = {
     '📊 الإحصاءات': '/stats', '⏳ الطلبات المعلقة': '/pending',
     '📥 سجل الشحن': '/deposits', '💸 سجل السحب': '/withdrawals',
     '👥 سجلات المستخدمين': '/users', '📜 جميع السجلات': '/log',
-    '💰 سجل المال': '/money', '🎮 إحصاءات الألعاب': '/games'
+    '💰 سجل المال': '/money', '🎮 إحصاءات الألعاب': '/games',
+    '👤 تسجيل مستخدم جديد': '/register'
   };
-  const line = menuMap[text] ? menuMap[text] : text;
+  const normText = normMenuKey(text);
+  const line = menuMap[normText] ? menuMap[normText] : text;
   const parts = line.split(/\s+/);
   const cmd = (parts[0] || '').replace(/@.*$/, '').toLowerCase();
 
@@ -815,6 +935,10 @@ async function onMessage(msg) {
   }
   if (cmd === '/money') return cmdMoney(chat, Math.max(1, parseInt(parts[1], 10) || 1));
   if (cmd === '/games') return cmdGames(chat);
+  /* [v2.84·register] تسجيل مستخدم جديد — زر اللوحة بلا وسيطات يعرض دليل الصيغة */
+  if (cmd === '/register' || cmd === '/adduser' || cmd === 'تسجيل') {
+    return cmdRegister(chat, parts[1], parts.slice(2).join(' ') || parts[2]);
+  }
   if (cmd === '/tx') {
     if (!parts[1]) { await send(chat, '🔎 <code>/tx &lt;مرجع المعاملة&gt;</code> — تجده في السجلات أو /pending'); return; }
     return cmdTx(chat, parts[1]);
@@ -892,5 +1016,5 @@ module.exports = {
   initFinancials, setCtx, handleUpdate, handleHttp, isFinancialsPath, FIN_PATHS,
   statsData, pendingData, payTotals, gamesStats, mergedLog, moneyLogData, usersList, findUser,
   newsGet, newsSet, newsClear,
-  _internals: { cmdStats, cmdPending, cmdPay, cmdUsers, cmdUser, cmdLog, cmdMoney, cmdGames, cmdTx, cmdCharge, cmdDeduct, cmdSetBalance, cmdAudit, cmdNews, payAct, superTg }
+  _internals: { cmdStats, cmdPending, cmdPay, cmdUsers, cmdUser, cmdLog, cmdMoney, cmdGames, cmdTx, cmdCharge, cmdDeduct, cmdSetBalance, cmdAudit, cmdNews, cmdRegister, payAct, superTg, cutHtml, normMenuKey }
 };

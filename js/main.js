@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.83.0';
+window.DTSG_BUILD = 'v2.84.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */
@@ -1335,14 +1335,33 @@ function lbMeCardHtml(meRow, scopeLabel) {
     '</div>' +
   '</div>';
 }
+/* [v2.84·LB Icons] رقاقة لعبة = أيقونتها الرسمية (نفس أصول بطاقات الألعاب)
+   بلا اسم نصي — الاسم يبقى في title/aria-label فقط. الجذر البصري للخلل
+   الميداني (2026-10-05): أسماء الألعاب النصية كانت تُضغط داخل الرقائق
+   (flex-shrink افتراضي مع white-space:nowrap) فتظهر مبتورة ومزاحة عن
+   حاويتها على الجوال («Ove» / «Penalt» / «Classi»). */
+function lbChipIcon(gid) {
+  const img = (typeof GAME_IMG !== 'undefined') ? GAME_IMG[gid] : null;
+  if (!img) return '';
+  return '<img class="lb-ico" src="assets/games/' + img + '/icon.webp?v=230" alt="" loading="eager" ' +
+    'onerror="this.remove()">';
+}
 function renderLBFilters(games) {
   const bar = document.getElementById('lbFilters');
   if (!bar) return;
-  let html = '<button class="fchip' + (LB_SCOPE === 'overall' ? ' active' : '') + '" role="tab" aria-selected="' + (LB_SCOPE === 'overall') + '" onclick="lbSetScope(\'overall\', this)">' +
-    '<i class="fa-solid fa-crown" aria-hidden="true"></i> ' + (T('lb.overall') || 'الترتيب العام') + '</button>';
+  /* رقاقة «الكل»: تاج + كلمة قصيرة مترجمة (كلمة واحدة لا تُبتور) */
+  let html = '<button class="fchip' + (LB_SCOPE === 'overall' ? ' active' : '') + '" role="tab" aria-selected="' + (LB_SCOPE === 'overall') + '" ' +
+    'title="' + esc(T('lb.overall') || 'الترتيب العام') + '" aria-label="' + esc(T('lb.overall') || 'الترتيب العام') + '" ' +
+    'onclick="lbSetScope(\'overall\', this)">' +
+    '<i class="fa-solid fa-crown" aria-hidden="true"></i> ' + esc(T('lb.all') || 'الكل') + '</button>';
   (games || []).forEach(function (g) {
     const active = LB_SCOPE === g.game_id;
-    html += '<button class="fchip' + (active ? ' active' : '') + '" role="tab" aria-selected="' + active + '" onclick="lbSetScope(\'' + esc(g.game_id) + '\', this)">' + esc(lbGameName(g.game_id)) + ' <span class="lb-cnt">' + Number(g.players) + '</span></button>';
+    const label = lbGameName(g.game_id);
+    html += '<button class="fchip' + (active ? ' active' : '') + '" role="tab" aria-selected="' + active + '" ' +
+      'title="' + esc(label) + '" aria-label="' + esc(label) + '" ' +
+      'onclick="lbSetScope(\'' + esc(g.game_id) + '\', this)">' +
+      lbChipIcon(g.game_id) +
+      '<span class="lb-cnt" title="' + esc(String(Number(g.players))) + '">' + Number(g.players) + '</span></button>';
   });
   bar.innerHTML = html;
 }

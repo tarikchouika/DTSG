@@ -1442,6 +1442,20 @@ html[dir="ltr"] .botchat { direction: ltr; }
   font-size: .68rem; font-weight: 800;
   background: rgba(217,180,92,0.14); border: 1px solid rgba(217,180,92,0.3); color: var(--gold, #d9b45c);
 }
+/* [v2.84·LB Icons] أيقونة اللعبة داخل رقاقة الترتيب — بدل الاسم النصي
+   (الأسماء كانت تُبتور وتزاح عن الحاوية على الجوال). أيقونة مربعة صغيرة
+   متناسقة مع الهوية + الرقائق لا تنكمش تحت عرض محتواها إطلاقاً. */
+#lbFilters .fchip .lb-ico {
+  display: inline-block; vertical-align: middle;
+  width: 26px; height: 26px; border-radius: 8px;
+  object-fit: cover; flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(217,180,92,0.25);
+}
+#lbFilters .fchip {
+  display: inline-flex; align-items: center; gap: 7px;
+  flex: 0 0 auto;                /* لا انكماش — جذر الابتدار البصري */
+}
+#lbFilters .fchip .lb-cnt { flex: 0 0 auto; }
 /* بطاقة «ترتيبك» */
 .lbme {
   display: flex; align-items: center; gap: 14px;

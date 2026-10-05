@@ -132,7 +132,7 @@ const CB = (id, data) => ({ callback_query: { id: 'cb' + Math.random(), from: { 
   console.log('═══ 2) /start و /help ═══');
   await fin.handleUpdate(U(SUPER, '/start'));
   ok('ترحيب السوپر يعرض هوية البوت', lastTo(SUPER).indexOf('بوت المالية') >= 0);
-  ok('لوحة الأزرار الثابتة موجودة (8 اختصارات)', (function () { const m = lastMarkup(SUPER); return m && m.keyboard && m.keyboard.length === 4; })());
+  ok('لوحة الأزرار الثابتة موجودة (9 اختصارات — منها تسجيل المستخدم v2.84)', (function () { const m = lastMarkup(SUPER); return m && m.keyboard && m.keyboard.length === 5 && m.keyboard[4] && m.keyboard[4][0] && m.keyboard[4][0].text.indexOf('تسجيل مستخدم جديد') >= 0; })());
   await fin.handleUpdate(U(SUPER, '/help'));
   ok('/help يذكر كل خصائص الداشبورد', (function () { const t = lastTo(SUPER); return ['stats', 'pending', 'deposits', 'withdrawals', 'users', 'log', 'money', 'games', 'charge', 'deduct', 'setbalance'].every(c => t.indexOf(c) >= 0); })());
 

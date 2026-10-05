@@ -182,14 +182,28 @@
     return new root.RTCPeerConnection({ iceServers: [], iceCandidatePoolSize: 0 });
   }
   function gatherComplete(pc, timeoutMs) {
-    /* LAN: المرشحون المحليون سريعون — ننتظر اكتمال الجمع أو مهلة قصيرة */
+    /* LAN: المرشحون المحليون سريعون عادة — ننتظر اكتمال الجمع أو مهلة قصيرة.
+       [v2.84·Android] على WebView بالهاتف قد يتأخر عدّ واجهات الشبكة
+       (واي فاي + بلوتوث tethering) عن 1.6ث فتُرفض الغرفة بـ«no-lan» خطأً
+       (بلاغ المالك: خلل فتح الغرفة المحلية عبر التطبيق). الآن: ننتظر
+       الاكتمال أو أول مرشح + مهلة سماح 900ms أو سقفاً صلباً 4ث —
+       من يحرّك الشبكة أبطأ يظل قابلاً للاستقبال. */
+    timeoutMs = timeoutMs || 4000;
     return new Promise(function (resolve) {
       if (pc.iceGatheringState === 'complete') return resolve(true);
       var done = false;
-      var fin = function () { if (!done) { done = true; clearInterval(iv); resolve(true); } };
+      var fin = function () { if (!done) { done = true; clearInterval(iv); clearTimeout(hard); resolve(true); } };
       var iv = setInterval(function () { if (pc.iceGatheringState === 'complete') fin(); }, 120);
       pc.addEventListener('icegatheringstatechange', function () { if (pc.iceGatheringState === 'complete') fin(); });
-      setTimeout(fin, timeoutMs || 1600);
+      /* أول مرشح ثم سماح 900ms — يكفي لمرشح LAN واحد ليبني الرمز */
+      var graceTmr = null;
+      var cand = function () {
+        if (done || graceTmr) return;
+        if ((pc._cands || []).length > 0) graceTmr = setTimeout(fin, 900);
+      };
+      pc.addEventListener('icecandidate', function (ev) { if (ev.candidate) cand(); });
+      cand();
+      var hard = setTimeout(fin, timeoutMs);
     });
   }
 
@@ -203,7 +217,7 @@
       pc.createOffer().then(function (offer) {
         return pc.setLocalDescription(offer);
       }).then(function () {
-        return gatherComplete(pc, 1600);
+        return gatherComplete(pc, 4000);
       }).then(function () {
         var f = sdpFields(pc.localDescription.sdp || '');
         var c = lanCandidates(pc._cands, pc.localDescription.sdp || '');
@@ -240,7 +254,7 @@
       }).then(function (ans) {
         return pc.setLocalDescription(ans);
       }).then(function () {
-        return gatherComplete(pc, 1600);
+        return gatherComplete(pc, 4000);
       }).then(function () {
         var f = sdpFields(pc.localDescription.sdp || '');
         var c = lanCandidates(pc._cands, pc.localDescription.sdp || '');
@@ -893,7 +907,15 @@
       uiShowError(T('lmp.noCam', 'لا تتوفر كاميرا هنا — استعمل النسخ واللصق'));
       return;
     }
+    /* [v2.84·Android] حارس تعليق الكاميرا: WebView قد يترك getUserMedia معلّقاً
+       بلا نجاح ولا رفض (إذن لم يُمنح أو نافذة الحوار لم تظهر) — كان زر المسح
+       يبدو ميتاً. بعد 8ث نعرض دليل النسخ/اللصق بدل الصمت الأبدي. */
+    var settled = false;
+    var hangTmr = setTimeout(function () {
+      if (!settled) uiShowError(T('lmp.camSlow', 'الكاميرا لا تستجيب — استعمل النسخ واللصق'));
+    }, 8000);
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }).then(function (stream) {
+      settled = true; clearTimeout(hangTmr);
       loadJsQR().then(function (jsQR) {
         if (!jsQR) { uiShowError(T('lmp.noDecoder', 'تعذر تحميل قارئ الرموز')); stopStream(stream); return; }
         var m = overlayEl();
@@ -942,6 +964,7 @@
         LocalMP._scanStream = stream;
       }).catch(function () { stopStream(stream); });
     }).catch(function () {
+      settled = true; clearTimeout(hangTmr);
       uiShowError(T('lmp.camDenied', 'رفض إذن الكاميرا — استعمل النسخ واللصق'));
     });
   };

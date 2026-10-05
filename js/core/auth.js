@@ -569,8 +569,16 @@ function authTab(tab) {
   const title = document.getElementById('authTitle');
   const submit = document.getElementById('authSubmit');
   const msg = document.getElementById('authMsg');
-  if (title) title.textContent = T(tab === 'login' ? 'auth.login' : 'auth.register');
-  if (submit) submit.textContent = T(tab === 'login' ? 'auth.submitLogin' : 'auth.submitRegister');
+  /* [v2.84·i18n] نص الترجمة يُكتب داخل <span> حصراً — كان textContent يمحو أيقونة \ufd36
+     من العنوان/الزر فيظهران بلا هوية بصرية بعد أول فتح للمودال */
+  const setTxt = function (el, key) {
+    if (!el) return;
+    const span = el.querySelector('span');
+    if (span) span.textContent = T(key);
+    else el.textContent = T(key);
+  };
+  setTxt(title, tab === 'login' ? 'auth.login' : 'auth.register');
+  setTxt(submit, tab === 'login' ? 'auth.submitLogin' : 'auth.submitRegister');
   if (msg) msg.textContent = '';
   const form = document.getElementById('authForm');
   if (form) form.setAttribute('data-mode', tab);
@@ -595,6 +603,11 @@ if (typeof document !== 'undefined') {
   });
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') authSyncNow();
+    /* [v2.84·Android] العودة إلى التطبيق (resume) كانت بلا مزامنة — الرصيد والحالة
+       يبقيان قديمين حتى يغيّر المستخدم الصفحة. الآن: عند العودة للواجهة نجلب
+       الحالة فوراً. يعمل في المتصفح والـAPK معاً، والهوية المحلية مستثناة
+       داخل authSync نفسها (v2.83·LocalMP). */
+    if (document.visibilityState === 'visible') authSyncNow();
   });
   window.addEventListener('beforeunload', function () {
     if (AUTH.user) {

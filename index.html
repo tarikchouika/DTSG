@@ -65,13 +65,13 @@
   <!-- [v2.26-merge] dtsg3: نسخة موحّدة فوق dtsg2 سام + تعديلاتنا (شارات المؤقت tl1 مدموجة في الملفات) -->
   <link rel="stylesheet" href="css/01-variables.css?v=dtsg6">
   <link rel="stylesheet" href="css/02-base.css?v=dtsg6">
-  <link rel="stylesheet" href="css/03-components.css?v=dtsg6">
+  <link rel="stylesheet" href="css/03-components.css?v=v284">
   <link rel="stylesheet" href="css/04-games.css?v=dtsg12">
   <link rel="stylesheet" href="css/05-ronda.css?v=dtsg8">
   <link rel="stylesheet" href="css/06-parchisi.css?v=dtsg11">
   <link rel="stylesheet" href="css/07-responsive.css?v=dtsg8">
   <link rel="stylesheet" href="css/08-rami.css?v=dtsg11">
-  <link rel="stylesheet" href="css/09-chrome.css?v=v283">
+  <link rel="stylesheet" href="css/09-chrome.css?v=v284">
   <link rel="stylesheet" href="css/10-dama.css?v=dtsg7">
   <link rel="stylesheet" href="css/12-chess.css?v=dtsg8">
   <link rel="stylesheet" href="css/11-game-theme.css?v=dtsg6">
@@ -596,22 +596,22 @@
        onclick="if(event.target.id==='authModal') closeAuthModal()">
     <div class="modal modal-sm">
       <div class="mhead">
-        <h3 id="authTitle"><i class="fa-solid fa-key" aria-hidden="true"></i> دخول</h3>
+        <h3 id="authTitle"><i class="fa-solid fa-key" aria-hidden="true"></i> <span data-i18n="auth.login">دخول</span></h3>
         <button class="mclose" onclick="closeAuthModal()" aria-label="إغلاق">✕</button>
       </div>
       <div class="mbody">
         <div class="atabs" role="tablist" aria-label="تسجيل الدخول">
-          <button class="atab active" role="tab" aria-selected="true" data-auth-tab="login" onclick="authTab('login')"><i class="fa-solid fa-key" aria-hidden="true"></i> دخول</button>
+          <button class="atab active" role="tab" aria-selected="true" data-auth-tab="login" onclick="authTab('login')"><i class="fa-solid fa-key" aria-hidden="true"></i> <span data-i18n="auth.submitLogin">دخول</span></button>
         </div>
         <form id="authForm" data-mode="login" onsubmit="event.preventDefault()">
-          <label class="aflabel" for="authUsername"><i class="fa-solid fa-user" aria-hidden="true"></i> اسم المستخدم</label>
+          <label class="aflabel" for="authUsername"><i class="fa-solid fa-user" aria-hidden="true"></i> <span data-i18n="auth.username">اسم المستخدم</span></label>
           <input class="afinput" id="authUsername" autocomplete="username"
-                 placeholder="3-20 حرفاً (حروف/أرقام/_ )" maxlength="20">
-          <label class="aflabel" for="authPassword"><i class="fa-solid fa-lock" aria-hidden="true"></i> كلمة المرور</label>
+                 data-i18n-placeholder="auth.userPlaceholder" placeholder="من 3 إلى 20 حرفًا (حروف/أرقام/_)" maxlength="20">
+          <label class="aflabel" for="authPassword"><i class="fa-solid fa-lock" aria-hidden="true"></i> <span data-i18n="auth.password">كلمة المرور</span></label>
           <input class="afinput" id="authPassword" type="password" autocomplete="current-password"
-                 placeholder="6 أحرف على الأقل">
+                 data-i18n-placeholder="auth.pwPlaceholder" placeholder="6 أحرف على الأقل">
           <div id="authMsg" class="authmsg" role="alert" aria-live="polite"></div>
-          <button class="btn full" id="authSubmit" onclick="window.authSubmit()">تسجيل الدخول</button>
+          <button class="btn full" id="authSubmit" onclick="window.authSubmit()"><span data-i18n="auth.submitLogin">تسجيل الدخول</span></button>
         </form>
       </div>
     </div>
@@ -755,11 +755,11 @@
   </script>
   <!-- [v2.26-merge] dtsg4: فوق dtsg3 سام (rami dtsg3/auth dtsg3 مأخوذة) — إصدار موحّد -->
   <script src="js/core/api.js?v=v2814"></script>
-  <script src="js/core/auth.js?v=v283"></script>
+  <script src="js/core/auth.js?v=v284"></script>
   <script src="js/core/audio.js?v=dtsg7"></script>
   <script src="js/core/utils.js?v=v276"></script>
   <script src="js/core/fx.js?v=dtsg7"></script>
-  <script src="js/i18n/translations.js?v=v283"></script>
+  <script src="js/i18n/translations.js?v=v284"></script>
   <script src="js/rules/game-rules.js?v=dtsg9"></script>
   <script src="js/games/catalog.js?v=dtsg8"></script>
   <script src="js/games/ronda.js?v=v280"></script>
@@ -821,7 +821,7 @@
   <script src="js/games/engines.js?v=dtsg15"></script>
   <script src="js/core/rooms.js?v=v280"></script>
   <!-- [v2.83] الغرفة المحلية: لعب جهاز-إلى-جهاز عبر الواي فاي/مشاركة البلوتوث (WebRTC LAN) -->
-  <script src="js/core/local-mp.js?v=v283"></script>
+  <script src="js/core/local-mp.js?v=v284"></script>
   <!-- [v2.75·تحكيم] بث الشاشة للاعب + لوحة الأدمن (WebRTC P2P)
        [v2.76] صفحة التحكيم المخصّصة للمستخدمين والأدمنز -->
   <!-- [v2.81.4·بروكسي HLS] مشغّل بث المرحّل بلوحة الأدمن — hls.js light مُستضاف
@@ -830,7 +830,7 @@
   <script src="js/core/arb-client.js?v=v2811"></script>
   <script src="js/core/arb-admin.js?v=v2814"></script>
   <script src="js/core/arb-page.js?v=v2814"></script>
-  <script src="js/main.js?v=v283"></script>
+  <script src="js/main.js?v=v284"></script>
   <script src="js/core/live.js?v=v281"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>
