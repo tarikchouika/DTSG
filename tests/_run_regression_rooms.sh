@@ -220,6 +220,7 @@ run "v282 حزمة الشهادة والمعرفة"      "tests/_v282_keystore_k
 run "v283 عقد الغرفة المحلية (ساكن)"   "tests/_v283_localmp_static_test.js"
 run "v283 بلوت وجهاً لوجه"            "tests/_v283_bl_room_e2e_test.js"
 run "v283 الغرفة المحلية e2e"         "tests/_v283_localmp_e2e_test.js"
+run "v285 كروم الأندرويد (ساكن)"      "tests/_v285_native_chrome_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

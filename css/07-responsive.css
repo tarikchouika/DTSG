@@ -191,7 +191,7 @@
     bottom: 0;
     background: var(--gc);
     z-index: 2;
-    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(10px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   }
 }
 /* ── Landscape للهواتف ── */

@@ -126,7 +126,7 @@
     };
     (Array.isArray(pc) ? pc : []).forEach(push);            /* نصوص المرشحين من الحدث */
     (sdp || '').split('\n').forEach(function (l) { if (/^a=candidate:/.test(l.trim())) push(l.trim().slice(2)); });
-    if (list.length) return list.slice(0, 3);               /* ① IPv4 خاص */
+    if (list.length) return list.slice(0, 2);               /* ① IPv4 خاص — مرشحان يكفيان (حجم الرمز) */
     if (mdns.length) return mdns.slice(0, 2);               /* ② mDNS (كروم على LAN حقيقية) */
     return others.slice(0, 2);                              /* ③ أي مرشح مضيف (شبكات ببطاقة عامة) */
   }
@@ -160,23 +160,46 @@
       candLines;
   }
   function packCode(fields, cands) {
-    var payload = { u: fields.u, p: fields.p, f: fields.f, q: fields.q, c: cands };
-    var json = JSON.stringify(payload);
+    /* [v2.85·ترميز مضغوط] كان الحمل JSON ثم base64 فبلغ الرمز 287 حرفاً
+       بمرشح واحد — يتجاوز سعة QRMini (271 حرفاً عند مستوى L) فيُحجب رمز
+       QR بصمت ويعجز المضيف عن عرضه للمسح (خلل كامن كشفه تحقق v2.85 على
+       متصفح حقيقي). الصيغة الجديدة حقول مفصولة (كل الحقول لا تحوي | أو ~
+       أصلاً): u|p|q|ip~port~prio|…|fhex64 — وترميز base64 فوقها،
+       والfoundation يُصنّع عند الفك فلا يُشحن. التوافق داخل الجلسة الواحدة
+       فقط (الطرفان يريان الصيغة نفسها لحظة الاقتران — لا حالة محفوظة). */
+    var parts = [fields.u || '', fields.p || '', String(fields.q || 5000)];
+    var cs = (cands || []).slice(0, 2);          /* مرشحان يكفيان للاتصال المباشر */
+    for (var i = 0; i < cs.length; i++) {
+      parts.push(String(cs[i][2]) + '~' + String(cs[i][3]) + '~' + String(cs[i][1]));
+    }
+    parts.push(String(fields.f || '').toLowerCase());
+    var plain = parts.join('|');
     var b64;
-    try { b64 = root.btoa(unescape(encodeURIComponent(json))); }
-    catch (e) { b64 = root.btoa(json); }
+    try { b64 = root.btoa(plain); }
+    catch (e) { b64 = root.btoa(unescape(encodeURIComponent(plain))); }
     return LAN_PREFIX + b64;
   }
   function unpackCode(code) {
     code = String(code || '').trim();
     if (code.indexOf(LAN_PREFIX) !== 0) return null;
-    try {
-      var json = decodeURIComponent(escape(root.atob(code.slice(LAN_PREFIX.length))));
-      var o = JSON.parse(json);
-      if (!o || !o.u || !o.p || !o.f) return null;
-      if (!o.c || !o.c.length) return null;
-      return o;
-    } catch (e) { return null; }
+    var plain;
+    try { plain = root.atob(code.slice(LAN_PREFIX.length)); }
+    catch (e) { return null; }
+    var parts = plain.split('|');
+    if (parts.length < 5) return null;            /* u · p · q · مرشح+ · بصمة */
+    var f = parts.pop();                          /* البصمة آخر الحقول (لا تحوي |) */
+    var u = parts[0], p = parts[1], q = parts[2];
+    var cands = [];
+    for (var i = 3; i < parts.length; i++) {
+      var seg = parts[i].split('~');
+      if (seg.length !== 3) continue;
+      var ip = seg[0], port = seg[1], prio = seg[2];
+      if (!/^[0-9a-zA-Z.\-]+$/.test(ip)) continue;          /* IPv4 أو مضيف mDNS ‎*.local */
+      if (!/^\d+$/.test(port) || !/^\d+$/.test(prio)) continue;
+      cands.push(['lmp' + (i - 3), parseInt(prio, 10), ip, parseInt(port, 10)]);
+    }
+    if (!u || !p || !/^[0-9a-f]{64}$/.test(f) || !cands.length) return null;
+    return { u: u, p: p, f: f, q: parseInt(q, 10) || 5000, c: cands };
   }
   function newPC() {
     return new root.RTCPeerConnection({ iceServers: [], iceCandidatePoolSize: 0 });
@@ -522,12 +545,19 @@
     room: function () { return S.room; },
     state: function () { return S; },
 
-    /* المضيف: فتح غرفة محلية على لعبة — يرجع Promise مثل Rooms.createRoom */
-    hostRoom: function (gameId) {
+    /* المضيف: فتح غرفة محلية على لعبة — يرجع Promise مثل Rooms.createRoom.
+       [v2.85] opts = إعدادات اللعبة المختارة من نافذة الإعدادات (نفس
+       game_opts الخادمية) — تُخزّن في الغرفة وتُطبّق على كل الأطراف عبر
+       _onUpdate عند البدء (المسار نفسه للغرف الخادمية). */
+    hostRoom: function (gameId, opts) {
       if (!ensureIdentityOrAsk()) return Promise.resolve();
       S.mode = 'host';
       S.gameId = gameId;
       S.room = makeRoom(gameId);
+      if (opts && typeof opts === 'object') {
+        S.room.game_opts = opts;
+        try { root.Rooms._applyGameOpts && root.Rooms._applyGameOpts(gameId, opts); } catch (e) {}
+      }
       S.history = [];
       S.peers = [];
       S.settleDone = false;
@@ -602,6 +632,10 @@
             uiRefresh();
           }
         }, 90000);
+        /* [v2.85] الرمز يظهر فور جاهزيته: uiRender داخل onCode كان يسبق
+           ضبط S.pendingPair (الوعد يُحلّ بعدها) فيبقى اللوبي بلا QR حتى
+           حدث لاحق (اتصال ضيف/انتهاء مهلة) — خلل كامن كشفه تحقق v2.85. */
+        uiRefresh();
         return pair;
       }).catch(function (e) {
         uiShowError(e && e.message === 'no-lan'
@@ -796,6 +830,13 @@
     } catch (e) {}
     return '';
   }
+  /* [v2.85] رمز QR أو إعلان صريح إن تجاوز السعة — لا حجب صامتاً بعد اليوم */
+  function qrBlock(code) {
+    var svg = qrSvg(code, 210);
+    if (svg) return '<div class="lmp-qr">' + svg + '</div>';
+    return '<div class="lmp-toolong"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i> ' +
+      esc(T('lmp.tooLong', 'الرمز أطول من سعة مسح QR — انسخه نصاً لصاحبك')) + '</div>';
+  }
   function codeBlock(code) {
     if (!code) return '';
     return '<div class="lmp-code" title="' + esc(code) + '">' + esc(code.length > 72 ? code.slice(0, 72) + '…' : code) + '</div>';
@@ -810,7 +851,7 @@
         '<div class="mhead"><h3 id="lmpTitle"><i class="fa-solid fa-wifi" aria-hidden="true"></i> <span data-i18n="lmp.title">' + esc(T('lmp.title', 'الغرفة المحلية')) + '</span></h3>' +
         '<button class="mclose" onclick="LocalMP.uiClose()" aria-label="' + esc(T('ui.close', 'إغلاق')) + '">✕</button></div>' +
         '<div class="mbody" id="lmpBody">' +
-          '<p class="lmp-sub">' + esc(T('lmp.sub', 'واي فاي أو مشاركة بلوتوث — لعب مباشر بلا إنترنت وبلا رهان')) + '</p>' +
+          '<p class="lmp-sub"><i class="fa-solid fa-signal" aria-hidden="true"></i> ' + esc(T('lmp.sub', 'واي فاي أو مشاركة بلوتوث — لعب مباشر بلا إنترنت وبلا رهان')) + '</p>' +
           '<div class="lmp-err" id="lmpErr" style="display:none"></div>';
     var body = '';
     if (role === 'choose') body = uiChooseBody();
@@ -820,47 +861,57 @@
     var err = m._lastErr;
     if (err) uiShowError(err);
   }
+  /* [v2.85·تصميم] بطاقة خطوة مرقّمة — نفس لغة الهوية (كحلي × ذهب) */
+  function stepCard(n, key, fb) {
+    return '<div class="lmp-step"><span class="lmp-step-n">' + n + '</span><span>' + esc(T(key, fb)) + '</span></div>';
+  }
+  function playersChips() {
+    if (!S.room) return '';
+    return '<div class="lmp-players">' + S.room.players.map(function (p) {
+      return '<span class="lmp-pl' + (p.ready ? ' on' : '') + '">' +
+        '<i class="fa-solid ' + (p.ready ? 'fa-circle-check' : 'fa-circle-dot') + '" aria-hidden="true"></i>' + esc(p.username) + '</span>';
+    }).join('') + '</div>';
+  }
   function uiHostBody() {
     var pair = S.pendingPair;
     var connected = S.peers.length;
     var max = S.room ? S.room.max_players : 4;
     var h = '';
     if (pair && pair.offerCode) {
-      h += '<div class="lmp-step">' + esc(T('lmp.hostStep1', '١) اعرض هذا الرمز على صاحبك ليمسحه أو ينسخه')) + '</div>' +
-        '<div class="lmp-qr">' + qrSvg(pair.offerCode, 210) + '</div>' +
+      h += stepCard('١', 'lmp.hostStep1', 'اعرض هذا الرمز على صاحبك ليمسحه أو ينسخه') +
+        qrBlock(pair.offerCode) +
         codeBlock(pair.offerCode) +
-        '<div class="lmp-row"><button class="lmp-btn" onclick="LocalMP.uiCopy(\'' + esc(pair.offerCode) + '\')">📋 ' + esc(T('lmp.copy', 'نسخ رمز الجلسة')) + '</button></div>' +
-        '<div class="lmp-step">' + esc(T('lmp.hostStep2', '٢) امسح رمز إجابته (أو الصقها هنا)')) + '</div>' +
+        '<div class="lmp-row"><button class="lmp-btn" onclick="LocalMP.uiCopy(\'' + esc(pair.offerCode) + '\')"><i class="fa-regular fa-copy" aria-hidden="true"></i> ' + esc(T('lmp.copy', 'نسخ رمز الجلسة')) + '</button></div>' +
+        stepCard('٢', 'lmp.hostStep2', 'امسح رمز إجابته (أو الصقها هنا)') +
         '<div class="lmp-row"><textarea id="lmpAnswerIn" rows="3" class="lmp-in" placeholder="' + esc(T('lmp.pasteAnswer', 'ألصق رمز إجابة اللاعب هنا')) + '"></textarea></div>' +
-        '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiAccept()">✅ ' + esc(T('lmp.accept', 'إتمام الاتصال')) + '</button>' +
-        '<button class="lmp-btn lmp-scan" onclick="LocalMP.uiScan(false)">📷 ' + esc(T('lmp.scan', 'مسح')) + '</button></div>';
+        '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiAccept()"><i class="fa-solid fa-link" aria-hidden="true"></i> ' + esc(T('lmp.accept', 'إتمام الاتصال')) + '</button>' +
+        '<button class="lmp-btn lmp-scan" onclick="LocalMP.uiScan(false)"><i class="fa-solid fa-camera" aria-hidden="true"></i> ' + esc(T('lmp.scan', 'مسح')) + '</button></div>';
     }
-    h += '<div class="lmp-status">' + esc(T('lmp.connected', 'متصل')) + ': <b>' + connected + '/' + max + '</b>' +
-      (S.room ? ' · ' + S.room.players.map(function (p) { return esc(p.username) + (p.ready ? ' ✅' : ''); }).join(' · ') : '') + '</div>';
+    h += '<div class="lmp-status"><span class="lmp-pill"><i class="fa-solid fa-plug-circle-check" aria-hidden="true"></i> ' + esc(T('lmp.connected', 'متصل')) + ' <b>' + connected + '/' + max + '</b></span></div>' + playersChips();
     if (connected > 0 && connected < max) {
-      h += '<div class="lmp-row"><button class="lmp-btn" onclick="LocalMP.uiAddPlayer()">➕ ' + esc(T('lmp.addPlayer', 'إضافة لاعب آخر')) + '</button></div>';
+      h += '<div class="lmp-row"><button class="lmp-btn" onclick="LocalMP.uiAddPlayer()"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> ' + esc(T('lmp.addPlayer', 'إضافة لاعب آخر')) + '</button></div>';
     }
     if (connected >= 1) {
-      h += '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiStart()">▶ ' + esc(T('lmp.start', 'فتح اللوبي وبدء اللعب')) + '</button></div>';
+      h += '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.uiStart()"><i class="fa-solid fa-play" aria-hidden="true"></i> ' + esc(T('lmp.start', 'فتح اللوبي وبدء اللعب')) + '</button></div>';
     }
-    h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()">🚪 ' + esc(T('lmp.leave', 'إغلاق الغرفة المحلية')) + '</button></div>';
+    h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()"><i class="fa-solid fa-door-open" aria-hidden="true"></i> ' + esc(T('lmp.leave', 'إغلاق الغرفة المحلية')) + '</button></div>';
     return h;
   }
   function uiGuestBody() {
     var h = '';
     if (S.guestAnswerCode) {
-      h += '<div class="lmp-step">' + esc(T('lmp.guestStep2', 'اعرض هذا الرمز على المضيف ليمسحه أو يلصقه')) + '</div>' +
-        '<div class="lmp-qr">' + qrSvg(S.guestAnswerCode, 210) + '</div>' +
+      h += stepCard('٢', 'lmp.guestStep2', 'اعرض هذا الرمز على المضيف ليمسحه أو يلصقه') +
+        qrBlock(S.guestAnswerCode) +
         codeBlock(S.guestAnswerCode) +
-        '<div class="lmp-row"><button class="lmp-btn" onclick="LocalMP.uiCopy(\'' + esc(S.guestAnswerCode) + '\')">📋 ' + esc(T('lmp.copy', 'نسخ رمز الإجابة')) + '</button></div>' +
-        '<div class="lmp-status">' + esc(T('lmp.waitHost', 'بانتظار اكتمال الاتصال من المضيف…')) + '</div>';
+        '<div class="lmp-row"><button class="lmp-btn" onclick="LocalMP.uiCopy(\'' + esc(S.guestAnswerCode) + '\')"><i class="fa-regular fa-copy" aria-hidden="true"></i> ' + esc(T('lmp.copy', 'نسخ رمز الإجابة')) + '</button></div>' +
+        '<div class="lmp-status"><span class="lmp-pill lmp-wait"><i class="fa-solid fa-hourglass-half" aria-hidden="true"></i> ' + esc(T('lmp.waitHost', 'بانتظار اكتمال الاتصال من المضيف…')) + '</span></div>';
     } else {
-      h += '<div class="lmp-step">' + esc(T('lmp.guestStep1', 'امسح رمز جلسة المضيف (أو الصقه)')) + '</div>' +
+      h += stepCard('١', 'lmp.guestStep1', 'امسح رمز جلسة المضيف (أو الصقه)') +
         '<div class="lmp-row"><textarea id="lmpHostIn" rows="3" class="lmp-in" placeholder="L1.…"></textarea></div>' +
-        '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiJoin()">✅ ' + esc(T('lmp.join', 'انضمام')) + '</button>' +
-        '<button class="lmp-btn lmp-scan" onclick="LocalMP.uiScan(true)">📷 ' + esc(T('lmp.scan', 'مسح')) + '</button></div>';
+        '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.uiJoin()"><i class="fa-solid fa-link" aria-hidden="true"></i> ' + esc(T('lmp.join', 'انضمام')) + '</button>' +
+        '<button class="lmp-btn lmp-scan" onclick="LocalMP.uiScan(true)"><i class="fa-solid fa-camera" aria-hidden="true"></i> ' + esc(T('lmp.scan', 'مسح')) + '</button></div>';
     }
-    h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()">🚪 ' + esc(T('lmp.leave', 'إلغاء الانضمام')) + '</button></div>';
+    h += '<div class="lmp-row"><button class="lmp-btn lmp-warn" onclick="LocalMP.uiLeave()"><i class="fa-solid fa-door-open" aria-hidden="true"></i> ' + esc(T('lmp.leave', 'إلغاء الانضمام')) + '</button></div>';
     return h;
   }
   function uiShowHostCode(code) { uiRender(); }
@@ -1036,19 +1087,161 @@
     Rooms._lmpPatched = true;
   }
 
-  /* زر الدخول داخل مودال الغرف (يُحقن — لا تعديل في index.html للبنية) */
-  function injectEntry() {
-    var bar = document.querySelector('#roomModal .room-topbar-actions');
-    if (!bar || document.getElementById('lmpEntryBtn')) return;
-    var b = document.createElement('button');
-    b.className = 'mgear';
-    b.id = 'lmpEntryBtn';
-    b.setAttribute('aria-label', T('lmp.title', 'الغرفة المحلية'));
-    b.title = T('lmp.title', 'الغرفة المحلية') + ' — ' + T('lmp.sub', 'واي فاي أو مشاركة بلوتوث بلا إنترنت');
-    b.innerHTML = '<i class="fa-solid fa-wifi" aria-hidden="true"></i>';
-    b.addEventListener('click', function () { LocalMP.open(); });
-    bar.insertBefore(b, bar.firstChild);
+  /* ═══════════ 7-ب) محدّد نمط الغرفة داخل نافذة إعدادات كل لعبة ═══════════
+     [v2.85·توجيه المالك 2026-10-06] زر الواي فاي الصغير القاتم الذي كان يُحقن
+     في شريط مودال الغرف (بلا صنف CSS أصلاً فظهر صغيراً داكناً) أُزيل نهائياً —
+     مدخل اللعب المحلي صار خياراً أول الدرجة داخل نافذة إعدادات الغرفة نفسها
+     التي تُعدّ منها كل لعبة: محدّد مقسّم «🌐 عبر الخادم / 📶 محلي (واي فاي أو
+     بلوتوث)» أعلى النافذة. عند اختيار «محلي»: يختفي الرهان والخصوصية (الغرف
+     المحلية ودّية بلا رهان — عقد قاعدة 20) ويظهر دليل مختصر، وزر الحفظ يصير
+     «فتح الغرفة المحلية» (استضافة) مع زر مرافق «انضمام برمز صديق».
+     كل الحقن والتقاطعة هنا — rooms.js لم يُمسّ سطراً (عقد التغليف). */
+  function rsModal() { return document.getElementById('roomSettingsModal'); }
+  function rsGameSel() { return document.getElementById('rsGame'); }
+  function localModeOn() {
+    var bar = document.getElementById('rsModeBar');
+    return !!(bar && bar.dataset.mode === 'local' && bar.style.display !== 'none');
   }
+  function rsSetFields(localOn) {
+    var hide = ['rsVisibility', 'rsBet'];
+    for (var i = 0; i < hide.length; i++) {
+      var f = document.getElementById(hide[i]);
+      if (!f) continue;
+      var lb = document.querySelector('#roomSettingsModal label[for="' + hide[i] + '"]');
+      if (lb) lb.style.display = localOn ? 'none' : '';
+      f.style.display = localOn ? 'none' : '';
+    }
+    var desc = document.getElementById('rsTypeDesc');
+    if (desc) desc.style.display = localOn ? 'none' : '';
+    var note = document.getElementById('rsLocalNote');
+    if (note) note.style.display = localOn ? '' : 'none';
+    var save = document.getElementById('rsSave');
+    if (save) {
+      var sv = save.querySelector('.rs-save-label');
+      if (sv) sv.textContent = localOn ? T('lmp.openLocal', 'فتح الغرفة المحلية') : T('rs.save', 'إنشاء الغرفة');
+      var si = save.querySelector('i');
+      if (si) si.className = localOn ? 'fa-solid fa-wifi' : 'fa-solid fa-check';
+      save.classList.toggle('lmp-save', !!localOn);
+    }
+    var join = document.getElementById('rsJoinLocal');
+    if (join) join.style.display = localOn ? '' : 'none';
+    if (localOn) {
+      var bet = document.getElementById('rsBet');
+      if (bet) bet.classList.remove('err');
+      var msg = document.getElementById('rsMsg');
+      if (msg) msg.textContent = '';
+    }
+  }
+  function rsSyncModeVisibility() {
+    /* التحكيم غرفة خادمية بعقد مال حصراً — يُخفى خيار المحلي كلياً عنده،
+       وإن كان المحلي مختاراً فيُعاد للخادمي (لا غرفة تحكيم محلية أبداً). */
+    var bar = document.getElementById('rsModeBar');
+    var g = rsGameSel();
+    var isArb = !!(g && g.value === 'arb');
+    var roomLive = !!(root.Rooms && root.Rooms.state);
+    if (!bar) return;
+    if (isArb || roomLive) {
+      /* إعدادات غرفة قائمة أو تحكيم: لا مبدّل — النمط الخادمي وحده */
+      bar.style.display = 'none';
+      if (bar.dataset.mode === 'local') { bar.dataset.mode = 'server'; }
+      rsSetFields(false);
+    } else {
+      bar.style.display = '';
+      rsSetFields(bar.dataset.mode === 'local');
+    }
+  }
+  function injectRoomMode() {
+    var sm = rsModal();
+    if (!sm || document.getElementById('rsModeBar')) { rsSyncModeVisibility(); return; }
+    var body = sm.querySelector('.mbody');
+    if (!body) return;
+    /* المحدّد المقسّم — أول عنصر في النافذة قبل وصف الرسوم */
+    var bar = document.createElement('div');
+    bar.className = 'rs-modebar';
+    bar.id = 'rsModeBar';
+    bar.dataset.mode = 'server';
+    bar.setAttribute('role', 'radiogroup');
+    bar.setAttribute('aria-label', T('lmp.modeLabel', 'نمط الغرفة'));
+    bar.innerHTML =
+      '<button type="button" class="rs-mode active" data-mode="server" role="radio" aria-checked="true" onclick="LocalMP.rsPickMode(\'server\')">' +
+        '<i class="fa-solid fa-globe" aria-hidden="true"></i><span>' + esc(T('lmp.modeServer', 'عبر الخادم')) + '</span></button>' +
+      '<button type="button" class="rs-mode" data-mode="local" role="radio" aria-checked="false" onclick="LocalMP.rsPickMode(\'local\')">' +
+        '<i class="fa-solid fa-wifi" aria-hidden="true"></i><span>' + esc(T('lmp.modeLocal', 'محلي (واي فاي / بلوتوث)')) + '</span></button>';
+    var desc = document.getElementById('rsTypeDesc');
+    if (desc) body.insertBefore(bar, desc); else body.insertBefore(bar, body.firstChild);
+    /* ملاحظة الغرفة المحلية (تظهر في الوضع المحلي وحده) */
+    var note = document.createElement('div');
+    note.className = 'rs-localnote';
+    note.id = 'rsLocalNote';
+    note.style.display = 'none';
+    note.innerHTML = '<i class="fa-solid fa-circle-info" aria-hidden="true"></i><div><b>' + esc(T('lmp.title', 'الغرفة المحلية')) + '</b> — ' +
+      esc(T('lmp.localNote', 'لعب مباشر مع صديق على نفس شبكة الواي فاي أو مشاركة البلوتوث بلا إنترنت — جولة ودّية بلا رهان وبلا رسوم. اختر اللعبة وإعداداتها ثم افتح الغرفة وشارك الرمز.')) + '</div>';
+    var visLabel = sm.querySelector('label[for="rsVisibility"]');
+    if (visLabel && visLabel.parentNode) visLabel.parentNode.insertBefore(note, visLabel);
+    else body.appendChild(note);
+    /* زر الانضمام المحلي — مرافق لزر الإنشاء في الوضع المحلي */
+    var join = document.createElement('button');
+    join.className = 'btn full ghost rs-joinlocal';
+    join.id = 'rsJoinLocal';
+    join.type = 'button';
+    join.style.display = 'none';
+    join.innerHTML = '<i class="fa-solid fa-qrcode" aria-hidden="true"></i> <span>' + esc(T('lmp.joinByCode', 'انضمام لغرفة صديق (رمز / مسح)')) + '</span>';
+    join.addEventListener('click', function () {
+      try { Rooms.closeRoomSettings(); } catch (e) {}
+      LocalMP.joinHere();
+    });
+    var actions = sm.querySelector('.crow');
+    if (actions) actions.insertBefore(join, actions.firstChild);
+    /* التقاط زر الإنشاء في طور الالتقاط قبل معالج rooms.js: في الوضع المحلي
+       لا تُنشأ غرفة خادمية — تُستضاف غرفة محلية باللعبة وإعداداتها المختارة */
+    var save = document.getElementById('rsSave');
+    if (save && !save._lmpWrap) {
+      save._lmpWrap = true;
+      save.addEventListener('click', function (e) {
+        if (!localModeOn()) return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        LocalMP.rsStartLocal();
+      }, true);
+    }
+    var g = rsGameSel();
+    if (g && !g._lmpModeBound) {
+      g._lmpModeBound = true;
+      g.addEventListener('change', function () { rsSyncModeVisibility(); });
+    }
+    /* عند كل فتح للنافذة يعاد ضبط ظهور المحدّد (غرفة قائمة؟ تحكيم؟) */
+    if (!sm._lmpOpenBound) {
+      sm._lmpOpenBound = true;
+      var mo = new MutationObserver(function () { rsSyncModeVisibility(); });
+      mo.observe(sm, { attributes: true, attributeFilter: ['style'] });
+    }
+    rsSyncModeVisibility();
+  }
+  LocalMP.rsPickMode = function (mode) {
+    var bar = document.getElementById('rsModeBar');
+    if (!bar) return;
+    bar.dataset.mode = (mode === 'local') ? 'local' : 'server';
+    var btns = bar.querySelectorAll('.rs-mode');
+    for (var i = 0; i < btns.length; i++) {
+      var on = btns[i].getAttribute('data-mode') === bar.dataset.mode;
+      btns[i].classList.toggle('active', on);
+      btns[i].setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+    rsSetFields(bar.dataset.mode === 'local');
+  };
+  LocalMP.rsStartLocal = function () {
+    var g = rsGameSel();
+    var gid = g ? String(g.value || '') : '';
+    if (!gid || (root.Rooms && !Rooms.isGameSupported(gid)) || gid === 'arb') {
+      if (typeof root.toast === 'function') root.toast(T('lmp.needGame', 'اختر لعبة أولاً'), 'warn');
+      return;
+    }
+    if (!ensureIdentityOrAsk()) return;
+    var opts = null;
+    try { opts = Rooms._collectGameOpts(gid); } catch (e) { opts = null; }
+    try { Rooms.closeRoomSettings(); } catch (e) {}
+    LocalMP.hostRoom(gid, opts);
+  };
 
   /* ═══════════ 8) نقطة الدخول العامة ═══════════ */
   LocalMP.open = function () {
@@ -1069,19 +1262,20 @@
     uiOpen('guest');
   };
   function uiChooseBody() {
-    return '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.hostHere()">📡 ' + esc(T('lmp.host', 'إنشاء غرفة (أنا المضيف)')) + '</button></div>' +
-      '<div class="lmp-row"><button class="lmp-btn lmp-go" onclick="LocalMP.joinHere()">➡️ ' + esc(T('lmp.join', 'انضمام لغرفة صديق')) + '</button></div>' +
-      '<p class="lmp-hint">' + esc(T('lmp.btHint', 'البلوتوث: فعّل «مشاركة الاتصال عبر البلوتوث» في إعدادات نقطة الاتصال بهاتف المضيف ثم انضم — نفس مسار الواي فاي تماماً')) + '</p>';
+    return '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.hostHere()"><i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i> ' + esc(T('lmp.host', 'إنشاء غرفة (أنا المضيف)')) + '</button></div>' +
+      '<div class="lmp-row"><button class="lmp-btn lmp-go lmp-big" onclick="LocalMP.joinHere()"><i class="fa-solid fa-arrow-right-to-bracket" aria-hidden="true"></i> ' + esc(T('lmp.join', 'انضمام لغرفة صديق')) + '</button></div>' +
+      '<p class="lmp-hint"><i class="fa-brands fa-bluetooth-b" aria-hidden="true"></i> ' + esc(T('lmp.btHint', 'البلوتوث: فعّل «مشاركة الاتصال عبر البلوتوث» في إعدادات نقطة الاتصال بهاتف المضيف ثم انضم — نفس مسار الواي فاي تماماً')) + '</p>';
   }
 
   root.LocalMP = LocalMP;
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function () { patchRooms(); injectEntry(); });
+    document.addEventListener('DOMContentLoaded', function () { patchRooms(); injectRoomMode(); });
   } else {
-    patchRooms(); injectEntry();
+    patchRooms(); injectRoomMode();
   }
-  /* حقن المتأخر (مودال الغرف يُبنى في index.html الثابت فالزر يُحقن فوراً عادة) */
-  setTimeout(injectEntry, 1200);
-  setTimeout(injectEntry, 4000);
+  /* حقن متأخر: نافذة الإعدادات موجودة في index.html الثابت فتُحقن فوراً
+     عادة — والمحاولتان الإضافيتان لأي تحميل بطيء (لا ضرر من التكرار) */
+  setTimeout(injectRoomMode, 1200);
+  setTimeout(injectRoomMode, 4000);
 
 })(window);

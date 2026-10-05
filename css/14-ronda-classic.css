@@ -1503,7 +1503,7 @@ body[data-game="rd"] #gamePageBody > .stage#rdStage {
   /* الرزمة: الهامش الأسفل مباشرة — أقصى أسفل وسط الشاشة */
   #rdStage .rd-deck {
     position: absolute;
-    bottom: calc(4px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(4px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
     left: 50%; transform: translateX(-50%);
     z-index: 34;   /* فوق صف اليد (30) — اليد يمين الشاشة والرزمة وسطها */
   }

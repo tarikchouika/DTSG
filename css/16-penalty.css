@@ -176,7 +176,7 @@
 }
 .pn-side + .pn-side { margin-top: 0; }
 .pn-mid .pn-side.s0 { margin: 4px 6px 0; }
-.pn-mid .pn-side.s1 { margin: 4px 6px calc(6px + var(--safe-area-inset-bottom, 0px)); }
+.pn-mid .pn-side.s1 { margin: 4px 6px calc(6px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))); }
 .pn-side.active {
   border-color: rgba(242, 212, 137, 0.85);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35), 0 0 16px rgba(242, 212, 137, 0.3);
@@ -756,7 +756,7 @@
     align-items: center;
     gap: 6px;
     min-height: 0;
-    padding: 38px 6px calc(8px + var(--safe-area-inset-bottom, 0px));
+    padding: 38px 6px calc(8px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
     border-radius: 16px;
   }
   .pn-mid .pn-side.s0 { margin: 6px 0 6px 6px; }
@@ -812,10 +812,10 @@
   /* خطوط منطقة الجزاء زخرفة بورتريه — تُخفى في اللاندسكيب */
   .pn-box, .pn-arc { display: none; }
   /* الكرة وعلامتها وسط منطقة التسديد (35% السفلى) */
-  .pn-spot { bottom: calc(6% + 1px + var(--safe-area-inset-bottom, 0px)); }
-  .pn-ball { bottom: calc(6% + 8px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-spot { bottom: calc(6% + 1px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))); }
+  .pn-ball { bottom: calc(6% + 8px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))); }
   .pn-banner { top: 32%; font-size: clamp(1.7rem, 9vmin, 3.6rem); }
-  .pn-replay { left: auto; right: 7%; transform: none; bottom: calc(6% + 4px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-replay { left: auto; right: 7%; transform: none; bottom: calc(6% + 4px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))); }
   .pn-replay:active { transform: scale(0.94); }
   .pn-fs { --pnb: clamp(32px, 10vmin, 54px); }
 }
@@ -826,7 +826,7 @@
   .pn-side { min-height: 36px; padding: 3px 8px; }
   .pn-side .pn-ring { width: 30px; height: 30px; }
   .pn-top { min-height: 32px; padding-top: calc(4px + var(--safe-top, 0px)); }
-  .pn-mid .pn-side.s1 { margin-bottom: calc(4px + var(--safe-area-inset-bottom, 0px)); }
+  .pn-mid .pn-side.s1 { margin-bottom: calc(4px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))); }
   .pn-ball { bottom: calc(10% + 7px); }
   .pn-spot { bottom: 10%; }
 }

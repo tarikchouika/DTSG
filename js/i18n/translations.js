@@ -2156,6 +2156,15 @@ const TR = {
   "lmp.hostClosed": ["أغلق المضيف الغرفة", "L\u2019hôte a fermé la partie", "The host closed the room", "المضيف سد الغرفة"],
   "lmp.peerFail": ["انقطع أحد اللاعبين", "Un joueur s\u2019est déconnecté", "A player disconnected", "تقطع واحد من اللاعبين"],
   "lmp.btHint": ["البلوتوث: فعّل «مشاركة الاتصال عبر البلوتوث» في إعدادات نقطة الاتصال بهاتف المضيف ثم انضم — نفس مسار الواي فاي تماماً", "Bluetooth : activez le partage de connexion Bluetooth sur le téléphone hôte puis rejoignez — identique au Wi-Fi", "Bluetooth: enable Bluetooth tethering on the host phone then join — same path as WiFi", "البلوتوث: فعّل مشاركة الأنترنت بالبلوتوث فتيليفون المضيف ومن بعد دخل — بحال الواي فاي بحال"],
+  /* ── [v2.85] محدّد نمط الغرفة داخل نافذة إعدادات كل لعبة ── */
+  "lmp.modeLabel": ["نمط الغرفة", "Type de partie", "Room mode", "نوع الشومبر"],
+  "lmp.modeServer": ["عبر الخادم", "Via le serveur", "Online (server)", "عبر السيرفر"],
+  "lmp.modeLocal": ["محلي (واي فاي / بلوتوث)", "Local (Wi-Fi / Bluetooth)", "Local (WiFi / Bluetooth)", "محلي (واي فاي / بلوتوث)"],
+  "lmp.openLocal": ["فتح الغرفة المحلية", "Ouvrir la partie locale", "Open local room", "حلّ الغرفة المحلية"],
+  "lmp.joinByCode": ["انضمام لغرفة صديق (رمز / مسح)", "Rejoindre un ami (code / scan)", "Join a friend (code / scan)", "دخل مع صاحبك (كود / مسح)"],
+  "lmp.localNote": ["لعب مباشر مع صديق على نفس شبكة الواي فاي أو مشاركة البلوتوث بلا إنترنت — جولة ودّية بلا رهان وبلا رسوم. اختر اللعبة وإعداداتها ثم افتح الغرفة وشارك الرمز.", "Jeu direct avec un ami sur le même Wi-Fi ou partage Bluetooth, sans Internet — manche amicale sans mise ni frais. Choisissez le jeu et ses réglages puis ouvrez la partie et partagez le code.", "Direct play with a friend on the same WiFi or Bluetooth tethering, no Internet — a friendly round with no bets and no fees. Pick the game and its settings, then open the room and share the code.", "لعب مباشر مع صاحبك فنفس الواي فاي ولا البلوتوث بلا أنترنت — جولة ودّية بلا رهان وبلا رسوم. ختار اللعبة والإعدادات ديالها ومن بعد حلّ الغرفة وشارك الكود."],
+  "lmp.tooLong": ["الرمز أطول من سعة مسح QR — انسخه نصاً لصاحبك", "Code trop long pour le QR — copiez-le en texte", "Code too long for QR scanning — copy it as text", "الكود أطول من الـQR — نسخو نص لصاحبك"],
+  "lmp.needGame": ["اختر لعبة أولاً", "Choisissez d\u2019abord un jeu", "Pick a game first", "ختار اللعبة الأول"],
 };
 
 /* ── Export to window and module ── */

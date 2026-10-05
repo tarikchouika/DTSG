@@ -1662,7 +1662,7 @@ box-shadow: 0 0 22px rgba(217, 180, 92, 0.45);
   -webkit-backdrop-filter: blur(20px);
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 250;
-  padding: 0 10px calc(4px + env(safe-area-inset-bottom, 0px));
+  padding: 0 10px calc(4px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   box-sizing: content-box;
 }
 .mobile-bottom-nav .bnav-item {

@@ -64,7 +64,8 @@ ok(!/×1\.08/.test(pnBody) && !/×1\.95/.test(rpsPlayBody), 'no payout multiplie
 
 console.log('═══ 4) واجهة v2.64: بلا عبارات + حلقات الأحرف الأولى + بورتريه مركزي ═══');
 const pnCss = read('css/16-penalty.css');
-ok(/css\/16-penalty\.css\?v=pn66/.test(idxSrc), '16-penalty.css linked in index.html (pn66 — cache-bust v2.74)');
+/* [v2.85] البصمة مشتقة لا مثبّتة: القاعدة 15 ترفعها مع كل تعديل للملف — كانت مثبّتة pn66 فأحمرّ مع أي رفع (نفس صنف ثغرة v283). */
+ok(/css\/16-penalty\.css\?v=(pn\d+|v\d+)/.test(idxSrc), '16-penalty.css linked in index.html (cache-bust حاضر)');
 ok(/\.pn-fs\s*\{[^}]*position:\s*fixed/.test(pnCss), '.pn-fs is fixed fullscreen (100% coverage)');
 ok(/\.pn-zones\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(pnCss), 'goal zones = 3x3 grid (9 zones)');
 ok(/\.pn-ring\b/.test(pnCss) && /function pnInitials\(/.test(pnBody), 'ring avatars with first-two-initials');

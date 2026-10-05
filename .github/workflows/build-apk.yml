@@ -156,6 +156,177 @@ jobs:
           print("✓ أُضيف إذن CAMERA لمسح رموز الغرفة المحلية")
           PY2
 
+      # 8.5) [v2.85·Android] ملء الشاشة 100% (edge-to-edge) — بلاغ المالك
+      #      2026-10-06: «التطبيق لا يملئ الشاشة، شريط أعلى وأسفل يفسدان
+      #      المظهر». الجذر: قالب Capacitor يلوّن شريطي النظام فلا يمتد الويب
+      #      خلفهما. الإصلاح ثلاثي: ① styles.xml يجعل الشريطين شفافين مع
+      #      shortEdges (لا أشرطة سوداء عند النوتش/اللاندسكيب). ② MainActivity
+      #      يحقن جسر DTSGNative: getInsets() يعيد "top|bottom" (systemBars
+      #      حصراً — بلا IME) تسحبه الصفحة وتضبط --safe-top/--safe-bottom
+      #      (كل الكروم يستعمل المتغيرين)، وpushInsets من جافا عند كل تغيّر
+      #      (دوران/تغيّر شريط التنقل)، وsetBarsLight يتبع ثيم المنصة لأيقونات
+      #      الشريطين (تستدعيه updateThemeIcon في utils.js). ③ الصفحة:
+      #      viewport-fit=cover موجود أصلاً وenv() هي الافتراض.
+      #      python3 بمرساة نصية دقيقة وفشل صريح إن تغيّر القالب (نمط 8.4).
+      - name: Edge-to-edge fullscreen + native safe-area bridge (status/nav bars)
+        run: |
+          python3 - <<'PY3'
+          import io, sys
+
+          # ① styles.xml — شريطا النظام شفافان من الثيم نفسه
+          p = "android/app/src/main/res/values/styles.xml"
+          s = io.open(p, encoding="utf-8").read()
+          if "windowDrawsSystemBarBackgrounds" in s:
+              print("styles: edge-to-edge موجود مسبقاً")
+          else:
+              a = '        <item name="android:background">@null</item>\n    </style>'
+              if a not in s:
+                  sys.exit("X قالب styles.xml تغيّر: لم أجد مرساة AppTheme.NoActionBar — راجع خطوة الحقن (8.5)")
+              r = ('        <item name="android:background">@null</item>\n'
+                   '        <!-- [v2.85] ملء الشاشة 100%: شريطا النظام شفافان والويب يرسم خلفهما -->\n'
+                   '        <item name="android:windowDrawsSystemBarBackgrounds">true</item>\n'
+                   '        <item name="android:statusBarColor">@android:color/transparent</item>\n'
+                   '        <item name="android:navigationBarColor">@android:color/transparent</item>\n'
+                   '        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>\n'
+                   '    </style>')
+              s = s.replace(a, r, 1)
+              io.open(p, "w", encoding="utf-8").write(s)
+              print("OK styles.xml: الشريطان شفافان + shortEdges (ملء الشاشة حافة-لحافة)")
+
+          # ② MainActivity.java — جسر الكروم الأصلي
+          p2 = "android/app/src/main/java/com/dtsg/app/MainActivity.java"
+          s2 = io.open(p2, encoding="utf-8").read()
+          if "DTSGNative" in s2:
+              print("MainActivity: الجسر موجود مسبقاً"); sys.exit(0)
+          tpl = 'package com.dtsg.app;\n\nimport com.getcapacitor.BridgeActivity;\n\npublic class MainActivity extends BridgeActivity {}'
+          if s2.strip() != tpl.strip():
+              sys.exit("X قالب MainActivity تغيّر: لم أجد الصنف الفارغ المتوقع — راجع خطوة الحقن (8.5)")
+          new = '''package com.dtsg.app;
+          
+          import android.os.Bundle;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
+          import com.getcapacitor.Bridge;
+          import com.getcapacitor.BridgeActivity;
+          
+          /* [v2.85] ملء الشاشة 100% (edge-to-edge) + جسر safe-area للويب — يُحقن من
+             سير البناء (خطوة 8.5). الشريطان شفافان والويب يرسم خلفهما، والمساحات
+             الآمنة تُدفع للصفحة (متغيرا --safe-top/--safe-bottom) وتُسحب أيضاً من
+             getInsets() بصيغة "top|bottom"، وsetBarsLight يتبع ثيم المنصة لأيقونات
+             الشريطين (فاتحة فوق الكحلي / داكنة فوق العاجي). */
+          public class MainActivity extends BridgeActivity {
+              private volatile int insetTop = 0;
+              private volatile int insetBottom = 0;
+              private volatile boolean barsLight = false;
+              private boolean jsBound = false;
+          
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  Window w = getWindow();
+                  w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                  w.setStatusBarColor(android.graphics.Color.TRANSPARENT);
+                  w.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+                  try {
+                      w.getAttributes().layoutInDisplayCutoutMode =
+                          WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+                  } catch (Throwable ignored) { }
+                  try {
+                      w.getDecorView().setOnApplyWindowInsetsListener((v, insets) -> {
+                          cacheInsets(insets);
+                          pushInsetsToPage();
+                          return insets;
+                      });
+                  } catch (Throwable ignored) { }
+                  bindJsInterface();
+                  applyBarsAppearance();
+              }
+          
+              @Override
+              protected void onResume() {
+                  super.onResume();
+                  bindJsInterface();
+                  pushInsetsToPage();
+                  applyBarsAppearance();
+              }
+          
+              /* systemBars حصراً (بلا IME): stable insets قبل API 30 — قيم الشريطين
+                 نفسها التي يجب أن يحترمها الكروم، ولا تتغير بفتح لوحة المفاتيح. */
+              private void cacheInsets(android.view.WindowInsets insets) {
+                  try {
+                      if (android.os.Build.VERSION.SDK_INT >= 30) {
+                          android.graphics.Insets sb =
+                              insets.getInsets(android.view.WindowInsets.Type.systemBars());
+                          insetTop = Math.max(0, sb.top);
+                          insetBottom = Math.max(0, sb.bottom);
+                      } else {
+                          insetTop = Math.max(0, insets.getStableInsetTop());
+                          insetBottom = Math.max(0, insets.getStableInsetBottom());
+                      }
+                  } catch (Throwable ignored) { }
+              }
+          
+              private void pushInsetsToPage() {
+                  try {
+                      final Bridge b = getBridge();
+                      if (b == null || b.getWebView() == null) return;
+                      final String js = "try{var r=document.documentElement.style;" +
+                          "r.setProperty('--safe-top','" + insetTop + "px');" +
+                          "r.setProperty('--safe-bottom','" + insetBottom + "px');}catch(e){}";
+                      runOnUiThread(new Runnable() {
+                          @Override public void run() {
+                              try { b.getWebView().evaluateJavascript(js, null); } catch (Throwable ignored) { }
+                          }
+                      });
+                  } catch (Throwable ignored) { }
+              }
+          
+              private void bindJsInterface() {
+                  try {
+                      Bridge b = getBridge();
+                      if (b == null || b.getWebView() == null || jsBound) return;
+                      b.getWebView().addJavascriptInterface(new NativeChrome(), "DTSGNative");
+                      jsBound = true;
+                  } catch (Throwable ignored) { }
+              }
+          
+              private void applyBarsAppearance() {
+                  try {
+                      runOnUiThread(new Runnable() {
+                          @Override public void run() {
+                              try {
+                                  View d = getWindow().getDecorView();
+                                  int flags = d.getSystemUiVisibility();
+                                  final int LIGHT_STATUS = 0x00002000; /* SYSTEM_UI_FLAG_LIGHT_STATUS_BAR */
+                                  final int LIGHT_NAV = 0x00000010;    /* SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR */
+                                  if (barsLight) flags |= LIGHT_STATUS | LIGHT_NAV;
+                                  else flags &= ~(LIGHT_STATUS | LIGHT_NAV);
+                                  d.setSystemUiVisibility(flags);
+                              } catch (Throwable ignored) { }
+                          }
+                      });
+                  } catch (Throwable ignored) { }
+              }
+          
+              /* جسر JS إلى Java: استعلام متزامن للمساحات (top|bottom) + ضبط أيقونات الشريطين */
+              private class NativeChrome {
+                  @android.webkit.JavascriptInterface
+                  public String getInsets() {
+                      return insetTop + "|" + insetBottom;
+                  }
+                  @android.webkit.JavascriptInterface
+                  public void setBarsLight(boolean light) {
+                      barsLight = light;
+                      applyBarsAppearance();
+                  }
+              }
+          }
+          '''
+          io.open(p2, "w", encoding="utf-8").write(new)
+          print("OK MainActivity: جسر DTSGNative (getInsets + setBarsLight) + أشرطة شفافة")
+          PY3
+
       - name: Setup Java 17 (Temurin)
         uses: actions/setup-java@v4
         with:

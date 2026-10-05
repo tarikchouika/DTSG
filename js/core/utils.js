@@ -398,15 +398,69 @@ function updateThemeIcon() {
   const ico = document.getElementById('themeIco');
   if (ico) ico.className = radiant ? 'fa-solid fa-lightbulb' : 'fa-regular fa-lightbulb';
   b.setAttribute('aria-pressed', radiant ? 'true' : 'false');
+  updateNativeBars(radiant);
+}
+
+/* ═══ [v2.85·Android] جسر الكروم الأصلي — ملء الشاشة 100% ═══
+   السير (build-apk.yml) يجعل شريطي النظام شفافين ويرسم الويب خلفهما
+   (edge-to-edge) ويحقن كائن window.DTSGNative في WebView يقوم بأمرين:
+     1) getInsets() — ارتفاع شريط الحالة/التنقل الحقيقي (بكسل) فنضبط
+        متغيّري --safe-top/--safe-bottom على الجذر: كل الواجهة (الدوك
+        العائم، الصفحات، المودالات، اللوحات) تتصبّ آلياً — الويب محصّن
+        لأن تعريفهما في 01-variables.css يظل env() وهو الأصل.
+     2) setBarsLight(bool) — لون أيقونات شريطي النظام (فاتح فوق الكحلي
+        أو داكن فوق العاجي) يتبع ثيم المنصة لحظة التبديل.
+   لا وجود للكائن خارج التطبيق الأصلي ⇒ صفر أثر على الموقع. */
+function applyNativeInsets() {
+  try {
+    const nc = window.DTSGNative;
+    if (!nc || typeof nc.getInsets !== 'function') return;
+    const raw = nc.getInsets();
+    if (raw == null || raw === '') return;
+    /* تنسيق الجسر: "top|bottom" (أرقام بكسل) — بلا JSON أصلًا */
+    let top = -1, bottom = -1;
+    const parts = String(raw).split('|');
+    if (parts.length === 2) {
+      top = parseInt(parts[0], 10);
+      bottom = parseInt(parts[1], 10);
+    }
+    if (!isFinite(top) || !isFinite(bottom) || top < 0 || bottom < 0) return;
+    const root = document.documentElement;
+    root.style.setProperty('--safe-top', top + 'px');
+    root.style.setProperty('--safe-bottom', bottom + 'px');
+  } catch (e) { /* بلا كائن أصلي: env() الافتراضية تبقى */ }
+}
+function updateNativeBars(radiant) {
+  try {
+    const nc = window.DTSGNative;
+    if (nc && typeof nc.setBarsLight === 'function') nc.setBarsLight(!!radiant);
+  } catch (e) { /* خارج التطبيق الأصلي — لا شيء */ }
 }
 if (typeof window !== 'undefined') {
   window.themeToggle = themeToggle;
   window.updateThemeIcon = updateThemeIcon;
+  window.applyNativeInsets = applyNativeInsets;
+  /* إعادة الاستعلام عند تغيّر الحجم/الدوران: قد يتغيّر شريط التنقل
+     (إيماءات/أزرار) أو يظهر المقصوص — بلا مزامنة تُحسب القيمة القديمة. */
+  let _niT = null;
+  const _niSoon = () => {
+    if (_niT) clearTimeout(_niT);
+    _niT = setTimeout(function () { _niT = null; applyNativeInsets(); }, 160);
+  };
+  window.addEventListener('resize', _niSoon, { passive: true });
+  window.addEventListener('orientationchange', _niSoon, { passive: true });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) { applyNativeInsets(); }
+  }, { passive: true });
 }
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', updateThemeIcon);
+    document.addEventListener('DOMContentLoaded', function () {
+      applyNativeInsets();
+      updateThemeIcon();
+    });
   } else {
+    applyNativeInsets();
     updateThemeIcon();
   }
 }

@@ -1004,7 +1004,7 @@ body.app-fs-on .game-fs-exit { display: inline-flex; }
    مخفي في صفحات الألعاب (body.pg-game) ووضع ملء الشاشة — بلا JavaScript. */
 #botFab {
   position: fixed;
-  bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(78px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   inset-inline-end: 16px;
   z-index: 950;
   width: 54px;
@@ -1036,7 +1036,7 @@ body.app-fs-on #botFab { display: none !important; }
 /* ── نافذة الشات ── */
 .botchat {
   position: fixed;
-  bottom: calc(142px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(142px + var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
   inset-inline-end: 16px;
   z-index: 951;
   width: min(362px, calc(100vw - 24px));
@@ -1280,7 +1280,7 @@ html[dir="ltr"] .botchat { direction: ltr; }
 }
 
 @media (max-width: 420px) {
-  .botchat { inset-inline: 10px; width: auto; bottom: calc(134px + env(safe-area-inset-bottom, 0px)); max-height: 68vh; }
+  .botchat { inset-inline: 10px; width: auto; bottom: calc(134px + var(--safe-bottom, env(safe-area-inset-bottom, 0px))); max-height: 68vh; }
 }
 
 /* ═══ [v2.75·تحكيم] واجهة البث المباشر للتحكيم — لاعب + أدمن ═══ */
@@ -1486,51 +1486,164 @@ html[dir="ltr"] .botchat { direction: ltr; }
 }
 
 
-/* ═══════════ [v2.83] الغرفة المحلية (LocalMP) — واجهة الاقتران والرموز ═══════════ */
+/* ═══════════ [v2.83→v2.85] الغرفة المحلية (LocalMP) — واجهة الاقتران والرموز ═══════════
+   [v2.85·إعادة تصميم] لغة الهوية نفسها (كحلي زليج × ذهب دكاء): بطاقات خطوات
+   مرقّمة، حلقة ذهبية حول رمز QR، أزرار هرمية (أساسي ذهبي/ثانوي/تحذيري)،
+   شرائح حالة ولاعبين — والمودالات تبقى داكنة متباينة في الوضعين (قرار
+   الهوية في 01-variables.css) فالتباين مضمون مشعاً كان أم قاتماً. */
 .modal-lmp .lmp-sub {
-  font-size: .78rem; opacity: .8; text-align: center; margin: 2px 0 10px;
+  font-size: .78rem; opacity: .85; text-align: center; margin: 2px 0 12px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  color: var(--t2, #9aa5b8);
 }
+.modal-lmp .lmp-sub i { color: var(--gold, #d9b45c); }
+/* بطاقة خطوة مرقّمة */
 .lmp-step {
-  font-size: .85rem; font-weight: 700; margin: 12px 0 6px; text-align: center;
+  display: flex; align-items: center; gap: 10px;
+  font-size: .85rem; font-weight: 700; margin: 14px 0 8px; text-align: start;
+  color: var(--t1, #e9e2cf);
+}
+.lmp-step-n {
+  flex: none; width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .8rem; font-weight: 900; color: #0A0E1A;
+  background: linear-gradient(135deg, #d9b45c, #b8892f);
+  box-shadow: 0 0 12px rgba(217, 180, 92, .35);
 }
 .lmp-qr {
-  display: flex; justify-content: center; margin: 6px 0;
-  background: #fff; border-radius: 10px; padding: 8px; width: fit-content; margin-inline: auto;
+  display: flex; justify-content: center; align-items: center; margin: 8px auto;
+  background: #fff; border-radius: 14px; padding: 10px; width: fit-content;
+  border: 2px solid rgba(217, 180, 92, .55);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, .35), 0 0 26px rgba(217, 180, 92, .18);
 }
 .lmp-qr svg { display: block; }
 .lmp-code {
-  font-family: monospace; font-size: .62rem; opacity: .75; text-align: center;
-  word-break: break-all; margin: 4px 8px; max-height: 3.2em; overflow: hidden;
+  font-family: monospace; font-size: .62rem; opacity: .7; text-align: center;
+  word-break: break-all; margin: 6px 8px; max-height: 3.2em; overflow: hidden;
+  color: var(--t2, #9aa5b8);
 }
 .lmp-row {
   display: flex; gap: 8px; margin: 8px 0; justify-content: center; flex-wrap: wrap;
 }
+/* الأزرار الهرمية — أساسي (ذهبي) / ثانوي / تحذيري */
 .lmp-btn {
-  border: 1px solid var(--line, rgba(255,255,255,.18));
-  background: rgba(255,255,255,.07); color: inherit;
-  border-radius: 10px; padding: 9px 14px; font-size: .85rem; cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px;
+  border: 1px solid var(--bd, #24354f);
+  background: var(--bg3, #16263c); color: var(--t1, #e9e2cf);
+  border-radius: 12px; padding: 10px 16px; font-size: .85rem; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: inherit; font-weight: 700;
+  transition: transform .15s var(--ease), box-shadow .15s var(--ease), border-color .15s var(--ease);
 }
-.lmp-btn:hover { background: rgba(255,255,255,.13); }
-.lmp-btn.lmp-go { border-color: var(--accent, #d4af37); color: var(--accent, #d4af37); font-weight: 700; }
-.lmp-btn.lmp-warn { opacity: .8; }
+.lmp-btn i { color: var(--gold, #d9b45c); }
+.lmp-btn:hover { border-color: var(--bd2, #3c5075); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0, 0, 0, .3); }
+.lmp-btn.lmp-go {
+  border-color: rgba(217, 180, 92, .65); color: var(--gold2, #f2d489);
+  background: linear-gradient(180deg, rgba(217, 180, 92, .16), rgba(217, 180, 92, .05));
+}
+.lmp-btn.lmp-go i { color: var(--gold, #d9b45c); }
+.lmp-btn.lmp-go:hover { box-shadow: 0 0 18px rgba(217, 180, 92, .35); border-color: var(--gold, #d9b45c); }
+.lmp-btn.lmp-big { width: 100%; min-height: 46px; font-size: .9rem; }
+.lmp-btn.lmp-scan { background: transparent; }
+.lmp-btn.lmp-warn { opacity: .82; background: transparent; }
+.lmp-btn.lmp-warn i { color: var(--red2, #F87171); }
 .lmp-in {
-  width: 100%; min-height: 64px; border-radius: 10px;
-  border: 1px solid var(--line, rgba(255,255,255,.18));
-  background: rgba(0,0,0,.25); color: inherit;
-  font-family: monospace; font-size: .72rem; padding: 8px; resize: vertical;
+  width: 100%; min-height: 64px; border-radius: 12px;
+  border: 1px solid var(--bd, #24354f);
+  background: rgba(0, 0, 0, .25); color: var(--t1, #e9e2cf);
+  font-family: monospace; font-size: .72rem; padding: 10px; resize: vertical;
+  box-sizing: border-box;
 }
-.lmp-status {
-  font-size: .8rem; text-align: center; margin: 10px 0 4px; opacity: .9;
+.lmp-in:focus { outline: none; border-color: var(--gold, #d9b45c); box-shadow: 0 0 0 3px rgba(217, 180, 92, .12); }
+/* شرائح الحالة واللاعبين */
+.lmp-status { text-align: center; margin: 12px 0 6px; }
+.lmp-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 14px; border-radius: 999px; font-size: .78rem; font-weight: 800;
+  background: rgba(16, 185, 129, .12); border: 1px solid rgba(16, 185, 129, .45);
+  color: var(--green2, #34D399);
 }
+.lmp-pill i { font-size: .85rem; }
+.lmp-pill.lmp-wait {
+  background: rgba(217, 180, 92, .1); border-color: rgba(217, 180, 92, .45);
+  color: var(--gold2, #f2d489);
+}
+.lmp-players { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; margin: 8px 0 2px; }
+.lmp-pl {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px; font-size: .74rem; font-weight: 700;
+  background: var(--bg3, #16263c); border: 1px solid var(--bd, #24354f);
+  color: var(--t2, #9aa5b8);
+}
+.lmp-pl i { font-size: .78rem; color: var(--t3, #66708A); }
+.lmp-pl.on { border-color: rgba(16, 185, 129, .5); color: var(--t1, #e9e2cf); }
+.lmp-pl.on i { color: var(--green, #10B981); }
 .lmp-err {
   background: rgba(220,60,60,.16); border: 1px solid rgba(220,60,60,.4);
-  color: #ffb3b3; border-radius: 8px; padding: 8px 10px; font-size: .78rem; margin: 6px 0;
+  color: #ffb3b3; border-radius: 10px; padding: 9px 12px; font-size: .78rem; margin: 6px 0;
 }
 .lmp-hint {
-  font-size: .72rem; opacity: .65; text-align: center; margin: 12px 6px 0; line-height: 1.5;
+  font-size: .72rem; opacity: .7; text-align: center; margin: 12px 6px 0; line-height: 1.6;
+  color: var(--t2, #9aa5b8);
 }
+.lmp-hint i { color: var(--blue2, #60A5FA); margin-inline-end: 4px; }
+.lmp-toolong {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  margin: 8px auto; padding: 10px 14px; width: fit-content; max-width: 100%;
+  border: 1px dashed rgba(217, 180, 92, .55); border-radius: 12px;
+  background: rgba(217, 180, 92, .08); color: var(--gold2, #f2d489);
+  font-size: .78rem; font-weight: 700; text-align: center;
+}
+.lmp-toolong i { color: var(--gold, #d9b45c); }
 video.lmp-scanvid {
   display: block; width: 100%; max-height: 300px; object-fit: cover;
   border-radius: 12px; margin: 10px 0; background: #000;
+  border: 1px solid var(--bd, #24354f);
+}
+
+/* ═══════════ [v2.85] محدّد نمط الغرفة داخل نافذة إعدادات الغرفة ═══════════
+   خيار «اللعب المحلي» صار أول الدرجة في نافذة إعدادات كل لعبة (بديل زر
+   الواي فاي الصغير القاتم الذي أُزيل) — محدّد مقسّم بهوية بصرية واضحة. */
+#roomSettingsModal .rs-modebar {
+  display: flex; gap: 8px; padding: 5px;
+  background: var(--bg2, #101d31);
+  border: 1px solid var(--bd, #24354f); border-radius: 14px;
+  margin: 4px 0 6px;
+}
+#roomSettingsModal .rs-mode {
+  flex: 1 1 0; min-height: 46px; border: 1px solid transparent; border-radius: 10px;
+  background: transparent; color: var(--t2, #9aa5b8); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  font-family: inherit; font-size: .82rem; font-weight: 800; padding: 8px 10px;
+  transition: all .18s var(--ease);
+}
+#roomSettingsModal .rs-mode i { font-size: .95rem; }
+#roomSettingsModal .rs-mode:hover { color: var(--t1, #e9e2cf); background: rgba(255, 255, 255, .04); }
+#roomSettingsModal .rs-mode.active {
+  color: var(--gold2, #f2d489);
+  background: linear-gradient(180deg, rgba(217, 180, 92, .18), rgba(217, 180, 92, .06));
+  border-color: rgba(217, 180, 92, .6);
+  box-shadow: 0 0 16px rgba(217, 180, 92, .22);
+}
+#roomSettingsModal .rs-mode.active i { color: var(--gold, #d9b45c); }
+/* ملاحظة الوضع المحلي — بطاقة معلومات دافئة */
+#roomSettingsModal .rs-localnote {
+  display: flex; gap: 10px; align-items: flex-start;
+  margin: 12px 0 4px; padding: 11px 13px;
+  background: linear-gradient(180deg, rgba(217, 180, 92, .09), rgba(217, 180, 92, .03));
+  border: 1px solid rgba(217, 180, 92, .4); border-radius: 12px;
+  font-size: .76rem; line-height: 1.65; color: var(--t1, #e9e2cf);
+}
+#roomSettingsModal .rs-localnote i { color: var(--gold, #d9b45c); font-size: 1rem; margin-top: 2px; }
+#roomSettingsModal .rs-localnote b { color: var(--gold2, #f2d489); }
+/* زر الإنشاء في الوضع المحلي — هوية ذهبية كاملة (تمييز فوري عن الخادمي) */
+#roomSettingsModal #rsSave.lmp-save { background: linear-gradient(135deg, #d9b45c, #b8892f); }
+/* زر الانضمام المحلي المرافق */
+#roomSettingsModal .rs-joinlocal {
+  border: 1px solid rgba(217, 180, 92, .5) !important; color: var(--gold2, #f2d489) !important;
+}
+#roomSettingsModal .rs-joinlocal:hover { box-shadow: 0 0 14px rgba(217, 180, 92, .3); }
+/* موبايل: المحدّد عمودي في الشاشات الضيقة */
+@media (max-width: 420px) {
+  #roomSettingsModal .rs-modebar { flex-direction: column; }
+  #roomSettingsModal .rs-mode { width: 100%; }
 }
