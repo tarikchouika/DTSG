@@ -5,7 +5,7 @@
 "use strict";
 /* [v2.28] بصمة البناء: تُطبع في الكونسول ليتحقق المالك لحظياً من أن النشر
    يطابق هذا الالتزام. إن لم تظهر في الكونسول فالنشر من شجرة أقدم. */
-window.DTSG_BUILD = 'v2.85.0';
+window.DTSG_BUILD = 'v2.86.0';
 try { console.info('[DTSG] build ' + window.DTSG_BUILD); } catch (e) {}
 /* ═══════════ عرض الألعاب ═══════════ */
 /* خريطة: معرف اللعبة → مجلد الأصول (assets/games/<folder>/icon.webp) */

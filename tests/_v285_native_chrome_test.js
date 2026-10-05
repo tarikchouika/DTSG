@@ -157,13 +157,18 @@ const idx = read('index.html');
 const v285 = ['css/09-chrome.css', 'css/03-components.css', 'css/04-games.css',
   'css/14-ronda-classic.css', 'css/16-penalty.css', 'css/07-responsive.css',
   'js/core/utils.js', 'js/i18n/translations.js', 'js/core/local-mp.js', 'js/main.js'];
-const stale = v285.filter(f => !new RegExp(f.replace('.', '\\.') + '\\?v=v285"').test(idx));
-ok(stale.length === 0, 'بصمات v285 للعشرة المعدَّلة في index.html', stale.join(', '));
+const stale = v285.filter(f => !new RegExp(f.replace('.', '\\.') + '\\?v=v\\d+"').test(idx));
+ok(stale.length === 0, 'بصمات ?v= غير فارغة على الأصول العشرة (قاعدة 22 — لا تثبيت حرفي)', stale.join(', '));
 const pkg = JSON.parse(read('package.json'));
 const lock = JSON.parse(read('package-lock.json'));
 const main = read('js/main.js');
-ok(pkg.version === '2.85.0' && lock.version === '2.85.0' && /DTSG_BUILD = 'v2\.85\.0'/.test(main),
-   'بصمة الإصدار الثلاثية 2.85.0 (package · lock · DTSG_BUILD)');
+ok(lock.version === pkg.version &&
+   new RegExp("DTSG_BUILD = 'v" + pkg.version.replace(/\./g, '\\.') + "';").test(main),
+   'بصمة الإصدار الثلاثية مشتقّة من package.json (package · lock · DTSG_BUILD) — قاعدة 22');
+/* [v2.86] main.js يُلمس مع كل ترقية (DTSG_BUILD) ⇒ بصمته تتبع الإصدار الحالي دائماً */
+const VCUR = 'v' + pkg.version.split('.').slice(0, 2).join('');
+ok(new RegExp('js/main\\.js\\?v=' + VCUR + '"').test(idx),
+   'main.js على بصمة الإصدار الحالي (' + VCUR + ') — يُلمس مع كل ترقية');
 ok(/rs-save-label/.test(idx), 'تسمية زر الإنشاء صنف rs-save-label (يتبدّل نصه في الوضع المحلي)');
 
 /* ── 8) التوثيق ─────────────────────────────────────────────────────────── */
@@ -187,7 +192,7 @@ ok(docCounts.every(l => l.length > 0) && docNums.length === 1,
    'الأرقام الواردة: ' + (docNums.join(', ') || 'لا ذكر'));
 
 /* ── حارس العدّاد ───────────────────────────────────────────────────────── */
-const EXPECTED = 41;
+const EXPECTED = 42;
 ok(results.length === EXPECTED - 1,
    'حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (' + EXPECTED + ')');
 

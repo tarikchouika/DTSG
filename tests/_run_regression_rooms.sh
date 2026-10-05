@@ -221,6 +221,10 @@ run "v283 عقد الغرفة المحلية (ساكن)"   "tests/_v283_localmp_
 run "v283 بلوت وجهاً لوجه"            "tests/_v283_bl_room_e2e_test.js"
 run "v283 الغرفة المحلية e2e"         "tests/_v283_localmp_e2e_test.js"
 run "v285 كروم الأندرويد (ساكن)"      "tests/_v285_native_chrome_test.js"
+# [v2.86-audit] جملة التخطيط المفقودة كانت ستُفقد بصمت: شفافية الشريطين بلا
+# setDecorFitsSystemWindows تترك الويب محشوراً بينهما (بلاغ «فراغ أسود أعلى
+# وأسفل») — فحص مصدر ثابت بلا خادم وبلا متصفح: آمن في أي بيئة معزولة.
+run "v286 ملء الشاشة الحقيقي (ساكن)"  "tests/_v286_e2e_layout_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

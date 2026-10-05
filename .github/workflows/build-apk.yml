@@ -102,12 +102,16 @@ jobs:
       #    (android/ ليس في المستودع: يُنشأ حديثاً في كل تشغيل)
       - name: Capacitor config + add android + sync
         run: |
+          # [v2.86] backgroundColor كحلي كهوية المنصة (#0b1526): Bridge يلوّن به
+          # خلفية WebView قبل أول رسم للصفحة فلا وميض فاتح خلف الشريطين
+          # الشفافين عند الإقلاع أو أثناء التمرير المطاطي (CapConfig يقرأه).
           cat > capacitor.config.json <<'JSON'
           {
             "appId": "com.dtsg.app",
             "appName": "DTSG",
             "webDir": "www",
-            "server": { "androidScheme": "https" }
+            "server": { "androidScheme": "https" },
+            "backgroundColor": "#0b1526"
           }
           JSON
           [ -d android ] || npx cap add android
@@ -168,6 +172,17 @@ jobs:
       #      الشريطين (تستدعيه updateThemeIcon في utils.js). ③ الصفحة:
       #      viewport-fit=cover موجود أصلاً وenv() هي الافتراض.
       #      python3 بمرساة نصية دقيقة وفشل صريح إن تغيّر القالب (نمط 8.4).
+      #      [v2.86·درس ميداني 2026-10-06 — بلاغ «فراغ أسود أعلى وأسفل»]:
+      #      شفافية الشريطين وحدها لا تملأ الشاشة: إطار المحتوى بقي محشوراً
+      #      بينهما فظهرت خلفية النافذة الفاتحة (Theme.AppCompat.DayNight في
+      #      وضع النظام الفاتح) عبر الشريطين الشفافين — شريط أبيض أعلى ورمادي
+      #      (سكرام 40% للتنقل بأزرار) أسفل. الجوهر الناقص: جملة التخطيط
+      #      WindowCompat.setDecorFitsSystemWindows(w, false) تمدّد إطار
+      #      المحتوى (الويب) خلف الشريطين على كل الإصدارات (تُترجم تلقائياً
+      #      إلى أعلام LAYOUT_STABLE|FULLSCREEN|HIDE_NAVIGATION قبل API 30)،
+      #      + خلفية نافذة وWebView كحلية (#0b1526) فلا وميض فاتح أبداً،
+      #      + WindowInsetsControllerCompat لأيقونات الشريطين (بديل حديث
+      #      لأعلام systemUiVisibility المهجورة).
       - name: Edge-to-edge fullscreen + native safe-area bridge (status/nav bars)
         run: |
           python3 - <<'PY3'
@@ -203,18 +218,23 @@ jobs:
               sys.exit("X قالب MainActivity تغيّر: لم أجد الصنف الفارغ المتوقع — راجع خطوة الحقن (8.5)")
           new = '''package com.dtsg.app;
           
+          import android.graphics.drawable.ColorDrawable;
           import android.os.Bundle;
-          import android.view.View;
           import android.view.Window;
           import android.view.WindowManager;
+          import androidx.core.view.WindowCompat;
+          import androidx.core.view.WindowInsetsControllerCompat;
           import com.getcapacitor.Bridge;
           import com.getcapacitor.BridgeActivity;
           
-          /* [v2.85] ملء الشاشة 100% (edge-to-edge) + جسر safe-area للويب — يُحقن من
-             سير البناء (خطوة 8.5). الشريطان شفافان والويب يرسم خلفهما، والمساحات
-             الآمنة تُدفع للصفحة (متغيرا --safe-top/--safe-bottom) وتُسحب أيضاً من
-             getInsets() بصيغة "top|bottom"، وsetBarsLight يتبع ثيم المنصة لأيقونات
-             الشريطين (فاتحة فوق الكحلي / داكنة فوق العاجي). */
+          /* [v2.86] ملء الشاشة 100% (edge-to-edge) + جسر safe-area للويب — يُحقن من
+             سير البناء (خطوة 8.5). الشريطان شفافان والويب يرسم خلفهما
+             (setDecorFitsSystemWindows(false) — جوهر v2.86: بدونها يبقى إطار
+             المحتوى محشوراً بين الشريطين فتظهر خلفية النافذة الفاتحة عبرهما)،
+             والمساحات الآمنة تُدفع للصفحة (متغيرا --safe-top/--safe-bottom)
+             وتُسحب أيضاً من getInsets() بصيغة "top|bottom"، وsetBarsLight يتبع
+             ثيم المنصة لأيقونات الشريطين (فاتحة فوق الكحلي / داكنة فوق العاجي
+             عبر WindowInsetsControllerCompat). */
           public class MainActivity extends BridgeActivity {
               private volatile int insetTop = 0;
               private volatile int insetBottom = 0;
@@ -228,6 +248,16 @@ jobs:
                   w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                   w.setStatusBarColor(android.graphics.Color.TRANSPARENT);
                   w.setNavigationBarColor(android.graphics.Color.TRANSPARENT);
+                  /* [v2.86] جوهر ملء الشاشة (بلاغ المالك 2026-10-06: «فراغ أسود
+                     أعلى وأسفل»): شفافية الشريطين وحدها تركت إطار المحتوى
+                     محشوراً بينهما فظهرت خلفية النافذة الفاتحة خلفهما.
+                     setDecorFitsSystemWindows(false) تمدّد الويب خلف الشريطين
+                     على كل الإصدارات (تُترجم إلى أعمال LAYOUT_* قبل API 30). */
+                  WindowCompat.setDecorFitsSystemWindows(w, false);
+                  /* خلفية النافذة كحلية كهوية المنصة (#0b1526): لا وميض فاتح
+                     خلف الشريطين عند الإقلاع أو تغيّر الحجم — والويب نفسه
+                     يلوَّن كحلياً من backgroundColor في capacitor.config.json. */
+                  w.setBackgroundDrawable(new ColorDrawable(0xFF0B1526));
                   try {
                       w.getAttributes().layoutInDisplayCutoutMode =
                           WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
@@ -296,13 +326,17 @@ jobs:
                       runOnUiThread(new Runnable() {
                           @Override public void run() {
                               try {
-                                  View d = getWindow().getDecorView();
-                                  int flags = d.getSystemUiVisibility();
-                                  final int LIGHT_STATUS = 0x00002000; /* SYSTEM_UI_FLAG_LIGHT_STATUS_BAR */
-                                  final int LIGHT_NAV = 0x00000010;    /* SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR */
-                                  if (barsLight) flags |= LIGHT_STATUS | LIGHT_NAV;
-                                  else flags &= ~(LIGHT_STATUS | LIGHT_NAV);
-                                  d.setSystemUiVisibility(flags);
+                                  /* [v2.86] WindowInsetsControllerCompat (AndroidX): يعمل
+                                     على كل الإصدارات ويُترجم تلقائياً إلى أعلام
+                                     systemUiVisibility القديمة قبل API 30 — أيقونات
+                                     فاتحة فوق الكحلي / داكنة فوق العاجي. */
+                                  Window w = getWindow();
+                                  if (w == null) return;
+                                  WindowInsetsControllerCompat ctl =
+                                      WindowCompat.getInsetsController(w, w.getDecorView());
+                                  if (ctl == null) return;
+                                  ctl.setAppearanceLightStatusBars(barsLight);
+                                  ctl.setAppearanceLightNavigationBars(barsLight);
                               } catch (Throwable ignored) { }
                           }
                       });
