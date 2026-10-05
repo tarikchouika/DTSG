@@ -203,6 +203,17 @@ run "v2813 حمايات APK الأصلية"        "tests/_v2813_apk_native_test
 # والنسخة المعزولة /tmp/full ليست مستودعاً ⇒ بدونه يفشل الأول ويمرّ الثاني بلا فحص.
 run "v282 توقيع APK + Releases"        "tests/_v282_apk_release_test.js"      "$REPO"
 run "v282 حزمة الشهادة والمعرفة"      "tests/_v282_keystore_knowledge_test.js" "$REPO"
+# [v2.83-audit] أجنحة الغرفة المحلية وبلوت كانت خارج البطارية كلياً ⇒ انحدارٌ في
+# عقد بلوت المزدوج (الجذور الأربعة) أو في جراحة rooms.js أو في مسارات الغرفة
+# المحلية كان يمرّ بصمت — نفس الصنف الذي أضافه v2.81.4-audit وv2.82-audit.
+#   * الساكن: فحوص مصدر ثابتة بلا خادم وبلا متصفح ⇒ آمن في أي بيئة معزولة.
+#   * e2e  بلوت والغرفة المحلية: متصفحان على خادم QA المعزولة التي تُجهَّزها
+#     البطارية أصلاً، ولهما نفس حارس `tests/_safe_base.js` الذي يفرض QA_BASE (القاعدة 13)
+#     ⇒ لا خطر على خادم المنصة الحيّ. وغياب playwright يُحسب تخطّي بيئة
+#     لا انحدار (is_browser_suite أعلاه).
+run "v283 عقد الغرفة المحلية (ساكن)"   "tests/_v283_localmp_static_test.js"
+run "v283 بلوت وجهاً لوجه"            "tests/_v283_bl_room_e2e_test.js"
+run "v283 الغرفة المحلية e2e"         "tests/_v283_localmp_e2e_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"
