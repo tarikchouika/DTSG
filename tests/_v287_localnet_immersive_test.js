@@ -87,6 +87,11 @@ ok(/getAttributes\(\)/.test(javaTxt) && /instanceof List/.test(javaTxt) && /inst
 const braces = (javaTxt.match(/\{/g) || []).length - (javaTxt.match(/\}/g) || []).length;
 ok(javaTxt.includes('public class MainActivity extends BridgeActivity') && braces === 0,
    'بنية الجافا سليمة (BridgeActivity + أقواس متوازنة ' + braces + ')');
+/* [درس بناء #23] سطر الحزمة مكرر = «class, interface, enum, or record expected»
+   عند السطر 2 — أوقع البناء 23 ولم يكشفه فحص الأقواس؛ الحارس يفحصه صراحة الآن */
+const pkgLines = javaTxt.split('\n').filter(l => /^\s*package com\.dtsg\.app;/.test(l)).length;
+ok(javaTxt.trimStart().startsWith('package com.dtsg.app;') && pkgLines === 1,
+   'سطر الحزمة واحد وأول الملف (درس بناء #23 — التكرار أسقط البناء 23)');
 /* سكربتا الحقن يُحلّان صياغياً */
 let pyOk = false;
 try {
@@ -278,7 +283,7 @@ ok(/_v287_localnet_immersive_test\.js/.test(runner),
    'الجناح مسجَّل في عدّاء البطارية (لا ثغرة تغطية)');
 
 /* ── 10) حارس العدّاد ────────────────────────────────────────────────────── */
-const EXPECTED = 54;
+const EXPECTED = 55;
 ok(results.length === EXPECTED - 1, 'حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (' + EXPECTED + ')');
 
 const pass = results.filter(Boolean).length;

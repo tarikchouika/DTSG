@@ -238,7 +238,6 @@ jobs:
           if s2.strip() != tpl.strip():
               sys.exit("X قالب MainActivity تغيّر: لم أجد الصنف الفارغ المتوقع — راجع خطوة الحقن (8.5)")
           new = '''package com.dtsg.app;
-          package com.dtsg.app;
           
           import android.bluetooth.BluetoothAdapter;
           import android.bluetooth.BluetoothDevice;
