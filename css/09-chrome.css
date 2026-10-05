@@ -1465,3 +1465,52 @@ html[dir="ltr"] .botchat { direction: ltr; }
   .lbme { gap: 10px; }
 }
 
+
+/* ═══════════ [v2.83] الغرفة المحلية (LocalMP) — واجهة الاقتران والرموز ═══════════ */
+.modal-lmp .lmp-sub {
+  font-size: .78rem; opacity: .8; text-align: center; margin: 2px 0 10px;
+}
+.lmp-step {
+  font-size: .85rem; font-weight: 700; margin: 12px 0 6px; text-align: center;
+}
+.lmp-qr {
+  display: flex; justify-content: center; margin: 6px 0;
+  background: #fff; border-radius: 10px; padding: 8px; width: fit-content; margin-inline: auto;
+}
+.lmp-qr svg { display: block; }
+.lmp-code {
+  font-family: monospace; font-size: .62rem; opacity: .75; text-align: center;
+  word-break: break-all; margin: 4px 8px; max-height: 3.2em; overflow: hidden;
+}
+.lmp-row {
+  display: flex; gap: 8px; margin: 8px 0; justify-content: center; flex-wrap: wrap;
+}
+.lmp-btn {
+  border: 1px solid var(--line, rgba(255,255,255,.18));
+  background: rgba(255,255,255,.07); color: inherit;
+  border-radius: 10px; padding: 9px 14px; font-size: .85rem; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.lmp-btn:hover { background: rgba(255,255,255,.13); }
+.lmp-btn.lmp-go { border-color: var(--accent, #d4af37); color: var(--accent, #d4af37); font-weight: 700; }
+.lmp-btn.lmp-warn { opacity: .8; }
+.lmp-in {
+  width: 100%; min-height: 64px; border-radius: 10px;
+  border: 1px solid var(--line, rgba(255,255,255,.18));
+  background: rgba(0,0,0,.25); color: inherit;
+  font-family: monospace; font-size: .72rem; padding: 8px; resize: vertical;
+}
+.lmp-status {
+  font-size: .8rem; text-align: center; margin: 10px 0 4px; opacity: .9;
+}
+.lmp-err {
+  background: rgba(220,60,60,.16); border: 1px solid rgba(220,60,60,.4);
+  color: #ffb3b3; border-radius: 8px; padding: 8px 10px; font-size: .78rem; margin: 6px 0;
+}
+.lmp-hint {
+  font-size: .72rem; opacity: .65; text-align: center; margin: 12px 6px 0; line-height: 1.5;
+}
+video.lmp-scanvid {
+  display: block; width: 100%; max-height: 300px; object-fit: cover;
+  border-radius: 12px; margin: 10px 0; background: #000;
+}

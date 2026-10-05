@@ -119,7 +119,13 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
 `ronda-game/README.md` تماماً كما يفعل `scripts/deploy-pages.sh` — فكان
 الـAPK يشحن ملفاً لا يشحنه الموقع.
 
-### 2.3 الشعار وشاشة البدء وإصلاح الدخول [v2.81.3]
+### 2.3 الشعار وشاشة البدء وإصلاح الدخول
+#### [v2.83] عقد الأيقونة بلا حاوية + إذن الكاميرا (الغرفة المحلية)
+
+- **الأيقونة:** `resources/` تحمل الآن **ثلاثة أصول شفافة**: `icon.png` (1024×1024 شفافة باللوغو 76% من الارتفاع — الأيقونات القديمة والمتجر) و`icon-foreground.png`/`icon-background.png` (طبقتا الأيقونة التكيفية — الخلفية شفافة 100%). سير البناء **لا يمرر `--iconBackgroundColor` إطلاقاً** (ألوان `--splashBackgroundColor` تبقى لشاشة البدء وحدها) — إعادة العلم تعيد «اللوغو الصغير بالمربع الأسود» (بلاغ المالك 2026-10-05). الحارس: `node tests/_v2813_apk_native_test.js` (**21**) بفكّ PNG حقيقي يتحقق شفافية الأركان.
+- **الكاميرا:** خطوة `Inject CAMERA permission for local-room QR scanning` (قبل Gradle) تحقن `<uses-permission android:name="android.permission.CAMERA"/>` في AndroidManifest بمرساة INTERNET وفشل صريح — لمسح رموز QR لميزة الغرفة المحلية (`js/core/local-mp.js`). على الموقع: `camera=(self)` في `_headers` و`vercel.json`.
+- **الغرفة المحلية:** اللعب مع الأصدقاء عبر الواي فاي/مشاركة البلوتوث بلا إنترنت — WebRTC DataChannel مباشر (بصمة اقتران ~243 حرفاً بQR). العقد الكامل في AGENTS.md قاعدة 20، والحراسة: `tests/_v283_localmp_static_test.js` (**28**) + e2e باتصال حقيقي `tests/_v283_localmp_e2e_test.js` (**23**).
+ [v2.81.3]
 
 **أيقونة التطبيق:** كل بناء يولّد `android/` حديثاً بأيقونة Capacitor الافتراضية
 إن لم تُولَّد أيقونات صراحةً — لذلك صار في السير (بعد `cap sync` وقبل Gradle) خطوة

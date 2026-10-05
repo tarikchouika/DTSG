@@ -121,16 +121,41 @@ jobs:
       #      بعد cap add (npm أزال 3 حزم وغيّر 14) فانكسر :capacitor-android
       #      أمام Gradle («None of the consumable configurations have attributes»)
       #      ⇒ التثبيت الآن معزول في /tmp/capassets: حزم المساحة لا تُمسّ بعد cap add.
+      # 6.5) [v2.83·إصلاح ميداني] أيقونة بلا حاوية: لوغو كبير شفاف على طبقات
+      #      تكيفية شفافة بالكامل — كان السير يمرر --iconBackgroundColor '#0b1526'
+      #      فتظهر أيقونة «لوغو صغير داخل مربع أسود» (بلاغ المالك 2026-10-05).
+      #      الآن: resources/icon-foreground.png (لوغو 76% شفاف) + icon-background.png
+      #      (شفافة 100%) تُستخدمان للطبقات التكيفية، وicon.png نفسه صار اللوغو
+      #      الكبير الشفاف (الأيقونات القديمة + المتجر). ألوان الخلفية أُبقيت
+      #      لشاشة البدء حصراً — لا علاقة لها بالأيقونة بعد الآن.
       - name: Generate app icons + splash from platform logo
         run: |
           mkdir -p /tmp/capassets
           ( cd /tmp/capassets && npm init -y >/dev/null && npm install @capacitor/assets@3 )
           /tmp/capassets/node_modules/.bin/capacitor-assets generate --android --assetPath resources \
-            --iconBackgroundColor '#0b1526' --iconBackgroundColorDark '#0b1526' \
             --splashBackgroundColor '#0b1526' --splashBackgroundColorDark '#0b1526'
 
       # 7) Java 17 (OpenJDK) المتوافق تماماً مع Gradle/Capacitor 6 + كاش Gradle
       #    (المستند §ب-5)
+      # 8.4) [v2.83·LocalMP] إذن الكاميرا لمسح رموز QR في الغرفة المحلية —
+      #      قالب Capacitor لا يضم CAMERA أصلاً فماسح الرموز يحتاجه (getUserMedia).
+      #      python3 بمرساة إذن INTERNET القياسية وفشل صريح إن تغيّر القالب.
+      - name: Inject CAMERA permission for local-room QR scanning
+        run: |
+          python3 - <<'PY2'
+          import io, sys
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = io.open(p, encoding="utf-8").read()
+          if "android.permission.CAMERA" in s:
+              print("✓ إذن الكاميرا موجود مسبقاً"); sys.exit(0)
+          anchor = "<uses-permission android:name=\"android.permission.INTERNET\" />"
+          if anchor not in s:
+              sys.exit("✗ قالب AndroidManifest تغيّر: لم أجد مرساة INTERNET — راجع خطوة الحقن (8.4)")
+          s = s.replace(anchor, anchor + "\n    <uses-permission android:name=\"android.permission.CAMERA\" /> <!-- [v2.83] LocalMP QR -->", 1)
+          io.open(p, "w", encoding="utf-8").write(s)
+          print("✓ أُضيف إذن CAMERA لمسح رموز الغرفة المحلية")
+          PY2
+
       - name: Setup Java 17 (Temurin)
         uses: actions/setup-java@v4
         with:

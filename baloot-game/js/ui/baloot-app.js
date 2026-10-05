@@ -974,15 +974,19 @@
       const r = s.roundResult;
       /* [v2.72] جدول معمّم: عمود لكل فريق (فرقان = التخطيط السابق بعينه؛
          فردي = عمود لكل لاعب باسمه) */
-      const T = s.teamScores.length;
+      /* [v2.83·إصلاح ميداني] كان المتغير اسمه T فحجب دالة الترجمة T() نفسها
+         — أي نهاية شوط ترمي TypeError: T is not a function فلا تُبنى نافذة
+         النتيجة أبداً وتعلق المباراة (ضد الألي وفي الغرف كذلك). أُعيدت التسمية
+         TCOLS حصراً للعدد — والدلالة لا تتغير. */
+      const TCOLS = s.teamScores.length;
       const local = s.cfg.mode === 'local';
       const colNames = [];
-      for (let t = 0; t < T; t++) {
-        colNames.push((local || T > 2) ? this.seatName(s.solo ? t : (t === 0 ? 0 : 1)) : (t === 0 ? T('blt.us') : T('blt.them')));
+      for (let t = 0; t < TCOLS; t++) {
+        colNames.push((local || TCOLS > 2) ? this.seatName(s.solo ? t : (t === 0 ? 0 : 1)) : (t === 0 ? T('blt.us') : T('blt.them')));
       }
       const row = (label, vals, cuts) => {
         let tds = '';
-        for (let t = 0; t < T; t++) {
+        for (let t = 0; t < TCOLS; t++) {
           const v = vals[t];
           const cut = cuts && cuts[t];
           tds += '<td class="' + (t === 0 ? 'bl-rt-us' : 'bl-rt-them') + '">' +
@@ -990,7 +994,7 @@
         }
         return '<tr><td class="bl-rt-label">' + label + '</td>' + tds + '</tr>';
       };
-      const col = (fn) => { const out = []; for (let t = 0; t < T; t++) out.push(fn(t)); return out; };
+      const col = (fn) => { const out = []; for (let t = 0; t < TCOLS; t++) out.push(fn(t)); return out; };
       const trumpTxt = s.trump ? T('blt.trump') + ': ' + T('blt.suit.' + s.trump) : T('blt.sun');
       const room = s.cfg.mode === 'room';
       const nextLbl = room ? (this._isDriver ? T('blt.nextRound') : T('blt.voteNext')) : T('blt.continue');
@@ -1005,6 +1009,7 @@
         '<tr class="bl-rt-total"><td>' + T('blt.total') + '</td>' + col((t) => FMT(r.total[t])).map((v) => '<td>' + v + '</td>').join('') + '</tr>';
       const scoresLine = T('blt.teamScore') + ': ' + col((t) =>
         '<b' + (t === 0 ? ' class="bl-gold"' : '') + '>' + FMT(s.teamScores[t]) + '</b>').join(' \u2014 ') + ' / ' + FMT(s.cfg.target);
+      const roundNoEnd = s.roundNo;   /* [v2.83·إصلاح] التقاط رقم الشوط قبل المؤقت — كان roundNo غير معرّف فيرجع ReferenceError عند انطلاق التقديم الاحتياطي بعد 20ث في الغرف */
       this._overlayKind = 'roundEnd';
       this.showOverlay(
         '<div class="bl-modal bl-roundmodal">' +
@@ -1026,10 +1031,10 @@
         /* احتياط: تقدّم تلقائي بعد 20 ث إن لم يكتمل التصويت (لاعب منقطع) */
         this.later(() => {
           const s2 = NS.state;
-          if (s2 && s2.phase === 'roundEnd' && s2.roundNo === roundNo) {
+          if (s2 && s2.phase === 'roundEnd' && s2.roundNo === roundNoEnd) {
             this.hideOverlay();
             this._roundVotes = {};
-            this._netEmit('next', { round: roundNo });
+            this._netEmit('next', { round: roundNoEnd });
             NS.nextRound();
             this._lastActAt = Date.now();
           }
@@ -1058,7 +1063,9 @@
       if (this._roundVotes[meId]) return;
       this._roundVotes[meId] = true;
       this._netEmit('next', { round: roundNo, vote: 1 });
-      return;
+      /* [v2.83·إصلاح] كان هذا الكود ميتاً بعد return — الآن المصوّت يرى
+         تأكيد صوته فوراً (زر معطّل + نص انتظار) بدل صمت تام يوهم فشل
+         مصادقة الجولة التالية ويحفّز النقر المتكرر. */
       const btn = this.$('blNextRoundBtn');
       if (btn) { btn.disabled = true; btn.textContent = T('blt.waitPlayers'); }
     },
@@ -1396,8 +1403,14 @@
                 const need = (this._roomOrder || []).length;
                 const got = Object.keys(this._roundVotes).filter((k) => k !== String(meId)).length + 1;
                 if (got >= need) {
+                  /* [v2.83·إصلاح مزامنة] اكتمل التصويت: كان السائق يتقدّم محلياً
+                     فقط ولا يبثّ 'next' للطرف الآخر — فيبقى المصوّت عالقاً في نافذة
+                     نهاية الشوط إلى الأبد (المشكل الميداني المُبلَّغ: «مزامنة ومصادقة
+                     الجولة التالية»). الآن يبثّ التقدّم للجميع قبل تقدّمه. */
+                  const doneRound = s.roundNo;
                   this.hideOverlay();
                   this._roundVotes = {};
+                  this._netEmit('next', { round: doneRound });
                   NS.nextRound();
                   this._lastActAt = Date.now();
                 }

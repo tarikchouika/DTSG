@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   [v2.82] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
+   [v2.83] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
    ───────────────────────────────────────────────────────────────────────────
    يغطي (بلا متصفح — خادمي وساكن):
      أ) الوحدة server-mediamtx.js بمرحّل وهمي محلي (Node http):
@@ -595,8 +595,9 @@ const ROOT = path.resolve(__dirname, '..');
   ok('index.html: hls.light.min.js مُستضاف محلياً قبل سكربتات التحكيم (لا CDN خارجي)',
     idxSrc.indexOf('js/vendor/hls.light.min.js') !== -1
     && idxSrc.indexOf('js/vendor/hls.light.min.js') < idxSrc.indexOf('js/core/arb-admin.js'));
-  ok('index.html: إصدارات v2814 لملفات الجولة (arb-admin + arb-page + translations)',
-    /arb-admin\.js\?v=v2814/.test(idxSrc) && /arb-page\.js\?v=v2814/.test(idxSrc) && /translations\.js\?v=v2814/.test(idxSrc));
+  /* [v2.83] translations.js رُفعت إلى v283 (مفاتيح الغرفة المحلية) — والملفان الآخران كما هما */
+  ok('index.html: إصدارات ملفات الجولة (arb-admin + arb-page على v2814 · translations على v283)',
+    /arb-admin\.js\?v=v2814/.test(idxSrc) && /arb-page\.js\?v=v2814/.test(idxSrc) && /translations\.js\?v=v283/.test(idxSrc));
   const hlsFile = path.join(ROOT, 'js/vendor/hls.light.min.js');
   const hlsSz = fs.existsSync(hlsFile) ? fs.statSync(hlsFile).size : 0;
   ok('js/vendor/hls.light.min.js: موجود بحجم سليم (100KB–1MB) وبرمجية مصغّرة',

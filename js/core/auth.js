@@ -511,7 +511,9 @@ window.closeTwofaModal = closeTwofaModal;
 
 /* ── معالجة انتهاء الجلسة (401) ── */
 function authHandle401() {
-  if (AUTH.user) {
+  /* [v2.83·LocalMP] الهوية المحلية (غرفة بلا إنترنت) ليست جلسة خادم — لا يمحوها
+     ردّ 401 من نداء خلفي، وإلا انهار لعب الغرفة المحلية عند أول مزامنة دورية. */
+  if (AUTH.user && !AUTH.user.local) {
     AUTH.user = null;
     if (typeof DISABLED === 'object' && DISABLED) DISABLED = {};
     renderAuthChip();
@@ -523,6 +525,7 @@ function authHandle401() {
 /* ── مزامنة الرصيد التلقائية ── */
 function authSync() {
   if (!AUTH.user) return;
+  if (AUTH.user.local) return;   /* [v2.83·LocalMP] هوية محلية: لا مزامنة خادم */
   const now = Date.now();
   if (now - AUTH._lastSync < 5000) return;
   AUTH._lastSync = now;

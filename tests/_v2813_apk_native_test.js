@@ -55,10 +55,11 @@ ok(/location\.origin && !IS_NATIVE_APP\) cands\.push/.test(wallet),
 /* ── 2) بصمات التخزين المؤقت في index.html ───────────────────────────────── */
 const idx = read("index.html");
 /* [v2.81.4] api.js تغيّر (إصلاح same-origin) فبصمته صارت v2814 — والملفات
-   الثلاثة غير المماسة تبقى على بصماتها (dtsg13/dtsg11/pay12). */
+   غير المماسة تبقى على بصماتها (dtsg13/pay12).
+   [v2.83] auth.js تغيّر (حرس الهوية المحلية للغرفة المحلية) فبصمته صارت v283. */
 ok(idx.includes("live-ws-bridge.js?v=dtsg13") && idx.includes("api.js?v=v2814") &&
-   idx.includes("auth.js?v=dtsg11") && idx.includes("wallet.js?v=pay12"),
-   "index.html: بصمات الملفات الأربعة محدَّثة (dtsg13/v2814/dtsg11/pay12) — api.js رُفعت إلى v2814");
+   idx.includes("auth.js?v=v283") && idx.includes("wallet.js?v=pay12"),
+   "index.html: بصمات الملفات الأربعة محدَّثة (dtsg13/v2814/v283/pay12) — auth.js رُفعت إلى v283 (حرس الهوية المحلية)");
 
 /* ── 3) خط بناء APK: أيقونات من لوغو المنصة ──────────────────────────────── */
 const wfLive = fs.readFileSync(path.join(ROOT, ".github/workflows/build-apk.yml"));
@@ -77,14 +78,71 @@ ok(iconStep.includes("/tmp/capassets") && iconStep.includes("npm install @capaci
    "سير البناء: تثبيت أداة الأيقونات معزول في /tmp/capassets — لا عبث بnode_modules بعد cap add");
 ok(!iconStep.includes("npx capacitor-assets") && iconStep.includes("node_modules/.bin/capacitor-assets"),
    "سير البناء: الأداة تُستدعى من .bin المعزول لا npx من جذر المساحة");
+/* [v2.83·إصلاح ميداني] عقد الأيقونة بلا حاوية: لا لون خلفية للأيقونة بعد الآن —
+   الطبقات الشفافة في resources/ هي مصدر الحقيقة، وعلم --iconBackgroundColor
+   يعيدها مربعاً ملوّناً فيرجع بلاغ «لوغو صغير بحاوية سوداء». */
+ok(!iconStep.includes("--iconBackgroundColor") && iconStep.includes("--splashBackgroundColor"),
+   "سير البناء: لا لون خلفية للأيقونة (ألوان شاشة البدء فقط) — عقد v2.83 بلا حاوية");
 
 /* ── 4) أصول الشعار المشتقة (أبعاد IHDR حقيقية) ──────────────────────────── */
 function pngSize(p) {
   const b = fs.readFileSync(p);
   return b.readUInt32BE(16) + "x" + b.readUInt32BE(20);
 }
+function pngHasAlpha(p) {
+  /* فكّ PNG حقيقي (IHDR color type 6 = RGBA) مع دعم كل مرشحات الصفوف،
+     ثم التحقق أن أركان القماش شفافة بالكامل (ألفا ≤ 8) — لوغو عائم بلا حاوية */
+  const zlib = require("zlib");
+  const b = fs.readFileSync(p);
+  if (b[25] !== 6) return false;                       /* ليس RGBA */
+  const w = b.readUInt32BE(16), h = b.readUInt32BE(20);
+  let idat = Buffer.alloc(0);
+  for (let i = 8; i + 8 <= b.length;) {
+    const len = b.readUInt32BE(i), type = b.toString("ascii", i + 4, i + 8);
+    if (type === "IDAT") idat = Buffer.concat([idat, b.subarray(i + 8, i + 8 + len)]);
+    i += 12 + len;
+    if (idat.length > 12e6) break;
+  }
+  let img;
+  try { img = zlib.inflateSync(idat); } catch (e) { return false; }
+  const bpp = 4, stride = w * bpp + 1;
+  if (img.length < stride * h) return false;
+  /* إزالة المرشحات صفًا صفًا (None/Sub/Up/Average/Paeth) */
+  const out = Buffer.alloc(w * bpp * h);
+  const paeth = (a, bb, c) => {
+    const p0 = a + bb - c, pa = Math.abs(p0 - a), pb = Math.abs(p0 - bb), pc = Math.abs(p0 - c);
+    return (pa <= pb && pa <= pc) ? a : (pb <= pc ? bb : c);
+  };
+  for (let y = 0; y < h; y++) {
+    const ft = img[y * stride];
+    const rowIn = img.subarray(y * stride + 1, y * stride + stride);
+    const rowOut = out.subarray(y * w * bpp, (y + 1) * w * bpp);
+    const prev = y > 0 ? out.subarray((y - 1) * w * bpp, y * w * bpp) : null;
+    for (let x = 0; x < w * bpp; x++) {
+      const left = x >= bpp ? rowOut[x - bpp] : 0;
+      const up = prev ? prev[x] : 0;
+      const ul = (prev && x >= bpp) ? prev[x - bpp] : 0;
+      let v = rowIn[x];
+      if (ft === 1) v += left;
+      else if (ft === 2) v += up;
+      else if (ft === 3) v += (left + up) >> 1;
+      else if (ft === 4) v += paeth(left, up, ul);
+      else if (ft !== 0) return false;
+      rowOut[x] = v & 0xff;
+    }
+  }
+  const alphaAt = (x, y) => out[(y * w + x) * bpp + 3];
+  return [alphaAt(0, 0), alphaAt(w - 1, 0), alphaAt(0, h - 1), alphaAt(w - 1, h - 1)].every(v => v <= 8);
+}
 ok(pngSize("resources/icon.png") === "1024x1024", "resources/icon.png بأبعاد 1024×1024");
 ok(pngSize("resources/splash.png") === "2732x2732", "resources/splash.png بأبعاد 2732×2732");
+/* [v2.83] عقد الأيقونة الجديدة: ثلاثة أصول شفافة — اللوغو بلا حاوية */
+ok(pngSize("resources/icon-foreground.png") === "1024x1024" && pngHasAlpha("resources/icon-foreground.png"),
+   "resources/icon-foreground.png: 1024×1024 وأركانها شفافة بالكامل (الطبقة الأمامية بلا حاوية)");
+ok(pngSize("resources/icon-background.png") === "1024x1024" && pngHasAlpha("resources/icon-background.png"),
+   "resources/icon-background.png: 1024×1024 شفافة بالكامل (لا خلفية للأيقونة التكيفية)");
+ok(pngHasAlpha("resources/icon.png"),
+   "resources/icon.png: أركانه شفافة — اللوغو كبير عائم لا مربع ملوّن (أيقونات قديمة/متجر)");
 
 /* ── 5) عقود الحزمة لم تتغيّر ─────────────────────────────────────────────── */
 const apiUrl = JSON.parse(read("api-url2.json"));
@@ -104,7 +162,7 @@ ok(apkDoc.includes("### 2.3 الشعار وشاشة البدء وإصلاح ال
    "docs/APK_BUILD.md: §2.3 يشرح الشعار وإصلاح الدخول");
 
 /* ── حارس العدّاد ─────────────────────────────────────────────────────────── */
-const EXPECTED = 17;
+const EXPECTED = 21;
 ok(results.length === EXPECTED - 1,
    "حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (" + EXPECTED + ")");
 
