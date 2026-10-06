@@ -1257,3 +1257,21 @@ Stage Summary:
 - البطارية الكاملة: 41/41 ناجح · 0 فاشل · 0 متخطّى (v290 الجديد 41/41 · v289 الألعاب 102/102 · v289 المشاركة 25/25 · v288 52 · v287 56 · v286 23 · v285 42 · v283 28 · v2813 21 · hygiene 5 · coverage 21)
 - javac 21 ضد android.jar API 34: COMPILE OK (بعد تعديل Threading) + سلسلة الحقن محلياً ناجحة
 - المعلَّق: الدفع إلى GitHub (يطلق بناء APK #29) ثم نشر Cloudflare Pages — ثم المالك يثبّت v2.90.0 ويختبر مشاركة الشاشة على جهازه (الإصلاح الحقيقي الثالث هذه المرة على مستوى الخيوط)
+
+---
+Task ID: v2.90-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.90.0 — الدفع والبناء والنشر والتحقق من الAPK المنشور والموقع الحي
+
+Work Log:
+- فحوص ما قبل الدفع كلها خضراء: hygiene 5/5 · preflight سليم · javac 21 ضد android.jar API 34: COMPILE OK · سلسلة الحقن ناجحة محلياً
+- الدفع إلى GitHub main (73d206a) — أطلق بناء APK #29 على GitHub Actions ونجح (run 37539988289: completed success)
+- Release apk-v2.90.0-build29 منشور بعلم latest (endpoint الرسمي /releases/latest يعيده): DTSG-Gaming-App.apk (28.06MB) + sha256 — والرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّمه
+- التحقق من الAPK المنشور نفسه (تنزيل وفك): sha256 مطابق حرفياً (ec101606…3444) — وDEX يحمل عقود هذه الجولة كلها (arb-begin خيط الخلفية + beginProjectionBg + قناة init:<Class> باسم الاستثناء) ومكتسبات v2.85-89 كاملة (registerCallback قبل createVirtualDisplay · MediaProjection · video/avc · __dtsgArbEvt · arbShareStart/Stop · projection-stopped · __dtsgLnEvt)
+- المانيفست: FOREGROUND_SERVICE_MEDIA_PROJECTION + ArbShareService + POST_NOTIFICATIONS + BLUETOOTH_CONNECT كلها حية (strings -e l)
+- نشر Cloudflare Pages بحساب المنصة المثبّت (758fcc82…): dtsg.pages.dev يقدّم DTSG_BUILD = v2.90.0 — وكل الأصول المصلّحة تحمل بصمة v290 وتردّ 200 — وزر APK المباشر حيّ في الرئيسية والصفحات القانونية (privacy تحقّق حياً: legal-ui?v=v290 + translations?v=v290 + 02-base.css?v=v290 ومفاتيح apk.* الثمانية في الترجمات الحية)
+
+Stage Summary:
+- v2.90.0 حيّة كاملة: GitHub main (73d206a) · GitHub Release apk-v2.90.0-build29 (latest) · Cloudflare Pages dtsg.pages.dev (v2.90.0)
+- المختبر الحي v290 (41 فحصاً) مُدرج في البطارية الدائمة (41/41)
+- المعلَّق على المالك: تثبيت APK v2.90.0 build29 من الرابط الدائم (يتحدث مباشرة فوق build28 — نفس شهادة الإنتاج) ثم الاختبار الميداني: ① الغرفة المحلية: إيموجي/رسالة صوتية/رسالة نصية بين الهاتفين ② أونو: الضيف يلعب دوره بيده والمؤقت لا يلعب عنه ③ دومينو: حجارة الخصم مقلوبة عند الضيف والتخطيط سليم ④ مشاركة الشاشة في غرفة تحكيم (الإصلاح هذه المرة على مستوى الخيوط — إن ظهر أي فشل فسيصل الآن باسم الاستثناء في حدث الحالة فنحدده فوراً) ⑤ زر التحميل أسفل الصفحة الرئيسية والقانونية
