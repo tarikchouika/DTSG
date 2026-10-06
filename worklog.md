@@ -1217,3 +1217,21 @@ Stage Summary:
 - rooms.js لم تُمسّ (عقد قاعدة 20) وكل مكتسبات v2.85–v2.88 موفورة بحرّاسها
 - إصلاح مشاركة الشاشة يتطلب بناء APK جديداً (build 28) من سير GitHub Actions — المعلَّق على المالك: مراقبة البناء ثم تثبيت v2.89.0 واختبار مشاركة الشاشة على هاتفه بأندرويد 14+ (زر الذهب → إذن النظام → البث للمرحّل)
 
+---
+Task ID: v2.89-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.89.0 — الدفع والنشر والتحقق من الAPK المنشور والموقع الحي
+
+Work Log:
+- فحوص ما قبل الدفع كلها خضراء: hygiene 5/5 · preflight سليم · سلسلة الحقن ناجحة محلياً · javac 21 ضد android.jar API 34: COMPILE OK
+- بطارية الانحدار الكاملة: 39/40 — الفاشل الوحيد «واجهة v284 (دخول+ترتيب)» تذبذب بيانات لوحة الصدارة موروث (0/0 رقائق ألعاب على قاعدة معزولة نظيفة) — أُعيد إنتاجه حرفياً عند HEAD البكر بgit stash (نفس الفشل 20✓/1✗) فليس انحداراً من هذه الجولة
+- الدفع إلى GitHub main (b621f8a) — أطلق بناء APK #28 على GitHub Actions ونجح (run 37506812800: completed success)
+- Release apk-v2.89.0-build28 منشور بعلم latest: DTSG-Gaming-App.apk (26.7MB) + sha256 — والرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّمه
+- التحقق من الAPK المنشور نفسه (تنزيل وفك): sha256 مطابق حرفياً (eae94a32…72c2d) — وDEX يحمل العقود الخمسة عشر كلها وفي مقدمتها إصلاح هذه الجولة (registerCallback قبل createVirtualDisplay — درس Android 14 + onStop نظيف) ومكتسبات v2.85-88 كاملة (MediaProjection 4288 · createVirtualDisplay · video/avc · RtmpLink amfString/sendSetChunkSize · __dtsgArbEvt · arbShareStart · __dtsgLnEvt · getDisplayMetrics [A53]) — والمانيفست يحمل أذونات الإسقاط الثلاثة + إعلان ArbShareService
+- نشر Cloudflare Pages بحساب المنصة المثبّت (758fcc82…): dtsg.pages.dev يقدّم DTSG_BUILD = v2.89.0 — وكل الأصول المصلّحة تحمل بصمة v289 وتردّ 200 — ورموز الإصلاح حيّة في الإنتاج (onlineIds + hostBlind في local-mp · Array.isArray في rd-app · game_id !== 'bl' وphase === 'matchEnd' في baloot-app) — وترويسات الأمان سليمة (HSTS + CSP + X-Frame-Options DENY)
+
+Stage Summary:
+- v2.89.0 حيّة كاملة: GitHub main (b621f8a) · GitHub Release apk-v2.89.0-build28 (latest) · Cloudflare Pages dtsg.pages.dev (v2.89.0)
+- المختبر الحي (13 لعبة × 102 فحصاً) وسلسلة مشاركة الشاشة (19/19) حرّاس دائمة في البطارية
+- المعلَّق على المالك: تثبيت APK v2.89.0 build28 من الرابط الدائم (يتحدث مباشرة فوق build27 — نفس شهادة الإنتاج) ثم الاختبار الميداني: ① الغرف المحلية بلعبة رامي/بلوت/أونو/حجر-ورقة-مقص (المزامنة والتحكم البشري) ② روندا الكلاسيكية (لا لعب آلي بعد الآن — الاختيار بشري) ③ مشاركة الشاشة في غرفة تحكيم من التطبيق (زر الذهب → إذن النظام → البث يظهر للأدمن) — وأي ملاحظة تُصلَّح بنموذج الجولات
+
