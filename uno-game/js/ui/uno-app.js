@@ -724,15 +724,30 @@
         (rs.driverId != null && String(rs.driverId) === String(meId)) ||
         (rs.driverId == null && String(rs.owner_id) === String(meId))));
       if (!rs || !rs.players || meId == null) return;
+      /* [v2.89·نمط بلوت v2.77] مقعد اللاعب يُشتق من ترتيب المقاعد المرجعي
+         (order: اللاعبون النشطون مرتبين بمقاعدهم — نفس ما يبني به المحرك
+         مقاعده) لا من فهرس مصفوفة players الخام: المصفوفة تشمل المتفرجين
+         وترتيبها ترتيب انضمام، فأي متفرج سبق لاعباً (أو مغادرة وسط
+         الجولة تعيد ترتيب الفهارس) يحرف المقعد عن مقعد المحرك فتسقط
+         حركات اللاعب أو تُنسب لغيره — جذر «مشكل مزامنة الأونو» في
+         الغرف المحلية (بلاغ المالك 2026-10-06). */
+      const order = (rs.order && rs.order.length)
+        ? rs.order
+        : rs.players.filter((p) => !p.spectate).sort((a, b) => (a.seat || 0) - (b.seat || 0)).map((p) => p.id);
+      let seatFromOrder = -1;
+      let myEntry = null;
       for (let i = 0; i < rs.players.length; i++) {
         const p = rs.players[i];
-        if (String(p.id) === String(meId)) {
-          this._isSpectator = !!p.spectate;
-          /* [v2.69] مقعد موسوم آلياً (مغادرة/غيب): لا يستعيد التحكم — لا عبث
-             بحركة مقعد يقودها السائق الآلي الآن */
-          if (!p.spectate && !p.isBot) this._roomSeat = i;
-          break;
-        }
+        if (String(p.id) === String(meId)) { myEntry = p; break; }
+      }
+      for (let i = 0; i < order.length; i++) {
+        if (String(order[i]) === String(meId)) { seatFromOrder = i; break; }
+      }
+      if (myEntry) {
+        this._isSpectator = !!myEntry.spectate;
+        /* [v2.69] مقعد موسوم آلياً (مغادرة/غيب): لا يستعيد التحكم — لا عبث
+           بحركة مقعد يقودها السائق الآلي الآن */
+        if (!myEntry.spectate && !myEntry.isBot && seatFromOrder >= 0) this._roomSeat = seatFromOrder;
       }
     },
     enterRoom: function (room, opts) {
@@ -760,7 +775,12 @@
       } else if (room.status !== 'playing' && !NS.st) {
         this._renderRoomWaiting();
       }
-      if (already && this._isDriver && room.status === 'playing') this._hostInitRoom(room);
+      /* [v2.89·نمط البلوت] ريماتش حقيقي فقط: المباراة السابقة منتهية
+         (phase === 'matchEnd') — كان الشرط «already && playing» يطلق init
+         ثانية في أول بدء جولة أيضاً (دخولان متتاليان: استئناف التسجيل ثم
+         تسليم البدء) ببذرة جديدة تُعيد بناء الجولة عند الجميع بلا داعٍ. */
+      if (already && this._isDriver && room.status === 'playing' &&
+          NS.st && NS.st.phase === 'matchEnd') this._hostInitRoom(room);
       this._startDriverTick();
       this._startReplayPoll();
       this._renderAll(true);
@@ -934,6 +954,9 @@
     _stopDriverTick: function () { if (this._driverT) { clearInterval(this._driverT); this._driverT = null; } },
     roomUiTimerTick: function () {
       const isRoom = this.roomMode;
+      /* [v2.89·عزل الألعاب] غرفة لعبة أخرى نشطة ⇒ مؤقّت متخلّف — لا لعب آلي */
+      const _aroom = (root.Rooms && root.Rooms.state) ? root.Rooms.state : null;
+      if (_aroom && _aroom.game_id && _aroom.game_id !== 'un') return;
       const tLimit = isRoom ? (this._roomTimer || 60) : this.config.timer;
       const s = NS.st;
       if (!tLimit || !s || s.phase !== 'play') {
@@ -1009,6 +1032,15 @@
     },
     roomDriverTick: function () {
       if (!this.roomMode || !this._isDriver) return;
+      /* [v2.89·عزل الألعاب — نمط البلوت] الغرفة النشطة صارت لعبة أخرى ⇒ مؤقّت
+         متخلّف من جولة سابقة: أوقفه ولا تقُد أحداً (كان يبث unmove داخل غرفة
+         اللعبة الجديدة). */
+      const _activeRoom = (root.Rooms && root.Rooms.state) ? root.Rooms.state : null;
+      if (_activeRoom && _activeRoom.game_id && _activeRoom.game_id !== 'un') {
+        this._stopDriverTick();
+        this.roomMode = false;
+        return;
+      }
       const s = NS.st;
       if (!s) return;
       if (s.phase !== 'play') return;

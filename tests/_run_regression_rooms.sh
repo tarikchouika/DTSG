@@ -105,8 +105,11 @@ env PORT="$QA_PORT" DM_TEST_MODE=1 DTSG_GHOST_GRACE_MS=1 USD_GOLD_RATE=100 \
     ADMIN_API_SECRET=qa-admin-secret PAYMENTS_SHARED_SECRET=qa-shared-secret \
     DM_SEED_SUPER_PW=QaTest12345 TELEGRAM_ADMIN_CHAT_ID=999000001 SUPPORT_SUPER_TG=999000001 \
     FINANCIALS_WEBHOOK_SECRET=whsec-news-test \
+    MEDIAMTX_RTMP_URL="rtmp://127.0.0.1:1935" ARB_STREAM_SECRET=qa-arb-secret \
     node server.js > /tmp/dtsg_regression.log 2>&1 &
 SRV=$!
+# [v2.89] MEDIAMTX_RTMP_URL/ARB_STREAM_SECRET: سلسلة مشاركة الشاشة (v289)
+# تحتاج عنوان المرحّل الموقّع من mine() — وهمي هنا (لا اتصال فعلي).
 # [v2.81·توحيد] الجناح الحيّ (_news_banner_v273) يرسل ترويسة السر إلزامياً منذ
 # حارس «الفشل المغلق» (v2.80·أمن) — القيمة موحّدة مع scripts/qa-env.sh (whsec-news-test
 # وهو نفسه سرّ الجناح المحلي سطر 31) فتتطابق المصافحات الثلاثة بلا متغير تصدير إضافي
@@ -229,6 +232,12 @@ run "v286 ملء الشاشة الحقيقي (ساكن)"  "tests/_v286_e2e_layou
 # فحص مصدر ثابت بلا خادم وبلا متصفح (يشمل فك PNG للأيقونة): آمن في أي بيئة.
 run "v287 الغامر وLocalNet (ساكن)"   "tests/_v287_localnet_immersive_test.js"
 run "v288 ألعاب المحلية+A53+تحكيم"  "tests/_v288_local_games_sync_test.js"
+# [v2.89] المختبر الحي الكامل: 13 لعبة في الغرف المحلية عبر جسر DTSGNative
+# مزيف (متصفحان حقيقيان) — يثبّت إصلاحات online المصفوفة والأعمى الزوجي
+# وعزل المؤقتات بين الألعاب ومقاعد order. وثانيهما سلسلة مشاركة الشاشة
+# من التطبيق (registerCallback قبل createVirtualDisplay + السلسلة الحية).
+run "v289 مختبر الألعاب المحلية الحي"  "tests/_v289_local_games_live_test.js"
+run "v289 سلسلة مشاركة الشاشة"          "tests/_v289_arb_share_chain_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

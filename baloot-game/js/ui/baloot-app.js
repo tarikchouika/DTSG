@@ -833,6 +833,7 @@
       const s = NS.state;
       const opts = Core.detectAshur(s.hands[seat]);
       const box = this.$('blActions');
+      if (!box) return;   /* [v2.89] حارس null — العرض قد يتأخر عن تبديل الصفحة */
       let html = '<p class="bl-actions-title"><b>' + T('blt.ashur') + '</b> <span>' + T('blt.ashurQ') + '</span></p><div class="bl-actions-row">';
       for (let i = 0; i < Math.min(3, opts.length); i++) {
         const o = opts[i];
@@ -871,6 +872,7 @@
     _showNamingActions: function (seat) {
       const s = NS.state;
       const box = this.$('blActions');
+      if (!box) return;   /* [v2.89] حارس null — العرض قد يتأخر عن تبديل الصفحة */
       let html = '<p class="bl-actions-title"><b>' + T('blt.naming') + '</b> <span>' + T('blt.namingQ') + '</span></p><div class="bl-actions-row">';
       for (let i = 0; i < 4; i++) {
         const su = Core.SUITS[i];
@@ -1221,8 +1223,15 @@
       } else if (room.status !== 'playing' && !NS.state) {
         this._renderRoomWaiting();
       }
-      /* ريماتش: رجع الحالت إلى playing والوضع ما زال عندنا — السائق يبادر */
-      if (already && this._isDriver && room.status === 'playing') {
+      /* ريماتش حقيقي فقط: رجع الحالت إلى playing والمباراة السابقة منتهية
+         (phase === 'matchEnd') — السائق يبادر بتهيئة جديدة.
+         [v2.89] كان الشرط «already && playing» يكفي فيطلق init ثانية في
+         أول بدء جولة أيضاً (دخولان متتاليان خلال ملّي ثانية: استئناف التسجيل
+         ثم تسليم البدء) ببذرة جديدة تُعيد بناء الجولة عند الجميع بلا داعٍ
+         وتخاطر بابتلاع حركة سريعة بين البناءين — شوهد حياً: init×2 في
+         سجل غرفة بلوت محلية بفارق 51ms. */
+      if (already && this._isDriver && room.status === 'playing' &&
+          NS.state && NS.state.phase === 'matchEnd') {
         this._hostInitRoom(room);
       }
       this._startDriverTick();
@@ -1496,6 +1505,9 @@
     },
     roomUiTimerTick: function () {
       const isRoom = this.roomMode;
+      /* [v2.89·عزل الألعاب] غرفة لعبة أخرى نشطة ⇒ مؤقّت متخلّف — لا لعب آلي */
+      const _aroom = (root.Rooms && root.Rooms.state) ? root.Rooms.state : null;
+      if (_aroom && _aroom.game_id && _aroom.game_id !== 'bl') return;
       const tLimit = isRoom ? (this._roomTimer || 60) : this.config.timer;
       const s = NS.state;
       if (!tLimit || !s || (s.phase !== 'ashur' && s.phase !== 'naming' && s.phase !== 'play')) {
@@ -1568,6 +1580,18 @@
     },
     roomDriverTick: function () {
       if (!this.roomMode || !this._isDriver) return;
+      /* [v2.89·عزل الألعاب] الغرفة النشطة عند المنصة صارت لعبة أخرى (غادرنا
+         غرفة البلوت وفتحنا غيرها) ⇒ هذا المؤقّت متخلّف من جولة سابقة: أوقفه
+         كلياً ولا تقُد أحداً — كان يستمر فيقود مقاعد بشرية غادرت ويبث حركات
+         blmove داخل غرفة اللعبة الجديدة (شوهد حياً في المختبر: حركة ashur
+         بلوتية في سجل غرفة أونو) ويصطدم بعرض الأفعال على DOM لم يعد موجوداً
+         (TypeError: innerHTML على null). */
+      const _activeRoom = (root.Rooms && root.Rooms.state) ? root.Rooms.state : null;
+      if (_activeRoom && _activeRoom.game_id && _activeRoom.game_id !== 'bl') {
+        this._stopDriverTick();
+        this.roomMode = false;
+        return;
+      }
       const s = NS.state;
       if (!s) return;
       if (s.phase !== 'ashur' && s.phase !== 'naming' && s.phase !== 'play') return;

@@ -1248,6 +1248,25 @@ jobs:
                               (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
                           projection = mpm.getMediaProjection(resultCode, data);
                           if (projection == null) { push("state", "failed", "no-proj"); return; }
+                          /* [v2.89·درس Android 14] إلزامي لتطبيقات targetSdk 34+:
+                             تسجيل Callback قبل createVirtualDisplay وإلا رُميت
+                             IllegalStateException (وثيقة أندرويد الرسمية: "If your
+                             app doesn't register the callback, any call to
+                             createVirtualDisplay() throws IllegalStateException")
+                             — هذا جذر «مشاركة الشاشة عبر التطبيق لا تزال فاشلة
+                             بعد إصلاح v2.88»: الإذن والخدمة والترميز كلها سليمة
+                             والإسقاط يسقط عند أول شاشة افتراضية. onStop = إيقاف
+                             نظيف عندما يُنهي المستخدم الإسقاط من مؤشر النظام. */
+                          try {
+                              projection.registerCallback(new android.media.projection.MediaProjection.Callback() {
+                                  @Override public void onStop() {
+                                      try { stop("projection-stopped"); } catch (Throwable ignored) { }
+                                  }
+                              }, null);
+                          } catch (Throwable t) {
+                              push("state", "failed", "callback");
+                              return;
+                          }
                           /* أبعاد الشاشة مع سقف 1280 للحافة الكبرى — بث خفيف ثابت */
                           DisplayMetrics dm = new DisplayMetrics();
                           try {

@@ -1234,7 +1234,13 @@
     return names;
   };
 
-  /** هل مقعد المحرك seat يحتاج لعباً آلياً من السائق؟ (بوت أو بشري منقطع) */
+  /** هل مقعد المحرك seat يحتاج لعباً آلياً من السائق؟ (بوت أو بشري منقطع)
+      [v2.89·جذر بلاغ المالك «روندا الكلاسيكية تلعب تلقائياً بلا تحكم البشريين»]
+      الشكلان معاً: الخادم يرسل online مصفوفة معرّفات (Object.keys) — والنسخ
+      المحلية القديمة كانت تحمل كائناً {id:1}: الكائن معها length=undefined
+      لا صفراً فكانت الحلقة لا تجد المطابقة أبداً ويعاد true لكل بشري متصل
+      فيتولّى الذكاء الاصطناعي مقاعدهم فوراً. القبول بالشكلين يمنع عودة
+      الجذر حتى لو وصلت غرفة قديمة الشكل. */
   App._seatNeedsDriver = function (seat) {
     const room = this._roomState();
     const order = (room && room.order) ? room.order : [];
@@ -1243,9 +1249,11 @@
     if (pid.indexOf('bot:') === 0) return true;
     /* بشري: إن لم يكن في المتصلين الحيّين → تولٍّ آلي */
     const online = (room && room.online) ? room.online : null;
-    if (!online || online.length === 0) return false;
-    for (let i = 0; i < online.length; i++) {
-      if (String(online[i]) === pid) return false;
+    if (!online) return false;
+    const onlineArr = Array.isArray(online) ? online : Object.keys(online);
+    if (onlineArr.length === 0) return false;
+    for (let i = 0; i < onlineArr.length; i++) {
+      if (String(onlineArr[i]) === pid) return false;
     }
     return true;
   };

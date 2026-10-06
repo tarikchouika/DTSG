@@ -156,15 +156,24 @@ console.log('═══ v2.88 · توافق ومسارات سالمة ═══')
     const i = tr.indexOf("'" + k + "':");
     ok(i !== -1 && tr.slice(i, i + 400).split("', '").length >= 3, 'مفتاح i18n ' + k + ' بأربع لغات');
   });
-  ok(read('package.json').indexOf('"version": "2.88.0"') !== -1, 'package.json = 2.88.0');
-  ok(read('js/main.js').indexOf("window.DTSG_BUILD = 'v2.88.0';") !== -1, 'DTSG_BUILD = v2.88.0');
+  /* [v2.89·قاعدة 22] البصمات تُشتق من package.json — لا رقم مكتوب يُحمرّ مع
+     كل ترقية (الحادثة الموثّقة في v2.88 نفسها تتكرر): الثلاثية متطابقة،
+     والأصول الأربعة يحمل آخر بصمة، والصفحات القانونية الثماني كذلك. */
+  const pkgV = JSON.parse(read('package.json')).version;
+  const stamp = 'v' + pkgV.split('.').slice(0, 2).join('');   /* 2.89.0 → v289 (عرف المستودع) */
+  const lockV = JSON.parse(read('package-lock.json')).version;
+  ok(pkgV === lockV, 'package.json = package-lock.json = ' + pkgV);
+  ok(read('js/main.js').indexOf("window.DTSG_BUILD = 'v" + pkgV + "';") !== -1, 'DTSG_BUILD = v' + pkgV);
   const idx = read('index.html');
-  ['js/i18n/translations.js?v=v288', 'js/games/ronda.js?v=v288', 'js/games/billiards.js?v=v288', 'js/core/arb-client.js?v=v288']
-    .forEach(function (f) { ok(idx.indexOf(f) !== -1, 'بصمة v288 في index.html: ' + f); });
+  ['js/i18n/translations.js', 'js/games/ronda.js', 'js/games/billiards.js', 'js/core/arb-client.js']
+    .forEach(function (f) {
+      const m = new RegExp(f.replace(/\./g, '\\.') + '\\?v=v(\\d+)').exec(idx);
+      ok(!!m && m[1] === stamp.slice(1), 'بصمة ' + f + ' = ' + stamp + ' في index.html');
+    });
   let legal = 0;
   ['about.html', 'contact.html', 'fairness.html', 'privacy.html', 'refund-policy.html', 'support.html', 'terms.html', 'admins.html']
-    .forEach(function (pg) { if (read(pg).indexOf('translations.js?v=v288') !== -1) legal++; });
-  ok(legal === 8, 'بصمة v288 للترجمات في الصفحات القانونية الثماني');
+    .forEach(function (pg) { if (read(pg).indexOf('translations.js?v=' + stamp) !== -1) legal++; });
+  ok(legal === 8, 'بصمة ' + stamp + ' للترجمات في الصفحات القانونية الثماني');
   const cl = read('CHANGELOG.md');
   ok(cl.indexOf('## v2.88.0') !== -1, 'CHANGELOG: كتلة v2.88.0 موجودة');
   ok(read('AGENTS.md').indexOf('قاعدة 25') !== -1 || read('AGENTS.md').indexOf('[v2.88]') !== -1,

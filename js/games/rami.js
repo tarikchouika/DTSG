@@ -3682,6 +3682,18 @@ class RamiUIAdapter {
        لكشف مؤقت عدّ ميت (المعرفات لا تكفي — قد تشير لمؤقت ميّت). */
     this._lastTickAt = Date.now();
     if (!this.game || this.game.gamePhase !== 'PLAYING') return;
+    /* [v2.89·عزل الألعاب] الغرفة النشطة صارت لعبة أخرى (غادرنا غرفة الرامي
+       وفتحنا غيرها) ⇒ هذا المؤقّت متخلّف من جولة سابقة: لا عدّ ولا لعب
+       آلي ولا بثّ — كان يستمر بالعد حتى الصفر فيبثّ autoTimeout داخل غرفة
+       اللعبة الجديدة (شوهد حياً في المختبر: حركة رامي في سجل غرفة بلوت)
+       فيلوّث السجل ويربك المزامنة — جذر «مشكل مزامنة» ميداني بعد الرامي. */
+    if (this.multiplayer && typeof Rooms !== 'undefined' && Rooms && Rooms.state && Rooms.state.game_id && Rooms.state.game_id !== 'rm') {
+      if (this.timerId) { clearInterval(this.timerId); this.timerId = null; }
+      if (this.watchdogId) { clearInterval(this.watchdogId); this.watchdogId = null; }
+      this._timerGen = (this._timerGen || 0) + 1;
+      this.multiplayer = false;
+      return;
+    }
     const rm = this.game.roundManager;
     rm.turnSecondsRemaining--;
     const secStr = Math.max(0, rm.turnSecondsRemaining) + 's';

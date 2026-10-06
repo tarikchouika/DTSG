@@ -430,6 +430,33 @@
     return room;
   }
 
+  /* [v2.89] الاختيار الأعمى الزوجي (rp/pn) — عقد الخادم نفسه في غرفة بلا
+     خادم (rooms/room-manager.js): تسجيل الاختيار عند المضيف + بثّ «اختيار
+     وقع» ببيانات فارغة (القيمة لا تُكشف على السلك) وعند اكتمال اللاعبين
+     النشطين يُصنَّع blindResult بالقيمتين معاً فتنكشف الأوراق عند الجميع.
+     الجذر: كانت الغرفة المحلية تمرّر blind كحركة عادية ولا يصنّع أحد النتيجة
+     فتبقى الأوراق مقلوبة للأبد عند الطرفين — بلاغ المالك «مشكل مزامنة
+     في حجر-ورقة-مقص». لا يُدوَّن شيء في السجل (عقد الخادم: إرجاع مبكر). */
+  function hostBlind(d, fromId) {
+    if (!S.room || d.action !== 'blind') return;
+    S.room.rev = (S.room.rev || 0) + 1;
+    if (!S.room.blindPicks) S.room.blindPicks = {};
+    var pv = (d.data && d.data.d !== undefined) ? d.data.d : (d.data || {});
+    S.room.blindPicks[String(fromId)] = pv;
+    var blindMove = { room_id: S.room.id, action: 'blind', data: {}, from_id: fromId, rev: S.room.rev };
+    broadcast({ t: 'move', d: blindMove });
+    feedMove(blindMove);
+    var active = S.room.players.filter(function (p) { return !p.spectate && !p.leftRound; });
+    if (active.length >= 2 && active.every(function (p) { return S.room.blindPicks[String(p.id)] !== undefined; })) {
+      var dirs = {};
+      active.forEach(function (p) { dirs[p.id] = S.room.blindPicks[String(p.id)]; });
+      delete S.room.blindPicks;
+      var res = { room_id: S.room.id, action: 'blindResult', data: { dirs: dirs }, from_id: null, rev: S.room.rev };
+      broadcast({ t: 'move', d: res });
+      feedMove(res);
+    }
+  }
+
   /* ── المضيف: استقبال رسائل الضيوف ── */
   function hostOnMessage(peer, ev) {
     var m;
@@ -454,6 +481,7 @@
       d.room_id = S.room.id;
       d.from_id = peer.userId;
       d.rev = (S.room.rev || 0) + 1;
+      if (d.action === 'blind') { hostBlind(d, peer.userId); return; }   /* [v2.89] أعمى زوجي محلي */
       if (d.action && d.data && typeof d.data === 'object') {
         S.history.push({ action: d.action, data: d.data, by: peer.userId, ts: Date.now() });
         if (S.history.length > 2000) S.history.shift();
@@ -501,12 +529,20 @@
   function serialize(room) {
     /* نسخة نظيفة قابلة للإرسال — نفس شكل serializeRoom الخادمي */
     var r = JSON.parse(JSON.stringify(room));
-    r.online = {};
+    /* [v2.89·جذر روندا الكلاسيكية] online مصفوفة معرّفات كما يرسلها الخادم
+       حرفياً (rooms/shared.js: online: Object.keys(room.online)) — كان الجسم
+       المحلي يرسلها كائناً {id:1} فأي مستهلك يقارن online.length (كروندا
+       الكلاسيكية في _seatNeedsDriver) يرى undefined لا صفراً فيمرّ الحلقة
+       فارغة ويعتبر كل بشري منقطعاً ⇒ السائق يلعب آلياً بدل اللاعبين
+       (بلاغ المالك: «روندا الكلاسيكية تلعب تلقائياً بلا تحكم البشريين»). */
+    var onlineIds = [];
+    var seen = {};
     room.players.forEach(function (p) {
       var peer = S.peers.filter(function (x) { return String(x.userId) === String(p.id); })[0];
-      if (peer) r.online[p.id] = 1;
+      if (peer && !seen[String(p.id)]) { seen[String(p.id)] = 1; onlineIds.push(p.id); }
     });
-    r.online[room.owner_id] = 1;
+    if (!seen[String(room.owner_id)]) onlineIds.push(room.owner_id);
+    r.online = onlineIds;
     r.rematch = room.rematch ? {
       participants: (S.room.rematch.participants || []).slice(),
       votes: JSON.parse(JSON.stringify(S.room.rematch.votes || {})),
@@ -799,6 +835,7 @@
       S.room.status = 'playing';
       S.room.settled = false;
       S.settleDone = false;
+      if (S.room.blindPicks) delete S.room.blindPicks;   /* [v2.89] جولة جديدة = أعمى نظيف */
       refreshDerived(S.room);
       broadcast({ t: 'room', room: serialize(S.room) });
       feedRoom(serialize(S.room));
@@ -806,6 +843,11 @@
     },
     sendMove: function (action, data, state) {
       if (S.mode === 'host') {
+        if (action === 'blind') {
+          /* [v2.89] اختيار المضيف الأعمى يمرّ بالمجمّع نفسه (لا سلك بقيمة) */
+          hostBlind({ action: 'blind', data: data }, myId());
+          return Promise.resolve({ ok: true, data: { room: serialize(S.room) } });
+        }
         var d = { room_id: S.room.id, action: action, data: data || {}, from_id: myId(), rev: (S.room.rev || 0) + 1 };
         if (data && typeof data === 'object') {
           S.history.push({ action: action, data: data, by: myId(), ts: Date.now() });
