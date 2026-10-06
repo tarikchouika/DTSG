@@ -171,6 +171,11 @@ console.log('═══ v2.88 · توافق ومسارات سالمة ═══')
     'AGENTS.md: قاعدة v2.88 موثّقة');
   const runner = read('tests/_run_regression_rooms.sh');
   ok(runner.indexOf('_v288_local_games_sync_test.js') !== -1, 'الحرس مُدرج في عدّاء البطارية');
+  const wfAnchor = read('.github/workflows/build-apk.yml');
+  ok(wfAnchor.indexOf('anchor2 = \'<uses-permission android:name="android.permission.CAMERA" /> <!-- [v2.83] LocalMP QR -->\'') !== -1 &&
+    wfAnchor.indexOf("anchor2 = \'<uses-permission android:name=\"android.permission.BLUETOOTH_CONNECT\"") === -1,
+    'درس بناء #25: مرساة أذونات الإسقاط = CAMERA (8.4 السابقة زمنياً) لا BLUETOOTH (8.6 اللاحقة)');
+  ok(exists('scripts/injection_chain_verify.sh'), 'سكربت محاكاة سلسلة الحقن موجود (درس #25 الوقائي)');
 }
 
 console.log('═══ v2.88 · الترجمة الفعلية للجافا (تخطٍّ بيئي بلا JDK — درس #24) ═══');

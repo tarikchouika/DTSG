@@ -1937,12 +1937,15 @@ jobs:
 
           # ④ [v2.88·التحكيم] أذونات الإسقاط + إعلان الخدمة في AndroidManifest
           #    (خدمة الأمامية من نوع mediaProjection إلزامية للنشر من API 29+).
+          #    [درس بناء #25] المرساة = إذن الكاميرا (خطوة 8.4 السابقة) لا إذن
+          #    بلوتوث LocalNet — ذاك تُحقنه خطوة 8.6 اللاحقة فالرسو عليه هنا أسقط
+          #    البناء (السير خطوات متسلسلة: 8.5 يعمل قبل 8.6).
           p4 = "android/app/src/main/AndroidManifest.xml"
           m = io.open(p4, encoding="utf-8").read()
           if "FOREGROUND_SERVICE_MEDIA_PROJECTION" not in m:
-              anchor2 = '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" /> <!-- [v2.87] LocalNet -->'
+              anchor2 = '<uses-permission android:name="android.permission.CAMERA" /> <!-- [v2.83] LocalMP QR -->'
               if anchor2 not in m:
-                  sys.exit("X قالب AndroidManifest تغيّر: لم أجد مرساة BLUETOOTH_CONNECT — راجع خطوة الحقن (8.5-4)")
+                  sys.exit("X قالب AndroidManifest تغيّر: لم أجد مرساة CAMERA — راجع خطوة الحقن (8.5-4)")
               m = m.replace(anchor2, anchor2 + "\n" +
                   "    <!-- [v2.88] بث التحكيم: إسقاط الشاشة عبر خدمة أمامية -->\n" +
                   "    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />\n" +
