@@ -391,6 +391,28 @@
   function feedRoom(room) {
     try { root.Rooms._onUpdate(room); } catch (e) { warn('feedRoom', e && e.message); }
   }
+  /* ═══ [v2.90·بلاغ المالك] التفاعل/الرسائل في الغرفة المحلية ═══
+     الجذر: sendReact/sendQuickMsg/toggleVoice في rooms.js ترسل كلها بنداء
+     إرسال إلى الخادم (وتصل الأحداث عبر SSE) — والغرفة المحلية بلا خادم إطلاقاً
+     فلا يصل شيء للطرف الآخر أبداً (الأيقونة الطافية والرموز والرسائل الصوتية
+     والكتابية «لا تُزامن بين المستخدمين» حرفياً كما ورد البلاغ).
+     العلاج بنمط الغرفة نفسه: رسائل react/chat/voice على القناة المحلية،
+     المضيف مرحّل (يختم هوية المرسل ويبث للبقية ويغذي معالجات SSE القائمة
+     نفسها عند نفسه) — rooms.js لم يُمسّ سطراً (عقد قاعدة 20):
+     Rooms._onReact/_onChat/_onVoice هي ذاتها مستقبلات room:react/chat/voice. */
+  var VOICE_MAX_B64 = 200000;   /* سقف آمن تحت حد سطر الجسر الأصلي 262144 */
+  function feedReact(d) { try { root.Rooms._onReact(d); } catch (e) {} }
+  function feedChat(d) { try { root.Rooms._onChat(d); } catch (e) {} }
+  function feedVoice(d) { try { root.Rooms._onVoice(d); } catch (e) {} }
+  function mkReact(emoji, fromId, fromName) {
+    return { room_id: S.room ? S.room.id : null, emoji: String(emoji || '').slice(0, 16), from_id: fromId, from_name: fromName, ts: Date.now() };
+  }
+  function mkChat(text, fromId, fromName) {
+    return { room_id: S.room ? S.room.id : null, text: String(text || '').slice(0, 200), from_id: fromId, from_name: fromName, to_id: null, to_name: '', created_at: Date.now() };
+  }
+  function mkVoice(audio, dur, fromId, fromName) {
+    return { room_id: S.room ? S.room.id : null, audio: String(audio || ''), dur: Math.max(0, Math.min(10, parseInt(dur, 10) || 0)), from_id: fromId, from_name: fromName, ts: Date.now() };
+  }
   function makeRoom(gameId) {
     var u = root.AUTH.user;
     var code = NATIVE ? genCode8() : ('L' + Math.random().toString(36).slice(2, 8).toUpperCase());
@@ -489,6 +511,30 @@
       S.room.rev = d.rev;
       broadcast({ t: 'move', d: d });
       feedMove(d);
+      return;
+    }
+    /* [v2.90] تفاعل/رسالة/صوت من ضيف: ختم هوية المرسل + ترحيل للبقية + تغذية
+       معالجات SSE القائمة عند المضيف نفسه (نمط move بالضبط) */
+    if (m.t === 'react') {
+      var rd = mkReact(m.d && m.d.emoji, peer.userId, peer.name || (m.d && m.d.from_name) || '');
+      broadcast({ t: 'react', d: rd }, peer.chan);
+      feedReact(rd);
+      return;
+    }
+    if (m.t === 'chat') {
+      var cd = mkChat(m.d && m.d.text, peer.userId, peer.name || (m.d && m.d.from_name) || '');
+      broadcast({ t: 'chat', d: cd }, peer.chan);
+      feedChat(cd);
+      return;
+    }
+    if (m.t === 'voice') {
+      var vd = m.d || {};
+      vd.room_id = S.room.id;
+      vd.from_id = peer.userId;
+      vd.from_name = peer.name || vd.from_name || '';
+      if (typeof vd.audio !== 'string' || !vd.audio.length || vd.audio.length > VOICE_MAX_B64) return;
+      broadcast({ t: 'voice', d: vd }, peer.chan);
+      feedVoice(vd);
       return;
     }
     if (m.t === 'settle') {
@@ -644,6 +690,15 @@
       return;
     }
     if (m.t === 'move') { feedMove(m.d); return; }
+    /* [v2.90] أحداث التفاعل/الرسائل من المضيف (أو المرحّلة من ضيف آخر) */
+    if (m.t === 'react') { feedReact(m.d); return; }
+    if (m.t === 'chat') { feedChat(m.d); return; }
+    if (m.t === 'voice') {
+      var vd = m.d || {};
+      if (typeof vd.audio !== 'string' || !vd.audio.length || vd.audio.length > VOICE_MAX_B64) return;
+      feedVoice(vd);
+      return;
+    }
     if (m.t === 'settle') {
       try { root.Rooms._onSettle && root.Rooms._onSettle(m.d); } catch (e) {}
       return;
@@ -897,6 +952,83 @@
         try { root.Rooms._dispatchReplay({ room_id: S.room.id, history: S.history.slice() }); } catch (e) {}
       } else sendRaw(S.guestChan, { t: 'replayReq' });
       return true;
+    },
+
+    /* ═══ [v2.90] بدائل التفاعل/الرسائل — بديلات Rooms عند نشاط الغرفة المحلية ═══ */
+    sendReact: function (emoji) {
+      if (!S.room) return;
+      var d = mkReact(emoji, myId(), myName());
+      /* عرض فوري عند المرسل (نفس سلوك rooms.js) ثم البث على القناة المحلية */
+      try {
+        root.Rooms._spawnReact(d.emoji, d.from_name || '');
+        root.Rooms._toggleReactPanel(false);
+      } catch (e) {}
+      if (S.mode === 'host') broadcast({ t: 'react', d: d });
+      else sendRaw(S.guestChan, { t: 'react', d: d });
+    },
+    sendQuickMsg: function () {
+      if (!S.room) return;
+      var inp = null;
+      try { inp = document.getElementById('roomReactInput'); } catch (e) {}
+      var text = inp ? String(inp.value || '').trim() : '';
+      if (!text) return;
+      if (inp) inp.value = '';
+      var d = mkChat(text, myId(), myName());
+      /* عند المرسل: يُخزّن في سجل المحادثة المحلي ويعرض (نفس عقد room:chat) */
+      feedChat(d);
+      try { root.Rooms._toggleReactPanel(false); } catch (e) {}
+      if (S.mode === 'host') broadcast({ t: 'chat', d: d });
+      else sendRaw(S.guestChan, { t: 'chat', d: d });
+    },
+    toggleVoice: function () {
+      var Rooms = root.Rooms;
+      if (Rooms._mr) { Rooms.stopVoice(); return; }   /* تسجيل جارٍ → إيقاف (نفس الأصل) */
+      if (!S.room) return;
+      if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === 'undefined') {
+        if (typeof root.toast === 'function') root.toast('🎤 المتصفح لا يدعم تسجيل الصوت', 'err');
+        return;
+      }
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        var rec;
+        try { rec = new MediaRecorder(stream); } catch (e) {
+          if (typeof root.toast === 'function') root.toast('🎤 فشل بدء التسجيل', 'err');
+          return;
+        }
+        Rooms._mr = { rec: rec, chunks: [], stream: stream, start: Date.now() };
+        rec.ondataavailable = function (e) { if (e.data && e.data.size && Rooms._mr) Rooms._mr.chunks.push(e.data); };
+        rec.onstop = function () {
+          var mr = Rooms._mr; Rooms._mr = null; Rooms._renderVoiceRec(false);
+          if (Rooms._voiceTi) { clearInterval(Rooms._voiceTi); Rooms._voiceTi = null; }
+          try { mr.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+          var blob = new Blob(mr.chunks, { type: mr.rec.mimeType || 'audio/webm' });
+          var dur = Math.max(1, Math.min(10, Math.round((Date.now() - mr.start) / 1000)));
+          if (!blob.size) { if (typeof root.toast === 'function') root.toast('🎤 تسجيل فارغ', 'warn'); return; }
+          var fr = new FileReader();
+          fr.onload = function () {
+            var audio = String(fr.result || '');
+            if (!audio || audio.length > VOICE_MAX_B64) {
+              if (typeof root.toast === 'function') root.toast(T('lmp.voiceTooBig', 'الرسالة الصوتية كبيرة جداً للشبكة المحلية'), 'warn');
+              return;
+            }
+            var d = mkVoice(audio, dur, myId(), myName());
+            feedVoice(d);   /* فقاعة عند المرسل أيضاً (نفس عقد الخادم) */
+            if (S.mode === 'host') broadcast({ t: 'voice', d: d });
+            else sendRaw(S.guestChan, { t: 'voice', d: d });
+            if (typeof root.toast === 'function') root.toast('🎤 تم إرسال الرسالة الصوتية', 'ok');
+          };
+          fr.readAsDataURL(blob);
+        };
+        rec.start();
+        Rooms._renderVoiceRec(true);
+        Rooms._voiceTi = setInterval(function () {
+          var elx = document.getElementById('roomVoiceTimer');
+          var s = Math.min(10, Math.round((Date.now() - Rooms._mr.start) / 1000));
+          if (elx) elx.textContent = String(s);
+        }, 250);
+        Rooms._voiceTimer = setTimeout(function () { Rooms.stopVoice(); }, 10000);
+      }).catch(function (e) {
+        if (typeof root.toast === 'function') root.toast('🎤 لا يمكن الوصول للميكروفون: ' + (e && e.message ? e.message : 'مرفوض'), 'err');
+      });
     },
     leaveRoom: function () { teardown(true); return Promise.resolve({ ok: true }); },
     leaveQuiet: function () { teardown(true); },
@@ -1352,7 +1484,12 @@
   LocalMP.uiStart = function () {
     LocalMP.startGame().then(function () {
       uiClose();
-      try { root.Rooms.openModal(); } catch (e) {}
+      /* [v2.90·جذر بلاغ الأونو] لا تفتح مودال الغرفة هنا: startGame يقلب الحالة
+         playing فيبني _onUpdate اللعبة فوراً عند الجميع — ثم كان openModal يفوق
+         اللعبة بمودال اللوبي (z=1000) فيبتلع كل نقرات المضيف على بطاقاته، ولا
+         يجد اللاعب يداه قابلة للعب فيلعب المؤقت دوره آلياً عند انتهائه
+         («يتعذر على اللاعب المستضاف لعب دوره، والدور يلعب آلياً عند انتهاء
+         المؤقت» حرفياً كما ورد البلاغ). من يريد اللوبي يفتحه من هيدر اللعبة. */
     });
   };
   LocalMP.uiLeave = function () { LocalMP.leaveRoom(); };
@@ -1473,6 +1610,11 @@
     wrap('startRematch', LocalMP.startRematch);
     wrap('voteRematch', LocalMP.voteRematch);
     wrap('requestReplay', function () { LocalMP.requestReplay(); return true; });
+    /* [v2.90] التفاعل/الرسائل الصوتية والكتابية: في الغرفة المحلية تُبث على
+       القناة المحلية (بلا خادم) — الجذر: كانت تذهب لAPI الخادم فتضيع */
+    wrap('sendReact', LocalMP.sendReact);
+    wrap('sendQuickMsg', LocalMP.sendQuickMsg);
+    wrap('toggleVoice', LocalMP.toggleVoice);
     /* [v2.83] لا جلب رصيد من الخادم داخل غرفة ودّية بلا مال (ولضيف بلا جلسة: يمنع ضجيج 401) */
     if (typeof Rooms._refreshGold === 'function') {
       var origGold = Rooms._refreshGold;

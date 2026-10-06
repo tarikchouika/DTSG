@@ -125,6 +125,32 @@ return bnav +
 '<a href="support.html" data-i18n="ui.support">الدعم</a>' +
 '</div>' +
 '</div>' +
+/* [v2.90] تحميل التطبيق مباشرة (APK) — أسفل كل الصفحات القانونية (طلب المالك):
+   زر التنزيل الدائم (آخر Release موقّع) + خطوات مبسطة لتثبيت APK وتجاوز
+   تحذير Google Play Protect «تطبيق غير معروف» — الترجمة عبر data-i18n
+   (translateStatic تُستدعى بعد الحقن فيُترجم مع البقية). */
+'<div class="apk-dl" id="apkDl">' +
+'<div class="apk-dl-main">' +
+'<span class="apk-dl-logo" aria-hidden="true"><i class="fa-brands fa-android"></i></span>' +
+'<span class="apk-dl-txt">' +
+'<b data-i18n="apk.dlTitle">حمّل تطبيق DTSG للأندرويد</b>' +
+'<small data-i18n="apk.dlSub">آخر إصدار رسمي موقّع — تنزيل مباشر (APK) بلا متجر</small>' +
+'</span>' +
+'<a class="apk-dl-btn" href="https://github.com/tarikchouika/DTSG/releases/latest/download/DTSG-Gaming-App.apk" rel="noopener">' +
+'<i class="fa-solid fa-download" aria-hidden="true"></i> ' +
+'<span data-i18n="apk.dlBtn">تحميل مباشر (APK)</span>' +
+'</a>' +
+'</div>' +
+'<details class="apk-dl-steps" id="apkDlSteps">' +
+'<summary><i class="fa-solid fa-shield-halved" aria-hidden="true"></i> <span data-i18n="apk.stepsTitle">منعك Play Protect عند التثبيت؟ الخطوات البسيطة</span></summary>' +
+'<ol>' +
+'<li data-i18n="apk.step1">اضغط زر التحميل — إن حذّرك المتصفح من الملف اضغط «تنزيل على أي حال».</li>' +
+'<li data-i18n="apk.step2">بعد اكتمال التنزيل افتح الملف (من الإشعار أو شريط التنزيلات) واضغط «تثبيت».</li>' +
+'<li data-i18n="apk.step3">إن أظهر Play Protect «تطبيق غير آمن/غير معروف»: اضغط «مزيد من التفاصيل» ثم «تثبيت على أي حال» — التطبيق موقّع بشهادتنا الرسمية والتحذير تلقائي لكل ما هو خارج المتجر.</li>' +
+'<li data-i18n="apk.step4">إن طُلب إذن «تثبيت تطبيقات غير معروفة»: اضغط «الإعدادات» وفعّل الإذن للمصدر الذي حملت منه ثم عد للتثبيت — يُطلب مرة واحدة فقط.</li>' +
+'</ol>' +
+'</details>' +
+'</div>' +
 '</footer>';
 }
 

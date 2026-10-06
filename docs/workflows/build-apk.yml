@@ -1236,13 +1236,33 @@ jobs:
                       }
                   }
           
-                  /* الخدمة جاهزة (الإشعار ظاهر) → الإسقاط والترميز والنشر */
+                  /* الخدمة جاهزة (الإشعار ظاهر) → الإسقاط والترميز والنشر
+                     [v2.90·الجذر الحقيقي لاستمرار فشل مشاركة الشاشة بعد إصلاحي
+                     v2.88 وv2.89] الخدمة تستدعي هذا من onStartCommand — أي على
+                     الخيط الرئيسي للتطبيق — و RtmpLink.connect() يفتح Socket
+                     ويصافح RTMP (شبكة حقيقية على السلك) وأندرويد يرمي
+                     NetworkOnMainThreadException حتماً لأي شبكة على الخيط
+                     الرئيسي فيسقط البث كل مرة بعد منح الإذن مباشرة: الإذن
+                     والخدمة والإسقاط كلها تعمل ثم يموت النشر صامتاً — ولهذا
+                     لم يكشفه مختبر v2.88 (JVM مكتبي بلا حارس الخيط) ولا
+                     سلسلة v2.89 (جسر مزيف — الجافا لا تعمل أصلاً). العلاج:
+                     السلسلة كاملة على خيط خلفي مخصص (الإسقاط والترميز وفتح
+                     RTMP كلها آمنة على خيط خلفي، و push() تدخل الواجهة عبر
+                     runOnUiThread من الأساس) — درس أندرويد: لا شبكة على الخيط
+                     الرئيسي أبداً. */
                   void beginProjection(int resultCode, android.content.Intent data) {
                       if (running) return;
                       final String url = pendingUrl, path = pendingPath;
                       pendingUrl = null;
                       pendingPath = null;
                       if (url == null || path == null) { push("state", "failed", "no-target"); return; }
+                      new Thread(new Runnable() {
+                          @Override public void run() { beginProjectionBg(resultCode, data, url, path); }
+                      }, "arb-begin").start();
+                  }
+                  /* جسم السلسلة — يعمل على الخيط الخلفي arb-begin حصراً */
+                  void beginProjectionBg(int resultCode, android.content.Intent data, String url, String path) {
+                      if (running) return;
                       try {
                           MediaProjectionManager mpm =
                               (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
@@ -1316,7 +1336,10 @@ jobs:
                           }, "arb-enc");
                           encThread.start();
                       } catch (Throwable t) {
-                          push("state", "failed", "init");
+                          /* [v2.90] اسم الاستثناء في القناة — تشخيص ميداني: أي
+                             فشل مستقبلي يصل لسجل الأحداث باسمه لا بـ init مجردة */
+                          String cn = (t != null && t.getClass() != null) ? t.getClass().getSimpleName() : "?";
+                          push("state", "failed", "init:" + cn);
                           stop("init-failed");
                       }
                   }

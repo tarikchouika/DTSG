@@ -952,6 +952,22 @@
       }, 1000);
     },
     _stopDriverTick: function () { if (this._driverT) { clearInterval(this._driverT); this._driverT = null; } },
+    /* [v2.90·بلاغ المالك] هل الواجهة محجوبة فوق اللعبة؟ مودال الغرفة أو
+       تراكب الغرفة المحلية أو نافذة الإعدادات فوق الطاولة يعني أن اللاعب
+       لا يستطيع النقر أصلاً — فلا معنى للعب دوره آلياً عند انتهاء المؤقت
+       (كان المؤقت يعد ويعوض غياب النقرات بلعب آلي باسم اللاعب بينما السبب
+       حجب الواجهة نفسها). عند الحجب: يُجمَّد العدّ (يعاد ضبط لحظة آخر فعل)
+       ولا لعب آلي — وبإغلاق المودال يستأنف اللاعب دوره بكامل وقته. */
+    _uiBlocked: function () {
+      try {
+        var ids = ['roomModal', 'localMpOverlay', 'roomSettingsModal'];
+        for (var i = 0; i < ids.length; i++) {
+          var m = document.getElementById(ids[i]);
+          if (m && m.classList.contains('show')) return true;
+        }
+      } catch (e) {}
+      return false;
+    },
     roomUiTimerTick: function () {
       const isRoom = this.roomMode;
       /* [v2.89·عزل الألعاب] غرفة لعبة أخرى نشطة ⇒ مؤقّت متخلّف — لا لعب آلي */
@@ -1004,6 +1020,14 @@
       }
       // auto-play on timeout for local turn in room
       const meSeat = this._mySeat(s);
+      /* [v2.90] الواجهة محجوبة فوق اللعبة؟ جمّد العد ولا تلعب آلياً باسم
+         اللاعب — يُمنح كامل وقته بعد إغلاق ما يحجب (بلاغ المالك: «الدور
+         يلعب بشكل آلي عند انتهاء المؤقت»). */
+      if (isRoom && this._uiBlocked()) {
+        this._lastActAt = Date.now();
+        this._autoPlayedTurn = null;
+        return;
+      }
       if (left <= 0 && this._isHumanSeat(s, s.turn) && s.turn === meSeat && (!isRoom || !this._isSpectator)) {
         if (!this._autoPlayedTurn || this._autoPlayedTurn !== s.turn + s.discard.length + s.drawn) {
           this._autoPlayedTurn = s.turn + s.discard.length + s.drawn; // prevent spamming

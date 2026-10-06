@@ -160,6 +160,13 @@
       this._turnTimerId = setInterval(function () {
         const sv = self.game ? self.game.view() : null;
         if (!sv || sv.phase !== 'play') { self.stopTurnTimer(); return; }
+        /* [v2.90·بلاغ المالك] واجهة محجوبة فوق الطاولة (مودال الغرفة أو تراكب
+           الغرفة المحلية أو الإعدادات)؟ جمّد العد ولا تلعب آلياً باسم اللاعب
+           — يحصل على كامل وقته بعد إغلاق ما يحجب. */
+        if (self.room && self.room.on && self._uiBlocked()) {
+          self._turnTimerLeft = tLimit;
+          return;
+        }
         self._turnTimerLeft--;
         self.renderTurnTimer();
         if (self._turnTimerLeft <= 0) {
@@ -179,6 +186,8 @@
     },
     _autoPlayLocal: function() {
       if (!this.game || !this.game.state || this.game.state.phase !== 'play') return;
+      /* [v2.90] لا لعب آلي باسم اللاعب والواجهة محجوبة فوق الطاولة */
+      if (this.room && this.room.on && this._uiBlocked()) return;
       const turn = this.game.state.turn;
       const acts = this.game.legalMoves(turn);
       if (acts && acts.length > 0) {
@@ -589,7 +598,12 @@
       const oppTiles3 = this.$('dmOppTiles3');
 
       if (numPlayers === 2) {
-        const html2p = (isAI || (inRoom && me === 0))
+        /* [v2.90·جذر بلاغ المالك] في الغرفة: قطع الخصم مقلوبة دائماً عند كل
+           الطرفين — كان الشرط (isAI || me===0) يجعل الضيف (مقعد 1) يرى يد
+           المضيف بأرقامها كاملة وجهها مكشوفاً فوقها (منطق الجهاز الواحد
+           dmPickP2 لا مكان له ضد خصم عن بعد). الوضع المحلي المشترك فقط
+           (بلا غرفة) يُبقي منطق التسليم اليدوي. */
+        const html2p = (isAI || inRoom)
           ? R.backsHTML(view.handsCount[opp] || 0)
           : (() => {
               const legalOpp = {};
@@ -835,6 +849,17 @@
     mySeatNum: function () {
       if (this.config.mode === 'local' && !this.room) return this._revealedSeat || 0;
       return (this.room && this.room.on) ? this.room.mySeat : 0;
+    },
+    /* [v2.90] هل هناك نافذة فوق الطاولة تحجب تفاعل اللاعب؟ */
+    _uiBlocked: function () {
+      try {
+        var ids = ['roomModal', 'localMpOverlay', 'roomSettingsModal'];
+        for (var i = 0; i < ids.length; i++) {
+          var m = document.getElementById(ids[i]);
+          if (m && m.classList.contains('show')) return true;
+        }
+      } catch (e) {}
+      return false;
     },
     oppSeatNum: function () { return 1 - this.mySeatNum(); },
 

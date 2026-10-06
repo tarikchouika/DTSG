@@ -79,6 +79,29 @@ async function wait(page, fn, timeout, arg) {
   ok(beginBody.indexOf('public void onStop()') > 0, 'onStop يوقف الإسقاط نظيفاً عند إنهاء المستخدم');
   ok(/registerCallback[\s\S]{0,400}stop\("projection-stopped"\)/.test(beginBody), 'onStop يستدعي stop("projection-stopped")');
 
+  /* ═══ [v2.90] الجذر الحقيقي الثاني: لا شبكة على الخيط الرئيسي ═══
+     بلاغ المالك بعد build28 (v2.89): «مشاركة الشاشة عولجت مرتين ولا تزال فاشلة».
+     الجذر المكتشف: الخدمة تستدعي beginProjection من onStartCommand (الخيط
+     الرئيسي) و RtmpLink.connect() يفتح Socket ويصافح RTMP — أندرويد يرمي
+     NetworkOnMainThreadException حتماً فيموت البث بعد منح الإذن مباشرة كل مرة
+     (لم يكشفه مختبر v2.88 JVM ولا سلسلة v2.89 — جسر مزيف بلا جافا).
+     العلاج: السلسلة كلها (إسقاط/ترميز/RTMP) على خيط خلفي arb-begin. */
+  const bgIdx = wf.indexOf('void beginProjectionBg(int resultCode, android.content.Intent data, String url, String path)');
+  ok(bgIdx > 0, '[v2.90] beginProjectionBg موجود (جسم السلسلة على خيط خلفي)');
+  const bgBody = bgIdx > 0 ? wf.slice(bgIdx, wf.indexOf('void pump()', bgIdx)) : '';
+  const thIdx = beginBody.indexOf('new Thread(new Runnable()');
+  ok(thIdx > 0 && beginBody.indexOf('"arb-begin"') > 0, '[v2.90] beginProjection يطلق خيط arb-begin خلفياً');
+  ok(thIdx > 0 && /run\(\)[\s\S]{0,120}beginProjectionBg\(resultCode, data, url, path\)/.test(beginBody),
+    '[v2.90] الخيط الخلفي يستدعي beginProjectionBg بكامل الوسائط');
+  /* الشبكة (link.connect) لا تحدث إلا في جسم الخيط الخلفي — وأي وجود لها في
+     مسار الخيط الرئيسي (بين beginProjection وbeginProjectionBg) هو الانحدار */
+  const mainPath = wf.slice(beginIdx, bgIdx > 0 ? bgIdx : beginIdx + 4000);
+  ok(bgBody.indexOf('link.connect()') > 0, '[v2.90] link.connect() (Socket/RTMP) داخل beginProjectionBg حصراً');
+  ok(mainPath.indexOf('link.connect()') === -1,
+    '[v2.90] لا شبكة على الخيط الرئيسي — link.connect غائب عن مسار beginProjection (درس NetworkOnMainThreadException)');
+  ok(bgBody.indexOf('"init:" +') > 0 || bgBody.indexOf('"init:"+') > 0,
+    '[v2.90] فشل التهيئة يصل باسم الاستثناء (init:<Class> — تشخيص ميداني)');
+
   /* ═══ 2) السلسلة الحية — غرفة تحكيم خادمية عبر جسر مزيف ═══ */
   console.log('═══ v2.89 · سلسلة JS الحية عبر جسر DTSGNative مزيف ═══');
   const A = await ensureUser('v289_arb_p1', 'Pw123456!');

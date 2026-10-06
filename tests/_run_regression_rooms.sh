@@ -238,6 +238,10 @@ run "v288 ألعاب المحلية+A53+تحكيم"  "tests/_v288_local_games_sy
 # من التطبيق (registerCallback قبل createVirtualDisplay + السلسلة الحية).
 run "v289 مختبر الألعاب المحلية الحي"  "tests/_v289_local_games_live_test.js"
 run "v289 سلسلة مشاركة الشاشة"          "tests/_v289_arb_share_chain_test.js"
+# [v2.90] المختبر الحي الاجتماعي: إيموجي/رسائل/صوت متزامنة في الغرفة المحلية
+# (تسجيل MediaRecorder حقيقي عبر ميكروفون وهمي) + أونو بلا لعب آلي عند حجب
+# الواجهة + خصوصية الدومينو (قطع مقلوبة وتخطيط flex) + زر APK المباشر.
+run "v290 تفاعل/رسائل/أونو/دومينو/APK"  "tests/_v290_local_social_sync_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

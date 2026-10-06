@@ -733,6 +733,145 @@ footer {
 .foot-legal .sep {
   color: var(--t3);
 }
+/* ═══ [v2.90] تحميل التطبيق مباشرة (APK) — أسفل الرئيسية وكل الصفحات القانونية ═══
+   بطاقة ذهبية بارزة: زر تنزيل مباشر (الرابط الدائم لآخر Release موقّع) +
+   خطوات مختصرة قابلة للطي لتثبيت التطبيق وتجاوز تحذير Play Protect
+   «تطبيق غير معروف» — بطلب صريح من المالك 2026-10-07. */
+.apk-dl {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 640px;
+  margin: 18px auto 0;
+  padding: 14px 16px 12px;
+  border: 1px solid rgba(217, 180, 92, 0.35);
+  border-radius: 16px;
+  background:
+    radial-gradient(120% 160% at 50% 0%, rgba(217, 180, 92, 0.10), transparent 55%),
+    var(--bg2);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+.apk-dl-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.apk-dl-logo {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  border-radius: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  color: var(--gold);
+  background: linear-gradient(145deg, #101d31, #16263c);
+  border: 1px solid rgba(217, 180, 92, 0.45);
+}
+.apk-dl-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: start;
+  min-width: 170px;
+  flex: 1 1 210px;
+}
+.apk-dl-txt b {
+  font-size: 0.92rem;
+  color: var(--t1);
+  font-weight: 900;
+}
+.apk-dl-txt small {
+  font-size: 0.7rem;
+  color: var(--t3);
+  font-weight: 600;
+}
+.apk-dl-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 20px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 900;
+  color: #1a1206;
+  text-decoration: none;
+  background: linear-gradient(150deg, #f4d789, #d9a13f 60%, #c98f2e);
+  border: 1px solid rgba(255, 222, 148, 0.55);
+  box-shadow: 0 4px 14px rgba(217, 161, 63, 0.35);
+  transition: transform 0.15s var(--ease), box-shadow 0.2s var(--ease);
+}
+.apk-dl-btn:hover,
+.apk-dl-btn:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 7px 18px rgba(217, 161, 63, 0.5);
+  color: #1a1206;
+}
+.apk-dl-btn i {
+  font-size: 0.95rem;
+}
+.apk-dl-steps {
+  width: 100%;
+  text-align: start;
+  border-top: 1px dashed var(--bd);
+  padding-top: 8px;
+}
+.apk-dl-steps summary {
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: var(--t2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  user-select: none;
+  list-style: none;
+}
+.apk-dl-steps summary::-webkit-details-marker {
+  display: none;
+}
+.apk-dl-steps summary::after {
+  content: "\25BE";
+  color: var(--gold);
+  font-size: 0.7rem;
+}
+.apk-dl-steps[open] summary::after {
+  content: "\25B4";
+}
+.apk-dl-steps summary:hover {
+  color: var(--gold);
+}
+.apk-dl-steps summary i {
+  color: var(--gold);
+  font-size: 0.8rem;
+}
+.apk-dl-steps ol {
+  margin: 8px 0 2px;
+  padding-inline-start: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.apk-dl-steps li {
+  font-size: 0.73rem;
+  color: var(--t2);
+  line-height: 1.65;
+  font-weight: 600;
+}
+.apk-dl-steps li::marker {
+  color: var(--gold);
+  font-weight: 900;
+}
 /* ── ووترمارك الفوتر (شعار شبه شفاف) ── */
 footer.watermark {
   position: relative;
