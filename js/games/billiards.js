@@ -299,6 +299,9 @@ function billiardsStart(mode) {
     : { firstPlayer: 0 });
   BILLIARDS.over = false;
   BILLIARDS.aim = 0; BILLIARDS.power = 75; BILLIARDS.spin = { x: 0, y: 0 };
+  /* [v2.88·SYNC] محرك جديد = طابور قديم ملغى: أي حركات متراكمة من إطار سابق
+     (إعادة رفّ/جولة جديدة) لا يجوز أن تُطبَّق على اللوحة الجديدة */
+  BILLIARDS._pendQ = [];
   BILLIARDS.G.on(blOnShotEvent);
 
   var su = document.getElementById('blSetup'), pl = document.getElementById('blPlay'),
@@ -911,13 +914,18 @@ function blTick(now) {
       B.acc = 0;
       var ev = B.G.resolve();
       if (ev && B.mode !== 'room') { /* blOnShotEvent يُستدعى عبر G.on */ }
-      /* [BL-Anim] وصف وارد وصل أثناء الحركة → طبّقه الآن بالترتيب */
-      if (B._pendQ && B._pendQ.length && B.G.S.phase !== 'SHOT' && !B.G.S.frameOver) {
-        var nx = B._pendQ.shift();
-        setTimeout(function () { blApplyIncoming(nx); }, 350);
-      }
     }
   } else B.acc = 0;
+  /* [v2.88·SYNC] تصريف الطابور المرتَّب: عنصر واحد لكل إطار، خارج كتلة SHOT
+     حصراً — كان التصريف يُنفَّذ داخلها فيعمل لحظة استقرار الضربة فقط، فإن
+     تراكمت حركتان أثناء الأنيميشن (وضع+ضربة المؤقت الآلي مثلاً) صُرِّفت
+     الأولى وبقيت الثانية معلّقة للأبد (المحاكاة الفعلية: queueLen يبقى 1
+     إلى ما لا نهاية). وبلا setTimeout(350) الذي كان يفتح نافذة قلب الترتيب:
+     العنصر التالي يُطبَّق بالإطار الموالي فور استقرار الطور، والضربة تنتظر
+     اكتمال أنيميشنها الطبيعي — الترتيب مضمون والوتيرة محفوظة. */
+  if (B._pendQ && B._pendQ.length && S && S.phase !== 'SHOT' && !S.frameOver) {
+    blApplyIncoming(B._pendQ.shift());
+  }
   /* تحريك تصويب الآلي أمام اللاعب قبل تنفيذ الضربة */
   if (B._aiAim && B.G && B.G.S.phase === 'AIM') {
     var at = Math.min(1, (now - B._aiAim.t0) / B._aiAim.dur);
@@ -1782,8 +1790,12 @@ function blRoomMove(d) {
     blEndFrame();
     return;
   }
-  /* [BL-Anim] ضربة جارية على اللوحة → صفّ الوارد حتى تستقر (يُصرف في blTick) */
-  if (BILLIARDS.G.S.phase === 'SHOT') {
+  /* [BL-Anim] ضربة جارية على اللوحة → صفّ الوارد حتى تستقر (يُصرف في blTick)
+     [v2.88·SYNC] عقد الترتيب الصارم: أي وارد جديد يُصفّ خلف الطابور متى كان
+     غير فارغ أيضاً — كان الوارد المباشر يطبّق فوراً خلال نافذة setTimeout(350ms)
+     التي كان يُؤجّل بها تصريف الطابور فيتجاوز ما تراكم قبله (قلب ترتيب =
+     انحراف دائم). بلاغ المالك 2026-10-06: «مشكل مزامنة» في الغرف المحلية. */
+  if (BILLIARDS.G.S.phase === 'SHOT' || (BILLIARDS._pendQ && BILLIARDS._pendQ.length)) {
     BILLIARDS._pendQ = BILLIARDS._pendQ || [];
     BILLIARDS._pendQ.push(d);
     return;
@@ -1792,17 +1804,39 @@ function blRoomMove(d) {
 }
 /* [BL-Anim] تطبيق وصف وارد: الوضع place فوري، والضربة تُعرض متحركة كما عند الرامي.
    [SYNC-FIX] صفحة مخفية (هاتف بالخلفية): rAF متوقف — أنيميشن SHOT لن يُحسم أبداً
-   فتتجمد اللعبة؛ يُحسم فوراً بنفس الحتمية (shootAndResolve) بلا عرض */
+   فتتجمد اللعبة؛ يُحسم فوراً بنفس الحتمية (shootAndResolve) بلا عرض.
+   [v2.88·SYNC] لا إسقاط صامت بعد اليوم: الضربة التي يرفضها المحرك (الطور ليس
+   AIM — انحراف حالة بين الطرفين) كانت تُهمل بلا أثر فتستمر اللوحة عند طرف
+   وتتقدم عند الآخر (المحاكاة: ضربة أثناء PLACE تُفقد نهائياً). الآن يُطلب
+   إصلاح من السجل المرجعي (خادم/مضيف) — والسقف 4ث يمنع طوفان الطلبات. */
 function blApplyIncoming(d) {
   if (!BILLIARDS || !BILLIARDS.G || !d) return;
   var hidden = (typeof document !== 'undefined' && document.hidden);
   if (d.t === 'place') { BILLIARDS.G.applyPayload(d); }
   else if (d.t === 'shot') {
-    if (hidden) BILLIARDS.G.applyPayload(d);          /* حسم فوري حتمي */
-    else BILLIARDS.G.shoot(d.a, d.p, d.s);            /* عرض متحرك */
+    var applied = false;
+    if (hidden) applied = !!BILLIARDS.G.applyPayload(d);   /* حسم فوري حتمي */
+    else applied = !!BILLIARDS.G.shoot(d.a, d.p, d.s);     /* عرض متحرك */
+    if (!applied) { blRequestResync(); return; }
   }
   else { BILLIARDS.G.applyPayload(d); }
   blUpdateHud(); blTray();
+}
+/* [v2.88·SYNC] طلب إعادة بناء من السجل المرجعي — الخادم في الغرف الخادمية
+   وسجل المضيف في الغرف المحلية (LocalMP.requestReplay). كلاهما يمرّ بمسار
+   blApplyReplay الحتمي نفسه فتستعيد اللوحة حالتها الصحيحة كاملة. */
+var _blResyncAt = 0;
+function blRequestResync() {
+  var now = Date.now();
+  if (now - _blResyncAt < 4000) return;          /* سقف المعدل */
+  _blResyncAt = now;
+  try {
+    if (typeof Rooms !== 'undefined' && Rooms.state && Rooms.state.status === 'playing' &&
+        typeof Rooms.requestReplay === 'function') {
+      Rooms.requestReplay();
+      blSay('⟳ ' + T('bl.resync', 'جارٍ استعادة المزامنة من السجل'));
+    }
+  } catch (e) {}
 }
 /* [SYNC-FIX] العودة من الخلفية: حسم الضربة العالقة وصرف الطابور المتكدس فوراً */
 if (typeof document !== 'undefined' && !window.__blVisBound) {

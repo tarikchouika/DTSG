@@ -228,6 +228,7 @@ run "v286 ملء الشاشة الحقيقي (ساكن)"  "tests/_v286_e2e_layou
 # [v2.87] الغرفة المحلية الأصلية + الوضع الغامر + الأيقونة + هيدر/شريط سفلي —
 # فحص مصدر ثابت بلا خادم وبلا متصفح (يشمل فك PNG للأيقونة): آمن في أي بيئة.
 run "v287 الغامر وLocalNet (ساكن)"   "tests/_v287_localnet_immersive_test.js"
+run "v288 ألعاب المحلية+A53+تحكيم"  "tests/_v288_local_games_sync_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

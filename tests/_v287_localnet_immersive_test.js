@@ -277,15 +277,21 @@ const badLang = NEW_KEYS.filter(k => {
 ok(badLang.length === 0, 'كل مفتاح جديد بأربع لغات (ar/fr/en/da)', badLang.slice(0, 3).join(','));
 
 /* ── 8) البصمات (قاعدة 15 مشتقة — قاعدة 22) ────────────────────────────── */
+/* [قاعدة 22·مستوعبة بعد حادثة v2.88] الثلاثية مشتقّة من package.json حصراً —
+   لا رقم إصدار مثبَّت (الحرس نفسه احمرّ عند ترقية v2.88.0 لتثبيته 2.87.0:
+   الحادثة الموثّقة في القاعدة تتكرر في كل جولة إن لم يُشتق). والبصمات:
+   كل أصل يحمل ختماً >= v287 (أرضية عقود هذه الجولة) — الأصل المعدَّل في
+   جولة لاحقة يُرفع ختمه فبقي الاختبر أخضر بلا مساس. */
 const pkg = JSON.parse(read('package.json'));
 const lock = JSON.parse(read('package-lock.json'));
 const main = read('js/main.js');
-ok(pkg.version === '2.87.0' && lock.version === '2.87.0' &&
+ok(pkg.version === lock.version &&
    new RegExp("DTSG_BUILD = 'v" + pkg.version + "'").test(main),
-   'الثلاثية متطابقة على 2.87.0 (package · lock · DTSG_BUILD)');
+   'الثلاثية متطابقة ومشتقّة (package · lock · DTSG_BUILD = ' + pkg.version + ')');
 const idx = read('index.html');
 ['css/03-components.css', 'css/09-chrome.css', 'js/core/local-mp.js', 'js/i18n/translations.js', 'js/main.js'].forEach(a => {
-  ok(new RegExp(a.replace(/\./g, '\\.') + '\\?v=v287').test(idx), 'بصمة ' + a + ' = v287 في index.html');
+  const m = new RegExp(a.replace(/\./g, '\\.') + '\\?v=v(\\d+)').exec(idx);
+  ok(!!m && parseInt(m[1], 10) >= 287, 'بصمة ' + a + ' >= v287 في index.html' + (m ? ' (v' + m[1] + ')' : ''));
 });
 
 /* ── 9) التوثيق والبطارية ────────────────────────────────────────────────── */

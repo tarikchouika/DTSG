@@ -99,7 +99,19 @@
           عطب في المتصفح — والحل البث من حاسوب.
        3. متصفح مكتبي قديم (<72).
      كل سبب له رسالته الصحيحة فلا تضليل بعد الآن. */
+  function nativeSupport() {
+    try {
+      return !!(root.DTSGNative && typeof root.DTSGNative.arbShareStart === 'function' &&
+        typeof root.DTSGNative.arbShareVersion === 'function');
+    } catch (e) { return false; }
+  }
   function support() {
+    /* [v2.88·تطبيق الأندرويد] الجسر الأصلي arbShareStart يسبق كل الفحوص:
+       في التطبيق صارت مشاركة الشاشة متاحة أصلاً (MediaProjection + ناشر
+       RTMP داخل MainActivity — بلاغ المالك 2026-10-06: «التطبيق لا يسمح
+       بمشاركة الشاشة في غرف التحكيم») فغياب getDisplayMedia في WebView لم
+       يعد حاجباً بعد اليوم. */
+    if (nativeSupport()) return { ok: true, native: true };
     if (!root.navigator || !root.navigator.mediaDevices) {
       /* سياق غير آمن؟ (كروم يحجب كامل mediaDevices على http:// غير المحلي) */
       var insecure = false;
@@ -124,8 +136,65 @@
     return T('arb.shareOld') || 'هذا المتصفح قديم ولا يوفر واجهة البث — حدّثه إلى أحدث إصدار ثم أعد المحاولة';
   }
 
-  /* ── بدء البث (زر المستخدم) ── */
+  /* ── بدء البث (زر المستخدم) ──
+     [v2.88·الأندرويد] التطبيق أولاً: الجسر الأصلي يستقطب الشاشة بنفسه
+     (إذن النظام MediaProjection) ويرمّزها H.264 وينشرها RTMP إلى المرحّل
+     بالمسار الموقّع من الخادم — فيظهر البث للأدمن بلا أي تغيير خادمي. */
+  var nativeActive = false;
+  async function nativeStart() {
+    var u = me();
+    if (!u) { if (root.toast) root.toast(T('ui.roomNeedLogin') || 'يلزم تسجيل الدخول', 'warn'); return; }
+    var room = (root.Rooms && root.Rooms.state) || null;
+    if (!room || room.status !== 'playing') {
+      if (root.toast) root.toast('البث متاح أثناء جولة جارية فقط', 'warn');
+      return;
+    }
+    if (nativeActive) { if (root.toast) root.toast('البث جارٍ أصلاً', 'warn'); return; }
+    setState('connecting');
+    /* عنوان النشر الموقّع من الخادم (نفس مسار Larix) — لا يُركّب محلياً
+       إطلاقاً (عقد v2.81.1: الرمز هو ما يمنع انتحال البث) */
+    var a = api();
+    if (!a) { setState('failed'); return; }
+    var r = await a.get('/api/matches/mine').catch(function () { return null; });
+    var relay = (r && r.ok && r.data && r.data.relay) || null;
+    var base = relay && relay.rtmp, path = relay && relay.publish_path;
+    if (!base || !path) {
+      setState('idle');
+      if (root.toast) root.toast(T('arb.noRelay') || 'تعذر الحصول على عنوان البث من الخادم — تأكد أن خادم المنصة والمرحّل يعملان ثم أعد المحاولة', 'err');
+      return;
+    }
+    nativeActive = true;
+    try {
+      root.DTSGNative.arbShareStart(JSON.stringify({ url: String(base), path: String(path) }));
+    } catch (e) {
+      nativeActive = false;
+      setState('failed');
+      if (root.toast) root.toast(T('arb.nativeFail') || 'تعذر بدء بث الشاشة من التطبيق', 'err');
+    }
+  }
+  /* أحداث الجسر الأصلي (window.__dtsgArbEvt من جافا): حالة البث الحيّة */
+  if (nativeSupport()) {
+    root.__dtsgArbEvt = function (ev) {
+      try {
+        if (!ev || !ev.t) return;
+        if (ev.t === 'state') {
+          var s = String(ev.state || '');
+          if (s === 'live') { setState('relay'); }
+          else if (s === 'connecting') { setState('connecting'); }
+          else if (s === 'failed') {
+            nativeActive = false;
+            setState('failed');
+            if (root.toast) root.toast(T('arb.nativeFail') || 'تعذر بث الشاشة — أعد المحاولة', 'err');
+          } else if (s === 'stopped') {
+            nativeActive = false;
+            setState('idle');
+          }
+        }
+      } catch (e) { }
+    };
+  }
   async function startShare() {
+    if (nativeSupport()) { nativeStart(); return; }
     var sup = support();
     if (!sup.ok) {
       if (root.toast) root.toast(supportToast(), 'err');
@@ -264,6 +333,12 @@
 
   /* إيقاف البث (زر/انتهاء المشاركة من المتصفح) */
   function stopShare(reason) {
+    if (nativeActive) {
+      try { root.DTSGNative.arbShareStop(); } catch (e) { }
+      nativeActive = false;
+      setState('idle');
+      return;
+    }
     sendSignal('bye', { reason: reason || 'manual' });
     destroyPc();
     if (st.stream) { try { st.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {} st.stream = null; }
@@ -291,7 +366,7 @@
     if (name === 'arb:signal') onSignal(data);
     else if (name === 'arb:resolved' && data && data.room_id === st.roomId) {
       /* حسم الأدم المباراة: أنهِ البث بلطف */
-      if (st.pc || st.stream) stopShare('resolved');
+      if (st.pc || st.stream || nativeActive) stopShare('resolved');
     }
   }
 
@@ -303,7 +378,7 @@
     if (!u) return '';
     var member = (room.players || []).some(function (p) { return String(p.id) === String(u.id) && !p.spectate; });
     if (!member) return '';
-    var sharing = !!(st.pc || st.stream);
+    var sharing = !!(st.pc || st.stream || nativeActive);
     /* [v2.78] بث غير مدعوم في هذا السياق: زر تحذيري يشرح السبب عند النقر
        (أفضل من إخفائه — اللاعب يعرف لماذا وكيف يبث من جهاز آخر) */
     var sup = support();
@@ -331,6 +406,10 @@
 
   /* تنظيف عند مغادرة الغرفة/الجلسة */
   function reset() {
+    if (nativeActive) {
+      try { root.DTSGNative.arbShareStop(); } catch (e) { }
+      nativeActive = false;
+    }
     if (st.pc || st.stream) stopShare('leave');
   }
 

@@ -288,6 +288,22 @@ jobs:
           import java.util.concurrent.atomic.AtomicBoolean;
           import java.util.concurrent.atomic.AtomicInteger;
           import org.json.JSONObject;
+          import android.app.Notification;
+          import android.app.NotificationChannel;
+          import android.app.NotificationManager;
+          import android.app.PendingIntent;
+          import android.content.Intent;
+          import android.hardware.display.DisplayManager;
+          import android.hardware.display.VirtualDisplay;
+          import android.media.MediaCodec;
+          import android.media.MediaCodecInfo;
+          import android.media.MediaFormat;
+          import android.media.projection.MediaProjection;
+          import android.media.projection.MediaProjectionManager;
+          import android.os.Bundle;
+          import android.os.SystemClock;
+          import android.util.DisplayMetrics;
+          import android.view.Surface;
           
           /* [v2.87] ملء الشاشة الغامر + جسر الكروم الأصلي + شبكة اللعب المحلي (LocalNet).
              يُحقن من سير البناء (خطوة 8.5) ويحافظ على كل عقد v2.85/v2.86 حرفياً:
@@ -312,10 +328,17 @@ jobs:
               private volatile boolean barsLight = false;
               private boolean jsBound = false;
               private final LocalNet ln = new LocalNet();
+              /* [v2.88·التحكيم] مشاركة شاشة التطبيق أصلاً (MediaProjection + H.264 +
+                 ناشر RTMP مباشر إلى المرحّل) — الجسر والدعم في ArbShare أدناه.
+                 sSelf: خطاف ثابت لخدمة Foreground (ArbShareService) لتنفيذ دورة
+                 الإسقاط بعد منح الإذن (نمط الخدمة الأمامية الإلزامي منذ API 29). */
+              private final ArbShare arb = new ArbShare();
+              static volatile MainActivity sSelf = null;
           
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
+                  sSelf = this;
                   Window w = getWindow();
                   w.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
                   w.setStatusBarColor(android.graphics.Color.TRANSPARENT);
@@ -376,7 +399,15 @@ jobs:
                   } catch (Throwable ignored) { }
               }
           
-              /* systemBars حصراً (بلا IME) + حشوة المقصوص عند إخفاء الشريط (كاميرا النوتش) */
+              /* systemBars حصراً (بلا IME) + حشوة المقصوص عند إخفاء الشريط (كاميرا النوتش).
+                 [v2.88·A53] قياس الوحدة واجب: WindowInsets يعيد بكسلاً فيزيائياً والويب
+                 يقيس بالبكسل المنطقي (CSS) — القسمة على density. كان الدفع خاماً فتمدد
+                 هامش الهيدر على الأجهزة الكثيفة ذات المقصوص (Samsung A53: فتحة كاميرا
+                 ~100px فيزيائي تدفع الرموز مئات البكسلات المنطقية)، بينما الصفر على
+                 CAT S62 (بلا مقصوص وشريطا النظام مخفيان في الوضع الغامر) أخفى الخلل
+                 كلياً — بلاغ المالك 2026-10-06: «شريط أيقونات الهيدر منزاح قليلاً
+                 للأسفل على A53 ومثالي على S62». بلا أي أثر على S62: صفر على أي كثافة
+                 يبقى صفراً. */
               private void cacheInsets(android.view.WindowInsets insets) {
                   try {
                       int top = 0, bottom = 0, cutTop = 0;
@@ -393,8 +424,11 @@ jobs:
                           android.view.DisplayCutout dc = insets.getDisplayCutout();
                           if (dc != null) cutTop = Math.max(0, dc.getSafeInsetTop());
                       }
-                      insetTop = Math.max(top, cutTop);
-                      insetBottom = bottom;
+                      float density = 1f;
+                      try { density = getResources().getDisplayMetrics().density; } catch (Throwable ignored2) { }
+                      if (density <= 0f) density = 1f;
+                      insetTop = Math.round(Math.max(top, cutTop) / density);
+                      insetBottom = Math.round(bottom / density);
                   } catch (Throwable ignored) { }
               }
           
@@ -451,6 +485,22 @@ jobs:
                       } catch (Throwable ignored) { }
                   }
               }
+              
+              /* [v2.88·التحكيم] نتيجة إذن إسقاط الشاشة (MediaProjection) — تُسلّم
+                 لخدمة Foreground أولاً (إلزامي منذ API 29 قبل getMediaProjection)
+                 ثم تستدعي الخدمة arb.onServiceReady للبدء الفعلي. */
+              @Override
+              protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+                  super.onActivityResult(requestCode, resultCode, data);
+                  if (requestCode == 4288) {
+                      arb.onPermissionResult(resultCode, data);
+                  }
+              }
+              
+              /* خطاف الخدمة الأمامية: الإشعار صار ظاهراً ومرحاً للإسقاط */
+              void onArbServiceReady(int resultCode, android.content.Intent data) {
+                  arb.beginProjection(resultCode, data);
+              }
           
               /* جسر JS إلى Java: المساحات + أيقونات الشريطين + اللعب المحلي المباشر */
               private class NativeChrome {
@@ -488,6 +538,13 @@ jobs:
                   public boolean btOn() { return ln.btOn(); }
                   @android.webkit.JavascriptInterface
                   public void btEnable() { ln.btEnable(); }
+                  /* ── [v2.88·التحكيم] مشاركة شاشة التطبيق أصلاً ── */
+                  @android.webkit.JavascriptInterface
+                  public String arbShareVersion() { return "1"; }
+                  @android.webkit.JavascriptInterface
+                  public void arbShareStart(String json) { arb.start(json); }
+                  @android.webkit.JavascriptInterface
+                  public void arbShareStop() { arb.stop("stopped"); }
               }
           
               /* ═══════════════════════════════════════════════════════════════════
@@ -1090,10 +1147,816 @@ jobs:
                       bleSeen.clear();
                   }
               }
+          
+              /* ═══════════════════════════════════════════════════════════════════
+                 [v2.88·التحكيم] ArbShare — مشاركة شاشة التطبيق إلى لوحة التحكيم
+                 ─────────────────────────────────────────────────────────────────
+                 بلاغ المالك 2026-10-06: «التطبيق لا يسمح بمشاركة الشاشة في غرف
+                 التحكيم». الجذر: WebView لا يوفّر getDisplayMedia أصلاً (قيد
+                 منصّي موثّق منذ v2.78) فكان الزر محجوباً والبديل الوحيد تطبيق
+                 خارجي (Larix). العلاج: إذن إسقاط الشاشة من النظام (MediaProjection)
+                 → VirtualDisplay فوق سطح مُرمِّز H.264 (MediaCodec) → ناشر RTMP
+                 مصغّر مكتوب هنا حصراً بلا مكتبات → مرحّل MediaMTX نفسه الذي ينشر
+                 إليه Larix (rtmp://.../dtsg/<roomId>/<uid>_<token> بالمسار الموقّع
+                 من الخادم) — فالمراقبة والحسم ومشاهدة الأدمن تعمل بعقدها القائم
+                 دون أي تغيير خادمي، والبث يظهر في لوحة الأدمن آلياً.
+                 فيديو حصراً (بلا صوت): كافٍ للحسم وأخف على الهاتف والشبكة.
+                 كل شيء داخل try/catch(Throwable) — أي عطل يعود للصفحة حدثاً ولن
+                 يُسقط التطبيق أبداً. بلا أي شرطة مائلة عكسية (قيد سلسلة الحقن).
+                 ═══════════════════════════════════════════════════════════════ */
+              private class ArbShare {
+                  volatile String pendingUrl = null;   /* rtmp://host:port */
+                  volatile String pendingPath = null;  /* dtsg/..._<token> */
+                  volatile boolean running = false;
+                  MediaProjection projection = null;
+                  VirtualDisplay display = null;
+                  MediaCodec encoder = null;
+                  RtmpLink link = null;
+                  Thread encThread = null;
+                  long firstPts = -1;
+          
+                  /* البدء من الجسر: {url, path} — كلاهما من الخادم (لا يُركَّب محلياً) */
+                  void start(String json) {
+                      if (running) { push("state", "live", null); return; }
+                      String url = null, path = null;
+                      try {
+                          JSONObject j = new JSONObject(json == null ? "" : json);
+                          url = j.optString("url", "");
+                          path = j.optString("path", "");
+                      } catch (Throwable t) { push("state", "failed", "bad-json"); return; }
+                      if (url.indexOf("rtmp://") != 0 || path.length() < 3) {
+                          push("state", "failed", "bad-url");
+                          return;
+                      }
+                      pendingUrl = url;
+                      pendingPath = path;
+                      try {
+                          final MediaProjectionManager mpm =
+                              (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                          if (mpm == null) { push("state", "failed", "no-mgr"); return; }
+                          runOnUiThread(new Runnable() {
+                              @Override public void run() {
+                                  try {
+                                      /* إذن الإشعارات (API 33+) — رفضه لا يمنع البث */
+                                      if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                          try {
+                                              if (androidx.core.content.ContextCompat.checkSelfPermission(MainActivity.this,
+                                                  android.Manifest.permission.POST_NOTIFICATIONS)
+                                                  != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                                  androidx.core.app.ActivityCompat.requestPermissions(MainActivity.this,
+                                                      new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 4289);
+                                              }
+                                          } catch (Throwable ignored) { }
+                                      }
+                                      startActivityForResult(mpm.createScreenCaptureIntent(), 4288);
+                                  } catch (Throwable t) { push("state", "failed", "intent"); }
+                              }
+                          });
+                          push("state", "connecting", null);
+                      } catch (Throwable t) {
+                          push("state", "failed", "start");
+                      }
+                  }
+          
+                  /* نتيجة إذن الإسقاط: الخدمة الأمامية أولاً (إلزام API 29+) ثم البدء */
+                  void onPermissionResult(int resultCode, android.content.Intent data) {
+                      if (resultCode != android.app.Activity.RESULT_OK || data == null) {
+                          push("state", "failed", "denied");
+                          pendingUrl = null;
+                          pendingPath = null;
+                          return;
+                      }
+                      try {
+                          android.content.Intent svc = new android.content.Intent(MainActivity.this, ArbShareService.class);
+                          svc.putExtra("code", resultCode);
+                          svc.putExtra("data", (android.os.Parcelable) data);
+                          androidx.core.content.ContextCompat.startForegroundService(MainActivity.this, svc);
+                      } catch (Throwable t) {
+                          push("state", "failed", "service");
+                      }
+                  }
+          
+                  /* الخدمة جاهزة (الإشعار ظاهر) → الإسقاط والترميز والنشر */
+                  void beginProjection(int resultCode, android.content.Intent data) {
+                      if (running) return;
+                      final String url = pendingUrl, path = pendingPath;
+                      pendingUrl = null;
+                      pendingPath = null;
+                      if (url == null || path == null) { push("state", "failed", "no-target"); return; }
+                      try {
+                          MediaProjectionManager mpm =
+                              (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
+                          projection = mpm.getMediaProjection(resultCode, data);
+                          if (projection == null) { push("state", "failed", "no-proj"); return; }
+                          /* أبعاد الشاشة مع سقف 1280 للحافة الكبرى — بث خفيف ثابت */
+                          DisplayMetrics dm = new DisplayMetrics();
+                          try {
+                              if (android.os.Build.VERSION.SDK_INT >= 30) {
+                                  android.graphics.Rect r = getWindowManager().getCurrentWindowMetrics().getBounds();
+                                  dm.widthPixels = r.width();
+                                  dm.heightPixels = r.height();
+                                  dm.densityDpi = getResources().getDisplayMetrics().densityDpi;
+                              } else {
+                                  getWindowManager().getDefaultDisplay().getRealMetrics(dm);
+                              }
+                          } catch (Throwable ignored) { }
+                          int w = Math.max(320, dm.widthPixels), h = Math.max(240, dm.heightPixels);
+                          if (Math.max(w, h) > 1280) {
+                              double k = 1280.0 / (double) Math.max(w, h);
+                              w = (int) Math.round(w * k);
+                              h = (int) Math.round(h * k);
+                          }
+                          w = (w / 2) * 2;
+                          h = (h / 2) * 2;
+                          int bitrate = Math.max(900000, Math.min(2400000, w * h * 2));
+                          MediaFormat fmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h);
+                          fmt.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+                          fmt.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
+                          fmt.setInteger(MediaFormat.KEY_FRAME_RATE, 24);
+                          fmt.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
+                          encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
+                          encoder.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+                          Surface input = encoder.createInputSurface();
+                          encoder.start();
+                          try {
+                              Bundle b = new Bundle();
+                              b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+                              encoder.setParameters(b);
+                          } catch (Throwable ignored) { }
+                          display = projection.createVirtualDisplay(
+                              "dtsg-arb", w, h, dm.densityDpi == 0 ? 160 : dm.densityDpi,
+                              DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, null);
+                          if (display == null) { stop("no-display"); return; }
+                          link = new RtmpLink(url, path);
+                          if (!link.connect()) { stop("rtmp-connect"); return; }
+                          running = true;
+                          firstPts = -1;
+                          push("state", "live", null);
+                          encThread = new Thread(new Runnable() {
+                              @Override public void run() { pump(); }
+                          }, "arb-enc");
+                          encThread.start();
+                      } catch (Throwable t) {
+                          push("state", "failed", "init");
+                          stop("init-failed");
+                      }
+                  }
+          
+                  /* ضخّ مخارج المرمّز إلى RTMP حتى الإيقاف أو العطل */
+                  void pump() {
+                      android.media.MediaCodec.BufferInfo info = new android.media.MediaCodec.BufferInfo();
+                      while (running) {
+                          try {
+                              int oi = encoder.dequeueOutputBuffer(info, 10000);
+                              if (oi < 0) continue;
+                              java.nio.ByteBuffer buf = encoder.getOutputBuffer(oi);
+                              if (buf == null) { encoder.releaseOutputBuffer(oi, false); continue; }
+                              int len = info.size;
+                              if (len <= 0) { encoder.releaseOutputBuffer(oi, false); continue; }
+                              byte[] data = new byte[len];
+                              buf.position(info.offset);
+                              buf.get(data);
+                              encoder.releaseOutputBuffer(oi, false);
+                              boolean cfg = (info.flags & MediaCodec.BUFFER_FLAG_CODEC_CONFIG) != 0;
+                              if (cfg) { link.sendConfig(data); continue; }
+                              if (firstPts < 0) firstPts = info.presentationTimeUs;
+                              long ts = (info.presentationTimeUs - firstPts) / 1000;
+                              if (ts < 0) ts = 0;
+                              link.sendFrame(data, ts);
+                          } catch (Throwable t) {
+                              if (running) {
+                                  push("state", "failed", "encode");
+                                  stop("encode");
+                              }
+                              return;
+                          }
+                      }
+                  }
+          
+                  /* الإيقاف النظيف من أي مسار */
+                  void stop(String why) {
+                      boolean was = running;
+                      running = false;
+                      try { if (encThread != null) encThread.interrupt(); } catch (Throwable ignored) { }
+                      encThread = null;
+                      try { if (encoder != null) { encoder.stop(); encoder.release(); } } catch (Throwable ignored) { }
+                      encoder = null;
+                      try { if (display != null) display.release(); } catch (Throwable ignored) { }
+                      display = null;
+                      try { if (projection != null) projection.stop(); } catch (Throwable ignored) { }
+                      projection = null;
+                      try { if (link != null) link.close(); } catch (Throwable ignored) { }
+                      link = null;
+                      firstPts = -1;
+                      try {
+                          stopService(new android.content.Intent(MainActivity.this, ArbShareService.class));
+                      } catch (Throwable ignored) { }
+                      if (was) push("state", "stopped", null);
+                  }
+          
+                  /* دفع حدث للصفحة — JSONObject داخل try/catch (درس بناء #24) */
+                  void push(String t, String state, String err) {
+                      try {
+                          final Bridge b = getBridge();
+                          if (b == null || b.getWebView() == null) return;
+                          JSONObject o = new JSONObject();
+                          o.put("t", t);
+                          o.put("state", state);
+                          if (err != null) o.put("err", err);
+                          final String js = "try{if(window.__dtsgArbEvt)window.__dtsgArbEvt(" + o.toString() + ");}catch(e){}";
+                          runOnUiThread(new Runnable() {
+                              @Override public void run() {
+                                  try { b.getWebView().evaluateJavascript(js, null); } catch (Throwable ignored) { }
+                              }
+                          });
+                      } catch (Throwable ignored) { }
+                  }
+              }
+          
+              /* ── [v2.88·التحكيم] ناشر RTMP مصغّر (فيديو H.264/AVCC حصراً) ──
+                 المصافحة C0/C1/C2 ثم أوامر AMF0 (connect → createStream → publish)
+                 ثم رسائل فيديو FLV/AVC على قنوات مقسمّة (chunks) — بلا مكتبات:
+                 نفس وجهة Larix من الهاتف (MediaMTX) فيظهر البث للأدمن بعقد
+                 المراقبة القائم (stream-status/HLS/الحسم). */
+              private class RtmpLink {
+                  final String url;
+                  final String path;
+                  Socket sock = null;
+                  OutputStream out = null;
+                  java.io.InputStream in = null;
+                  int outChunk = 128;
+                  volatile int inChunk = 128;
+                  volatile int msgStreamId = 1;
+                  volatile boolean publishSent = false;
+                  volatile boolean failed = false;
+                  Thread reader = null;
+                  byte[] sps = null;
+                  byte[] pps = null;
+                  boolean cfgSent = false;
+                  final Object writeLock = new Object();
+                  final java.io.ByteArrayOutputStream amf = new java.io.ByteArrayOutputStream();
+          
+                  RtmpLink(String url, String path) { this.url = url; this.path = path; }
+          
+                  boolean connect() {
+                      try {
+                          String rest = url.substring(7);
+                          int slash = rest.indexOf('/');
+                          if (slash >= 0) rest = rest.substring(0, slash);
+                          int colon = rest.indexOf(':');
+                          String host = colon >= 0 ? rest.substring(0, colon) : rest;
+                          int port = colon >= 0 ? Integer.parseInt(rest.substring(colon + 1)) : 1935;
+                          if (host.length() == 0) return false;
+                          sock = new Socket();
+                          sock.connect(new InetSocketAddress(host, port), 8000);
+                          sock.setTcpNoDelay(true);
+                          sock.setSoTimeout(15000);
+                          out = sock.getOutputStream();
+                          in = sock.getInputStream();
+                          /* المصافحة: C0+C1 ثم اقرأ S0/S1/S2 ثم C2=صدى S1 */
+                          byte[] c1 = new byte[1536];
+                          java.util.Random rnd = new java.util.Random();
+                          rnd.nextBytes(c1);
+                          out.write(0x03);
+                          out.write(c1);
+                          out.flush();
+                          byte[] s0s1 = readFully(1537);
+                          byte[] s2 = readFully(1536);
+                          out.write(sub(s0s1, 1, 1536));
+                          out.flush();
+                          if (s2 == null || s0s1 == null) return false;
+                          /* connect على csid 3 */
+                          String app = appOf(path);
+                          amf.reset();
+                          amfString("connect");
+                          amfNumber(1.0);
+                          amf.write(0x03);
+                          amfPropString("app", app);
+                          amfPropString("type", "nonprivate");
+                          amfPropString("flashVer", "FMLE/3.0");
+                          amfPropString("tcUrl", tcUrlOf(url, app));
+                          amf.write(0); amf.write(0); amf.write(9);
+                          sendCommand(3, 0);
+                          startReader();
+                          return true;
+                      } catch (Throwable t) {
+                          failed = true;
+                          return false;
+                      }
+                  }
+          
+                  /* ── قارئ الرسائل الواردة: حجم القسمة + أوامر AMF0 ── */
+                  void startReader() {
+                      reader = new Thread(new Runnable() {
+                          @Override public void run() { readLoop(); }
+                      }, "arb-rtmp-rd");
+                      reader.start();
+                  }
+                  void readLoop() {
+                      int[] rLen = new int[64];
+                      int[] rType = new int[64];
+                      int[] rSid = new int[64];
+                      try {
+                          while (!failed) {
+                              int b0 = in.read();
+                              if (b0 < 0) { failed = true; break; }
+                              int csid = b0 & 0x3F;
+                              int fmt = (b0 >> 6) & 3;
+                              if (csid == 0) {
+                                  int b1 = in.read();
+                                  if (b1 < 0) { failed = true; break; }
+                                  csid = 64 + b1;
+                              } else if (csid == 1) {
+                                  int b1 = in.read();
+                                  int b2 = in.read();
+                                  if (b1 < 0 || b2 < 0) { failed = true; break; }
+                                  csid = 64 + b1 + b2 * 256;
+                              }
+                              if (csid >= 64) continue;
+                              if (fmt == 0) {
+                                  int ts = readU24();
+                                  rLen[csid] = readU24();
+                                  rType[csid] = in.read();
+                                  rSid[csid] = readU32le();
+                                  if (ts == 0xFFFFFF) readU32();
+                              } else if (fmt == 1) {
+                                  int ts = readU24();
+                                  rLen[csid] = readU24();
+                                  rType[csid] = in.read();
+                                  if (ts == 0xFFFFFF) readU32();
+                              } else if (fmt == 2) {
+                                  int ts = readU24();
+                                  if (ts == 0xFFFFFF) readU32();
+                              }
+                              int len = rLen[csid];
+                              if (len <= 0 || len > 10485760) { failed = true; break; }
+                              byte[] body = new byte[len];
+                              int off = 0;
+                              boolean ok = true;
+                              while (off < len) {
+                                  if (off > 0) {
+                                      int c = in.read();
+                                      if (c < 0) { ok = false; break; }
+                                  }
+                                  int n = Math.min(inChunk, len - off);
+                                  if (!readInto(body, off, n)) { ok = false; break; }
+                                  off += n;
+                              }
+                              if (!ok) { failed = true; break; }
+                              int type = rType[csid];
+                              if (type == 1 && body.length >= 4) {
+                                  int sz = ((body[0] & 255) << 24) | ((body[1] & 255) << 16) | ((body[2] & 255) << 8) | (body[3] & 255);
+                                  if (sz > 127 && sz <= 16777215) inChunk = sz;
+                              } else if (type == 20) {
+                                  handleCommand(body);
+                              }
+                          }
+                      } catch (Throwable t) {
+                          failed = true;
+                      }
+                  }
+                  void handleCommand(byte[] b) {
+                      try {
+                          int[] pos = { 0 };
+                          String name = amfStringAt(b, pos);
+                          if (name == null) return;
+                          double txid = amfNumberAt(b, pos);
+                          if ("_result".equals(name) && txid == 1.0) {
+                              sendSetChunkSize(4096);
+                              amf.reset();
+                              amfString("createStream");
+                              amfNumber(2.0);
+                              amfNull();
+                              sendCommand(3, 0);
+                          } else if ("_result".equals(name) && txid == 2.0) {
+                              Double msid = amfFirstNumber(b, pos);
+                              if (msid != null) msgStreamId = (int) Math.round(msid);
+                              if (msgStreamId <= 0) msgStreamId = 1;
+                              amf.reset();
+                              amfString("publish");
+                              amfNumber(3.0);
+                              amfNull();
+                              amfString(streamKeyOf(path));
+                              amfString("live");
+                              sendCommand(8, msgStreamId);
+                              publishSent = true;
+                          }
+                      } catch (Throwable ignored) { }
+                  }
+          
+                  /* ── إرسال الرسائل ── */
+                  void sendCommand(int csid, int msid) {
+                      sendMessage(csid, msid, 20, 0, amf.toByteArray());
+                  }
+                  void sendSetChunkSize(int size) {
+                      byte[] p = new byte[4];
+                      p[0] = (byte) ((size >> 24) & 255);
+                      p[1] = (byte) ((size >> 16) & 255);
+                      p[2] = (byte) ((size >> 8) & 255);
+                      p[3] = (byte) (size & 255);
+                      sendMessage(2, 0, 1, 0, p);
+                      outChunk = size;
+                  }
+                  void sendMessage(int csid, int msid, int type, int ts, byte[] payload) {
+                      synchronized (writeLock) {
+                          try {
+                              int len = payload.length;
+                              out.write((0 << 6) | csid);
+                              writeU24(ts > 0xFFFFFF ? 0xFFFFFF : ts);
+                              writeU24(len);
+                              out.write(type);
+                              writeU32le(msid);
+                              if (ts > 0xFFFFFF) writeU32(ts);
+                              int off = 0;
+                              while (off < len) {
+                                  if (off > 0) out.write((3 << 6) | csid);
+                                  int n = Math.min(outChunk, len - off);
+                                  out.write(payload, off, n);
+                                  off += n;
+                              }
+                              out.flush();
+                          } catch (Throwable t) {
+                              failed = true;
+                          }
+                      }
+                  }
+          
+                  /* ── الفيديو: ترويسة AVC ثم إطارات AVCC ── */
+                  void sendConfig(byte[] csd) {
+                      try {
+                          if (!awaitPublish(3000)) return;      /* النشر أولاً — وإلا أسقطت الحزمة */
+                          if (sps == null || pps == null) parseAnnexB(csd);
+                          if (sps == null || pps == null) return;
+                          java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
+                          o.write(0x17);
+                          o.write(0x00);
+                          o.write(0); o.write(0); o.write(0);
+                          o.write(0x01);
+                          o.write(sps.length > 3 ? sps[1] & 255 : 66);
+                          o.write(sps.length > 3 ? sps[2] & 255 : 0);
+                          o.write(sps.length > 3 ? sps[3] & 255 : 30);
+                          o.write(0xFF);
+                          o.write(0xE1);
+                          o.write(sps.length >> 8);
+                          o.write(sps.length & 255);
+                          o.write(sps);
+                          o.write(0x01);
+                          o.write(pps.length >> 8);
+                          o.write(pps.length & 255);
+                          o.write(pps);
+                          if (!cfgSent) {
+                              sendMessage(4, msgStreamId, 9, 0, o.toByteArray());
+                              cfgSent = true;
+                          }
+                      } catch (Throwable t) {
+                          failed = true;
+                      }
+                  }
+                  boolean awaitPublish(long ms) {
+                      long t0 = SystemClock.elapsedRealtime();
+                      while (!publishSent && !failed && SystemClock.elapsedRealtime() - t0 < ms) {
+                          try { Thread.sleep(10); } catch (Throwable ignored) { }
+                      }
+                      return publishSent && !failed;
+                  }
+                  void sendFrame(byte[] data, long ts) {
+                      if (!cfgSent) return;                      /* الترويسة أولاً */
+                      if (!awaitPublish(3000)) return;
+                      try {
+                          java.util.ArrayList<byte[]> nals = splitAnnexB(data);
+                          java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
+                          o.write(0x17);
+                          o.write(0x01);
+                          o.write(0); o.write(0); o.write(0);
+                          boolean key = false;
+                          int i;
+                          for (i = 0; i < nals.size(); i++) {
+                              byte[] nal = nals.get(i);
+                              int ntype = nal.length > 0 ? nal[0] & 0x1F : 0;
+                              if (ntype == 7 || ntype == 8 || ntype == 9) continue;   /* في الترويسة أو حشو */
+                              if (ntype == 5) key = true;
+                              o.write(nal.length >> 24);
+                              o.write((nal.length >> 16) & 255);
+                              o.write((nal.length >> 8) & 255);
+                              o.write(nal.length & 255);
+                              o.write(nal);
+                          }
+                          byte[] body = o.toByteArray();
+                          if (body.length > 5) {
+                              body[0] = (byte) (key ? 0x17 : 0x27);
+                              int t = (int) (ts > 0x7FFFFFFF ? 0x7FFFFFFF : ts);
+                              sendMessage(4, msgStreamId, 9, t, body);
+                          }
+                      } catch (Throwable t) {
+                          failed = true;
+                      }
+                  }
+          
+                  /* ── تقسيم Annex-B إلى NALات ── */
+                  java.util.ArrayList<byte[]> splitAnnexB(byte[] data) {
+                      java.util.ArrayList<byte[]> nals = new java.util.ArrayList<byte[]>();
+                      int n = data.length;
+                      int idx = 0;
+                      while (idx < n) {
+                          int start = -1;
+                          int zeros = 0;
+                          int k = idx;
+                          while (k < n) {
+                              if ((data[k] & 255) == 0) { zeros++; k++; continue; }
+                              if ((data[k] & 255) == 1 && zeros >= 2) { start = k + 1; break; }
+                              zeros = 0;
+                              k++;
+                          }
+                          if (start < 0) break;
+                          zeros = 0;
+                          int end = n;
+                          int m = start;
+                          while (m < n) {
+                              if ((data[m] & 255) == 0) { zeros++; m++; continue; }
+                              if ((data[m] & 255) == 1 && zeros >= 2) { end = m - zeros; break; }
+                              zeros = 0;
+                              m++;
+                          }
+                          if (end > start) {
+                              byte[] nal = new byte[end - start];
+                              System.arraycopy(data, start, nal, 0, nal.length);
+                              nals.add(nal);
+                          }
+                          idx = end;
+                      }
+                      return nals;
+                  }
+                  void parseAnnexB(byte[] csd) {
+                      try {
+                          java.util.ArrayList<byte[]> nals = splitAnnexB(csd);
+                          int i;
+                          for (i = 0; i < nals.size(); i++) {
+                              byte[] nal = nals.get(i);
+                              int ntype = nal.length > 0 ? nal[0] & 0x1F : 0;
+                              if (ntype == 7 && sps == null) sps = nal;
+                              if (ntype == 8 && pps == null) pps = nal;
+                          }
+                      } catch (Throwable ignored) { }
+                  }
+          
+                  /* ── أدوات AMF0/IO ── */
+                  void amfString(String s) throws java.io.IOException {
+                      byte[] b = s.getBytes("UTF-8");
+                      if (b.length < 65535) {
+                          amf.write(0x02);
+                          amf.write(b.length >> 8);
+                          amf.write(b.length & 255);
+                      } else {
+                          amf.write(0x0C);
+                          amf.write((b.length >> 24) & 255);
+                          amf.write((b.length >> 16) & 255);
+                          amf.write((b.length >> 8) & 255);
+                          amf.write(b.length & 255);
+                      }
+                      amf.write(b);
+                  }
+                  void amfNumber(double d) throws java.io.IOException {
+                      amf.write(0x00);
+                      long bits = Double.doubleToLongBits(d);
+                      int i;
+                      for (i = 7; i >= 0; i--) amf.write((int) ((bits >> (i * 8)) & 255));
+                  }
+                  void amfNull() throws java.io.IOException { amf.write(0x05); }
+                  void amfPropString(String key, String val) throws java.io.IOException {
+                      byte[] k = key.getBytes("UTF-8");
+                      amf.write(k.length >> 8);
+                      amf.write(k.length & 255);
+                      amf.write(k);
+                      amfString(val);
+                  }
+                  String amfStringAt(byte[] b, int[] pos) {
+                      try {
+                          if (pos[0] >= b.length) return null;
+                          int t = b[pos[0]] & 255;
+                          pos[0]++;
+                          if (t != 0x02 && t != 0x0C) { pos[0]--; return null; }
+                          int len = t == 0x02
+                              ? (((b[pos[0]] & 255) << 8) | (b[pos[0] + 1] & 255))
+                              : (((b[pos[0]] & 255) << 24) | ((b[pos[0] + 1] & 255) << 16) | ((b[pos[0] + 2] & 255) << 8) | (b[pos[0] + 3] & 255));
+                          pos[0] += t == 0x02 ? 2 : 4;
+                          if (len < 0 || pos[0] + len > b.length) return null;
+                          String s = new String(b, pos[0], len, "UTF-8");
+                          pos[0] += len;
+                          return s;
+                      } catch (Throwable t) {
+                          return null;
+                      }
+                  }
+                  double amfNumberAt(byte[] b, int[] pos) {
+                      try {
+                          if (pos[0] + 9 > b.length) return 0;
+                          int t = b[pos[0]] & 255;
+                          pos[0]++;
+                          if (t != 0x00) return 0;
+                          long bits = 0;
+                          int i;
+                          for (i = 0; i < 8; i++) bits = (bits << 8) | (b[pos[0] + i] & 255);
+                          pos[0] += 8;
+                          return Double.longBitsToDouble(bits);
+                      } catch (Throwable t) {
+                          return 0;
+                      }
+                  }
+                  Double amfFirstNumber(byte[] b, int[] pos) {
+                      try {
+                          while (pos[0] < b.length) {
+                              int t = b[pos[0]] & 255;
+                              if (t == 0x00) return amfNumberAt(b, pos);
+                              if (t == 0x01) { pos[0] += 2; continue; }
+                              if (t == 0x05) { pos[0] += 1; continue; }
+                              if (t == 0x02 || t == 0x0C) {
+                                  String s = amfStringAt(b, pos);
+                                  if (s == null) return null;
+                                  continue;
+                              }
+                              if (t == 0x03) {                     /* كائن: تخطّه لآخره */
+                                  pos[0]++;
+                                  while (pos[0] + 2 < b.length) {
+                                      if ((b[pos[0]] & 255) == 0 && (b[pos[0] + 1] & 255) == 0 && (b[pos[0] + 2] & 255) == 9) {
+                                          pos[0] += 3;
+                                          break;
+                                      }
+                                      pos[0]++;
+                                  }
+                                  continue;
+                              }
+                              pos[0]++;
+                          }
+                      } catch (Throwable ignored) { }
+                      return null;
+                  }
+                  String appOf(String p) {
+                      int s = p.indexOf('/');
+                      return s > 0 ? p.substring(0, s) : "live";
+                  }
+                  String streamKeyOf(String p) {
+                      int s = p.indexOf('/');
+                      return s > 0 ? p.substring(s + 1) : p;
+                  }
+                  String tcUrlOf(String u, String app) {
+                      String rest = u.substring(7);
+                      int slash = rest.indexOf('/');
+                      String hostport = slash >= 0 ? rest.substring(0, slash) : rest;
+                      String tail = slash >= 0 ? rest.substring(slash) : "";
+                      if (tail.length() > 1) return "rtmp://" + hostport + tail;
+                      return "rtmp://" + hostport + "/" + app;
+                  }
+                  void writeU24(int v) throws java.io.IOException {
+                      out.write((v >> 16) & 255);
+                      out.write((v >> 8) & 255);
+                      out.write(v & 255);
+                  }
+                  void writeU32(int v) throws java.io.IOException {
+                      out.write((v >> 24) & 255);
+                      out.write((v >> 16) & 255);
+                      out.write((v >> 8) & 255);
+                      out.write(v & 255);
+                  }
+                  void writeU32le(int v) throws java.io.IOException {
+                      out.write(v & 255);
+                      out.write((v >> 8) & 255);
+                      out.write((v >> 16) & 255);
+                      out.write((v >> 24) & 255);
+                  }
+                  int readU24() throws java.io.IOException {
+                      int a = in.read(), b = in.read(), c = in.read();
+                      if (a < 0 || b < 0 || c < 0) throw new java.io.IOException("eof");
+                      return ((a & 255) << 16) | ((b & 255) << 8) | (c & 255);
+                  }
+                  int readU32() throws java.io.IOException {
+                      int a = in.read(), b = in.read(), c = in.read(), d = in.read();
+                      if (a < 0 || b < 0 || c < 0 || d < 0) throw new java.io.IOException("eof");
+                      return ((a & 255) << 24) | ((b & 255) << 16) | ((c & 255) << 8) | (d & 255);
+                  }
+                  int readU32le() throws java.io.IOException {
+                      int a = in.read(), b = in.read(), c = in.read(), d = in.read();
+                      if (a < 0 || b < 0 || c < 0 || d < 0) throw new java.io.IOException("eof");
+                      return (a & 255) | ((b & 255) << 8) | ((c & 255) << 16) | ((d & 255) << 24);
+                  }
+                  byte[] readFully(int n) throws java.io.IOException {
+                      byte[] b = new byte[n];
+                      int off = 0;
+                      while (off < n) {
+                          int r = in.read(b, off, n - off);
+                          if (r < 0) throw new java.io.IOException("eof");
+                          off += r;
+                      }
+                      return b;
+                  }
+                  boolean readInto(byte[] b, int off, int n) {
+                      try {
+                          while (n > 0) {
+                              int r = in.read(b, off, n);
+                              if (r < 0) return false;
+                              off += r;
+                              n -= r;
+                          }
+                          return true;
+                      } catch (Throwable t) {
+                          return false;
+                      }
+                  }
+                  byte[] sub(byte[] b, int from, int len) {
+                      byte[] r = new byte[len];
+                      System.arraycopy(b, from, r, 0, len);
+                      return r;
+                  }
+                  void close() {
+                      failed = true;
+                      try { if (reader != null) reader.interrupt(); } catch (Throwable ignored) { }
+                      reader = null;
+                      try { if (sock != null) sock.close(); } catch (Throwable ignored) { }
+                      sock = null;
+                      out = null;
+                      in = null;
+                  }
+              }
           }
           '''
           io.open(p2, "w", encoding="utf-8").write(new)
           print("OK MainActivity: جسر DTSGNative (getInsets + setBarsLight) + أشرطة شفافة")
+
+          # ③ [v2.88·التحكيم] ArbShareService — الخدمة الأمامية (mediaProjection):
+          #    إلزام إطار أندرويد منذ API 29: إسقاط الشاشة لا يبدأ إلا بإشعار
+          #    ظاهر. منطق البث كله في MainActivity (ArbShare) — الخدمة بوابة
+          #    الإشعار ثم تستدعي خطاف sSelf. بلا أي شرطة مائلة عكسية (قيد الحقن).
+          p3 = "android/app/src/main/java/com/dtsg/app/ArbShareService.java"
+          svc = '''package com.dtsg.app;
+
+          /* [v2.88·التحكيم] خدمة أمامية (mediaProjection) — إلزام إطار أندرويد منذ
+             API 29: الإسقاط لا يبدأ إلا والإشعار ظاهر. منطق البث كله في MainActivity
+             (ArbShare) — الخدمة مجرد بوابة الإشعار ثم تستدعي خطاف sSelf للبدء. */
+          public class ArbShareService extends android.app.Service {
+              @Override
+              public int onStartCommand(android.content.Intent intent, int flags, int startId) {
+                  try {
+            String ch = "dtsg_arb_share";
+            android.app.NotificationManager nm =
+                (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            if (android.os.Build.VERSION.SDK_INT >= 26 && nm != null) {
+                android.app.NotificationChannel c = new android.app.NotificationChannel(
+                    ch, "بث التحكيم", android.app.NotificationManager.IMPORTANCE_LOW);
+                nm.createNotificationChannel(c);
+            }
+            android.app.Notification.Builder b;
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                b = new android.app.Notification.Builder(this, ch);
+            } else {
+                b = new android.app.Notification.Builder(this);
+            }
+            b.setSmallIcon(android.R.drawable.ic_media_play);
+            b.setContentTitle("DTSG — بث التحكيم جارٍ");
+            b.setContentText("تُشارك شاشتك مع لوحة التحكيم");
+            b.setOngoing(true);
+            android.app.Notification n = b.build();
+            int code = intent != null ? intent.getIntExtra("code", 0) : 0;
+            android.content.Intent data = intent != null ? intent.getParcelableExtra("data") : null;
+            if (android.os.Build.VERSION.SDK_INT >= 29) {
+                startForeground(startId, n, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+            } else {
+                startForeground(startId, n);
+            }
+            MainActivity self = MainActivity.sSelf;
+            if (self != null && code != 0 && data != null) {
+                self.onArbServiceReady(code, data);
+            }
+                  } catch (Throwable ignored) { }
+                  return START_NOT_STICKY;
+              }
+              @Override
+              public android.os.IBinder onBind(android.content.Intent intent) { return null; }
+          }
+          '''
+          io.open(p3, "w", encoding="utf-8").write(svc)
+          print("OK ArbShareService: خدمة Foreground (mediaProjection) لبث التحكيم")
+
+          # ④ [v2.88·التحكيم] أذونات الإسقاط + إعلان الخدمة في AndroidManifest
+          #    (خدمة الأمامية من نوع mediaProjection إلزامية للنشر من API 29+).
+          p4 = "android/app/src/main/AndroidManifest.xml"
+          m = io.open(p4, encoding="utf-8").read()
+          if "FOREGROUND_SERVICE_MEDIA_PROJECTION" not in m:
+              anchor2 = '<uses-permission android:name="android.permission.BLUETOOTH_CONNECT" /> <!-- [v2.87] LocalNet -->'
+              if anchor2 not in m:
+                  sys.exit("X قالب AndroidManifest تغيّر: لم أجد مرساة BLUETOOTH_CONNECT — راجع خطوة الحقن (8.5-4)")
+              m = m.replace(anchor2, anchor2 + "\n" +
+                  "    <!-- [v2.88] بث التحكيم: إسقاط الشاشة عبر خدمة أمامية -->\n" +
+                  "    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE\" />\n" +
+                  "    <uses-permission android:name=\"android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION\" />\n" +
+                  "    <uses-permission android:name=\"android.permission.POST_NOTIFICATIONS\" />", 1)
+          if "ArbShareService" not in m:
+              app_close = "</application>"
+              if app_close not in m:
+                  sys.exit("X قالب AndroidManifest تغيّر: لم أجد </application> — راجع خطوة الحقن (8.5-4)")
+              m = m.replace(app_close,
+                  "    <service android:name=\".ArbShareService\" android:exported=\"false\" android:foregroundServiceType=\"mediaProjection\" /> <!-- [v2.88] بث التحكيم -->\n" +
+                  app_close, 1)
+          io.open(p4, "w", encoding="utf-8").write(m)
+          print("OK AndroidManifest: أذونات الإسقاط + خدمة mediaProjection")
           PY3
 
       # 8.6) [v2.87·LocalNet] أذونات الشبكة المحلية للّعب المباشر: اكتشاف

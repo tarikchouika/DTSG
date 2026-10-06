@@ -1274,6 +1274,16 @@ class RondaPlatformAdapter {
     } catch (e) {}
     this.renderer = new RondaRenderer(this.core);
     this.renderer.mount('rnContainer');
+    /* [v2.88·LocalMP] الغرفة المحلية ودّية بلا رهان (عقد قاعدة 20: bet=0) —
+       افتراض الرهان 10 عند bet=0 كان يجعل المالك يدخل «مرحلة المشاركة» المالية
+       (ownerStartJoinPhase) التي تستدعي عقد الخادم (/api/rooms/roundJoin) في غرفة
+       محلية بلا خادم أصلاً: النقر على «المشاركة» يموت بصمت وتعلق اللعبة عند
+       لوحة الجولة القادمة ولا يصل اللاعبان لاختيار البطاقة إطلاقاً (بلاغ
+       المالك 2026-10-06: «الروندا الكلاسيكية تلعب تلقائياً بلا تحكم اللاعب
+       البشري» — التشخيص بالمحاكاة: mode → deal → joinphase ثم جمود أبدي).
+       الغرف الخادمية المجانية (bet=0) تستفيد كذلك: بلا لوحة مشاركة مالية
+       لبطة بلا رهان — ownerNextRound يمضي للجولة مباشرة. */
+    var isLocalRoom = String(room.id || '').indexOf('local-') === 0;
     this.room = {
       id: room.id,
       code: room.code,
@@ -1288,7 +1298,7 @@ class RondaPlatformAdapter {
       phase: rs.phase || 'mode',
       /* [v2.73] رهان الجولة = المبلغ المحدد للغرفة نفسها — كان يُقرأ من
          room_state (مفتاح غير مسجّل) فيعود دائماً إلى 10 مهما ضبط المالك */
-      bet: (room.bet != null && room.bet !== 0) ? room.bet : (rs.bet || 10)
+      bet: isLocalRoom ? 0 : ((room.bet != null && room.bet !== 0) ? room.bet : (rs.bet || 10))
     };
 
     /* [v2.73] نهاية الجولة: الدور ينتقل للمتخمّن الموالي آلياً (دوران) ثم
