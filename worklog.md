@@ -1180,3 +1180,16 @@ Work Log:
 Stage Summary:
 - دروس البناء صارت تُكتشف على المكتب قبل CI (المحاكاة المحلية) لا بعد فشل بناء عام
 - إعادة الدفع تطلق البناء 27
+---
+Task ID: v2.88-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.88.0 — البناء 27 نجح والRelease منشور والAPK مُتحقَّق منه
+
+Work Log:
+- البناء 27 (67aab48) نجح والRelease apk-v2.88.0-build27 منشور بعلم latest: DTSG-Gaming-App.apk (26.7MB) + sha256 مطابقة (3521742152fb3103e94e544a92d67cfdb196e295c7bb1166ee203beebba0f3f3)
+- التحقق من الAPK المنشور نفسه (تنزيل وفك): DEX يحمل العقود الستة عشر (ArbShare · RtmpLink · ArbShareService · createScreenCaptureIntent/getMediaProjection/createVirtualDisplay · video/avc · amfString/sendSetChunkSize · __dtsgArbEvt · arbShareStart · getDisplayMetrics [density A53] · __dtsgLnEvt وBEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE وcacheInsets [مكتسبات v2.85/86/87]) — والManifest يحمل الأذونات الجديدة (FOREGROUND_SERVICE · FOREGROUND_SERVICE_MEDIA_PROJECTION · POST_NOTIFICATIONS) + إعلان ArbShareService بسمة foregroundServiceType (القيمة العلمية تُترجم رقماً في AXML) + أذونات LocalNet السبعة كما هي
+- جولة الحراس الختامية: v288 52/52 · v287 56/56 · v286 23/23 · v285 42/42 · v283 28/28 · v2813 21/21 · hygiene 5/5 · coverage 21/21 · v284 32/32
+
+Stage Summary:
+- v2.88.0 حيّة على GitHub main (67aab48) والرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّم البناء 27
+- المعلَّق على المالك: تثبيت APK v2.88.0 (يتحدث مباشرة فوق build25 — نفس شهادة الإنتاج) · اختبار الألعاب في الغرف المحلية (بلياردو وروندا كلاسيكية — المزامنة والتحكم البشري) · التحقق من هيدر A53 · اختبار مشاركة الشاشة من التطبيق في غرفة تحكيم (يتطلب خادم المنصة والمرحّل خادمين كالمعتاد) — وأي ملاحظة تُصلَّح بنموذج الجولات
