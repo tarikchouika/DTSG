@@ -1,7 +1,7 @@
 # 🛡️ ملف تحذيري إلزامي — DTSG: مستودع واحد · فرع واحد
 
 > **اقرأه كاملاً قبل أي `git push`.** مستخدَم مع [`AGENTS.md`](../AGENTS.md) في جذر المستودع.
-> آخر تحديث: 2026-09-28 · السبب: حادثة نشر Cloudflare Pages (أونو/البلوت غائبتان عن مجلد النشر — القسم 8) + حادثة فرع `arena/01a0bd39-dtsg` (القسم 1).
+> آخر تحديث: 2026-09-30 · السبب: حادثة نشر Cloudflare Pages (أونو/البلوت غائبتان عن مجلد النشر — القسم 8) + حادثة فرع `arena/01a0bd39-dtsg` (القسم 1) + حادثة النشر إلى حساب Cloudflare ثانٍ «نجح» ولم يحدث شيء (القسم 9). المراجعة على `v2.93.0`.
 
 ---
 
@@ -49,8 +49,11 @@
 > `/root/dmgames-arena` **ليست** نسخة من مستودع DTSG: هي worktree للمستودع `digital-moroccan-casino`
 > (فرع `arena/samsung-fixes-20260911`). أي `git checkout main && git pull` داخلها يطمس الموقع الحيّ بكود قديم.
 
-و`GITHUB_SYNC.md` (سطر 226) يوثّق نفس اللبس: مسار `/root/digital-moroccan-casino/` القديم + فرع
-`arena/01a081af-digital-moroccan-casino`.
+و`GITHUB_SYNC.md` **كان** يوثّق نفس اللبس: مسار `/root/digital-moroccan-casino/` القديم + فرع
+`arena/01a081af-digital-moroccan-casino` — **وهذا المرجع ميّت**: الملف كان في الاستيراد
+الأول (`586e4e6`) ولم يعد في `main` إطلاقاً، وحذفه **لا يظهر في سجلّ هذا المستودع** (أُعيد
+ربط git بتاريخ 2026-09-22 فلم يبقَ له سطر حذف) ⇒ لا تبحث عنه ولا تعتمد عليه. البديل الحيّ لما كان يغطّيه:
+`AGENTS.md` القواعد 1-3 + `scripts/preflight-repo.sh` + `scripts/update-phone-server.sh`.
 
 و`scripts/deploy-pages.sh` (سطر 28) **كان** يجلب افتراضياً فرع الريبو القديم:
 
@@ -129,7 +132,7 @@ curl -s -H "Authorization: Bearer $TOKEN" https://api.github.com/repos/tarikchou
 ## 6) المراجع
 
 - `AGENTS.md` — القواعد المختصرة (تُقرأ أولاً).
-- `GITHUB_SYNC.md` — تاريخ المزامنة والبنية التحتية (مسار الخادم القديم، الفروع القديمة).
+- `GITHUB_SYNC.md` — ⚠️ **مرجع ميّت: الملف لم يعد موجوداً في `main`** (كان تاريخ المزامنة والبنية التحتية، حاضر في الاستيراد الأول `586e4e6` فقط، وحذفه غير مسجَّل في هذا السجلّ). البديل الحيّ: `AGENTS.md` القواعد 1-3 · `scripts/preflight-repo.sh` · `scripts/update-phone-server.sh`.
 - `docs/PHONE_HANDOFF_v248.md` — تحذير الـworktree القديم + إجراءات الهاتف.
 - `docs/PHONE_DB_TUNNEL_GUIDE.md` — تشغيل خادم الهاتف والنفق.
 - `tests/_repo_origin_test.js` · `tests/_repo_hygiene_test.js` — الحرّاس الآليون.
@@ -239,7 +242,7 @@ cp -r js css assets ronda-game backgammon-game dominoes-game "$OUT/"
    و`baloot-game/assets` المخصصين للنسخة المستقلة فقط — أيقونات الكتالوج تعيش في
    `assets/games/<un|baloot>` المرفوعة أصلاً).
 2. `deploy-clean.sh`: نفس فئة الخلل (لم يكن ينسخ **أي** مجلد ألعاب مستقلة) — أُصلح بالمثل.
-3. **حارس آلي جديد** `tests/_deploy_coverage_test.js` (14 تحققاً): كل مجلد علوي يُشار إليه من
+3. **حارس آلي جديد** `tests/_deploy_coverage_test.js` (**21** تحققاً — كان **14** عند إطلاقه في v2.65.1 و19 قبل v2.81): كل مجلد علوي يُشار إليه من
    صفحات HTML المنشورة يجب أن يظهر في سطر `cp -r` في سكربتي النشر + لا مجلدات وهمية +
    قواعد التقليم موجودة + كل ملف مُشار من `index.html` موجود فعلاً. **التقط الخطأ الأصلي
    عند اختباره على النسخة المعطوبة (فشل صريح: `baloot-game, uno-game غير منسوخة`)**.
@@ -249,9 +252,13 @@ cp -r js css assets ronda-game backgammon-game dominoes-game "$OUT/"
 
 ### القاعدة المستخلصة (أُضيفت قاعدة 11 في AGENTS.md)
 > **أي مجلد لعبة مستقلة جديد (`<name>-game/`) ⇒ إضافته فوراً إلى سطر `cp -r` في
-> `scripts/deploy-pages.sh` و`deploy-clean.sh`** — والتحقق آلي عبر
-> `node tests/_deploy_coverage_test.js` قبل كل دفع. «موجود في المستودع» لا يعني
-> «منشور على Pages» — النشر انتقائي والسكربت هو نقطة الفشل الوحيدة.
+> السكربتات الثلاثة: `scripts/deploy-pages.sh` و`deploy-clean.sh` و`scripts/prepare-www.sh`** —
+> والتحقق آلي عبر `node tests/_deploy_coverage_test.js` قبل كل دفع. «موجود في المستودع» لا
+> يعني «منشور على Pages» — النشر انتقائي والسكربت هو نقطة الفشل الوحيدة.
+> **[v2.81] والمواضع الآن ثلاثة لا اثنان:** الثالث `scripts/prepare-www.sh` يبني مجلد `www/` الذي
+> يحزمه Capacitor داخل تطبيق الأندرويد — نسيانه = APK بلا مجلدات الألعاب **بلا أي إنذار** لأن
+> النشر لم يُحاول أصلاً، والحارس صار يفحص الثلاثة (كان الأولان وحدهما ⇒ الموقع الثالث كان خارج
+> التغطية كلها).
 
 ## 9) حادثة 2026-09-30 — نشر إلى حساب Cloudflare ثانٍ «نجح» ولم يحدث شيء 🚨
 

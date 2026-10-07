@@ -159,6 +159,24 @@ const v285 = ['css/09-chrome.css', 'css/03-components.css', 'css/04-games.css',
   'js/core/utils.js', 'js/i18n/translations.js', 'js/core/local-mp.js', 'js/main.js'];
 const stale = v285.filter(f => !new RegExp(f.replace('.', '\\.') + '\\?v=v\\d+"').test(idx));
 ok(stale.length === 0, 'بصمات ?v= غير فارغة على الأصول العشرة (قاعدة 22 — لا تثبيت حرفي)', stale.join(', '));
+/* [تدقيق 2026-10-07] الفحص أعلاه يقرأ index.html وحدها ⇒ مرّت ثلاث بصمات قديمة
+   في الصفحات القانونية التسع سبعة إصدارات كاملة بلا أن يمرّ الحارس: 03-components
+   في refund-policy/support (dtsg7 بينما الناسع v287) · api.js/auth.js في 2fa بلا
+   بصمة أصلاً · 07-responsive وutils.js على dtsg6/dtsg7 منذ v2.85. القاعدة 22
+   تعدّ كل صفحة محمّلة لا الصفحة الرئيسية وحدها، فالفحص يشمل العشر. */
+const ROOT_PAGES = ['index.html', '2fa.html', 'about.html', 'admins.html', 'contact.html',
+  'fairness.html', 'privacy.html', 'refund-policy.html', 'support.html', 'terms.html'];
+const unfingerprinted = [];
+for (const page of ROOT_PAGES) {
+  const refs = [...read(page).matchAll(/<script[^>]+src="([^"]+)"|<link[^>]+href="([^"]+)"/g)]
+    .map(m => m[1] || m[2])
+    .filter(u => !/^(https?:)?\/\//.test(u) && !u.startsWith('#') && !u.startsWith('/') &&
+                 !u.startsWith('data:') && /\.(js|css)(\?|$)/.test(u));
+  for (const u of refs) if (!/\?v=[^&"']+/.test(u)) unfingerprinted.push(page + ' → ' + u);
+}
+ok(unfingerprinted.length === 0,
+   'بصمة ?v= على كل أصل محمَّل في الصفحات العشر كلها (قاعدة 22 — لا index.html وحدها)',
+   unfingerprinted.slice(0, 4).join(' · '));
 const pkg = JSON.parse(read('package.json'));
 const lock = JSON.parse(read('package-lock.json'));
 const main = read('js/main.js');
@@ -192,7 +210,7 @@ ok(docCounts.every(l => l.length > 0) && docNums.length === 1,
    'الأرقام الواردة: ' + (docNums.join(', ') || 'لا ذكر'));
 
 /* ── حارس العدّاد ───────────────────────────────────────────────────────── */
-const EXPECTED = 42;
+const EXPECTED = 43;
 ok(results.length === EXPECTED - 1,
    'حارس العدّاد: عدد النتائج = عدد الحرسات المكتوبة (' + EXPECTED + ')');
 

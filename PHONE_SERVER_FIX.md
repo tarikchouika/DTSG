@@ -2,17 +2,9 @@
 
 **تاريخ التشخيص:** 2026-09-17 · **الموقع:** https://dtsg.pages.dev · **الشجرة في GitHub:** v2.40.4
 
-> ## ⛔ وثيقة مؤرشفة — لا تُنفَّذ كإجراء
-> هذا تشخيص **مجمّد** بتاريخ 2026-09-17 (v2.40.4)، وبقي فيه أوامر **خطِرة** على
-> الحالة الراهنة:
-> - **السطر 51:** `cd /root/dmgames-arena && git reset --hard origin/main` — ذلك
->   المجلد **حُذف نهائياً في 2026-09-22** (قاعدة 2 في [`AGENTS.md`](AGENTS.md)).
->   الأمر لا ينفَّذ؛ ولا يُستأنف من أي مجلد آخر باسم المستودع القديم.
-> - **السطر 59:** توقّع `build: 2.40.4` — قديم بNature: الإصدار الحالي يُقرأ من `package.json`.
->
-> **إجراء اليوم:** التحديث وإعادة التشغيل يتمّان عبر السكربتين الإلزاميين فقط —
-> `bash scripts/update-phone-server.sh` ثم `bash scripts/phone-env-restart.sh`
-> (قاعدة 9)، والتحقق بقائمة إعادة التشغيل في `AGENTS.md`. هذا الملف للاستئناس التاريخي فقط.
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** تشخيص مجمّد بتاريخ 2026-09-17، وبقيت فيه أوامر **خطِرة** على الحالة الراهنة: المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ ممنوع (القاعدة 2)، وكذلك `pm2 restart … --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22).
+> **إجراء اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` — وهو يتولّى كل ما كان موصوفاً هنا يدوياً (نسخة احتياطية · جلب وضبط · نسخ التبعيات · إعادة التشغيل · التحقق المحلي والعام). لإعادة التشغيل وحدها: `bash scripts/phone-env-restart.sh` (المصدر الوحيد للأسرار `/root/DTSG/.env.local`). المرجع الإلزامي: [`AGENTS.md`](AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — ولا يُنفَّذ حرفياً.
 
 ---
 
@@ -57,7 +49,7 @@
 
 ```bash
 # 0) تشخيص أولاً (بلا أي تغيير) — سيخبرك أي مجلد يخدم فعلاً
-cd /root/dmgames-arena && git fetch origin && git reset --hard origin/main
+cd /root/DTSG && git fetch origin main && git reset --hard origin/main   # ⛔ محلّه /root/dmgames-arena (محذوف · القاعدة 2) — وادفع عملك قبل هذا الضبط القاسي
 bash scripts/phone-doctor.sh
 
 # 1) التحديث الكامل (يكتشف مجلد pm2 تلقائياً + نسخة احتياطية + تحقق نهائي)
@@ -65,7 +57,7 @@ bash scripts/update-phone-server.sh
 
 # 2) من أي جهاز آخر — التأكيد النهائي
 curl -s https://casino-phone.dmgames-api.workers.dev/api/health
-#    المتوقع: {"ok":true,"service":"dmgames-arena","build":"2.40.4","payments":true,...}
+#    المتوقع: {"ok":true,"service":"dmgames-arena","build":"<الإصدار الفعلي من package.json>","payments":true,...}
 curl -s https://casino-phone.dmgames-api.workers.dev/api/payments/methods
 #    المتوقع: {"ok":true,"methods":[...6 وسائل...]}
 curl -o /dev/null -w '%{http_code}\n' https://casino-phone.dmgames-api.workers.dev/data/royalcoin.db

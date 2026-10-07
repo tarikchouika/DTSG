@@ -1,4 +1,9 @@
 # 📱 تحديث خادم الهاتف — DTSG v2.45 (إزالة Cryptomus ⇒ Binance Pay)
+
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ ممنوع (القاعدة 2)، وكذلك `pm2 restart … --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22).
+> **المسار المعتمد اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` (تحديث كامل) أو `bash scripts/phone-env-restart.sh` (إعادة تشغيل فقط) — والأسرار من `/root/DTSG/.env.local` وحده. المرجع الإلزامي: [`AGENTS.md`](../AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — لا تنقل أوامره إلى الطرفالة.
+
 > **الواجهة على dtsg.pages.dev** تُنشر تلقائياً من `main` — لا تفعل شيئاً لها.
 > ما يلي يخص **خادم الهاتف** (المدفوعات)، لأن ملفات الخادم لا تُنشر على Pages.
 
@@ -41,14 +46,14 @@ BINANCE_PAY_API_BASE=https://bpay.binanceapi.com          # اختياري — �
 ## 2) الخطوات على الهاتف (3 دقائق)
 
 ```bash
-cd /root/dmgames-arena            # الشجرة التي يشغّلها pm2 فعلاً
+cd /root/DTSG                    # ⛔ محلّه /root/dmgames-arena: الشجرة التي يشغّلها pm2 (القاعدة 2)
 git fetch origin main && git reset --hard origin/main
 
 # 1) تصدير المفاتيح (من بيئتك أو من ملف الأسرار)
 set -a; . /root/.secrets/dtsg-payments.txt; set +a
 
 # 2) إعادة التشغيل مع تحديث البيئة (يشغّل ترحيل القاعدة تلقائياً)
-pm2 restart casino-server --update-env
+bash scripts/phone-env-restart.sh   # ⛔ محلّه pm2 restart casino-server --update-env (القاعدة 9): يقرأ .env.local ثم يتحقق من العملية الحيّة ثم pm2 save
 pm2 logs casino-server --lines 40        # يجب أن يظهر: migrated pay_transactions.method → +binance +binance_pay
 ```
 

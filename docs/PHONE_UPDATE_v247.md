@@ -1,9 +1,13 @@
 # تحديث الهاتف — v2.47 (بوت أكواد التعبئة · بايننس قراءة-فقط · سحب لأدمن الحساب)
 
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ ممنوع (القاعدة 2)، وكذلك `pm2 restart … --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22).
+> **المسار المعتمد اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` (تحديث كامل) أو `bash scripts/phone-env-restart.sh` (إعادة تشغيل `casino-server` و`dtsg-voucher-bot` معاً بالبيئة الكاملة من `.env.local` ثم `pm2 save`) — والأسرار من `.env.local` وحده. المرجع الإلزامي: [`AGENTS.md`](../AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — لا تنقل أوامره إلى الطرفالة.
+
 ## ١) اسحب الكود وشغّل
 ```bash
-cd /root/DTSG && git pull          # أو انسخ الشجرة الحيّة /root/dmgames-arena
-pm2 restart casino-server dtsg-voucher-bot --update-env
+cd /root/DTSG
+bash scripts/update-phone-server.sh    # ⛔ محلّه: git pull من شجرة قديمة + pm2 … --update-env (القاعدتان 2 و9)
 ```
 
 ## ٢) متغيّرات البيئة المطلوبة على الخادم (casino-server)
@@ -15,8 +19,11 @@ pm2 restart casino-server dtsg-voucher-bot --update-env
 | `BINANCE_PAY_CURRENCY` | `USDT` | عملة المطابقة |
 
 ```bash
-export BINANCE_PAY_API_KEY=... BINANCE_PAY_SECRET_KEY=... BINANCE_PAY_ID=132972522 BINANCE_PAY_CURRENCY=USDT
-pm2 restart casino-server dtsg-voucher-bot --update-env && pm2 save
+# ⛔ ما كان يُنفَّذ (ممنوع بالقاعدة 9 — صدفة ناقصة مسحت كل المتغيّرات في 2026-09-22):
+# export BINANCE_PAY_API_KEY=... BINANCE_PAY_SECRET_KEY=... BINANCE_PAY_ID=132972522 BINANCE_PAY_CURRENCY=USDT
+# pm2 restart casino-server dtsg-voucher-bot --update-env && pm2 save
+# ⛔ الصحيح اليوم: القيم في /root/DTSG/.env.local وحده، ثم:
+bash scripts/phone-env-restart.sh    # يقرأ .env.local ⇒ يعيد تشغيل العمليتين ويتحقق من بيئتهما الحيّة ثم pm2 save
 ```
 
 ## ٣) ⚠️ مهم: `NODE_EXTRA_CA_CERTS` يعطّل كل نداءات HTTPS
@@ -24,8 +31,8 @@ pm2 restart casino-server dtsg-voucher-bot --update-env && pm2 save
 فسيسقط **كل** نداء Node للتلغرام (`fetch failed` / ETIMEDOUT) ⇒ بوت الفوتشير لا يستقبل تحديثات
 وإشعارات الدفع لا تخرج. تحقّق وأصلح:
 ```bash
-pm2 jlist | grep -o '"NODE_EXTRA_CA_CERTS":"[^"]*"'          # إن ظهر مسار ملف ⇒ أزِله
-NODE_EXTRA_CA_CERTS= pm2 restart casino-server dtsg-voucher-bot --update-env && pm2 save
+pm2 jlist | grep -o '"NODE_EXTRA_CA_CERTS":"[^"]*"'          # إن ظهر مسار ملف ⇒ أزِله من .env.local ثم
+bash scripts/phone-env-restart.sh                           # ⛔ محلّه: NODE_EXTRA_CA_CERTS= pm2 restart … --update-env && pm2 save (القاعدة 9)
 tail -f /root/.pm2/logs/dtsg-voucher-bot-error.log           # يجب أن يتوقف نمو الأخطاء
 ```
 

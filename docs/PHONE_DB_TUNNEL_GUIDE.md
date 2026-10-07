@@ -34,23 +34,24 @@
 | البند | المطلوب | ملاحظة |
 |---|---|---|
 | النظام | Termux أو Ubuntu (proot-distro) | |
-| Node.js | **24** (الموصى به) | `node:sqlite` بلا عَلَم منذ 22.13 و23.4؛ على 22.5→22.12 استعمل `node --experimental-sqlite server.js`. على Node 24 العَلَم بلا تأثير |
+| Node.js | **22.12.0** أدنى حدّ (المصدر: `package.json` ← `engines.node: ">=22.12.0"`) · **24** هو الموصى به | أمر التشغيل الرسمي `npm start` = `node --experimental-sqlite server.js`؛ على 22.13 و23.4 و24 العَلَم بلا تأثير (`node:sqlite` بلا عَلَم) |
 | أدوات | `curl` · `git` · `openssh` · `pm2` | pm2 اختياري لكن مُوصى به |
 
 ```bash
 pkg install nodejs-lts git curl openssh     # Termux
 npm i -g pm2
-node -v                                     # يجب ≥ 24
+node -v                                     # يجب ≥ 22.12.0 (الموصى به 24)
 ```
 
 ### 1.2 تحديث الشجرة على الهاتف (يضمّ v2.44-EDGE والإصلاحات السابقة)
 
-> 🔎 **الحالة المقيسة الآن:** الهاتف الحيّ يردّ `build: 2.43.1` عبر الووركر الوسيط، أي أنه **متأخّر عن v2.44** ⇒ نفّذ هذا القسم أولاً.
+> 🔎 **الحالة المقيسة:** لا رقم مثبَّت هنا — الإصدار الصحيح هو **ما في `package.json` على `origin/main`** (المصدر الوحيد)، فاستخرجه بـ`node -p "require('./package.json').version"` وقارنه بـ`curl -s https://casino-phone.dmgames-api.workers.dev/api/health | grep -o '"build":"[^"]*"'` (بعد انقضاء كاش الووركر 15 ثانية). اختلافهما ⇒ الهاتف الحيّ متأخّر ⇒ نفّذ هذا القسم أولاً.
+> *ملاحظة تاريخية: الأرقام الثابتة `2.43.1`/`2cb0b14` في النسخ الأقدم من هذا الدليل كانت أمثلة من حقبة v2.44-EDGE وتقادمت منذ ذلك الحين — لا تُعتمد مرجعاً ولا تُنسخ إلى أي أمر.*
 
 ```bash
 cd ~/DTSG                      # أو مسارك (مثال شائع: /root/dmgames-arena)
 git fetch origin main
-git reset --hard origin/main    # المتوقع: 2cb0b14  (v2.44-EDGE)
+git reset --hard origin/main    # لا رقم متوقّع ثابت — تحقّق بـ: git log --oneline -1  ثم  node -p "require('./package.json').version"
 git log --oneline -1
 
 # تأكيد الملفات الحاسمة (كل عدّاد يجب أن يكون > 0):
@@ -75,6 +76,20 @@ ls -1 css/15-edge.css tests/_layout_edge_test.js scripts/phone-tunnel.sh
 
 > 🔐 المفتاحان المكشوفان سابقاً (`SUPPORT_BOT_TOKEN` و`SUPPORT_WEBHOOK_SECRET` القديمان) يجب أن يبقيا **مُدوَّرين**: BotFather → `/revoke` ثم تصدير التوكن الجديد، ثم `bash scripts/setup-telegram-bots.sh` لتفعيل الويبهوك بالسرّ الجديد.
 
+### ⛔ 1.3.0 إعادة تشغيل الخادم — المسار الإلزامي الوحيد (قاعدة AGENTS.md 9)
+
+> **ممنوع منعاً باتاً** تشغيل `pm2 restart casino-server --update-env` أو `pm2 start server.js --name casino-server --update-env` من أي صدفة — **ولو بدا أن الأمر «يعمل»**.
+> **حادثة 2026-09-22:** نُفِّذ `pm2 restart … --update-env` من صدفة لا تحمل إلا متغيراً واحداً ⇒ **مُسحت كل متغيرات الدفع والبوتات من العملية الحيّة** (`BINANCE_PAY_*` · `SUPPORT_WEBHOOK_SECRET` · `ADMIN_API_SECRET` · `TELEGRAM_BOT_TOKEN` · `FINANCIALS_*` …) ⇒ تعطّلت المدفوعات والبوتات، ثم **حُفظت الحالة المكسورة بـ`pm2 save`** فصارت معطوبة بعد كل إقلاع. حارس `tests/_ops_guards_test.js` (فحص S3) يمنع تكرار هذا النمط خارج `scripts/phone-env-restart.sh` حصراً.
+>
+> ✅ **الاستعمال الإلزامي:**
+> ```bash
+> cd /root/DTSG
+> bash scripts/phone-env-restart.sh
+> ```
+> ما يفعله بالترتيب: يتحقق من هوية المستودع ← يقرأ `/root/DTSG/.env.local` (غير المتعقَّب · `chmod 600`) ← **يرفض العمل** إن نقص أي مفتاح إلزامي ← يعيد تشغيل `casino-server` و`dtsg-voucher-bot` ← **يتحقق من بيئة العملية الحيّة نفسها** بـ`pm2 jlist` (لا من الصدفة) ← `pm2 save` ← فحص سريع للصحة و`/api/payments/methods`.
+>
+> ⇒ **كل مفتاح تغيّر يُكتب في `.env.local` أولاً**، ثم يُشغَّل السكربت. لا `export` في صدفة تُعتمد مصدراً للتشغيل.
+
 ### 1.3.1 بوت الدردشة الخاصة — ربط آمن لا يكشف هويات تيليغرام
 
 1. سجّل المستخدم دخوله إلى المنصة واضغط بطاقة **بوت الدردشة الخاصة**؛ المسار `POST /api/private-chat/link` يُصدر رابط `/start` أحادي الاستعمال، صالحاً 15 دقيقة.
@@ -83,11 +98,12 @@ ls -1 css/15-edge.css tests/_layout_edge_test.js scripts/phone-tunnel.sh
 4. اضبط `PRIVATE_CHAT_BOT_TOKEN` و`PRIVATE_CHAT_WEBHOOK_SECRET` و`PRIVATE_CHAT_BOT_USERNAME` في بيئة الهاتف فقط، ثم نفّذ:
 
 ```bash
+# صدّرها مؤقتاً لسكربت التهيئة فقط، واكتبها في .env.local هي المصدر الدائم (قاعدة 9):
 export PRIVATE_CHAT_BOT_TOKEN='<توكن من BotFather>'
 export PRIVATE_CHAT_WEBHOOK_SECRET="$(openssl rand -hex 24)"
 export PRIVATE_CHAT_BOT_USERNAME='<اسم البوت من getMe>'
 bash scripts/setup-telegram-bots.sh
-pm2 restart casino-server --update-env
+bash scripts/phone-env-restart.sh      # ✳ إعادة التشغيل المعتمدة حصراً — لا pm2 restart --update-env (قاعدة 9 — القسم 1.3.0)
 ```
 
 5. تحقق من الحماية دون إرسال بيانات مستخدم:
@@ -107,24 +123,27 @@ curl -s "$PUBLIC_BASE/api/private-chat/status"  # 401 بلا جلسة، ولا �
 
 ```bash
 cd ~/DTSG
-# تجربة سريعة:
-PORT=3000 USD_GOLD_RATE=100 node server.js        # Node ≥ 24 (بلا عَلَم)
 
-# الطريقة المعتمدة — pm2:
-export PORT=3000 USD_GOLD_RATE=100 \
-       ADMIN_API_SECRET='<سرّ الإدارة>' PAYMENTS_SHARED_SECRET='<سرّ المدفوعات>'
-pm2 start server.js --name casino-server --update-env
-pm2 save                     # يحفظ القائمة
+# تجربة سريعة (بلا pm2) — الأمر الرسمي هو npm start أي node --experimental-sqlite server.js:
+PORT=3000 USD_GOLD_RATE=100 npm start          # Node ≥ 22.12.0
+
+# الطريقة المعتمدة — pm2 والبيئة من .env.local وحدها (القسم 1.3.0 · قاعدة 9):
+set -a; . ./.env.local; set +a                 # PORT · USD_GOLD_RATE · ADMIN_API_SECRET · PAYMENTS_SHARED_SECRET … كلها من هنا
+pm2 start server.js --name casino-server       # الإقلاع الأول فقط — بلا --update-env إطلاقاً
+bash scripts/phone-env-restart.sh              # ✳ كل إعادة تشغيل بعده: .env.local → pm2 → تحقّق من بيئة العملية الحيّة → pm2 save
 pm2 startup                  # نفّذ الأمر الذي يطبعه (مرة واحدة) ليقلع تلقائياً مع الهاتف
 pm2 logs casino-server --lines 30
 ```
+
+> `pm2 save` — **يبنيه `phone-env-restart.sh` بعد نجاح تحقّقه من البيئة**؛ لا تحفظ حالة pm2 قبل الفحوص (`AGENTS.md` · قاعدة 9).
 
 **🔴 الفخّ الأشهر: pm2 يشغّل مجلداً غير الذي تحدّثه.** اكتشفه فوراً:
 
 ```bash
 pm2 jlist | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{JSON.parse(s||"[]").forEach(x=>console.log(x.name,"→",(x.pm2_env||{}).pm_cwd))})'
 # إن اختلف المجلد: pm2 delete casino-server ثم:
-# pm2 start <مسار_الشجرة_الصحيحة>/server.js --name casino-server
+# pm2 start <مسار_الشجرة_الصحيحة>/server.js --name casino-server      # بلا --update-env إطلاقاً (قاعدة 9)
+# ثم تحقّق من البيئة واحفظ:  bash scripts/phone-env-restart.sh
 # وبديل آلي يكتشف المجلد الصحيح بنفسه:  bash scripts/update-phone-server.sh
 ```
 
@@ -150,6 +169,7 @@ pm2 stop casino-server
 cp ~/backup/royalcoin-<التاريخ>.db ~/DTSG/data/royalcoin.db
 rm -f ~/DTSG/data/royalcoin.db-wal ~/DTSG/data/royalcoin.db-shm
 pm2 start casino-server
+bash scripts/phone-env-restart.sh      # ✳ التشغيل المعتمد بعد الاستعادة: .env.local + تحقّق حيّ + pm2 save (القسم 1.3.0)
 ```
 
 **صيانة دورية (شهرياً، والخادم متوقف):**
@@ -292,7 +312,7 @@ chmod +x ~/.termux/boot/dtsg.sh
 
 | العَرَض | السبب المرجّح | الحل |
 |---|---|---|
-| الواجهة تعمل لكن «نظام الدفع غير موصول» | خادم قديم بلا طبقة المدفوعات | القسم 1.2 ثم `pm2 restart casino-server` |
+| الواجهة تعمل لكن «نظام الدفع غير موصول» | خادم قديم بلا طبقة المدفوعات | القسم 1.2 ثم `bash scripts/phone-env-restart.sh` (القسم 1.3.0) |
 | `/api/health` يعطي `build` قديماً | pm2 يشغّل مجلداً آخر (`pm_cwd`) | القسم 1.4 أو `update-phone-server.sh` |
 | الووركر الوسيط يردّ 502 / HTML | النفق مقطوع | `up` ثم `publish` |
 | الووركر يردّ لكن البيانات لا تُحفظ | عنوان KV قديم | `publish` العنوان الجديد |
@@ -308,7 +328,7 @@ chmod +x ~/.termux/boot/dtsg.sh
 
 ## 5) الأمان (إلزامي)
 
-- المستودع **عام** ⇒ لا توكنات في أي ملف متتبَّع؛ الحارس `node tests/_repo_hygiene_test.js` (4/0) يفشل عند أي مفتاح حقيقي.
+- المستودع **عام** ⇒ لا توكنات في أي ملف متتبَّع؛ الحارس `node tests/_repo_hygiene_test.js` (5/0 — يُقرأ من مخرجه) يفشل عند أي مفتاح حقيقي.
 - الخادم **يمنع** تقديم ملفات الخادم والقاعدة عمومياً (`server.js:17`) — تحقّق في 1.6.
 - المسارات الإدارية محميّة بـ `ADMIN_API_SECRET`؛ لا تُرسل السرّ في الروابط.
 - KV والووركر الوسيط لا يحملان أي سرّ (العنوان عام أصلاً).

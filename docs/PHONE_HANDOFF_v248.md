@@ -1,5 +1,9 @@
 # 📱 تكليف مساعد الهاتف — نشر DTSG v2.48 (الطاولة والضومنة)
 
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ لا `cd` إليه ولا نسخ إليه (القاعدة 2)، وكذلك `pm2 restart … --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22).
+> **المسار المعتمد اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` (تحديث كامل ونشر) أو `bash scripts/phone-env-restart.sh` (إعادة تشغيل فقط) — والأسرار من `/root/DTSG/.env.local` وحده. المرجع الإلزامي: [`AGENTS.md`](../AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — ولا تنقل أوامره إلى الطرفالة.
+
 > **من:** وكيل Arena (فرع `arena/01a0bd39-dtsg`)
 > **إلى:** مساعد خادم الهاتف (sam) وأي مساعد يملك صلاحية النشر
 > **التاريخ:** 2026-09-20 · **الحالة:** ✅ **مدموج في `main`** (PR #2 · merge `9736918`) — **بانتظار النشر فقط**
@@ -23,8 +27,8 @@
 
 ```bash
 # 1) اجلب أحدث main على شجرة النشر
-cd /root/dmgames-arena           # (أو مسار شجرة النشر عندك)
-git fetch origin && git checkout main && git pull --ff-only origin main
+cd /root/DTSG                    # ⛔ محلّه /root/dmgames-arena (محذوف نهائياً — القاعدة 2)
+git fetch origin main && git reset --hard origin/main   # ادفع عملك قبل الضبط القاسي
 git log --oneline -3             # يجب أن ترى كوميتات v2.48 (96d442b … 6d3aff4)
 
 # 2) تحقّق أن الإصلاحات فعلاً في الملفات قبل النشر
@@ -122,10 +126,10 @@ curl -s https://casino-phone.dmgames-api.workers.dev/api/health                 
 
 ### أوامر النشر المعتمدة هنا (بديل آمن عن خطوة التذكرة)
 ```bash
-# 1) في شجرة git (وليست الشجرة الحيّة — انظر التحذير أدناه)
-cd /root/DTSG && git fetch origin && git merge --ff-only origin/main
-# 2) مزامنة الشجرة الحيّة بالنسخ (لا git checkout فيها)
-cp -a css js backgammon-game dominoes-game index.html /root/dmgames-arena/
+# 1) شجرة git واحدة (انظر التحذير في الشريط أعلى الوثيقة)
+cd /root/DTSG && git fetch origin main && git reset --hard origin/main   # ادفع عملك قبل الضبط القاسي
+# 2) ⛔ النسخ إلى الشجرة الحيّة لم يعد ممكناً — /root/dmgames-arena حُذف نهائياً 2026-09-22 (القاعدة 2)
+#    التحديث اليوم بأمر واحد من /root/DTSG: bash scripts/update-phone-server.sh
 # 3) النشر (واجهة فقط)
 export CLOUDFLARE_ACCOUNT_ID=... CLOUDFLARE_API_TOKEN=... ; bash scripts/deploy-pages.sh
 # 4) التحقق (لاحظ -L: /index.html يعيد 302 → /)
@@ -135,10 +139,11 @@ curl -s https://dtsg.pages.dev/css/21-classic.css | grep -c bw-screen-active    
 curl -s https://casino-phone.dmgames-api.workers.dev/api/health                   # {"ok":true}
 ```
 
-### ⚠️ تحذير إلزامي لكل الوكلاء
-`/root/dmgames-arena` **ليست** نسخة من مستودع DTSG: هي worktree للمستودع `digital-moroccan-casino`
-(فرع `arena/samsung-fixes-20260911`). أي `git checkout main && git pull` داخلها يطمس الموقع الحيّ بكود قديم.
-التحديث يكون: git في `/root/DTSG` ثم **نسخ ملفات** إلى الشجرة الحيّة (+ `pm2 restart` عند تغيير خادم/بوت).
+### ⚠️ تحذير إلزامي لكل الوكلاء (الشريط في أعلى هذه الوثيقة)
+`/root/dmgames-arena` و`/root/digital-moroccan-casino` كانا worktreeً للمستودع **القديم** `digital-moroccan-casino`
+(فرع `arena/samsung-fixes-20260911`) — وهو ما كان يجعل `git checkout main && git pull` في أيٍّ منهما يطمس الموقع الحيّ بكود قديم.
+**المجلدان حُذفا نهائياً في 2026-09-22** (القاعدة 2 في [`AGENTS.md`](../AGENTS.md)) ⇒ لا `cd` ولا نسخَ إليهما بعد اليوم.
+التحديث يتمّ اليوم من `/root/DTSG` وحده: `bash scripts/update-phone-server.sh`، و`bash scripts/phone-env-restart.sh` عند تغيير خادم/بوت فقط.
 
 ### إصلاحات v2.48.1 (كشفها تشغيل حارس التصميم بمتصفح حقيقي)
 | العطل | الجذر | الإصلاح | الدليل |

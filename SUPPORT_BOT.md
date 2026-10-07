@@ -112,7 +112,7 @@ TELEGRAM_BOT_TOKEN=…                     # بوت المنصة (لديكم ع�
 
 ```bash
 # الطريق الأول (المعتاد)
-cd /root/dmgames-arena && git fetch origin && git reset --hard origin/main
+cd /root/DTSG && git fetch origin main && git reset --hard origin/main
 bash scripts/update-phone-server.sh
 
 # الطريق الثاني (لو تعذّر git fetch لاختلافات/شبكة) — ينزّل الملفات من GitHub مباشرة

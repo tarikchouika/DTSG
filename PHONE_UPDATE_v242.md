@@ -1,5 +1,9 @@
 # تحديث خادم الهاتف إلى v2.42.1 — خطوة بخطوة
 
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ ممنوع (القاعدة 2)، وكذلك `pm2 restart casino-server --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22 التي مسحت كل متغيّرات الدفع والبوتات ثم حُفظت بـ`pm2 save`).
+> **المسار المعتمد اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` (تحديث كامل) أو `bash scripts/phone-env-restart.sh` (إعادة تشغيل فقط) — والمصدر الوحيد للأسرار `/root/DTSG/.env.local`. المرجع الإلزامي: [`AGENTS.md`](AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — لا تنقل أوامره إلى الطرفالة.
+
 **لماذا؟** المنصة (الصفحات) نُشرت الآن إلى `dtsg.pages.dev`، لكن **واجهة الـAPI تعمل على خادم هاتفك**
 (`casino-phone.dmgames-api.workers.dev` → النفق → `server.js` + sqlite). وحتى تُحدَّث نسخة الهاتف
 من `2.41.0` إلى `2.42.1`، ستظهر هذه المظاهر:
@@ -12,14 +16,14 @@
 ## 0) قبل البدء — تحقّق من الحالة الراهنة
 على الهاتف (أو أي جهاز يستطيع تنفيذ الأوامر على نفس الخادم):
 ```bash
-cd /root/dmgames-arena           # أو مجلد المشروع الحقيقي
+cd /root/DTSG                      # ⛔ محلّه /root/dmgames-arena: المجلد القديم حُذف نهائياً (القاعدة 2)
 bash scripts/phone-doctor.sh     # تشخيص شامل (القسم 5.b خاص ببوت الدعم)
 ```
 المتوقع الآن: `build=2.41.0` · `/api/support/webhook` يستجيب 200 · `/api/admin/payments/pending` = 404.
 
 ## 1) الطريقة الأسهل — سكربت واحد (ينزّل الملفات من GitHub مباشرة)
 ```bash
-cd /root/dmgames-arena
+cd /root/DTSG
 bash scripts/apply-support-now.sh
 ```
 ماذا يفعل بالترتيب:
@@ -44,7 +48,7 @@ bash scripts/apply-support-now.sh
 
 ## 2) الطريقة البديلة — عبر git
 ```bash
-cd /root/dmgames-arena
+cd /root/DTSG
 git remote -v                                   # إن لم يوجد origin:
 git remote add origin https://github.com/tarikchouika/DTSG.git
 git fetch origin main && git reset --hard origin/main
@@ -75,8 +79,8 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST $W/api/support/message -d '{}' 
 ## 5) إن ظهرت مشكلة
 | العَرَض | السبب المرجّح | الحل |
 |---|---|---|
-| `/api/support/webhook` = 404 | الملفات لم تُحدَّث أو pm2 لم يُعد التشغيل | `pm2 restart casino-server --update-env` ثم أعد الفحص |
-| الإشعارات لا تصل | `SUPPORT_BOT_TOKEN` غير مضبوط في بيئة pm2 | `SUPPORT_BOT_TOKEN=8993… pm2 restart casino-server --update-env` |
+| `/api/support/webhook` = 404 | الملفات لم تُحدَّث أو pm2 لم يُعد التشغيل | `bash scripts/phone-env-restart.sh` ثم أعد الفحص |
+| الإشعارات لا تصل | `SUPPORT_BOT_TOKEN` غير مضبوط في بيئة pm2 | ضعه في `/root/DTSG/.env.local` ثم `bash scripts/phone-env-restart.sh` — ⛔ لا تمرّره في سطر `pm2 … --update-env` |
 | التذكرة تصل لكن بلا أزرار | توكن بوت الدعم غائب — الإشعار خرج من قناة بوت المنصة فقط | اضبط توكن بوت الدعم كما أعلاه |
 | عودة للنسخة السابقة | — | `cp /root/dtsg-v241-backup-*/server.js . && pm2 restart casino-server` |
 

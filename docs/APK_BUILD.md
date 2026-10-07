@@ -31,8 +31,8 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
 **[v2.82] تطوير كامل للسير:** توجيه المالك 2026-10-05 أضاف بندَين نفّذا معاً:
 ① توقيع إنتاجي بشهادة شخصية ذات صلاحية 30 سنة — **لا شهادة Debug
 الافتراضية** — عبر أسرار GitHub الأربعة (§6)، و② نشر آلي في GitHub Releases
-بتحميل مباشر بلا ZIP (§7). السير الآن **16 خطوة** والنسختان (المثبَّتة
-والمرآة) محدَّثتان معاً ومتطابقتان بايت ببايت (`cmp` = 0).
+بتحميل مباشر بلا ZIP (§7). السير الآن **20 خطوة** ([v2.93] — 16 عند إطلاق v2.82)
+والنسختان (المثبَّتة والمرآة) محدَّثتان معاً ومتطابقتان بايت ببايت (`cmp` = 0).
 
 ## 1. كيف يعمل النظام؟ (نظرة سريعة)
 
@@ -60,6 +60,15 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
    Capacitor 6 (متوافق Java 17) **بلا تعديل** `package.json`/`package-lock.json`.
 6. كتابة `capacitor.config.json` المؤقت + `npx cap add android` + `npx cap sync android`.
 6.5. توليد الأيقونة وشاشة البدء من لوغو المنصة (§2.3).
+8.4. **[v2.83] `Inject CAMERA permission for local-room QR scanning`** — حقن
+   `<uses-permission android:name="android.permission.CAMERA"/>` في
+   `AndroidManifest.xml` بمرساة INTERNET (ماسح رموز QR للغرفة المحلية — §2.3).
+8.6. **[v2.87] `Inject local-network permissions (NSD multicast + Bluetooth)`** —
+   أذونات LocalNet (بث متعدد على الواي فاي + بلوتوث) بمرساة CAMERA المحقونة
+   في 8.4 (مراسي الحقن تُرسو على ما يسبقها زمنياً — درس بناء #25).
+8.7. **[v2.93] `Inject microphone permissions (voice messages in WebView)`** —
+   `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS`؛ جسر كاباسيتور 6 يطلبهما معاً عند
+   `AUDIO_CAPTURE` وغير المصرَّح بهما = رفض فوري دائم للرسائل الصوتية.
 7. `actions/setup-java@v4` — OpenJDK 17 (Temurin) + كاش `gradle`.
 8.1. **[v2.82] فحص أسرار التوقيع الأربعة** — إن نقص أحدها فشل فوري برسالة
    واضحة قبل أي عمل ثقيل (§6).
@@ -137,12 +146,12 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
   - **`styles.xml`:** `AppTheme.NoActionBar` يحصل على `windowDrawsSystemBarBackgrounds=true` + `statusBarColor`/`navigationBarColor` = شفاف + `windowLayoutInDisplayCutoutMode=shortEdges` (النوتش لا يصنع أشرطة سوداء في اللاندسكيب). الحقن بمرساة نصية دقيقة وفشل صريح إن تغيّر القالب (نمط خطوة الكاميرا).
   - **`MainActivity.java`:** الصنف الفارغ يُستبدل بجسر `DTSGNative`: `getInsets()` يعيد `"top|bottom"` من **systemBars حصراً** (stable insets قبل API 30 — بلا IME فلا يتأثر التخطيط بفتح لوحة المفاتيح)، و`pushInsetsToPage()` يدفع القيم للصفحة عبر `evaluateJavascript` عند كل تغيّر (دوران/تغيّر شريط التنقل/استئناف)، و`setBarsLight(bool)` يقلب أيقونات الشريطين فاتحة/داكنة تبعاً لثيم المنصة.
   - **الصفحة (الويب):** `js/core/utils.js` يسحب المساحات عند الإقلاع وعند resize/orientationchange/visibilitychange ويضبط `--safe-top/--safe-bottom` على جذر الوثيقة — وكل مساحات CSS العلوية/السفلية تمرّ عبر المتغيرين (توحيد v2.85). بلا `DTSGNative` (الموقع/iOS) يبقى تعريف المتغيرين `env()` كما هو.
-- **العقد المقدَّس (AGENTS.md قاعدة 23):** لا يُعاد تلوين الشريطين بلون ثابت (يعيد البلاغ)، ولا يُقاس inset من `getSystemWindowInset*` بلا استثناء IME، ولا تُضاف `env()` مباشرة جديدة خارج احتياط المتغيرين. الحارس: `node tests/_v285_native_chrome_test.js` (**42** — يشمل صياغة بايثون للخطوة وبنية جافا المتولَّدة).
+- **العقد المقدَّس (AGENTS.md قاعدة 23):** لا يُعاد تلوين الشريطين بلون ثابت (يعيد البلاغ)، ولا يُقاس inset من `getSystemWindowInset*` بلا استثناء IME، ولا تُضاف `env()` مباشرة جديدة خارج احتياط المتغيرين. الحارس: `node tests/_v285_native_chrome_test.js` (**43** — يشمل صياغة بايثون للخطوة وبنية جافا المتولَّدة).
 - **التحقق الميداني للحظة نفسها:** وُلِّد مشروع أندرويد كامل محلياً بـ`npx cap add android` (Capacitor 6) ونُفِّذ كود الخطوة عليه: الحقن صحيح والتكرارية مثبتة (تشغيل ثانٍ يتخطى بمعلَن).
 
 #### [v2.83] عقد الأيقونة بلا حاوية + إذن الكاميرا (الغرفة المحلية)
 
-- **الأيقونة:** `resources/` تحمل الآن **ثلاثة أصول شفافة**: `icon.png` (1024×1024 شفافة باللوغو 76% من الارتفاع — الأيقونات القديمة والمتجر) و`icon-foreground.png`/`icon-background.png` (طبقتا الأيقونة التكيفية — الخلفية شفافة 100%). سير البناء **لا يمرر `--iconBackgroundColor` إطلاقاً** (ألوان `--splashBackgroundColor` تبقى لشاشة البدء وحدها) — إعادة العلم تعيد «اللوغو الصغير بالمربع الأسود» (بلاغ المالك 2026-10-05). الحارس: `node tests/_v2813_apk_native_test.js` (**21**) بفكّ PNG حقيقي يتحقق شفافية الأركان.
+- **الأيقونة:** `resources/` تحمل ثلاثة أصول 1024×1024: `icon.png` (**شارة كحلية دائرية بحدّ ذهبي رقيق** بمركز معتم وأركان شفافة — الأيقونات القديمة والمتجر) و`icon-foreground.png` (**لوغو يغطي 89.6% من الارتفاع**) و`icon-background.png` (**خلفية كحلية معتمة من هوية المنصة `#0b1526` — لا قناة شفافية فيها أصلاً**). **[v2.87·تصحيح عقد v2.83]** كان الوصف «ثلاثة أصول شفافة» و«الخلفية شفافة 100%» واللوغو «76% من الارتفاع» — لكن القياس الفعلي لمخرجات `@capacitor/assets@3` أثبت أن أندرويد يركّب الطبقة الخلفية الشفافة فوق **أسود** (فظهر «لوغو صغير داخل حاوية مربعة سوداء» — بلاغ المالك 2026-10-06) وأن لوغو 69-76% يُعرض صغيراً داخل المنطقة المقنّعة ⇒ عقد المساحة الآن **86-95%** والقياس الحالي 89.6%؛ والخلفية المعتمة تُفحص ≥98.5% عتامة وكحلية داكنة. سير البناء **لا يمرر `--iconBackgroundColor` إطلاقاً** (ألوان `--splashBackgroundColor` تبقى لشاشة البدء وحدها) — الخلفية من الملف لا من علم، وإعادته تعيد «اللوغو الصغير بالمربع الأسود» (بلاغ المالك 2026-10-05). الحارس: `node tests/_v2813_apk_native_test.js` (**21**) بفكّ PNG حقيقي يتحقق شفافية أركان الطبقتين و**عدم** شفافية الخلفية، و`node tests/_v287_localnet_immersive_test.js` للقياس الهندسي (عتامة + نطاق 86-95%).
 - **الكاميرا:** خطوة `Inject CAMERA permission for local-room QR scanning` (قبل Gradle) تحقن `<uses-permission android:name="android.permission.CAMERA"/>` في AndroidManifest بمرساة INTERNET وفشل صريح — لمسح رموز QR لميزة الغرفة المحلية (`js/core/local-mp.js`). على الموقع: `camera=(self)` في `_headers` و`vercel.json`.
 - **الغرفة المحلية:** اللعب مع الأصدقاء عبر الواي فاي/مشاركة البلوتوث بلا إنترنت — WebRTC DataChannel مباشر (بصمة اقتران 175 حرفاً بQR بعد ضغط v2.85 — سعة QRMini 271 بايت). العقد الكامل في AGENTS.md قاعدة 20، والحراسة: `tests/_v283_localmp_static_test.js` (**28**) + e2e باتصال حقيقي `tests/_v283_localmp_e2e_test.js` (**23**).
  [v2.81.3]
@@ -160,7 +169,7 @@ create or update workflow») — فعُلّقت مرحلة الوسم هذه، �
 v2.81.3: «localhost» بلا منفذ ليس same-origin أبداً، وحارس `IS_NATIVE_APP`
 يستثني Capacitor من الاختصار — فالتطبيق يقرأ `/api-url2.json` من حزمته ويوجّه
 النداءات إلى `casino-phone.dmgames-api.workers.dev` كما في المتصفح تماماً.
-الحارس: `node tests/_v2813_apk_native_test.js` (17).
+الحارس: `node tests/_v2813_apk_native_test.js` (21).
 
 **⚠ درس أول تشغيل للخطوة (بناء #2 الفاشل):** لا يُثبَّت `@capacitor/assets` في
 جذر المساحة أبداً — فالتثبيت بعد `cap add android` كان يعيد ترتيب node_modules
