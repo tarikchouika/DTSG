@@ -165,6 +165,9 @@
     }
     nativeActive = true;
     try {
+      /* [v2.91] إصدار الجسر في السجل — تشخيص ميداني فوري: إن ظهرت v1 فالهاتف
+         يشتغل على بناء قديم (بلاغ أندرويد 11) */
+      try { console.info('[arb] native bridge v' + String(root.DTSGNative.arbShareVersion() || '?')); } catch (e) {}
       root.DTSGNative.arbShareStart(JSON.stringify({ url: String(base), path: String(path) }));
     } catch (e) {
       nativeActive = false;
@@ -184,7 +187,15 @@
           else if (s === 'failed') {
             nativeActive = false;
             setState('failed');
-            if (root.toast) root.toast(T('arb.nativeFail') || 'تعذر بث الشاشة — أعد المحاولة', 'err');
+            /* [v2.91] كود العطل في وجه الرسالة (init:<Class> · rtmp · denied ·
+               rtmp-connect · no-display …) — بلاغ أندرويد 11 لم يكن قابلاً
+               للتحديد لأن الرسالة كانت عامة؛ الآن كل فشل يصل باسمه فوراً */
+            var code = '';
+            try { code = String(ev.err || '').replace(/[^A-Za-z0-9:_.-]/g, '').slice(0, 48); } catch (e) {}
+            var failMsg = T('arb.nativeFail') || 'تعذر بث الشاشة — أعد المحاولة';
+            if (code) failMsg += ' [' + code + ']';
+            if (root.toast) root.toast(failMsg, 'err');
+            try { console.warn('[arb] native share failed:', code || 'unknown'); } catch (e) {}
           } else if (s === 'stopped') {
             nativeActive = false;
             setState('idle');

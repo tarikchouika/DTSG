@@ -242,6 +242,13 @@ run "v289 سلسلة مشاركة الشاشة"          "tests/_v289_arb_share_
 # (تسجيل MediaRecorder حقيقي عبر ميكروفون وهمي) + أونو بلا لعب آلي عند حجب
 # الواجهة + خصوصية الدومينو (قطع مقلوبة وتخطيط flex) + زر APK المباشر.
 run "v290 تفاعل/رسائل/أونو/دومينو/APK"  "tests/_v290_local_social_sync_test.js"
+# [v2.91] جذور مشاركة الشاشة الأربعة بعد بلاغ المالك 2026-10-07 (أندرويد 16
+# شاشة سوداء تقطع عند تبديل التطبيق + أندرويد 11 رسالة خطأ عند النقر):
+# فرض الشاشة الكاملة على API 34+ (createConfigForDefaultDisplay) + مهلة قراءة
+# RTMP 30ث بلا قتل + ترويسة AVCC حتمية (cfgBody/maybeSendConfig بلا سباق
+# awaitPublish) + pump يرى موت الرابط + الرابط قبل الشاشة الافتراضية + كود
+# العطل في وجه الرسالة وإصدار الجسر arbShareVersion=2 — فحوص مصدر ساكنة.
+run "v291 جذور مشاركة الشاشة (ساكن)"  "tests/_v291_arb_share_fix_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

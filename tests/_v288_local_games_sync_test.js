@@ -111,7 +111,12 @@ console.log('═══ v2.88 · ج2) التطبيق يسمح بمشاركة ال
 
   ok(wf.indexOf('private class ArbShare {') !== -1, 'ArbShare موجود في MainActivity المحقون');
   ok(wf.indexOf('private class RtmpLink {') !== -1, 'RtmpLink (ناشر RTMP المصغّر) موجود');
-  ok(wf.indexOf('createScreenCaptureIntent(), 4288') !== -1, 'طلب إذن MediaProjection (كود 4288)');
+  /* [v2.91] عقد الإذن حدث: الشاشة الكاملة حصراً على API 34+ (createConfigFor-
+     DefaultDisplay — جذر شاشة أندرويد 16 السوداء) والإذن الكامل بلا إعداد
+     قبله — والكود 4288 ثابت على startActivityForResult(capIntent) */
+  ok(wf.indexOf('startActivityForResult(capIntent, 4288)') !== -1 &&
+    wf.indexOf('createScreenCaptureIntent(') !== -1,
+    'طلب إذن MediaProjection (كود 4288 — عبر capIntent v2.91)');
   ok(wf.indexOf('FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION') !== -1, 'الخدمة الأمامية mediaProjection (إلزام API 29+)');
   ok(wf.indexOf('ArbShareService.java') !== -1 && wf.indexOf('class ArbShareService extends android.app.Service') !== -1,
     'ArbShareService يُكتب من السير نفسه');

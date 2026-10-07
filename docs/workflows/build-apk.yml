@@ -540,7 +540,7 @@ jobs:
                   public void btEnable() { ln.btEnable(); }
                   /* ── [v2.88·التحكيم] مشاركة شاشة التطبيق أصلاً ── */
                   @android.webkit.JavascriptInterface
-                  public String arbShareVersion() { return "1"; }
+                  public String arbShareVersion() { return "2"; }
                   @android.webkit.JavascriptInterface
                   public void arbShareStart(String json) { arb.start(json); }
                   @android.webkit.JavascriptInterface
@@ -1208,7 +1208,30 @@ jobs:
                                               }
                                           } catch (Throwable ignored) { }
                                       }
-                                      startActivityForResult(mpm.createScreenCaptureIntent(), 4288);
+                                      /* [v2.91·جذر «الشاشة السوداء» على أندرويد 14+]
+                                         بلاغ المالك 2026-10-07 بعد build29:
+                                         «البث بشاشة سوداء بدون صورة ويقطع
+                                         بالدخول لتطبيق آخر» من هاتف أندرويد 16.
+                                         الجذر: الإذن بلا إعداد (المستخدم يختار)
+                                         يعرض منذ Android 14 QPR2/15 حواراً
+                                         افتراضه «تطبيق واحد» — يُبثّ التطبيق
+                                         المحدد حصراً (والنظام يستثني أشرطته)،
+                                         وخروج المستخدم منه = محتوى أسود
+                                         (onCapturedContentVisibilityChanged
+                                         = false — سلوك موثّق لا عطب). التحكيم
+                                         يحتاج الشاشة كاملة: createConfigFor-
+                                         DefaultDisplay (API 34+) يقصر الحوار
+                                         على «الشاشة كلها» بلا خيار التطبيق
+                                         الواحد — وقبل 34 الحوار أصلاً كامل
+                                         الشاشة بلا خيار سواه. */
+                                      android.content.Intent capIntent;
+                                      if (android.os.Build.VERSION.SDK_INT >= 34) {
+                                          capIntent = mpm.createScreenCaptureIntent(
+                                              android.media.projection.MediaProjectionConfig.createConfigForDefaultDisplay());
+                                      } else {
+                                          capIntent = mpm.createScreenCaptureIntent();
+                                      }
+                                      startActivityForResult(capIntent, 4288);
                                   } catch (Throwable t) { push("state", "failed", "intent"); }
                               }
                           });
@@ -1322,12 +1345,19 @@ jobs:
                               b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
                               encoder.setParameters(b);
                           } catch (Throwable ignored) { }
+                          /* [v2.91·الترتيب الصحيح] الرابط قبل الشاشة الافتراضية:
+                             الشاشة الافتراضية تضخّ إطارات فور إنشائها، فمخارج
+                             المرمّز كانت تمتلئ خلال مصافحة RTMP (1-3ث) وتبدأ
+                             الحزمة بإطارات متقادمة سوداء. بالعكس الجديد: لا
+                             إطارات أصلاً حتى يكتمل النشر — أول إطار بعد live
+                             نظيف حتماً. (registerCallback قبل createVirtualDisplay
+                             إلزام API 34+ — مكتسب v2.89 محفوظ أعلاه كما هو) */
+                          link = new RtmpLink(url, path);
+                          if (!link.connect()) { stop("rtmp-connect"); return; }
                           display = projection.createVirtualDisplay(
                               "dtsg-arb", w, h, dm.densityDpi == 0 ? 160 : dm.densityDpi,
                               DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, null);
                           if (display == null) { stop("no-display"); return; }
-                          link = new RtmpLink(url, path);
-                          if (!link.connect()) { stop("rtmp-connect"); return; }
                           running = true;
                           firstPts = -1;
                           push("state", "live", null);
@@ -1348,6 +1378,15 @@ jobs:
                   void pump() {
                       android.media.MediaCodec.BufferInfo info = new android.media.MediaCodec.BufferInfo();
                       while (running) {
+                          /* [v2.91·جذر «التجميد الصامت»] موت الرابط لم يكن
+                             يُرى هنا قط: awaitPublish كان يُسقط الإطارات
+                             صامتاً بعد failed فيبقى «مباشر» عند الأدمن
+                             مجمداً بلا صورة بلا رسالة. الآن فشل الرابط =
+                             حالة فشل ظاهرة [rtmp] وإيقاف نظيف فوراً */
+                          if (link == null || link.failed) {
+                              if (running) { push("state", "failed", "rtmp"); stop("rtmp"); }
+                              return;
+                          }
                           try {
                               int oi = encoder.dequeueOutputBuffer(info, 10000);
                               if (oi < 0) continue;
@@ -1435,6 +1474,9 @@ jobs:
                   byte[] sps = null;
                   byte[] pps = null;
                   boolean cfgSent = false;
+                  /* [v2.91] ترويسة AVCC مُخزَّنة حتى لحظة تأكيد النشر — لا
+                     إسقاط نهائياً بعد الآن (جذر «البث الأسود إلى الأبد») */
+                  byte[] cfgBody = null;
                   final Object writeLock = new Object();
                   final java.io.ByteArrayOutputStream amf = new java.io.ByteArrayOutputStream();
           
@@ -1452,7 +1494,14 @@ jobs:
                           sock = new Socket();
                           sock.connect(new InetSocketAddress(host, port), 8000);
                           sock.setTcpNoDelay(true);
-                          sock.setSoTimeout(15000);
+                          /* [v2.91·جذر موت البث بعد 15 ثانية] مهلة قراءة 15ث
+                             كانت تقتل القارئ: المرحّل لا يرسل شيئاً بين
+                             الأوامر (لا بينغ دورياً في RTMP) فـSocketTimeout-
+                             Exception بعد 15ث صمت ⇒ failed=true ⇒ كل
+                             الإطارات تُسقط صامتاً والبث يبقى «مباشراً» بلا
+                             صورة (بلاغ أندرويد 16). الآن: 30ث وتُعامَل المهلة
+                             كصمت طبيعي (continue في readLoop) لا كموت */
+                          sock.setSoTimeout(30000);
                           out = sock.getOutputStream();
                           in = sock.getInputStream();
                           /* المصافحة: C0+C1 ثم اقرأ S0/S1/S2 ثم C2=صدى S1 */
@@ -1498,8 +1547,8 @@ jobs:
                       int[] rLen = new int[64];
                       int[] rType = new int[64];
                       int[] rSid = new int[64];
-                      try {
-                          while (!failed) {
+                      while (!failed) {
+                          try {
                               int b0 = in.read();
                               if (b0 < 0) { failed = true; break; }
                               int csid = b0 & 0x3F;
@@ -1552,9 +1601,14 @@ jobs:
                               } else if (type == 20) {
                                   handleCommand(body);
                               }
+                          } catch (java.net.SocketTimeoutException ste) {
+                              /* [v2.91] صمت المرحّل بين الأوامر طبيعي تماماً
+                                 (لا بينغ دورياً في RTMP) فمهلة القراءة ليست
+                                 موت الاتصال — تُستأنف القراءة */
+                              continue;
+                          } catch (Throwable t) {
+                              failed = true;
                           }
-                      } catch (Throwable t) {
-                          failed = true;
                       }
                   }
                   void handleCommand(byte[] b) {
@@ -1582,6 +1636,9 @@ jobs:
                               amfString("live");
                               sendCommand(8, msgStreamId);
                               publishSent = true;
+                              /* [v2.91] الترويسة فور تأكيد النشر — ترتيب مضمون
+                                 (ترويسة قبل أي إطار) بلا سباق 3ث ولا إسقاط */
+                              maybeSendConfig();
                           }
                       } catch (Throwable ignored) { }
                   }
@@ -1624,9 +1681,14 @@ jobs:
                   }
           
                   /* ── الفيديو: ترويسة AVC ثم إطارات AVCC ── */
+                  /* [v2.91·جذر «البث الأسود إلى الأبد»] كانت الترويسة تُسقط
+                     نهائياً إن لم يكن النشر قد أكمل خلال 3ث (شبكة بطيئة)
+                     فتُهدر كل الإطارات بعدها صامتاً بينما يبقى البث «مباشراً»
+                     بلا صورة عند الأدمن. الآن: تُخزَّن هنا وتُرسل حتماً لحظة
+                     تأكيد النشر (maybeSendConfig من handleCommand) — والترتيب
+                     مضمون: لا إطار يمر قبل cfgSent */
                   void sendConfig(byte[] csd) {
                       try {
-                          if (!awaitPublish(3000)) return;      /* النشر أولاً — وإلا أسقطت الحزمة */
                           if (sps == null || pps == null) parseAnnexB(csd);
                           if (sps == null || pps == null) return;
                           java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
@@ -1646,24 +1708,23 @@ jobs:
                           o.write(pps.length >> 8);
                           o.write(pps.length & 255);
                           o.write(pps);
-                          if (!cfgSent) {
-                              sendMessage(4, msgStreamId, 9, 0, o.toByteArray());
-                              cfgSent = true;
-                          }
+                          cfgBody = o.toByteArray();
+                          maybeSendConfig();
                       } catch (Throwable t) {
                           failed = true;
                       }
                   }
-                  boolean awaitPublish(long ms) {
-                      long t0 = SystemClock.elapsedRealtime();
-                      while (!publishSent && !failed && SystemClock.elapsedRealtime() - t0 < ms) {
-                          try { Thread.sleep(10); } catch (Throwable ignored) { }
+                  void maybeSendConfig() {
+                      try {
+                          if (cfgSent || cfgBody == null || !publishSent || failed) return;
+                          sendMessage(4, msgStreamId, 9, 0, cfgBody);
+                          cfgSent = true;
+                      } catch (Throwable t) {
+                          failed = true;
                       }
-                      return publishSent && !failed;
                   }
                   void sendFrame(byte[] data, long ts) {
-                      if (!cfgSent) return;                      /* الترويسة أولاً */
-                      if (!awaitPublish(3000)) return;
+                      if (!cfgSent) return;   /* الترويسة أولاً — تُرسل حتماً عند تأكيد النشر */
                       try {
                           java.util.ArrayList<byte[]> nals = splitAnnexB(data);
                           java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
