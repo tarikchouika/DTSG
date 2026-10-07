@@ -2182,6 +2182,21 @@ const server = http.createServer((req, res) => {
             if (!pl && hFile === 'index.m3u8') { json({ ok: false, message: 'لا جلسة تحكيم حية لهذا اللاعب' }, 404); return; }
             upPath = '/' + MMX.publishPath(hRoom, hUid) + '/' + hFile;
           } catch (e) { json({ ok: false, message: 'بروكسي HLS فشل' }, 500); return; }
+          /* [v2.93·جذر «الشاشة السوداء عند الأدمن» الثاني] تمرير معاملات
+             LL-HLS الحية (_HLS_msn/_HLS_part/_HLS_skip) إلى المرحّل: القائمة
+             تعمل CAN-BLOCK-RELOAD=YES فمشغّل الأدمن (hls.js بوضع التأخير
+             المنخفض) يطلب قوائم حاجبة بهذه المعاملات — إسقاطها كان يعيد
+             القائمة الحالية فوراً في كل مرة فيدخل المشغّل دورة استعلام ساخنة
+             ثم levelLoadError قاتل: البث «مباشر» والأجزاء تصل والصورة سوداء
+             (أثبته مختبر حيّ كامل بنموذج التطبيق → MediaMTX v1.21.1 →
+             البروكسي → متصفح حقيقي). القائمة البيضاء حصراً — لا يُمرَّر أي
+             معامل آخر من العميل (الرمز t يتحقق منه أعلاه ولا يمرّر أصلاً) */
+          const llhlsQ = [];
+          ['_HLS_msn', '_HLS_part', '_HLS_skip'].forEach(function (k) {
+            const v = q.get(k);
+            if (v != null) llhlsQ.push(k + '=' + encodeURIComponent(String(v).slice(0, 32)));
+          });
+          if (llhlsQ.length) upPath += '?' + llhlsQ.join('&');
           /* [v2.81.4·إصلاح الميدان] hlsFetch يتبع 302 cookieCheck الخاص
              بالمرحّل (آلية تحقق جلسة HLS في MediaMTX v1.21) مع جمع كوكيزه
              داخل الخادم — http.get الخام كان يُرجع 302 كما هي فيتحول

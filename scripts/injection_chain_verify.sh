@@ -90,8 +90,14 @@ extract_step "Inject local-network permissions" lnet.py
 python3 lnet.py
 grep -q 'android.permission.BLUETOOTH_CONNECT' android/app/src/main/AndroidManifest.xml && echo "OK بلوتوث LocalNet"
 
+echo "── 8.7 ميكروفون الرسائل الصوتية ──"
+extract_step "Inject microphone permissions" mic.py
+python3 mic.py
+grep -q 'android.permission.RECORD_AUDIO' android/app/src/main/AndroidManifest.xml && echo "OK RECORD_AUDIO"
+grep -q 'android.permission.MODIFY_AUDIO_SETTINGS' android/app/src/main/AndroidManifest.xml && echo "OK MODIFY_AUDIO_SETTINGS"
+
 echo "── إعادة تشغيل (idempotency) ──"
-python3 bridge.py && python3 lnet.py && echo "OK التكرار آمن"
+python3 bridge.py && python3 lnet.py && python3 mic.py && echo "OK التكرار آمن"
 
 echo "── المانيفست النهائي صالح XML ──"
 python3 -c "

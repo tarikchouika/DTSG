@@ -128,44 +128,77 @@ const VIEW_TTL_MS = Math.max(60000, Number(process.env.MEDIAMTX_VIEW_TTL_MS) || 
    المرحّل «Set-Cookie: hlsSession=…» وعندها **كل** الطلبات اللاحقة
    (قوائم فرعية ومقاطع) يجب أن تحمل هذا الكوكي وإلا ردّ «401» — أي أن
    الجرة لكل طلب لا تكفي؛ الجرة يجب أن تكون مشتركة عبر طلبات البروكسي
-   كلها (سلوك المتصفح ذاته مع لوحة أدمن واحدة). العلاج هنا: متبع
-   توجيهات صغير داخل خادم المنصة بجرة كوكيز مشتركة على مستوى العملية،
-   وعند «401» (انتهت جلسة المرحّل مثلاً) يُفرَّغ الجرة ويُعاد رقص
-   cookieCheck مرة واحدة — شفاء ذاتي بلا تدخل. الكوكيز لا تخرج من
-   الخادم — المتصفح لا يرى كوكيز المرحّل أبداً (عقد v2.81.1 يبقى صحيحاً). */
-const MTX_COOKIE_JAR = Object.create(null);   /* كوكيز المرحّل داخل الخادم حصراً */
+   كلها (سلوك المتصفح ذاته مع لوحة أدمن واحدة). الكوكيز لا تخرج من
+   الخادم — المتصفح لا يرى كوكيز المرحّل أبداً (عقد v2.81.1 يبقى صحيحاً).
+   [v2.93] الجرة صارت واعية بمسار الكوكي (كما في المتصفح تماماً): جلسة
+   HLS عند المرحّل مقيدة بالمسار (Path=<مسار البث>/) ومقارنة العنوان
+   فيه pathName — الأدمن يشاهد لاعبَين جنباً إلى جنب (مسارَين)، والجرة
+   المسطحة القديمة (اسم → قيمة واحدة) كانت تكتب جلسة اللاعب الثاني فوق
+   الأولى فترفض الأولى 401 «session not found» — القائمة الفرعية للأدمن
+   تتعطل بينما الثانية تعمل. والاستئناف عند 401 صار من القائمة الرئيسية
+   للمسار نفسه (index.m3u8): رقص cookieCheck لا ينشئ جلسة إلا عليها —
+   إعادة طلب الملف الأصلي مباشرة كانت لا تستأنف شيئاً أبداً. */
+const MTX_COOKIE_JAR = Object.create(null);   /* كوكيز المرحّل داخل الخادم حصراً: name → { value, path } */
+function jarCookiePath(sc) {
+  const pm = /(?:^|;\s*)Path=([^;\s]+)/i.exec(String(sc || ''));
+  return pm ? pm[1] : '/';
+}
+function jarPathMatches(cookiePath, reqPath) {
+  const cp = String(cookiePath || '/');
+  const rp = String(reqPath || '/').split('?')[0];
+  if (cp === '/' ) return true;
+  if (rp === cp) return true;
+  return rp.indexOf(cp) === 0 && (cp.charAt(cp.length - 1) === '/' || rp.charAt(cp.length) === '/');
+}
 function hlsFetch(upPath, cb) {
-  let hops = 0, settled = false, retried = false;
+  let hops = 0, settled = false, resynced = false;
   function done(hRes, err) {
     if (settled) { try { if (hRes) hRes.resume(); } catch (e) {} return; }
     settled = true;
     cb(hRes, err);
   }
-  function jarHeader() {
-    const ks = Object.keys(MTX_COOKIE_JAR);
-    return ks.length ? { Cookie: ks.map(function (k) { return k + '=' + MTX_COOKIE_JAR[k]; }).join('; ') } : undefined;
+  function jarHeader(p) {
+    const out = [];
+    Object.keys(MTX_COOKIE_JAR).forEach(function (k) {
+      const c = MTX_COOKIE_JAR[k];
+      if (c && jarPathMatches(c.path, p)) out.push(k + '=' + c.value);
+    });
+    return out.length ? { Cookie: out.join('; ') } : undefined;
   }
   function absorb(hRes) {
     (hRes.headers['set-cookie'] || []).forEach(function (sc) {
       const kv = String(sc).split(';')[0];
       const i = kv.indexOf('=');
-      if (i > 0) MTX_COOKIE_JAR[kv.slice(0, i).trim()] = kv.slice(i + 1).trim();
+      if (i <= 0) return;
+      MTX_COOKIE_JAR[kv.slice(0, i).trim()] = { value: kv.slice(i + 1).trim(), path: jarCookiePath(sc) };
     });
   }
-  function go(p) {
-    const req = http.get(HLS_URL + p, { timeout: 8000, headers: jarHeader() }, function (hRes) {
+  function go(p, isResync) {
+    const req = http.get(HLS_URL + p, { timeout: 8000, headers: jarHeader(p) }, function (hRes) {
       absorb(hRes);
       if (hRes.statusCode >= 300 && hRes.statusCode < 400 && hRes.headers.location) {
         hRes.resume();
         if (++hops > 3) return done(null, 'toomanyredirects');
         const loc = String(hRes.headers.location);
-        return go(loc.indexOf('://') !== -1 ? loc.replace(/^[a-z]+:\/\/[^\/]+/i, '') : loc);
+        return go(loc.indexOf('://') !== -1 ? loc.replace(/^[a-z]+:\/\/[^\/]+/i, '') : loc, isResync);
       }
-      if (hRes.statusCode === 401 && !retried) {
-        /* جلسة المرحّل انتهت/فقدت ⇒ تفريغ الجرة ورقص cookieCheck من جديد */
+      if (hRes.statusCode === 401 && !resynced) {
+        /* [v2.93] جلسة المرحّل لهذا المسار انتهت/فقدت ⇒ إسقاط الجلسة المقيدة
+           بمساره ثم الاستئناف من القائمة الرئيسية للمسار نفسه (رقص cookieCheck
+           لا ينشئ جلسة إلا على index.m3u8 — طلب الملف الأصلي مباشرة لا يجدي)
+           ثم إعادة الطلب الأصلي بجلسته الجديدة — مرة واحدة */
         hRes.resume();
-        retried = true;
-        Object.keys(MTX_COOKIE_JAR).forEach(function (k) { delete MTX_COOKIE_JAR[k]; });
+        resynced = true;
+        delete MTX_COOKIE_JAR.hlsSession;
+        hops = 0;
+        const clean = String(upPath || '/').split('?')[0];
+        const cut = clean.lastIndexOf('/');
+        const dir = cut > 0 ? clean.slice(0, cut + 1) : '/';
+        return go(dir + 'index.m3u8', true);
+      }
+      if (isResync) {
+        /* القائمة الرئيسية جُلبت لإنشاء الجلسة فقط — استهلاكها ثم إعادة الأصل */
+        hRes.resume();
         hops = 0;
         return go(String(upPath || '/'));
       }

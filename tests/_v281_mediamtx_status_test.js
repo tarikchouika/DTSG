@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   [v2.92] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
+   [v2.93] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
    ───────────────────────────────────────────────────────────────────────────
    يغطي (بلا متصفح — خادمي وساكن):
      أ) الوحدة server-mediamtx.js بمرحّل وهمي محلي (Node http):
@@ -568,10 +568,12 @@ const ROOT = path.resolve(__dirname, '..');
   ok('server.js: البروكسي يجلب عبر MMX.hlsFetch لا http.get خام (302 cookieCheck تُتبَّع خادمياً)',
     /MMX\.hlsFetch\(upPath, function \(hRes, hErr\)/.test(svSrc)
     && !/http\.get\(hlsUp \+ upPath/.test(svSrc));
-  ok('server-mediamtx.js: hlsFetch بجرة كوكيز مشتركة على مستوى العملية + متابعة توجيهات (≤3) + شفاء ذاتي عند 401',
+  ok('server-mediamtx.js: hlsFetch بجرة كوكيز مشتركة واعية بمسار الكوكي + متابعة توجيهات (≤3) + شفاء ذاتي عند 401 من index.m3u8 للمسار [v2.93]',
     /const MTX_COOKIE_JAR = Object\.create\(null\)/.test(mtxSrcHls)
     && /hops > 3/.test(mtxSrcHls)
-    && /statusCode === 401 && !retried/.test(mtxSrcHls)
+    && /statusCode === 401 && !resynced/.test(mtxSrcHls)
+    && /go\(dir \+ 'index\.m3u8', true\)/.test(mtxSrcHls)
+    && /jarPathMatches\(/.test(mtxSrcHls)
     && /hlsFetch: hlsFetch/.test(mtxSrcHls));
   ok('server.js: mine ملفوفة بـPromise.resolve (صارت غير متزامنة استقصاءً للمرحّل)',
     /Promise\.resolve\(arb\.mine\(me\)\)/.test(svSrc));

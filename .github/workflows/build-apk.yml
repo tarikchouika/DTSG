@@ -540,7 +540,7 @@ jobs:
                   public void btEnable() { ln.btEnable(); }
                   /* ── [v2.88·التحكيم] مشاركة شاشة التطبيق أصلاً ── */
                   @android.webkit.JavascriptInterface
-                  public String arbShareVersion() { return "3"; }
+                  public String arbShareVersion() { return "4"; }
                   @android.webkit.JavascriptInterface
                   public void arbShareStart(String json) { arb.start(json); }
                   @android.webkit.JavascriptInterface
@@ -1797,22 +1797,43 @@ jobs:
                       if (!cfgSent) return;   /* الترويسة أولاً — تُرسل حتماً عند تأكيد النشر */
                       try {
                           java.util.ArrayList<byte[]> nals = splitAnnexB(data);
-                          java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
-                          o.write(0x17);
-                          o.write(0x01);
-                          o.write(0); o.write(0); o.write(0);
+                          /* [v2.93·جذر «الشاشة السوداء عند الأدمن» المتبقي]
+                             مرمّزات سطح-الدخل في أندرويد تُخرج SPS/PPS مرة واحدة
+                             حصراً في عازلة CODEC_CONFIG (الترويسة) ولا تكررهما
+                             داخل وحدات الوصول، بينما مستخرج DTS في المرحّل
+                             (MediaMTX/gohlslib) يفترض معاملات التدفق داخل أول
+                             وحدة وصول مفتاحية (سلوك x264/Larix/ffmpeg — repeat
+                             headers): بلا SPS داخل الإطار يُسقط كل عيّنة فور
+                             النشر («SPS not received yet») فتبقى قائمة HLS كلها
+                             فجوات GAP والفيديو أسود عند الأدمن رغم أن السلسلة
+                             كلها سليمة (اكتشافه مختبر حيّ كامل: نموذج التطبيق
+                             → MediaMTX v1.21.1 → بروكسي المنصة → متصفح حقيقي).
+                             العلاج: حقن SPS/PPS المُخزَّنتين من الترويسة داخل
+                             كل وحدة وصول مفتاحية لا تحملهما (وإن حملهما المرمّز
+                             أصلاً فتُكتب كما هي — لا ازدواج) */
                           boolean key = false;
+                          boolean hasSps = false;
+                          boolean hasPps = false;
                           int i;
                           for (i = 0; i < nals.size(); i++) {
                               byte[] nal = nals.get(i);
                               int ntype = nal.length > 0 ? nal[0] & 0x1F : 0;
-                              if (ntype == 7 || ntype == 8 || ntype == 9) continue;   /* في الترويسة أو حشو */
                               if (ntype == 5) key = true;
-                              o.write(nal.length >> 24);
-                              o.write((nal.length >> 16) & 255);
-                              o.write((nal.length >> 8) & 255);
-                              o.write(nal.length & 255);
-                              o.write(nal);
+                              if (ntype == 7) hasSps = true;
+                              if (ntype == 8) hasPps = true;
+                          }
+                          java.io.ByteArrayOutputStream o = new java.io.ByteArrayOutputStream();
+                          o.write(0x17);
+                          o.write(0x01);
+                          o.write(0); o.write(0); o.write(0);
+                          if (key && sps != null && pps != null && !hasSps) writeAvcNal(o, sps);
+                          if (key && sps != null && pps != null && !hasPps) writeAvcNal(o, pps);
+                          for (i = 0; i < nals.size(); i++) {
+                              byte[] nal = nals.get(i);
+                              int ntype = nal.length > 0 ? nal[0] & 0x1F : 0;
+                              if (ntype == 9) continue;   /* AUD حشو — لا يُرسل */
+                              if (ntype == 5) key = true;
+                              writeAvcNal(o, nal);
                           }
                           byte[] body = o.toByteArray();
                           if (body.length > 5) {
@@ -1823,6 +1844,15 @@ jobs:
                       } catch (Throwable t) {
                           failed = true;
                       }
+                  }
+          
+                  /* كتابة NAL بصيغة AVCC (طول 4 بايتات ثم الجسم) — [v2.93] */
+                  void writeAvcNal(java.io.ByteArrayOutputStream o, byte[] nal) throws java.io.IOException {
+                      o.write(nal.length >> 24);
+                      o.write((nal.length >> 16) & 255);
+                      o.write((nal.length >> 8) & 255);
+                      o.write(nal.length & 255);
+                      o.write(nal);
                   }
           
                   /* ── تقسيم Annex-B إلى NALات ── */
@@ -2165,6 +2195,36 @@ jobs:
           io.open(p, "w", encoding="utf-8").write(s)
           print("OK أذونات LocalNet (بث متعدد + بلوتوث) — الغرف المحلية المباشرة")
           PY25
+
+      # 8.7) [v2.93] أذونات الميكروفون — الرسائل الصوتية في الغرف (المحلية
+      #      والخادمية) تعمل في WebView عبر getUserMedia+MediaRecorder، وجسر
+      #      كروم في كاباسيتور 6 (BridgeWebChromeClient.onPermissionRequest)
+      #      يطلب الإذنين زمنياً عند طلب الويب AUDIO_CAPTURE ثم يمنح الطلب
+      #      إن نجحا — لكن أياً منهما غير مصرَّح به في المانيفست كان يعني
+      #      رفضاً فورياً دائماً (النظام يرفض طلب أي إذن غير مصرَّح): بلاغ
+      #      المالك 2026-10-07 «خلل في صلاحية الميكروفون في تطبيق الأندرويد».
+      #      python3 بمرساة إذن الكاميرا (خطوة 8.4 — تسبق كل ما يلي زمنياً)
+      #      وفشل صريح إن تغيّر القالب (نمط 8.4/8.5/8.6).
+      - name: Inject microphone permissions (voice messages in WebView)
+        run: |
+          python3 - <<'PY26'
+          import io, sys
+          p = "android/app/src/main/AndroidManifest.xml"
+          s = io.open(p, encoding="utf-8").read()
+          if "android.permission.RECORD_AUDIO" in s:
+              print("OK أذونات الميكروفون موجودة مسبقاً"); sys.exit(0)
+          anchor = '<uses-permission android:name="android.permission.CAMERA" /> <!-- [v2.83] LocalMP QR -->'
+          if anchor not in s:
+              sys.exit("X قالب AndroidManifest تغيّر: لم أجد مرساة CAMERA — راجع خطوة الحقن (8.7)")
+          add = (
+              "\n    <!-- [v2.93] الميكروفون: الرسائل الصوتية عبر getUserMedia في WebView -->\n"
+              "    <uses-permission android:name=\"android.permission.RECORD_AUDIO\" />\n"
+              "    <uses-permission android:name=\"android.permission.MODIFY_AUDIO_SETTINGS\" />"
+          )
+          s = s.replace(anchor, anchor + add, 1)
+          io.open(p, "w", encoding="utf-8").write(s)
+          print("OK أذونات الميكروفون (RECORD_AUDIO + MODIFY_AUDIO_SETTINGS) — الرسائل الصوتية في التطبيق")
+          PY26
 
       - name: Setup Java 17 (Temurin)
         uses: actions/setup-java@v4
