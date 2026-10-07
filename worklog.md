@@ -1340,3 +1340,21 @@ Work Log:
 Stage Summary:
 - الجذران الحقيقيان المتبقيان لـ«الشاشة السوداء» معالجان من جذريهما (تدفق الإطارات + الإطلاق المرجعي الفوري) وثلاثة عيوب هيكلية أصلحت — كلها مثبتة بحرس دائم (39 فحصاً) ومكتسبات v2.85-2.91 موفورة بحرّاسها
 - المعلَّق: الدفع إلى GitHub (يطلق بناء APK build31) ثم نشر Cloudflare Pages — ثم المالك يثبّت v2.92.0 على كلا الهاتفين ويتحقق: ① شريحة الحالة تعرض «· v3» (إن لم تعرضها فالهاتف على بناء قديم — حدّثه أولاً) ② أندرويد 16: الصورة تظهر فوراً وتبقى عند تبديل التطبيقات حتى على شاشة ساكنة ③ أندرويد 11: إن ظهر أي فشل فالرسالة تحمل كود العطل الحرفي
+
+---
+Task ID: v2.92-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.92.0 — الدفع والبناء والنشر والتحقق من الAPK المنشور والموقع الحي
+
+Work Log:
+- فحوص ما قبل الدفع كلها خضراء: hygiene 5/5 · preflight سليم · javac 21 ضد android.jar API 34: COMPILE OK (يشمل KEY_REPEAT_PREVIOUS_FRAME_AFTER) · سلسلة الحقن ناجحة محلياً · النسختان متطابقتان بايت-بايت (git diff نظيف بين .github وdocs)
+- الدفع إلى GitHub main (a68d01e) — أطلق بناء APK رقم 31 على GitHub Actions ونجح (run 37628818699: completed success)
+- Release apk-v2.92.0-build31 منشور بعلم latest: DTSG-Gaming-App.apk (28.06MB) + sha256 — والرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّمه
+- التحقق من الAPK المنشور نفسه (تنزيل وفك): sha256 مطابق حرفياً (60338aba…97fe6) — وDEX يحمل عقود هذه الجولة كلها: repeat-previous-frame-after (قيمة ثابت KEY_REPEAT_PREVIOUS_FRAME_AFTER المُدمَجة ترجمةً — صفر في build30 وواحدة في build31) + onPublished (الخطاف الجديد: صفر في build30 وواحدة في build31) + request-sync (ثابت PARAMETER_KEY_REQUEST_SYNC_FRAME المستعمل في موضعين) وربط maybeSendConfig بالخطاف — ومكتسبات v2.85-2.91 كاملة (createConfigForDefaultDisplay · SocketTimeoutException · cfgBody · arb-begin · registerCallback · projection-stopped · init: · video/avc · __dtsgArbEvt · arbShareStart · __dtsgLnEvt · getDisplayMetrics · cacheInsets)
+- المانيفست: FOREGROUND_SERVICE_MEDIA_PROJECTION + FOREGROUND_SERVICE + POST_NOTIFICATIONS + ArbShareService + BLUETOOTH_CONNECT كلها حية
+- نشر Cloudflare Pages بحساب المنصة المثبّت (758fcc82…): dtsg.pages.dev يقدّم DTSG_BUILD = v2.92.0 — والتحقق الحي: arb-client.js?v=v292 يحمل ARB.nativeVersion وarb-page.js?v=v292 يحمل شارة «· v» في شريحة الحالة وبصمات v292 في index وترويسات الأمان سليمة (HSTS preload + X-Frame-Options DENY + nosniff)
+
+Stage Summary:
+- v2.92.0 حيّة كاملة: GitHub main (a68d01e) · GitHub Release apk-v2.92.0-build31 (latest) · Cloudflare Pages dtsg.pages.dev (v2.92.0)
+- حرس v292 الدائم (39 فحصاً) في البطارية + كل مكتسبات الجولات السابقة موفورة بحرّاسها
+- المعلَّق على المالك: تثبيت APK v2.92.0 build31 من الرابط الدائم على كلا الهاتفين (يتحدث مباشرة فوق build30 — نفس شهادة الإنتاج) ثم الاختبار الميداني: ① شريحة حالة البث في صفحة التحكيم تعرض «· v3» — إن لم تعرضها فالهاتف على بناء قديم (حدّثه أولاً — هذا هو تشخيص بلاغ أندرويد 11) ② أندرويد 16: زر الذهب → حوار «الشاشة كلها» → الصورة تظهر عند الأدمن فوراً وتبقى حية عند تبديل التطبيقات وحتى على شاشة ساكنة ③ أندرويد 11: نفس المسار — وإن ظهر أي فشل فالرسالة تحمل كود العطل الحرفي بين قوسين فيُحدَّد الجذر فوراً
