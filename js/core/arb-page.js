@@ -449,7 +449,15 @@
     var btn = document.getElementById('arbShareBtn');
     var state = (typeof ARB !== 'undefined' && ARB && ARB.state) ? ARB.state() : 'idle';
     if (chip) {
-      var chipHtml = '<span class="arb-chip arb-' + esc(state) + '">' + esc(myStateLbl(state)) + '</span>';
+      var lbl = myStateLbl(state);
+      /* [v2.92] إصدار الجسر الأصلي في شريحة الحالة (بث الهاتف حصراً) —
+         تشخيص ميداني بلا كونسول: هاتف يعرض إصداراً أقدم = بناء قديم
+         يجب تحديثه قبل أي بلاغ خلل (درس بلاغ أندرويد 11 في v2.91) */
+      if (state === 'connecting' || state === 'relay') {
+        var nv = (typeof ARB !== 'undefined' && ARB && ARB.nativeVersion) ? ARB.nativeVersion() : '';
+        if (nv) lbl += ' · v' + nv;
+      }
+      var chipHtml = '<span class="arb-chip arb-' + esc(state) + '">' + esc(lbl) + '</span>';
       if (chip.dataset.sig !== chipHtml) { chip.dataset.sig = chipHtml; chip.innerHTML = chipHtml; }
     }
     if (btn) {

@@ -433,6 +433,13 @@
     reset: reset,
     onState: onState,
     support: support,
-    state: function () { return st.state; }
+    state: function () { return st.state; },
+    /* [v2.92] إصدار الجسر الأصلي للواجهة — تشخيص ميداني فوري بلا كونسول:
+       شريحة حالة البث تعرضه (بناء قديم على الهاتف = إصدار أقل من
+       المتوقع يظهر للعيان، بلاغ أندرويد 11 في v2.91) */
+    nativeVersion: function () {
+      if (!nativeSupport()) return '';
+      try { return String(root.DTSGNative.arbShareVersion() || ''); } catch (e) { return ''; }
+    }
   };
 })(typeof window !== 'undefined' ? window : this);

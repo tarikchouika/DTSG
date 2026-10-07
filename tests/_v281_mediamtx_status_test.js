@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   [v2.91] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
+   [v2.92] اختبار مراقبة حالة بث MediaMTX + سير عمل بناء APK
    ───────────────────────────────────────────────────────────────────────────
    يغطي (بلا متصفح — خادمي وساكن):
      أ) الوحدة server-mediamtx.js بمرحّل وهمي محلي (Node http):
@@ -599,8 +599,11 @@ const ROOT = path.resolve(__dirname, '..');
      [v2.84] translations.js رُفعت مجدداً (مفاتيح auth.userPlaceholder/pwPlaceholder + lb.all + lmp.camSlow). */
   /* [v2.85] بصمة translations مشتقة (≥ v284) لا مثبّتة — القاعدة 15 ترفعها مع كل تعديل. */
   const trV = parseInt((/translations\.js\?v=v(\d+)/.exec(idxSrc) || [])[1] || '0', 10);
-  ok('index.html: إصدارات ملفات الجولة (arb-admin + arb-page على v2814 · translations ≥ v284)',
-    /arb-admin\.js\?v=v2814/.test(idxSrc) && /arb-page\.js\?v=v2814/.test(idxSrc) && trV >= 284);
+  /* [v2.92] arb-page.js تغيّر (إصدار الجسر في شريحة الحالة) فبصمته تُشتق من
+     الإصدار كترجمات — arb-admin لم يُمسّ فبصمته التاريخية v2814 كما هي. */
+  const pageV = parseInt((/arb-page\.js\?v=v(\d+)/.exec(idxSrc) || [])[1] || '0', 10);
+  ok('index.html: إصدارات ملفات الجولة (arb-admin على v2814 · arb-page مشتقة ≥ v292 · translations ≥ v284)',
+    /arb-admin\.js\?v=v2814/.test(idxSrc) && pageV >= 292 && trV >= 284);
   const hlsFile = path.join(ROOT, 'js/vendor/hls.light.min.js');
   const hlsSz = fs.existsSync(hlsFile) ? fs.statSync(hlsFile).size : 0;
   ok('js/vendor/hls.light.min.js: موجود بحجم سليم (100KB–1MB) وبرمجية مصغّرة',

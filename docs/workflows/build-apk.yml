@@ -540,7 +540,7 @@ jobs:
                   public void btEnable() { ln.btEnable(); }
                   /* ── [v2.88·التحكيم] مشاركة شاشة التطبيق أصلاً ── */
                   @android.webkit.JavascriptInterface
-                  public String arbShareVersion() { return "2"; }
+                  public String arbShareVersion() { return "3"; }
                   @android.webkit.JavascriptInterface
                   public void arbShareStart(String json) { arb.start(json); }
                   @android.webkit.JavascriptInterface
@@ -1168,6 +1168,13 @@ jobs:
                   volatile String pendingUrl = null;   /* rtmp://host:port */
                   volatile String pendingPath = null;  /* dtsg/..._<token> */
                   volatile boolean running = false;
+                  /* [v2.92·بوابة بدء واحدة] منحان متتاليان خلال نافذة
+                     مصافحة RTMP (running لا تُرفع إلا بعد اكتمال الإعداد
+                     كله) كانا يبنيان إسقاطين ومرمّزين ورابطين معاً —
+                     CAS يحسم المتسابق الأول حصراً، والبوابة تُفرَج عند
+                     كل مخرج (نجاحاً أو فشلاً). */
+                  final java.util.concurrent.atomic.AtomicBoolean busy =
+                      new java.util.concurrent.atomic.AtomicBoolean(false);
                   MediaProjection projection = null;
                   VirtualDisplay display = null;
                   MediaCodec encoder = null;
@@ -1275,22 +1282,57 @@ jobs:
                      الرئيسي أبداً. */
                   void beginProjection(int resultCode, android.content.Intent data) {
                       if (running) return;
+                      /* [v2.92] بوابة بدء واحدة — CAS (انظر تعريف busy) */
+                      if (!busy.compareAndSet(false, true)) return;
                       final String url = pendingUrl, path = pendingPath;
                       pendingUrl = null;
                       pendingPath = null;
-                      if (url == null || path == null) { push("state", "failed", "no-target"); return; }
+                      if (url == null || path == null) {
+                          busy.set(false);
+                          push("state", "failed", "no-target");
+                          return;
+                      }
+                      /* [v2.92·عزل الخيط] قياسات الشاشة هنا على خيط الواجهة
+                         حصراً: beginProjection يستدعيه onStartCommand من الخيط
+                         الرئيسي، بينما كان beginProjectionBg (خيط خلفي) يستدعي
+                         getWindowManager/getResources — خرقٌ لعقد أندرويد قد
+                         يرمي فتسقط الأبعاد إلى 320×240 أو يسلك سلوكاً غير
+                         معرّف. الخيط الخلفي يتلقى الآن أبعاداً محسوبة سلفاً. */
+                      int mw = 0, mh = 0, mdpi = 0;
+                      try {
+                          DisplayMetrics dm = new DisplayMetrics();
+                          if (android.os.Build.VERSION.SDK_INT >= 30) {
+                              android.graphics.Rect r = getWindowManager().getCurrentWindowMetrics().getBounds();
+                              dm.widthPixels = r.width();
+                              dm.heightPixels = r.height();
+                              dm.densityDpi = getResources().getDisplayMetrics().densityDpi;
+                          } else {
+                              getWindowManager().getDefaultDisplay().getRealMetrics(dm);
+                          }
+                          mw = dm.widthPixels; mh = dm.heightPixels; mdpi = dm.densityDpi;
+                      } catch (Throwable ignored) { }
+                      if (mw < 320 || mh < 240) { mw = 1280; mh = 720; }   /* قياس فاشل: افتراض آمن */
+                      if (Math.max(mw, mh) > 1280) {
+                          double k = 1280.0 / (double) Math.max(mw, mh);
+                          mw = (int) Math.round(mw * k);
+                          mh = (int) Math.round(mh * k);
+                      }
+                      mw = (mw / 2) * 2;
+                      mh = (mh / 2) * 2;
+                      if (mdpi <= 0) mdpi = 160;
+                      final int w = mw, h = mh, dpi = mdpi;
                       new Thread(new Runnable() {
-                          @Override public void run() { beginProjectionBg(resultCode, data, url, path); }
+                          @Override public void run() { beginProjectionBg(resultCode, data, url, path, w, h, dpi); }
                       }, "arb-begin").start();
                   }
                   /* جسم السلسلة — يعمل على الخيط الخلفي arb-begin حصراً */
-                  void beginProjectionBg(int resultCode, android.content.Intent data, String url, String path) {
-                      if (running) return;
+                  void beginProjectionBg(int resultCode, android.content.Intent data, String url, String path, int w, int h, int dpi) {
+                      if (running) { busy.set(false); return; }
                       try {
                           MediaProjectionManager mpm =
                               (MediaProjectionManager) getSystemService(Context.MEDIA_PROJECTION_SERVICE);
                           projection = mpm.getMediaProjection(resultCode, data);
-                          if (projection == null) { push("state", "failed", "no-proj"); return; }
+                          if (projection == null) { busy.set(false); push("state", "failed", "no-proj"); return; }
                           /* [v2.89·درس Android 14] إلزامي لتطبيقات targetSdk 34+:
                              تسجيل Callback قبل createVirtualDisplay وإلا رُميت
                              IllegalStateException (وثيقة أندرويد الرسمية: "If your
@@ -1307,35 +1349,31 @@ jobs:
                                   }
                               }, null);
                           } catch (Throwable t) {
+                              busy.set(false);
                               push("state", "failed", "callback");
                               return;
                           }
-                          /* أبعاد الشاشة مع سقف 1280 للحافة الكبرى — بث خفيف ثابت */
-                          DisplayMetrics dm = new DisplayMetrics();
-                          try {
-                              if (android.os.Build.VERSION.SDK_INT >= 30) {
-                                  android.graphics.Rect r = getWindowManager().getCurrentWindowMetrics().getBounds();
-                                  dm.widthPixels = r.width();
-                                  dm.heightPixels = r.height();
-                                  dm.densityDpi = getResources().getDisplayMetrics().densityDpi;
-                              } else {
-                                  getWindowManager().getDefaultDisplay().getRealMetrics(dm);
-                              }
-                          } catch (Throwable ignored) { }
-                          int w = Math.max(320, dm.widthPixels), h = Math.max(240, dm.heightPixels);
-                          if (Math.max(w, h) > 1280) {
-                              double k = 1280.0 / (double) Math.max(w, h);
-                              w = (int) Math.round(w * k);
-                              h = (int) Math.round(h * k);
-                          }
-                          w = (w / 2) * 2;
-                          h = (h / 2) * 2;
+                          /* أبعاد الشاشة: حُسبت على خيط الواجهة أعلاه (عزل
+                             الخيط) — سقف 1280 للحافة الكبرى: بث خفيف ثابت */
                           int bitrate = Math.max(900000, Math.min(2400000, w * h * 2));
                           MediaFormat fmt = MediaFormat.createVideoFormat(MediaFormat.MIMETYPE_VIDEO_AVC, w, h);
                           fmt.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
                           fmt.setInteger(MediaFormat.KEY_BIT_RATE, bitrate);
                           fmt.setInteger(MediaFormat.KEY_FRAME_RATE, 24);
                           fmt.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, 2);
+                          /* [v2.92·جذر «الصورة المتجمدة على شاشة ساكنة»]
+                             الشاشة الافتراضية AUTO_MIRROR لا تدفع إطاراً
+                             جديداً على محتوى ثابت (سلوك أندرويد الموثّق:
+                             إطار لكل تحديث فعلي للشاشة) — المرمّز يصمت،
+                             مقاطع HLS لا تُغلق أبداً، والقائمة تبقى بلا
+                             مقاطع ⇒ «مباشر» أسود عند الأدمن رغم أن كل
+                             السلسلة سليمة (بلاغ أندرويد 16). المفتاح
+                             الرسمي لمرمّزات سطح-الدخل يكرر آخر إطار
+                             تلقائياً عند سكون الدخل — تدفق مستمر يغلق
+                             المقاطع ويحيا البث حتى على الشاشة الساكنة
+                             (مرمّزات تتجاهله: لا ضرر — الإطارات تعود
+                             بأول تحديث شاشة فعلي). */
+                          try { fmt.setInteger(MediaFormat.KEY_REPEAT_PREVIOUS_FRAME_AFTER, 500000); } catch (Throwable ignored) { }
                           encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_VIDEO_AVC);
                           encoder.configure(fmt, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
                           Surface input = encoder.createInputSurface();
@@ -1352,13 +1390,14 @@ jobs:
                              إطارات أصلاً حتى يكتمل النشر — أول إطار بعد live
                              نظيف حتماً. (registerCallback قبل createVirtualDisplay
                              إلزام API 34+ — مكتسب v2.89 محفوظ أعلاه كما هو) */
-                          link = new RtmpLink(url, path);
+                          link = new RtmpLink(url, path, this);
                           if (!link.connect()) { stop("rtmp-connect"); return; }
                           display = projection.createVirtualDisplay(
-                              "dtsg-arb", w, h, dm.densityDpi == 0 ? 160 : dm.densityDpi,
+                              "dtsg-arb", w, h, dpi,
                               DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, input, null, null);
                           if (display == null) { stop("no-display"); return; }
                           running = true;
+                          busy.set(false);   /* البوابة: التشغيل يقفلها running من الآن */
                           firstPts = -1;
                           push("state", "live", null);
                           encThread = new Thread(new Runnable() {
@@ -1418,6 +1457,7 @@ jobs:
                   void stop(String why) {
                       boolean was = running;
                       running = false;
+                      busy.set(false);   /* [v2.92] إفراج بوابة البدء من كل مسار إيقاف */
                       try { if (encThread != null) encThread.interrupt(); } catch (Throwable ignored) { }
                       encThread = null;
                       try { if (encoder != null) { encoder.stop(); encoder.release(); } } catch (Throwable ignored) { }
@@ -1433,6 +1473,25 @@ jobs:
                           stopService(new android.content.Intent(MainActivity.this, ArbShareService.class));
                       } catch (Throwable ignored) { }
                       if (was) push("state", "stopped", null);
+                  }
+          
+                  /* [v2.92·جذر «أسود حتى أول إطار مرجعي»] أول IDR يضخّه المرمّز
+                     خلال مصافحة RTMP فيُسقط فوق شرط !cfgSent في sendFrame —
+                     وHLS لا يفتح مقطعاً إلا بإطار مرجعي، فتتأخر الصورة عند
+                     الأدمن حتى keyframe التالي (2ث على شاشة متحركة، وقد لا
+                     يأتي أبداً قبل v2.92 على شاشة ساكنة). لحظة إرسال الترويسة
+                     فعلياً (cfgSent=true في maybeSendConfig) يستدعي الرابط هذا
+                     الخطاف: طلب إطار مرجعي فوري يجعل أول إطار مُرسَل بعد
+                     النشر IDR — الصورة تظهر عند الأدمن فوراً. */
+                  void onPublished() {
+                      try {
+                          MediaCodec e = encoder;
+                          if (e != null) {
+                              Bundle b = new Bundle();
+                              b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
+                              e.setParameters(b);
+                          }
+                      } catch (Throwable ignored) { }
                   }
           
                   /* دفع حدث للصفحة — JSONObject داخل try/catch (درس بناء #24) */
@@ -1462,6 +1521,9 @@ jobs:
               private class RtmpLink {
                   final String url;
                   final String path;
+                  /* [v2.92] خطاف أول إرسال بعد النشر — طلب إطار مرجعي
+                     فوري (onPublished): أول إطار يمر يصير IDR */
+                  final ArbShare owner;
                   Socket sock = null;
                   OutputStream out = null;
                   java.io.InputStream in = null;
@@ -1473,14 +1535,18 @@ jobs:
                   Thread reader = null;
                   byte[] sps = null;
                   byte[] pps = null;
-                  boolean cfgSent = false;
+                  /* [v2.92] طليقة: تُكتب من خيط الضخ وتُقرأ من خيط القارئ
+                     (maybeSendConfig يُستدعى من المسارين) — بلا volatile قد
+                     لا يرى القارئ cfgBody المكتوبة فتبقى الترويسة غير مرسلة */
+                  volatile boolean cfgSent = false;
                   /* [v2.91] ترويسة AVCC مُخزَّنة حتى لحظة تأكيد النشر — لا
-                     إسقاط نهائياً بعد الآن (جذر «البث الأسود إلى الأبد») */
-                  byte[] cfgBody = null;
+                     إسقاط نهائياً بعد الآن (جذر «البث الأسود إلى الأبد») —
+                     [v2.92] وطليقة لسبب cfgSent نفسه */
+                  volatile byte[] cfgBody = null;
                   final Object writeLock = new Object();
                   final java.io.ByteArrayOutputStream amf = new java.io.ByteArrayOutputStream();
           
-                  RtmpLink(String url, String path) { this.url = url; this.path = path; }
+                  RtmpLink(String url, String path, ArbShare owner) { this.url = url; this.path = path; this.owner = owner; }
           
                   boolean connect() {
                       try {
@@ -1719,6 +1785,10 @@ jobs:
                           if (cfgSent || cfgBody == null || !publishSent || failed) return;
                           sendMessage(4, msgStreamId, 9, 0, cfgBody);
                           cfgSent = true;
+                          /* [v2.92] أول ما يمر بعد النشر: إطار مرجعي فوري —
+                             أول IDR ضخّه المرمّز خلال المصافحة أُسقط فوق
+                             !cfgSent، وHLS لا يبدأ مقطعاً إلا بمرجعي */
+                          if (owner != null) owner.onPublished();
                       } catch (Throwable t) {
                           failed = true;
                       }

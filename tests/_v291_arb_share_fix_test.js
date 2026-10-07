@@ -102,10 +102,12 @@ const cbIdx2 = bgBody.indexOf('projection.registerCallback(');
 ok(cbIdx2 > 0 && cbIdx2 < vdIdx2, '[مكتسب v2.89] registerCallback قبل createVirtualDisplay محفوظ');
 ok(bgBody.indexOf('"init:" +') > 0, '[مكتسب v2.90] init:<Class> باسم الاستثناء محفوظ');
 ok(wf.indexOf('"arb-begin"') > 0, '[مكتسب v2.90] خيط arb-begin الخلفي محفوظ');
-ok(wf.indexOf('beginProjectionBg(resultCode, data, url, path)') > 0, '[مكتسب v2.90] الاستدعاء الكامل بالوسائط محفوظ');
+ok(wf.indexOf('beginProjectionBg(resultCode, data, url, path, w, h, dpi)') > 0,
+  '[مكتسب v2.90+v2.92] الاستدعاء الكامل بالوسائط محفوظ (+ أبعاد محسوبة على خيط الواجهة)');
 ok(wf.indexOf('onStop') > 0 && wf.indexOf('stop("projection-stopped")') > 0, '[مكتسب v2.89] onStop نظيف عند إنهاء المستخدم');
 ok(wf.indexOf('FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION') > 0, '[مكتسب v2.88] الخدمة الأمامية mediaProjection محفوظة');
-ok(wf.indexOf('arbShareVersion() { return "2"; }') > 0, '[v2.91] إصدار الجسر arbShareVersion=2 (تشخيص الهواتف القديمة ميدانياً)');
+ok(wf.indexOf('arbShareVersion() { return "3"; }') > 0,
+  '[v2.91→v2.92] إصدار الجسر arbShareVersion=3 (يُرقّى مع كل تغيير جسري — تشخيص الهواتف القديمة ميدانياً)');
 
 /* ── 7) JS: كود العطل في وجه الرسالة + إصدار الجسر في السجل ── */
 ok(arbJs.indexOf("String(ev.err || '').replace(/[^A-Za-z0-9:_.-]/g, '')") > 0,
@@ -124,7 +126,7 @@ ok(lock.version === v && (lock.packages && lock.packages[''] && lock.packages[''
   'الثلاثية متطابقة package/lock = ' + v);
 const buildMatch = mainJs.match(/DTSG_BUILD = 'v([^']+)'/);
 ok(buildMatch && buildMatch[1] === v, 'DTSG_BUILD = v' + (buildMatch && buildMatch[1]));
-ok(idxHtml.indexOf('js/core/arb-client.js?v=v' + v.replace('.', '') .slice(0, 2) + '1') > 0,
+ok(idxHtml.indexOf('js/core/arb-client.js?v=v' + v.replace(/\./g, '').slice(0, 3)) > 0,
   'بصمة arb-client محدَّثة في index.html');
 
 console.log('\n═══ الخلاصة ═══');

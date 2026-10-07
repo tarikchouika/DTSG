@@ -249,6 +249,12 @@ run "v290 تفاعل/رسائل/أونو/دومينو/APK"  "tests/_v290_local_s
 # awaitPublish) + pump يرى موت الرابط + الرابط قبل الشاشة الافتراضية + كود
 # العطل في وجه الرسالة وإصدار الجسر arbShareVersion=2 — فحوص مصدر ساكنة.
 run "v291 جذور مشاركة الشاشة (ساكن)"  "tests/_v291_arb_share_fix_test.js"
+# [v2.92] تدقيق ما بعد v2.91 (طلب المالك: تأكد من الإصلاحات واعثر على الجذر
+# المتبقي): تكرار الإطار على الشاشة الساكنة (KEY_REPEAT_PREVIOUS_FRAME_AFTER)
+# + إطار مرجعي فوري لحظة إرسال الترويسة (onPublished) + عزل خيط القياسات +
+# volatile cfgBody/cfgSent + بوابة بدء CAS + arbShareVersion=3 وإصدار الجسر
+# في شريحة الحالة — فحوص مصدر ساكنة.
+run "v292 تدفق إطارات التحكيم (ساكن)" "tests/_v292_arb_stream_flow_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

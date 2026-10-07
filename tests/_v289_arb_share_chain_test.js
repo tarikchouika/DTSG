@@ -86,12 +86,12 @@ async function wait(page, fn, timeout, arg) {
      NetworkOnMainThreadException حتماً فيموت البث بعد منح الإذن مباشرة كل مرة
      (لم يكشفه مختبر v2.88 JVM ولا سلسلة v2.89 — جسر مزيف بلا جافا).
      العلاج: السلسلة كلها (إسقاط/ترميز/RTMP) على خيط خلفي arb-begin. */
-  const bgIdx = wf.indexOf('void beginProjectionBg(int resultCode, android.content.Intent data, String url, String path)');
-  ok(bgIdx > 0, '[v2.90] beginProjectionBg موجود (جسم السلسلة على خيط خلفي)');
+  const bgIdx = wf.indexOf('void beginProjectionBg(int resultCode, android.content.Intent data, String url, String path, int w, int h, int dpi)');
+  ok(bgIdx > 0, '[v2.90] beginProjectionBg موجود (جسم السلسلة على خيط خلفي — [v2.92] والتوقيع يستقبل الأبعاد جاهزة من خيط الواجهة)');
   const bgBody = bgIdx > 0 ? wf.slice(bgIdx, wf.indexOf('void pump()', bgIdx)) : '';
   const thIdx = beginBody.indexOf('new Thread(new Runnable()');
   ok(thIdx > 0 && beginBody.indexOf('"arb-begin"') > 0, '[v2.90] beginProjection يطلق خيط arb-begin خلفياً');
-  ok(thIdx > 0 && /run\(\)[\s\S]{0,120}beginProjectionBg\(resultCode, data, url, path\)/.test(beginBody),
+  ok(thIdx > 0 && /run\(\)[\s\S]{0,120}beginProjectionBg\(resultCode, data, url, path, w, h, dpi\)/.test(beginBody),
     '[v2.90] الخيط الخلفي يستدعي beginProjectionBg بكامل الوسائط');
   /* الشبكة (link.connect) لا تحدث إلا في جسم الخيط الخلفي — وأي وجود لها في
      مسار الخيط الرئيسي (بين beginProjection وbeginProjectionBg) هو الانحدار */
