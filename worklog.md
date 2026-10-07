@@ -1299,3 +1299,21 @@ Work Log:
 Stage Summary:
 - الجذور الأربعة لمشاركة الشاشة معالجة ومثبّتة بحرس دائم (34 فحصاً) ومكتسبات v2.85-2.90 كلها موفورة بحرّاسها (v288 52/52 · v287 56/56 · v286 23/23 · v285 42/42 · v283 28/28 · v2813 21/21)
 - المعلَّق: الدفع إلى GitHub (يطلق بناء APK build 30) ثم نشر Cloudflare Pages — ثم المالك يثبّت v2.91.0 على كلا الهاتفين (أندرويد 16 + أندرويد 11) ويختبر: على 16 حوار «الشاشة كلها» حصراً وبث حيّ عند تبديل التطبيقات، وعلى 11 إن فشل شيء فستصل رسالة الخطأ باسم الكود الحرفي فوراً
+
+---
+Task ID: v2.91-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.91.0 — الدفع والبناء والنشر والتحقق من الAPK المنشور والموقع الحي
+
+Work Log:
+- فحوص ما قبل الدفع كلها خضراء: hygiene 5/5 · preflight سليم · javac 21 ضد android.jar API 34: COMPILE OK (يشمل MediaProjectionConfig) · سلسلة الحقن ناجحة محلياً · النسختان متطابقتان بايت-بايت
+- الدفع إلى GitHub main (c759a60) — أطلق بناء APK رقم 30 على GitHub Actions ونجح (run 37554579288: completed success)
+- Release apk-v2.91.0-build30 منشور بعلم latest: DTSG-Gaming-App.apk (26.76MB) + sha256 — والرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّمه
+- التحقق من الAPK المنشور نفسه (تنزيل وفك): sha256 مطابق حرفياً (27738fbd…a05f) — وDEX يحمل عقود هذه الجولة كلها (createConfigForDefaultDisplay + MediaProjectionConfig + SocketTimeoutException + maybeSendConfig + cfgBody + كود rtmp الظاهر) ومكتسبات v2.85-2.90 كاملة (arb-begin · beginProjectionBg · init: · registerCallback · projection-stopped · video/avc · __dtsgArbEvt · arbShareStart · __dtsgLnEvt · getDisplayMetrics · cacheInsets · BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE) — 19/19 + arbShareVersion حية
+- المانيفست: FOREGROUND_SERVICE_MEDIA_PROJECTION + POST_NOTIFICATIONS + ArbShareService + BLUETOOTH_CONNECT كلها حية (strings -e l)
+- نشر Cloudflare Pages بحساب المنصة (758fcc82…): dtsg.pages.dev يقدّم DTSG_BUILD = v2.91.0 — وarb-client.js?v=v291 حيّ بكود العطل في وجه الرسالة (failMsg += ' [code]') وترويسات الأمان سليمة (HSTS + X-Frame-Options DENY + nosniff)
+
+Stage Summary:
+- v2.91.0 حيّة كاملة: GitHub main (c759a60) · GitHub Release apk-v2.91.0-build30 (latest) · Cloudflare Pages dtsg.pages.dev (v2.91.0)
+- حرس v291 الدائم (34 فحصاً) في البطارية + كل مكتسبات الجولات السابقة موفورة بحرّاسها
+- المعلَّق على المالك: تثبيت APK v2.91.0 build30 من الرابط الدائم على كلا الهاتفين (يتحدث مباشرة فوق build29 — نفس شهادة الإنتاج) ثم الاختبار الميداني: ① أندرويد 16: زر الذهب → حوار «الشاشة كلها» حصراً (لا خيار تطبيق واحد) → إذن → البث يظهر للأدمن ويبقى حياً عند الدخول لتطبيقات أخرى ② أندرويد 11: نفس المسار — إن نجح فالجذر السابق كان بناءً قديماً، وإن ظهرت رسالة خطأ فستحمل كود العطل بين قوسين (init:… أو denied أو rtmp…) فيُحدَّد الجذر فوراً وتُعالج الجولة القادمة بلا تخمين
