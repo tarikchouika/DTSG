@@ -151,16 +151,35 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       ];
       ad._updateUI();
     });
-    await sleep(400);
-    const stB1 = await page.evaluate(() => {
-      const line = document.querySelector('.rami-seat-node.seat-row .rami-seat-line.line-slots');
-      const meldCards = [...line.querySelectorAll('.mini-meld')];
-      return {
-        slotSc: getComputedStyle(line).getPropertyValue('--slot-sc').trim(),
-        cardW: meldCards.length ? meldCards[0].getBoundingClientRect().width : -1,
-        total: meldCards.length + line.querySelectorAll('.mini-back').length
-      };
-    });
+    /* [v2.95.1·إصلاح سباق القياس — التشخيص بالقياس لا بالتخمين]
+       القياس كان يُقرأ بعد مهلة ثابتة واحدة (400ms) فيلتقط أحياناً إطاراً وسط
+       إعادة الرسم، فينزلق «العدد الكلي» قيمةً (23→24) ويُصغَر --slot-sc تبعاً له
+       (0.8324→0.8042) — والمنتج صحيح تماماً حينها (المقاس دالة في العدد الكلي). الفحص كان
+       يفشل على سببه الحقيقي (الشرط المسبِط: نفس T) لكن رسالته تعلن Δ=0.92px
+       فيُقرأ خطأً كخلل في تنسيق الأوراق.
+       القياس الآن ينتظر **الثبات**: قراءتان متتاليتان متطابقتان في total وslotSc
+       وcardW ⇒ يُؤخذ القياس settled لا في منتصف التحويل. */
+    const measureStable = async () => {
+      let prev = null;
+      for (let i = 0; i < 40; i++) {
+        const cur = await page.evaluate(() => {
+          const line = document.querySelector('.rami-seat-node.seat-row .rami-seat-line.line-slots');
+          const meldCards = [...line.querySelectorAll('.mini-meld')];
+          return {
+            slotSc: getComputedStyle(line).getPropertyValue('--slot-sc').trim(),
+            cardW: meldCards.length ? meldCards[0].getBoundingClientRect().width : -1,
+            total: meldCards.length + line.querySelectorAll('.mini-back').length
+          };
+        });
+        if (prev && prev.total === cur.total && prev.slotSc === cur.slotSc
+                   && Math.abs(prev.cardW - cur.cardW) < 0.01) return cur;
+        prev = cur;
+        await sleep(150);
+      }
+      return prev;
+    };
+
+    const stB1 = await measureStable();
     ok('[هـ] T=' + stB1.total + ' → تصغير نشط (' + stB1.slotSc + ' < 1 · ' + stB1.cardW.toFixed(1) + 'px)', parseFloat(stB1.slotSc) < 1);
 
     /* نفس T بتوزيع مختلف أثناء التصغير النشط — الحجم لا يمسّه التوزيع إطلاقاً */
@@ -173,17 +192,16 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
       ];
       ad._updateUI();
     });
-    await sleep(400);
-    const stB2 = await page.evaluate(() => {
-      const line = document.querySelector('.rami-seat-node.seat-row .rami-seat-line.line-slots');
-      const meldCards = [...line.querySelectorAll('.mini-meld')];
-      return {
-        slotSc: getComputedStyle(line).getPropertyValue('--slot-sc').trim(),
-        cardW: meldCards.length ? meldCards[0].getBoundingClientRect().width : -1,
-        total: meldCards.length + line.querySelectorAll('.mini-back').length
-      };
-    });
-    ok('[هـ] نفس T (' + stB1.total + ' → ' + stB2.total + ') بتوزيع مختلف والمقاس نفسه حرفياً (Δ=' + Math.abs(stB2.cardW - stB1.cardW).toFixed(2) + 'px)', stB2.total === stB1.total && Math.abs(stB2.cardW - stB1.cardW) <= 0.4 && stB2.slotSc === stB1.slotSc);
+    const stB2 = await measureStable();
+
+    /* الشرط المسبِط يُفحص بحارس مستقل ورسالة صادقة: عند انزلاق T تكون الفشل
+       في «نفس العدد الكلي» لا في «المقاس» — وفصلهما يمنع تضاعف الفشل على
+       سبب واحد ويمنع نسبة الخلل إلى المكان الخطأ. */
+    const sameT = stB2.total === stB1.total;
+    ok('[هـ·مسبِط] نفس العدد الكلي (' + stB1.total + ' → ' + stB2.total + ')',
+       sameT);
+    ok('[هـ] نفس T بتوزيع مختلف والمقاس نفسه حرفياً (Δ=' + Math.abs(stB2.cardW - stB1.cardW).toFixed(2) + 'px)',
+       sameT ? (Math.abs(stB2.cardW - stB1.cardW) <= 0.4 && stB2.slotSc === stB1.slotSc) : true);
 
     /* رفع الكلي → المقاس أصغر (دالة في العدد الكلي للأوراق فقط) */
     await page.evaluate(() => {

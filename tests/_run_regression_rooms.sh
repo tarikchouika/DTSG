@@ -134,7 +134,25 @@ export QA_BASE="http://127.0.0.1:$QA_PORT/"
 # الإنتاج الحيّة** وقرأ عدّاداً غير موجود ⇒ فشل وهمي كـ«لا وراثة معرّفات».
 export QA_DB="$QA_DIR/data/royalcoin.db"
 
-PASS=0; FAIL=0; SKIP=0; FAILED_TESTS=""; SKIPPED_TESTS=""
+PASS=0; FAIL=0; SKIP=0; FLAKY=0; FAILED_TESTS=""; SKIPPED_TESTS=""; FLAKY_TESTS=""
+
+# [v2.95.1] حكمٌ آليّ على التذبذب — يُنفّذ قاعدةَ المشروع المكتوبة في AGENTS.md
+#   حرفياً بدل تركها معرفةً شفهية: «فشل جولة واحدة ليس دليل انحدار — يُعاد
+#   الجناح منفرداً، ولا يُعدّ انحداراً إلا إن أحمر منفرداً».
+#   سابقاً: أي فشل يُحسب FAIL فوراً ⇒ جولة واحدة حمراء تُنتج حكماً غامضاً
+#   يُلزم الجلسة بمقارنة يدوية على إصدارين (ساعة كاملة) لتحديد إن كان انحداراً
+#   أم تذبذباً — وهي مقارنة انحرفت مرتين في جولة 2026-10-08 (نفس الجناح أخفق
+#   على 2.95.0 ومرّ على 2.94.0 ثم انقلب). الآن العدّاء نفسه يحسم:
+#     أخفق ثم نجح منفرداً ⇒ FLAKY (لا يُحمر، ويُعلَن بصوت)
+#     أخفق في كل المحاولات المنفردة ⇒ FAIL (انحدار حقيقي)
+#   والمحاولات المنفردة = إعادة تشغيل الجناح وحده بعد انتهى الباقي.
+FLAKY_RETRIES="${FLAKY_RETRIES:-3}"   # [v2.95.1] 3 لا 2 — انظر تعليل confirm_isolated
+# [v2.95.1] ملف الحكم التزايدي: يُكتب بعد كل جناح ⇒ **قراءة تشغيلٍ مقتولٍ
+#   تظلّ ممكنة**. الجولة 2026-10-08 أُعيدت مرتين وماتت (مهلة 600ث · خروج
+#   الجلسة) وأُهدر سجلّها كله لأن المخرج كان في pipe لم يُلتقط.
+VERDICT_FILE="${VERDICT_FILE:-/tmp/dtsg_battery_verdict.txt}"
+: > "$VERDICT_FILE"
+verdict () { printf '%s\t%s\n' "$1" "$2" >> "$VERDICT_FILE"; }
 
 # [v2.73.0] أجنحة المتصفح تُحسم مسبقاً: إن لم يكن هناك متصفح قابل للإقلاع
 # على هذا المعمارية، فهي **تخطّي بيئة** لا انحدار. سابقاً كانت كل تُبلَّغ
@@ -148,21 +166,52 @@ if (cd "$QA_DIR" && node -e "
   BROWSER_OK=1
 fi
 
+# [v2.95.1] إعادة الجناح وحده: بلا بقية البطارية بعده.
+#  ⚠ **عزلٌ زمنيّ لا حالّيّ**: المحاولات تعيد تشغيل الجناح على الخادم المعزول
+#    نفسه، فالحالة المتبقّية من الأجنحة السابقة باقية. ⇒ جناحٌ حسّاس للحالة
+#    (الموروث: `رهان روندا`) قد يظلّ أحمر كلّ المحاولات ويُحكم FAIL وهو تذبذب.
+#    ولذلك تُسجَّل نتيجة كل محاولة في ملف الحكم: حكمٌ قابل للتدقيق لا صندوق
+#    أسود، و«FAIL عند 10/11 ثلاث مرّات» يُقرأ فوراً كتذبذبٍ لا كانحدار.
+#  والحدّ 3 (لا 2): جناحٌ يفشل ~2/3 من المرّات (الموروث 10/11) كان سيُخطأ
+#    التصنيف في ~44% من الجولات بحدّ 2، ونزل إلى ~30% بحدّ 3.
+confirm_isolated () {
+  local name="$1" file="$2" cwd="$3" i score detail=""
+  for i in $(seq 1 "$FLAKY_RETRIES"); do
+    if (cd "$cwd" && node "$file" > /tmp/dtsg_retry.out 2>&1); then
+      echo "   ↻ تذبذب: نجح منفرداً في المحاولة $i ⇒ ليس انحداراً (قاعدة AGENTS: يُعاد منفرداً)."
+      tail -2 /tmp/dtsg_retry.out
+      RETRY_DETAIL="محاولات=$i؛${detail}نجح-منفرداً"
+      return 0
+    fi
+    score="$(grep -oE '[0-9]+ ?[/✓] ?[0-9]+' /tmp/dtsg_retry.out | tail -1 | tr -d ' ')"
+    echo "   ↻ محاولة منفردة $i/$FLAKY_RETRIES: أخفق أيضاً ${score:+(النتيجة $score)}."
+    detail="${detail}$i:${score:-?} "
+  done
+  echo "   ✗ أحمر منفرداً في كل المحاولات ⇒ انحدار حقيقي (تحقّق: هل الجناح حسّاس للحالة؟ راجع ⚠ أعلاه)."
+  tail -12 /tmp/dtsg_retry.out
+  RETRY_DETAIL="محاولات=$FLAKY_RETRIES؛${detail}"
+  return 1
+}
+
 run () {
   local name="$1"; local file="$2"; local cwd="${3:-$QA_DIR}"
   echo "════ $name ════"
   if [ "$BROWSER_OK" = "0" ] && is_browser_suite "$file"; then
     echo "   ⏭  متخطّى: أجنحة المتصفح لا تُقلَع على $(uname -m) — قيد بيئة لا انحدار."
-    SKIP=$((SKIP+1)); SKIPPED_TESTS="$SKIPPED_TESTS [$name]"
+    SKIP=$((SKIP+1)); SKIPPED_TESTS="$SKIPPED_TESTS [$name]"; verdict SKIP "$name"
     echo ""
     return 0
   fi
   if (cd "$cwd" && node "$file" > /tmp/dtsg_t.out 2>&1); then
     tail -3 /tmp/dtsg_t.out
-    PASS=$((PASS+1))
+    PASS=$((PASS+1)); verdict PASS "$name"
   else
-    tail -12 /tmp/dtsg_t.out
-    FAIL=$((FAIL+1)); FAILED_TESTS="$FAILED_TESTS [$name]"
+    tail -6 /tmp/dtsg_t.out
+    if confirm_isolated "$name" "$file" "$cwd"; then
+      FLAKY=$((FLAKY+1)); FLAKY_TESTS="$FLAKY_TESTS [$name]"; verdict FLAKY "$name · $RETRY_DETAIL"
+    else
+      FAIL=$((FAIL+1)); FAILED_TESTS="$FAILED_TESTS [$name]"; verdict FAIL "$name · $RETRY_DETAIL"
+    fi
   fi
   echo ""
 }
@@ -223,6 +272,17 @@ run "v282 حزمة الشهادة والمعرفة"      "tests/_v282_keystore_k
 run "v283 عقد الغرفة المحلية (ساكن)"   "tests/_v283_localmp_static_test.js"
 run "v283 بلوت وجهاً لوجه"            "tests/_v283_bl_room_e2e_test.js"
 run "v283 الغرفة المحلية e2e"         "tests/_v283_localmp_e2e_test.js"
+# [v2.95.1] حارس استثناء التسوية المكرّرة — بلا متصفح ولا خادم، ومُدرَج بلا
+#   ثغرة تغطية (درس v2.81.4-audit). وهو ما يمنع الاستثناء من أن يصير ختماً
+#   مطّاطاً: يثبت أن المُصنِّف **يرفض** كل 400 غير رفض التسوية المكرّر.
+run "v2.95.1 مُصنِّف رفض التسوية (سلبي)" "tests/_v2951_settle_dup_audit_test.js"
+# [v2.95.1] حارس العدّاء نفسه — ذاتي التحقّق: يقرأ هذا الملف ويشترط أن يكون
+#   مُدرَجاً (درس v2.81.4-audit). أدناه سيتحقّق من ذلك فعلياً.
+run "v2.95.1 حارس عدّاء التذبذب"        "tests/_v2951_flaky_runner_test.js"
+# [v2.95.1] حارس **سلوكي** للعدّاء: يُنفّذ دوالّه على أجنحة وهمية ويتحقّق من
+#   الأحكام الثلاثة (يمرّ/متذبذب/انحدار). حارسُ المصدر وحده لا يكفي — نصٌّ سليم
+#   وعدّاد معطوب يمرّ ساكناً ويفشل عند التشغيل.
+run "v2.95.1 سلوك عدّاء التذبذب"         "tests/_v2951_flaky_runner_behaviour_test.js"
 run "v285 كروم الأندرويد (ساكن)"      "tests/_v285_native_chrome_test.js"
 # [v2.86-audit] جملة التخطيط المفقودة كانت ستُفقد بصمت: شفافية الشريطين بلا
 # setDecorFitsSystemWindows تترك الويب محشوراً بينهما (بلاغ «فراغ أسود أعلى
@@ -316,7 +376,12 @@ echo ""
 
 kill $SRV 2>/dev/null || true
 echo "════════════════════════════════"
-echo "المجموع: $PASS نجح · $FAIL فشل · $SKIP متخطّى (بيئة)"
-[ -n "$FAILED_TESTS" ] && echo "الفاشلة:$FAILED_TESTS"
+echo "المجموع: $PASS نجح · $FAIL فشل · $FLAKY متذبذب · $SKIP متخطّى (بيئة)"
+[ -n "$FAILED_TESTS" ] && echo "الفاشلة (انحدار حقيقي — أحمرت منفردة):$FAILED_TESTS"
+[ -n "$FLAKY_TESTS" ] && echo "المتذبذبة (نجحت منفردة — ليست انحداراً، لكن تستحقّ جذراً):$FLAKY_TESTS"
 [ -n "$SKIPPED_TESTS" ] && echo "المتخطّاة (لا متصفح على $(uname -m)):$SKIPPED_TESTS"
+echo "ملف الحكم التزايدي: $VERDICT_FILE"
+# [v2.95.1] رمز الخروج يبقى $FAIL (الفشل الحقيقي فقط): التذبذب لا يُحمر الباب،
+# لكنه **يُعلَن** في السطر أعلاه ويُسجَّل في ملف الحكم — فبابٌ أخضر صامت على جناح
+# غير مستقر هو بالضبط الفخّ الذي هذا الإصدار يُغلقه.
 exit $FAIL

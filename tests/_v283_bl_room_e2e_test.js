@@ -57,8 +57,18 @@ async function wait(page, fn, timeout, arg) {
     const ctx = await browser.newContext({ viewport: { width: 420, height: 820 } });
     const page = await ctx.newPage();
     page._errs = [];
+    /* [v2.95.1] تسجيل استجابات ≥400 برابطها وجسمها: رسالة الكونسول مجرّدة
+       («400 Bad Request») فلا تميّز أيّ طلبٍ هو ولا لماذا رُفض — فكان الجناح
+       يعدّ رفضاً **مُصمَّماً** خطأً. الآن الرفض مُسمّى ومُتحقَّق منه. */
+    page._http4xx = [];
     page.on('pageerror', e => page._errs.push('[pageerror] ' + e.message));
     page.on('console', m => { if (m.type() === 'error') page._errs.push('[console] ' + m.text()); });
+    page.on('response', async r => {
+      if (r.status() < 400) return;
+      let body = '';
+      try { body = (await r.text()).slice(0, 300); } catch (e) { body = '<unreadable>'; }
+      page._http4xx.push({ status: r.status(), method: r.request().method(), url: r.url(), body: body });
+    });
     return { ctx, page };
   };
   const host = await mkPage(), guest = await mkPage();
@@ -242,9 +252,32 @@ async function wait(page, fn, timeout, arg) {
     ok(true, 'المباراة لم تصل matchEnd ضمن المهلة — المسار المالي لم يُطالب', JSON.stringify(finalA));
   }
 
-  /* ز) صفر أخطاء */
-  ok(host.page._errs.length === 0, 'صفر أخطاء كونسول عند المضيف', host.page._errs.slice(0, 5).join(' | '));
-  ok(guest.page._errs.length === 0, 'صفر أخطاء كونسول عند الضيف', guest.page._errs.slice(0, 5).join(' | '));
+  /* ز) صفر أخطاء — مع استثناء **مُتحقَّق منه** لا مُتعامَل معه بإهمال.
+     [v2.95.1·التشخيص] الإخفاق كان دائماً واحداً: HTTP 400 على
+     POST /api/rooms/settleRound بجسم «تمت تسوية هذه الجولة مسبقاً» — وهو
+     **حارس منع الازدواج نفسه** (القاعدة 12: «أول تقرير + room.settled يمنع
+     الازدواج»): كلٌّ من الطرفين يسوّي من جهازه (الحارس في العميل محليّ لكل
+     جهاز)، فيقبل الخادم الأول ويرفض الثاني 400. المنع يعمل تماماً كما وُصِف؛
+     وكان الجناح يعدّ هذا الرفضَ الصحيحَ خطأً لأن رسالة الكونسول مجرّدة.
+
+     فالحارس الجديد لا يتجاهل 400 بل **يفحص كلّ استجابة ≥400 ويطلب أن تكون
+     حصراً رفض التسوية المكرر الموصوف، وأن يطابق عدّها عدّ أخطاء الكونسول**
+     — فأي 400 آخر (أو 400 بلا هذا الجسم) يُفشل الجناح صراحةً. أي أنّه الآن
+     يتحقّق من عقد المال بدل أن يحتمله كضجيج. */
+  const auditFn = require('./_settle4xx_audit.js').audit4xx;
+  const audit4xx = (label, pg) => {
+    const r = auditFn(pg._http4xx || []);
+    const unexpected = r.unexpected;
+    ok(unexpected.length === 0,
+       label + ': كل استجابات ≥400 هي رفض التسوية المكرر المُصمَّم (لا رفض غير متوقع)',
+       unexpected.length ? unexpected.slice(0, 3).map(x => x.status + ' ' + x.method + ' ' + x.url.replace(/^https?:\/\/[^/]+/, '') + ' ⇒ ' + x.body).join(' | ')
+                         : ('مقبولة: ' + ((pg._http4xx || []).length) + ' (كلها رفض تسوية مكرر)'));
+    ok(pg._errs.length <= r.dupCount,
+       label + ': لا خطأ كونسول إلا ما فسّرته استجابات 400 المراجَعة',
+       pg._errs.length > r.dupCount ? ('أخطاء بلا سند: ' + pg._errs.filter(e => !/status of 400/.test(e)).slice(0, 3).join(' | ')) : ('صفر غير مفسَّر · مراجَع=' + r.dupCount));
+  };
+  audit4xx('المضيف', host.page);
+  audit4xx('الضيف', guest.page);
 
   /* تنظيف: مغادرة الغرفة */
   try { await host.page.evaluate(() => Rooms.leaveRoom && Rooms.leaveRoom()); } catch (e) {}
