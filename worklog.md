@@ -1515,3 +1515,21 @@ Work Log:
 
 Stage Summary:
 - v2.95.0 جاهزة: مشاركة الشاشة تعمل على كل جهاز — مرآة GL على خيط سياقها (24fps متصلة) أو مسار مباشر احتياطي صامت، ولا يموت بث حي بسبب GL أبداً
+
+---
+Task ID: v2.95.0-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.95.0 — الدفع والبناء والنشر والتحقق القاطع
+
+Work Log:
+- الدفع إلى GitHub main: 176a0f8 ← b4a70a5 (بعد rebase فوق جولة تدقيق خادم الهاتف وضم الطرفين في 14 موضع تعارض)
+- سير البناء الآلي اكتمل success (run 37817905327) والRelease apk-v2.95.0-build36 منشور بعلم latest
+- التحقق من الAPK المنشور نفسه (تنزيل وفك): sha256 مطابق حرفياً (8b9ed576…68e621c) — وDEX يحمل عقود الجولة كلها: initOnThread وawaitSink وawaitExit وglMirrorDied وsetSurface وinputSurf وarb-gl وgl-swap — وglMirrorFailed صفر (مسار الفشل القاتل [gl] زال حرفياً من التطبيق) — وكل مكتسبات v2.85-2.94 حية (writeAvcNal · maybeSendConfig · onPublished · request-sync · createConfigForDefaultDisplay · registerCallback · projection-stopped · arbShareStart · eglMakeCurrent · eglPresentationTimeANDROID · updateTexImage · getTransformMatrix · EGL_RECORDABLE) — والمانيفست كامل (RECORD_AUDIO + MODIFY_AUDIO_SETTINGS + FOREGROUND_SERVICE_MEDIA_PROJECTION + ArbShareService)
+- الرابط الدائم /releases/latest/download/DTSG-Gaming-App.apk يقدّم build36 (302 إلى الأصل)
+- النشر على Cloudflare Pages: dtsg.pages.dev يقدم v2.95.0 (تحقق حي بالسكربت: OK: live serves v2.95.0) والبصمات الحية ظاهرة (js/main.js?v=v295 · translations.js?v=v295 · DTSG_BUILD=v2.95.0) وترويسات الأمان سليمة (HSTS preload + X-Frame-Options DENY + nosniff)
+
+Stage Summary:
+- v2.95.0 حيّة كاملة: GitHub main (b4a70a5) · GitHub Release apk-v2.95.0-build36 (latest) · Cloudflare Pages dtsg.pages.dev (v2.95.0)
+- حرس v295 الدائم (28 فحصاً) في العدّاء + حرس v294 بنسخته الموثقة + كل مكتسبات الجولات السابقة موفورة بحرّاسها
+- المعلَّق على المالك: ① تثبيت APK v2.95.0 build36 من الرابط الدائم على هاتفَي الاختبار (يتحدث مباشرة فوق build34 — نفس شهادة الإنتاج) ② التحقق الميداني: مشاركة الشاشة تبدأ بلا رسالة [gl] وشريحة حالة البث تعرض «· v6» (إن لم تعرضها فالهاتف على بناء قديم — حدّثه أولاً) ③ الصورة عند الأدمن: تظهر فوراً وتتجدد باستمرار حتى على شاشة ساكنة ④ تحديث خادم الهاتف إن لم يُحدَّث بجولة v2.94 (bash scripts/update-phone-server.sh داخل الهاتف ثم phone-env-restart.sh)
+- إن ظهر أي خلل ميداني: رسائل الفشل الآن تحمل أسماء حقيقية (rtmp/encode/init:… — كود [gl] لم يعد موجوداً أصلاً) — وإن حدث تدهور نادر للمرآة أثناء بث حي فالبث يبقى حياً بالمسار المباشر ويُسجَّل في logcat (dtsg-arb: gl mirror degraded)
