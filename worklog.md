@@ -1451,3 +1451,19 @@ Work Log:
 
 Stage Summary:
 - (يُستكمل بعد الدفع والبناء والنشر)
+
+---
+Task ID: v2.94.0-خاتمة
+Agent: main (Super Z)
+Task: خاتمة جولة v2.94.0 — الدفع والبناء والنشر والتحقق القاطع
+
+Work Log:
+- rebase فوق إيداعَي جولة التدقيق اللاحقة (d651180 بصمات + a1b1283 نشر) بضم الطرفين: الصفحات أخذت حالة التديث (بصمات بدلالة آخر تغيير) مع ضبط البصمات الأربع المطلوبة حصراً من الحراس المشتقة (arb-client · arb-page · main · local-mp على v294) والشانجلوغ (بادئة v2.94 + ذيل التدقيق) وسجل العمل (إلحاقا التدقيق ثم إلحاقنا)
+- التحقق بعد الدمج: النسختان متطابقتان + javac COMPILE OK + v285 43/43 + v291 34 + v292 39 + v294 30 حياً
+- الدفع: 8de5422 على main (بعد 8381d9b ← d651180 ← a1b1283) — بلا أي دفع قسري
+- سير البناء الآلي اكتمل success والRelease apk-v2.94.0-build34 منشور: sha256 مطابق (50a64f63…) والDEX يحمل GlMirror وarb-gl وeglPresentationTimeANDROID وupdateTexImage وgetTransformMatrix وglMirrorFailed وشيدر GL_OES_EGL_image_external وكل مكتسبات v2.85-2.93 (writeAvcNal · sendConfig · parseAnnexB · maybeSendConfig · onPublished · request-sync · createConfigForDefaultDisplay · registerCallback — وhasSps/hasPps أسماءُ متغيرات محلية أسقطها R8 من جداول التصحيح في هذا البناء لا من المنطق: الدوال المولِّدة للحقن كلها حاضرة) والمانيفست يحمل RECORD_AUDIO + MODIFY_AUDIO_SETTINGS + FOREGROUND_SERVICE_MEDIA_PROJECTION + CAMERA + INTERNET
+- النشر على Cloudflare Pages: dtsg.pages.dev يقدم v2.94.0 (تحقق حي بالسكربت: live serves v2.94.0) والبصمة arb-client.js?v=v294 ظاهرة حية
+
+Stage Summary:
+- المعلَّق على المالك: ① تثبيت build34 على هاتفَي الاختبار (شريحة حالة البث ستعرض «· v5») ② تحديث خادم الهاتف إن لم يُحدَّث بعد بجولة v2.93 (bash scripts/update-phone-server.sh داخل الهاتف) ③ التحقق الميداني: مشاركة شاشة ساكنة = بث حي متواصل عند الأدمن (لا لقطة ثم جمود) والصورة متجددة باستمرار حتى أثناء سكون الشاشة
+- إن ظهر أي خلل ميداني: كود العطل يظهر في وجه رسالة الفشل داخل التطبيق (gl/rtmp/encode/…) — وv294 الجديد حرس دائم في العدّاء
