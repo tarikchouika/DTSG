@@ -73,7 +73,7 @@ ok(sfBody.indexOf('if (ntype == 9) continue;') > 0 && sfBody.indexOf('ntype == 7
   '[جذر ①] SPS/PPS الداخلية لم تعد تُجرد من الإطار (AUD وحده حشو)');
 ok(/void writeAvcNal\(java\.io\.ByteArrayOutputStream o, byte\[\] nal\) throws java\.io\.IOException/.test(wf),
   '[جذر ①] مساعد writeAvcNal (طول 4 بايتات ثم الجسم — AVCC)');
-ok(wf.indexOf('arbShareVersion() { return "4"; }') > 0, '[قاعدة 28-⑤] arbShareVersion=4 (تغيير جسري)');
+ok(wf.indexOf('arbShareVersion() { return "5"; }') > 0, '[قاعدة 28-⑤] arbShareVersion=5 (تغيير جسري)');
 
 /* درس البناء: لا شرطة مائلة عكسية في الجافا المحقونة */
 (function () {
