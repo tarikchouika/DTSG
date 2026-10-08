@@ -49,6 +49,7 @@ const crypto = require('crypto');
 const REPO = path.join(__dirname, '..');
 let pass = 0, fail = 0;
 function ok(cond, label, detail) { cond ? pass++ : fail++; console.log((cond ? '  ✅ ' : '  ❌ ') + label + (detail !== undefined ? ' — ' + detail : '')); }
+function read(p) { return fs.readFileSync(path.join(REPO, p), 'utf8'); }
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 /* ═══════════════ أ) العقود الساكنة ═══════════════ */
@@ -99,12 +100,15 @@ ok(wf.indexOf('arbShareVersion() { return "5"; }') > 0, '[جسر] arbShareVersio
   for (let i = s + 1; i < e; i++) if (lines[i].includes('\\')) bad = true;
   ok(!bad, 'لا شرطة مائلة عكسية في جافا سير البناء (عقد الحقن)');
 })();
-const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
-const lock = JSON.parse(fs.readFileSync(path.join(REPO, 'package-lock.json'), 'utf8'));
-const mainJs = fs.readFileSync(path.join(REPO, 'js/main.js'), 'utf8');
-ok(pkg.version === '2.94.0' && lock.version === '2.94.0' && lock.packages[''].version === '2.94.0',
-  'الثلاثية متطابقة package/lock = 2.94.0');
-ok(mainJs.indexOf("DTSG_BUILD = 'v2.94.0'") > 0, 'DTSG_BUILD = v2.94.0');
+const pkg = JSON.parse(read('package.json'));
+const lock = JSON.parse(read('package-lock.json'));
+const mainJs = read('js/main.js');
+/* قاعدة 22: الإصدار يُشتق من package.json (المصدر الوحيد) ولا يُثبَّت حرفياً */
+ok(lock.version === pkg.version && lock.packages[''].version === pkg.version,
+  'الثلاثية متطابقة package/lock = ' + pkg.version);
+ok(mainJs.indexOf("DTSG_BUILD = 'v" + pkg.version + "';") > 0, 'DTSG_BUILD = v' + pkg.version);
+ok(read('tests/_run_regression_rooms.sh').indexOf('_v294_arb_share_cadence_test.js') !== -1,
+  'الجناح مسجَّل في عدّاء البطارية (لا ثغرة تغطية — درس v2.81.4-audit)');
 
 console.log('── ساكن: ' + pass + ' ✓ / ' + fail + ' ✗');
 

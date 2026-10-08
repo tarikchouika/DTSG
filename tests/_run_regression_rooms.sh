@@ -265,6 +265,7 @@ run "v292 تدفق إطارات التحكيم (ساكن)" "tests/_v292_arb_stre
 # بايتات جافا التطبيق → MediaMTX حقيقي → hlsFetch/rewriteHlsPlaylist من
 # server-mediamtx.js الحقيقي نفسه → متصفح حقيقي بمشغل hls.js → فحص بكسلات فعلي.
 run "v293 سلسلة البث الكاملة (ساكن+حي)" "tests/_v293_arb_stream_e2e_test.js"
+run "v294 إيقاع بث التحكيم (ساكن+حي)" "tests/_v294_arb_share_cadence_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"

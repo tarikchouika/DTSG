@@ -1,5 +1,9 @@
 # 🔀 مصالحة v2.44 — خط main مقابل خط المراجعة (م1–م3)
 
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ ممنوع (القاعدة 2)، وكذلك `pm2 restart … --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22). وأخطر ما في هذه الورقة تحديداً: **أجنحة المال الثلاثة التي تسردها** (`_money_v244` · `_money_idempotency` · `_money_invariants`) **لم تعد موجودة في `tests/`** ⇒ كل ذكر لها هنا محفوظ كسجلّ نتائج لا كأمر قابل للتشغيل، وسطر `verify-phone-v244.sh http://127.0.0.1:3000` (§7) يخالف القاعدة 13 — المنفذ 3000 هو خادم المنصة الحيّ بقاعدته المالية.
+> **المسار المعتمد اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` (تحديث كامل) أو `bash scripts/phone-env-restart.sh` (إعادة تشغيل فقط) — والأسرار من `/root/DTSG/.env.local` وحده. المرجع الإلزامي: [`AGENTS.md`](../AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — لا تنقل أوامره إلى الطرفالة.
+
 > **الخلاصة أولاً:** خط المراجعة (`4047a78 → 621b1f2 → 6900d30`) **غير موجود على main**
 > (أُزيح بـforce-push سابق). أُعيد استرجاعه كاملاً وحُفظ على GitHub في فرع مسمّى:
 > **`arena/v2.44-m1-m3` = `bdb6769`**. الفحص المتبادل يُظهر: **main أخضر بالكامل** (698 تأكيداً)
@@ -30,7 +34,7 @@
 _dama_engine_test.js        84/0
 _dama_fuzz_test.js         459/0     ← كان 451/8 قبل FIX2
 _cf_payments_test.js        60/0
-_money_v244_test.js         20/0
+_money_v244_test.js         20/0     ⛔ الجناح لم يعد موجوداً في tests/
 _bot_v244_test.js           16/0     ← فوتشير كامل حيّ (ربط→طلب→سوبر أدمن→كود→تفعيل)
 _chess_v244_test.js         15/0     ← +3 فحوص جديدة (مراجع تدرّج معلّقة · صناديق صفرية · شفافية)
 _parchisi_v244_test.js       7/0
@@ -38,8 +42,8 @@ _dama_v244_test.js          10/0
 _dama_browser_v244_test.js   8/0 حيّ
 _admin_payments_ui_test.js  19/0     ← كان 11/8 قبل الإصلاح
 _dama_obligation_mode_test.js 7/0    ← جديد: مفتاح قانون النفخ مؤثّر (overall ⟷ piece)
-_money_idempotency_test.js  16/0     ← جديد: لا شحن/استرداد/كود مزدوج تحت تزامن حقيقي
-_money_invariants_test.js   22/0     ← جديد: ثبات الرصيد + اكتمال سجل المال بعد كل عملية
+_money_idempotency_test.js  16/0     ← جديد: لا شحن/استرداد/كود مزدوج تحت تزامن حقيقي  ⛔ لم يعد موجوداً في tests/
+_money_invariants_test.js   22/0     ← جديد: ثبات الرصيد + اكتمال سجل المال بعد كل عملية  ⛔ لم يعد موجوداً في tests/
 _repo_hygiene_test.js        4/0     ← جديد: حارس الأسرار (لا مفاتيح في المستودع العام)
 ```
 > **وتحت الوضعين**: `DAMA_OBLIGATION=piece node tests/_dama_fuzz_test.js` ⇒ **459/0** (مثل الافتراضي).
@@ -124,6 +128,9 @@ export PATH=$HOME/.cache/node24/bin:$PATH NODE_PATH=$HOME/.cache/pw/node_modules
        PLAYWRIGHT_BROWSERS_PATH=$HOME/.cache/ms-playwright
 
 # الأجنحة (698 تأكيداً)
+# ⛔ [تدقيق 2026-10-07] ثلاثة من هذه الأجنحة في السطر التالي لم تعد موجودة في tests/
+#    (money_v244 · money_idempotency · money_invariants) ⇒ تفشل بـMODULE_NOT_FOUND الآن،
+#    وبقيت هنا برقامها الأصلية كسجلّ نتائج v2.44 لا كأوامر قابلة للتشغيل اليوم.
 for t in _dama_engine_test _dama_fuzz_test _dama_obligation_mode_test _cf_payments_test \
          _money_v244_test _money_idempotency_test _money_invariants_test _bot_v244_test _chess_v244_test \
          _parchisi_v244_test _dama_v244_test _dama_browser_v244_test _admin_payments_ui_test; do

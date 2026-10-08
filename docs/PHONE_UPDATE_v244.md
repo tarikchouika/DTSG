@@ -1,4 +1,9 @@
 # 📱 تحديث خادم الهاتف — DTSG v2.44
+
+> ⛔ [تدقيق 2026-10-07] **وثيقة من عصر v2.4x — ليست إجراءً حالياً ولا تُنفَّذ حرفياً.** المسار القديم `/root/dmgames-arena` (و`/root/digital-moroccan-casino`) **حُذف نهائياً في 2026-09-22** ⇒ ممنوع (القاعدة 2)، وكذلك `pm2 restart … --update-env` ممنوع (القاعدة 9 — حادثة 2026-09-22).
+> **المسار المعتمد اليوم من `/root/DTSG`:** `bash scripts/update-phone-server.sh` (تحديث كامل) أو `bash scripts/phone-env-restart.sh` (إعادة تشغيل فقط) — والأسرار من `/root/DTSG/.env.local` وحده. المرجع الإلزامي: [`AGENTS.md`](../AGENTS.md).
+> ما تحت هذا الشريط **محفوظ كسجلّ تاريخي** للاستئناس فقط — لا تنقل أوامره إلى الطرفالة.
+
 > **الواجهة على dtsg.pages.dev محدَّثة تلقائياً** (منشورة الآن) — لا تفعل شيئاً لها.
 > ما يلي يخص **خادم الهاتف** (المدفوعات + بوت الشحن) لأن ملفات الخادم لا تُنشر على Pages.
 
@@ -131,7 +136,7 @@ nohup node scripts/voucher-bot.js > data/voucher-bot.log 2>&1 &
 
 ```bash
 curl -s -o /dev/null -w "%{http_code}\n" "https://dtsg.pages.dev/js/games/parchisi.js?v=dtsg11"
-curl -s "https://dtsg.pages.dev/js/games/dama.js?v=dtsg12" | grep -c obligationInfo      # 2
+curl -s "https://dtsg.pages.dev/js/games/dama.js?v=dtsg18" | grep -c obligationInfo      # 2
 curl -s "https://dtsg.pages.dev/js/games/chess.js?v=dtsg7" | grep -c chDefsHost          # 1
 ```
 

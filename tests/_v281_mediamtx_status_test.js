@@ -631,7 +631,13 @@ const ROOT = path.resolve(__dirname, '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const SELF = fs.readFileSync(__filename, 'utf8');
   const TAG = 'v' + pkg.version;   /* [v2.81·تدقيق] مشتق من package.json: لا رقم مكتوب يُحمر مع كل رفع */
-  ok('الإصدار يُشتق من package.json ويوافق وسم الجناح (' + TAG + ')', (SELF.match(/\[(v[\d.]+)/) || [])[1] === TAG.replace(/\.\d+$/, ''));
+  /* [تدقيق 2026-10-08] الفحص القديم كان يقارن **أول** وسم `[vX.Y]` في ترويسة هذا
+     الملف بمشتق package.json ⇒ كان يحمرّ عند كل ترقية إصدار بلا سبب، وهو عكس ما
+     تعلنه قاعدة 22 صراحةً («لا رقم مكتوب يُحمرّ مع كل رفع») — وحُمرّ عند v2.94.0
+     وحدها لأجل ذلك. أمّا المعنى المقصود فهو: لا نسخة إصدار مثبَّتة داخل الجناح. */
+  const PINNED = [...SELF.matchAll(/['"`]v\d+\.\d+(?:\.\d+)?['"`]/g)].map(m => m[0]);
+  ok('الإصدار يُشتق من package.json ولا رقم إصدار مثبَّت داخل الجناح (' + TAG + ')',
+    /const TAG = 'v' \+ pkg\.version/.test(SELF) && PINNED.length === 0, PINNED.slice(0, 3).join(' · '));
 
   /* ═══ الخاتمة ═══ */
   fake.close();
