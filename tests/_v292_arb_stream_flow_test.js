@@ -117,8 +117,7 @@ ok(bgBody.indexOf('running = true;') > 0 && /running = true;\s*\n\s*busy\.set\(f
 ok(bpBody.indexOf('busy.set(false);') > 0, '[بوابة البدء] مسار no-target في beginProjection يفرج البوابة');
 
 /* ── 6) إصدار الجسر رُقّي (قاعدة 28-⑤) ── */
-ok(wf.indexOf('arbShareVersion() { return "5"; }') > 0, '[قاعدة 28-⑤] arbShareVersion=5 (يُرقّى مع كل تغيير جسري — [v2.94] حلقة المرآة المستمرة GlMirror)');
-
+ok(wf.indexOf('arbShareVersion() { return "6"; }') > 0, '[قاعدة 28-⑤] arbShareVersion=6 (يُرقّى مع كل تغيير جسري — [v2.95] ألفة خيوط EGL)');
 /* ── 7) مكتسبات v2.88-2.91 محفوظة (لا انحدار) ── */
 ok(wf.indexOf('createConfigForDefaultDisplay()') > 0, '[مكتسب v2.91] الشاشة كاملة حصراً على API 34+');
 ok(wf.indexOf('sock.setSoTimeout(30000)') > 0, '[مكتسب v2.91] مهلة القراءة 30ث');

@@ -107,8 +107,8 @@ ok(wf.indexOf('beginProjectionBg(resultCode, data, url, path, w, h, dpi)') > 0,
   '[مكتسب v2.90+v2.92] الاستدعاء الكامل بالوسائط محفوظ (+ أبعاد محسوبة على خيط الواجهة)');
 ok(wf.indexOf('onStop') > 0 && wf.indexOf('stop("projection-stopped")') > 0, '[مكتسب v2.89] onStop نظيف عند إنهاء المستخدم');
 ok(wf.indexOf('FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION') > 0, '[مكتسب v2.88] الخدمة الأمامية mediaProjection محفوظة');
-ok(wf.indexOf('arbShareVersion() { return "5"; }') > 0,
-  '[v2.91→v2.94] إصدار الجسر arbShareVersion=5 (يُرقّى مع كل تغيير جسري — تشخيص الهواتف القديمة ميدانياً)');
+ok(wf.indexOf('arbShareVersion() { return "6"; }') > 0,
+  '[v2.91→v2.95] إصدار الجسر arbShareVersion=6 (يُرقّى مع كل تغيير جسري — تشخيص الهواتف القديمة ميدانياً)');
 
 /* ── 7) JS: كود العطل في وجه الرسالة + إصدار الجسر في السجل ── */
 ok(arbJs.indexOf("String(ev.err || '').replace(/[^A-Za-z0-9:_.-]/g, '')") > 0,

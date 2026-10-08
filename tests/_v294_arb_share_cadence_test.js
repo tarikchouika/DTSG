@@ -63,22 +63,27 @@ ok(wf.indexOf('private class GlMirror') > 0, '[جذر ①] صنف GlMirror مو�
 ok(wf.indexOf('static final long INTERVAL = 41666667L;') > 0, '[جذر ①] وتيرة ثابتة 24fps (41666667ns — عقد KEY_FRAME_RATE)');
 ok(wf.indexOf('static final int EGL_RECORDABLE = 0x3142;') > 0, '[جذر ①] وسم EGL_RECORDABLE_ANDROID بقيمته الحرفية (ليس في فئة EGL14 — نمط Grafika)');
 
-/* ② التكامل الثلاثي: تهيئة باحتياط → الشاشة تصبّ في المرآة → إيقاف قبل المرمّز */
+/* ② التكامل الثلاثي [v2.95: التهيئة على خيط المرآة + بوابة awaitSink]:
+   انطلاق مبكر → الشاشة تصبّ في المرآة (أو المسار المباشر) → الإيقاف قبل المرمّز */
 const bIdx = wf.indexOf('void beginProjectionBg(');
-ok(wf.indexOf('try { gl = new GlMirror(input, w, h); }', bIdx) > 0 &&
-   wf.indexOf('catch (Throwable t) { gl = null; }', bIdx) > 0,
-  '[تكامل] تهيئة المرآة داخل beginProjectionBg داخل try/catch');
-ok(wf.indexOf('gl != null ? gl.sink : input, null, null);') > 0,
-  '[تكامل] الشاشة الافتراضية تصبّ في المرآة (gl.sink) ومسار v2.93 المباشر احتياط (input)');
-ok(wf.indexOf('if (gl != null) gl.start(this);') > 0 &&
-   wf.indexOf('if (gl != null) gl.start(this);') > wf.indexOf('push("state", "live", null);', bIdx),
-  '[تكامل] نبض المرآة يبدأ بعد live (بعد اكتمال النشر — ترتيب v2.91 محفوظ)');
+ok(wf.indexOf('try { gl = new GlMirror(input, w, h, this); }', bIdx) > 0 &&
+   wf.indexOf('catch (Throwable t) { gl = null; }', bIdx) > 0 &&
+   wf.indexOf('if (gl != null) gl.start();', bIdx) > 0,
+  '[تكامل] انطلاق المرآة داخل beginProjectionBg: مقرن خفيف (بلا GL) + خيط arb-gl يؤلف التهيئة');
+ok(wf.indexOf('if (gl != null && !gl.awaitSink(2500))') > 0 &&
+   wf.indexOf('gl.release(); gl = null;', bIdx) > 0 &&
+   wf.indexOf('target, null, null);') > 0,
+  '[تكامل] بوابة awaitSink تحسم الوجهة: المرآة (sink) أو مسار v2.93 المباشر (input) بلا رسالة خطأ');
+ok(wf.indexOf('if (gl != null) gl.go();') > 0 &&
+   wf.indexOf('if (gl != null) gl.go();') > wf.indexOf('push("state", "live", null);', bIdx),
+  '[تكامل] نبض المرآة يبدأ بعد live (إشارة go — بعد اكتمال النشر — ترتيب v2.91 محفوظ)');
 const stIdx = wf.indexOf('void stop(String why)');
 ok(stIdx > 0 && wf.indexOf('gl.release();', stIdx) > 0 &&
    wf.indexOf('gl.release();', stIdx) < wf.indexOf('encoder.stop(); encoder.release();', stIdx),
   '[تكامل] الإيقاف يحرر المرآة قبل المرمّز (توقف التغذية قبل تفكيك المستهلك)');
-ok(wf.indexOf('void glMirrorFailed()') > 0 && wf.indexOf('push("state", "failed", "gl");', wf.indexOf('void glMirrorFailed()')) > 0,
-  '[تكامل] موت خيط المرآة = حالة فشل ظاهرة gl (لا تجميد صامت — درس v2.91)');
+ok(wf.indexOf('void glMirrorDied()') > 0 && wf.indexOf('d.setSurface(inp);', wf.indexOf('void glMirrorDied()')) > 0 &&
+   wf.indexOf('push("state", "failed", "gl");') < 0,
+  '[تكامل·v2.95] موت خيط المرآة = تدهور رشيق إلى مسار v2.93 المباشر (setSurface — البث يبقى حياً) لا فشل قاتل [gl]');
 
 /* ③ عقود النبض: التقاط + رسم + ساعة رتيبة + تبديل */
 ok(wf.indexOf('st.updateTexImage();') > 0, '[نبض] التقاط أحدث إطار من SurfaceTexture (غيابه = تكرار الأخير)');
@@ -91,7 +96,7 @@ ok(wf.indexOf('st.getTransformMatrix(texMat);') > 0,
 ok(wf.indexOf('GLES11Ext.GL_TEXTURE_EXTERNAL_OES') > 0, '[نبض] نسيج خارجي OES (عقد SurfaceTexture)');
 
 /* ④ الإصدارات + عقد الحقن */
-ok(wf.indexOf('arbShareVersion() { return "5"; }') > 0, '[جسر] arbShareVersion=5 (حلقة المرآة — تغيير جسري)');
+ok(wf.indexOf('arbShareVersion() { return "6"; }') > 0, '[جسر] arbShareVersion=6 ([v2.95] ألفة خيوط EGL — تغيير جسري)');
 (function () {
   const lines = wf.split('\n');
   const s = lines.findIndex(l => l.includes("new = '''"));
@@ -109,7 +114,6 @@ ok(lock.version === pkg.version && lock.packages[''].version === pkg.version,
 ok(mainJs.indexOf("DTSG_BUILD = 'v" + pkg.version + "';") > 0, 'DTSG_BUILD = v' + pkg.version);
 ok(read('tests/_run_regression_rooms.sh').indexOf('_v294_arb_share_cadence_test.js') !== -1,
   'الجناح مسجَّل في عدّاء البطارية (لا ثغرة تغطية — درس v2.81.4-audit)');
-
 console.log('── ساكن: ' + pass + ' ✓ / ' + fail + ' ✗');
 
 /* ═══════════════ ب) المختبر الحي: إيقاع الأجزاء ═══════════════ */

@@ -540,7 +540,7 @@ jobs:
                   public void btEnable() { ln.btEnable(); }
                   /* ── [v2.88·التحكيم] مشاركة شاشة التطبيق أصلاً ── */
                   @android.webkit.JavascriptInterface
-                  public String arbShareVersion() { return "5"; }
+                  public String arbShareVersion() { return "6"; }
                   @android.webkit.JavascriptInterface
                   public void arbShareStart(String json) { arb.start(json); }
                   @android.webkit.JavascriptInterface
@@ -1184,6 +1184,11 @@ jobs:
                   /* [v2.94·حلقة المرآة المستمرة] null = مسار v2.93 المباشر
                      (احتياط بلا انحدار عند فشل تهيئة GL على جهاز ما) */
                   GlMirror gl = null;
+                  /* [v2.95·التدهور الرشيق] مرجع سطح دخل المرمّز: إن ماتت المرآة
+                     أثناء البث أعيدت الشاشة الافتراضية إليه مباشرة (مسار v2.93)
+                     فلا تموت الجلسة. المرمّز يملك هذا السطح ويحرره بنفسه — لا
+                     يُستدعى release() عليه من هنا أبداً */
+                  volatile Surface inputSurf = null;
           
                   /* البدء من الجسر: {url, path} — كلاهما من الخادم (لا يُركَّب محلياً) */
                   void start(String json) {
@@ -1386,19 +1391,26 @@ jobs:
                               b.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME, 0);
                               encoder.setParameters(b);
                           } catch (Throwable ignored) { }
-                          /* [v2.94·جذر «البث المتقطع»] تهيئة حلقة المرآة المستمرة:
-                             الشاشة الافتراضية ستصبّ في SurfaceTexture وخيط GL
-                             يعيد الرسم إلى سطح المرمّز بوتيرة 24fps ثابتة —
-                             فلا يصمت المرمّز على الشاشة الساكنة أبداً (وهو
-                             الجذر الميداني: AUTO_MIRROR لا تدفع إطارات على
-                             محتوى ثابت واعتماد v2.92 على
-                             KEY_REPEAT_PREVIOUS_FRAME_AFTER سقط — مرمّزات
-                             كثيرة تتجاهله — فصمت المرمّز ثوانٍ متواصلة
-                             والمرحّل لا يغلق أجزاء HLS إلا عند وصول عيّنات:
-                             لقطة تظهر عند الأدمن ثم جمود >5 ثوان ثم دفعة).
-                             فشل التهيئة = مسار v2.93 المباشر كما هو */
-                          try { gl = new GlMirror(input, w, h); }
+                          /* [v2.95·جذر رسالة [gl] القاتلة] انطلاق المرآة مبكراً:
+                             خيطها arb-gl يبدأ الآن ويؤدي تهيئة EGL كلها في
+                             داخله (السياق يُربط eglMakeCurrent على خيطه حصراً —
+                             عقد EGL القاطع: السياق مرتبط بخيطه). بناء v2.94 كان
+                             يربط السياق هنا على خيط arb-begin ثم يرسم من خيط
+                             arb-gl بلا سياق: نداءات GL صامتة وeglSwapBuffers
+                             يفشل حتماً فشلاً قاتلاً [gl] على كل جهاز وكل محاولة
+                             (بلاغ المالك 2026-10-09: أُعيدت المحاولة أكثر من
+                             مرة وفي أكثر من هاتف بلا جدوى). المقرن الجديد خفيف
+                             بلا أي نداء GL، والتهيئة تجري هنا بالتوازي مع
+                             مصافحة RTMP — والبوابة awaitSink أدناه تحسم النتيجة
+                             قبيل إنشاء الشاشة الافتراضية، وفشلها ليس خطأً:
+                             مسار v2.93 المباشر كما هو (غاية v2.94 محفوظة:
+                             الشاشة تصبّ في SurfaceTexture وخيط GL يعيد الرسم إلى
+                             سطح المرمّز بوتيرة 24fps ثابتة فلا يصمت المرمّز على
+                             الشاشة الساكنة أبداً) */
+                          inputSurf = input;
+                          try { gl = new GlMirror(input, w, h, this); }
                           catch (Throwable t) { gl = null; }
+                          if (gl != null) gl.start();
                           /* [v2.91·الترتيب الصحيح] الرابط قبل الشاشة الافتراضية:
                              الشاشة الافتراضية تضخّ إطارات فور إنشائها، فمخارج
                              المرمّز كانت تمتلئ خلال مصافحة RTMP (1-3ث) وتبدأ
@@ -1408,19 +1420,31 @@ jobs:
                              إلزام API 34+ — مكتسب v2.89 محفوظ أعلاه كما هو) */
                           link = new RtmpLink(url, path, this);
                           if (!link.connect()) { stop("rtmp-connect"); return; }
+                          /* [v2.95] بوابة المرآة: انتظار جاهزية sink (نجحت
+                             تهيئة EGL على خيطها) أو فشلها/مهلتها (2.5ث) —
+                             الجهاز بلا GL متاح يسلك مسار v2.93 المباشر بلا
+                             أي رسالة خطأ (ليس عطلاً) */
+                          Surface target = inputSurf;
+                          if (gl != null && !gl.awaitSink(2500)) {
+                              gl.release(); gl = null;
+                          }
+                          if (gl != null) target = gl.sink;
                           display = projection.createVirtualDisplay(
                               "dtsg-arb", w, h, dpi,
                               DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR,
-                              gl != null ? gl.sink : input, null, null);
+                              target, null, null);
                           if (display == null) { stop("no-display"); return; }
                           running = true;
                           busy.set(false);   /* البوابة: التشغيل يقفلها running من الآن */
                           firstPts = -1;
                           push("state", "live", null);
-                          /* [v2.94] المرآة تنبض بعد live: تغذية المرمّز 24fps
-                             ثابتة (تكرار آخر صورة عند سكون الشاشة — إطارات P
-                             رخيصة) فيغلق جزء HLS كل 200ms والقائمة حية دائماً */
-                          if (gl != null) gl.start(this);
+                          /* [v2.94→v2.95] المرآة تنبض بعد live — إشارة go():
+                             خيطها ينتظرها منذ اكتمال تهيئته فلا يمر إطار واحد
+                             فوق مصافحة RTMP (ترتيب v2.91 محفوظ). تغذية المرمّز
+                             24fps ثابتة (تكرار آخر صورة عند سكون الشاشة —
+                             إطارات P رخيصة) فيغلق جزء HLS كل 200ms والقائمة
+                             حية دائماً */
+                          if (gl != null) gl.go();
                           encThread = new Thread(new Runnable() {
                               @Override public void run() { pump(); }
                           }, "arb-enc");
@@ -1487,6 +1511,7 @@ jobs:
                       gl = null;
                       try { if (encoder != null) { encoder.stop(); encoder.release(); } } catch (Throwable ignored) { }
                       encoder = null;
+                      inputSurf = null;   /* [v2.95] المرمّز حرّر سطح دخله بنفسه — مسح المرجع حصراً */
                       try { if (display != null) display.release(); } catch (Throwable ignored) { }
                       display = null;
                       try { if (projection != null) projection.stop(); } catch (Throwable ignored) { }
@@ -1519,16 +1544,27 @@ jobs:
                       } catch (Throwable ignored) { }
                   }
           
-                  /* [v2.94] مات خيط المرآة أثناء البث — فشل ظاهر وإيقاف نظيف.
-                     الاستدعاء من خيط منفصل: stop() يضمّ المرآة (release ينضم
-                     لخيطها) فلو استدعيناها من خيط المرآة نفسه لانتظر 1.5ث
-                     عبثاً (انضمام الخيط إلى نفسه) */
-                  void glMirrorFailed() {
+                  /* [v2.95·التدهور الرشيق] مات خيط المرآة أثناء البث — البث
+                     لا يموت: تُعاد الشاشة الافتراضية إلى سطح المرمّز مباشرة
+                     (مسار v2.93) فيبقى الأدمن يرى اللقطة الحية (أسوأ حالة:
+                     تقطع على شاشة ساكنة) بدل قتل الجلسة برسالة [gl] القاتلة —
+                     عيب التصميم الثاني في بناء v2.94: أي عطب GL كان يسقط البث
+                     كله برسالة خطأ. الاستدعاء من خيط المرآة نفسه قُبيل خروجه:
+                     ننتظر خروجه أولاً (join من خيط منفصل — لا انضمام خيط لنفسه)
+                     ليتفكك سطح EGL فوق سطح المرمّز فيتفرغ الاتصال للشاشة
+                     الافتراضية الجديدة */
+                  void glMirrorDied() {
                       if (!running) return;
+                      final GlMirror m = gl;
+                      final VirtualDisplay d = display;
+                      final Surface inp = inputSurf;
                       new Thread(new Runnable() {
                           @Override public void run() {
-                              push("state", "failed", "gl");
-                              stop("gl");
+                              try { if (m != null) m.awaitExit(1500); } catch (Throwable ignored) { }
+                              gl = null;
+                              if (!running || d == null || inp == null) return;
+                              try { d.setSurface(inp); } catch (Throwable t) { }
+                              try { android.util.Log.w("dtsg-arb", "gl mirror died: degraded to direct encoder path"); } catch (Throwable ignored) { }
                           }
                       }, "arb-gl-fail").start();
                   }
@@ -1553,33 +1589,45 @@ jobs:
               }
           
               /* ═══════════════════════════════════════════════════════════════════
-                 [v2.94·حلقة المرآة المستمرة] جذر «البث المتقطع: لقطة ثم جمود >5ث»
+                 [v2.94→v2.95·حلقة المرآة المستمرة] جذر رسالة الفشل القاتلة [gl]
                  ─────────────────────────────────────────────────────────────────
-                 بلاغ المالك 2026-10-08 (بعد build32/v2.93.0): «البث يعمل بشكل متقطع
-                 والفريمات صغيرة متقطعة: تظهر لقطة ويبقى قارئ الفيديو بلا فريم
-                 أكثر من 5 ثوان ثم يظهر فريم جديد عند الأدمن».
-                 الجذر (مختبر حي كامل + تشريح مصادر المرحّل gohlslib v2.4.5):
-                 الشاشة الافتراضية AUTO_MIRROR لا تدفع إطاراً على محتوى ثابت،
-                 واعتماد v2.92 على KEY_REPEAT_PREVIOUS_FRAME_AFTER سقط ميدانياً
-                 (مرمّزات كثيرة تتجاهله) فصمت المرمّز صمتاً كاملاً ثوانٍ متواصلة.
-                 وفي المرحّل (muxer_segmenter.go): مدة العيّنة الأخيرة قبل الصمت
-                 تصير = طول الصمت فتنفخ fmp4AdjustedPartDuration (سقف حلقة
-                 البحث 5ث) ثم تتجمّد، وEXT-X-PART لا يُغلق إلا عند وصول عيّنة
-                 جديدة — فتتجمد القائمة والمشغّل معاً ثم تُستقبل دفعة كاملة
-                 دفعة واحدة: بث «متقطع» حتى أثناء حركة الشاشة (وتتسمم أهداف
-                 PART-TARGET/HOLD-BACK فتضطرب حافة البث الحي عند الأدمن).
-                 العلاج الجذري (نمط Grafika/scrcpy المهني): الشاشة الافتراضية
-                 تصبّ في SurfaceTexture وخيط GL يعيد رسم آخر صورة إلى سطح
-                 المرمّز بوتيرة 24fps ثابتة — سكون الشاشة يخرج إطارات P رخيصة
-                 (تكرار آخر صورة) فيبقى التدفق حياً: جزء HLS يُغلق كل ~200ms
-                 والقائمة والمشغّل في صحة دائمة. فشل تهيئة GL على جهاز ما =
-                 مسار v2.93 المباشر (شاشة افتراضية فوق سطح المرمّز مباشرة).
+                 بلاغ المالك 2026-10-09 (بعد build34/v2.94.0): «رسالة الخطأ تقول
+                 فشل مشاركة الشاشة أعد المحاولة [gl] — أُعيدت المحاولة أكثر من
+                 مرة وفي أكثر من هاتف بلا جدوى».
+                 الجذر (انتهاك ألفة خيوط EGL في بناء v2.94): مقرن GlMirror كان
+                 ينفذ تهيئة EGL كلها وربط السياق eglMakeCurrent على خيط arb-begin
+                 (خيط البدء) ثم تشغَّل حلقة الرسم على خيط arb-gl آخر بلا سياق
+                 مربوط على الإطلاق — وعقود EGL قاطعة: السياق مرتبط بخيطه، ونداءات
+                 GL من خيط بلا سياق عمليات صامتة بلا أثر، وeglSwapBuffers يفشل
+                 حتماً فشلاً قاتلاً على كل جهاز وكل محاولة (لم يكشفه التحقق
+                 السابق: javac يفحص الترجمة لا ألفة الخيوط، ومختبر الإيقاع فحص
+                 سلوك المرحّل لا جافا GL).
+                 وعيب التصميم الثاني: أي فشل GL كان يقتل الجلسة كلها برسالة خطأ
+                 بدل التدهور الرشيق إلى مسار v2.93 المباشر الذي كان يعمل.
+                 غاية v2.94 محفوظة بتمامها: AUTO_MIRROR لا تدفع إطارات على محتوى
+                 ثابت والمرمّز الصامت يجوّع المرحّل (أجزاء لا تُغلق إلا عند
+                 عينات — لقطة ثم جمود >5ث) — والحل: إعادة رسم آخر صورة على سطح
+                 المرمّز بوتيرة 24fps ثابتة فلا صمت للمرمّز أبداً.
+                 البنية الجديدة (نمط Grafika/scrcpy الصارم):
+                 ① كل EGL — من eglGetDisplay حتى eglTerminate — على خيط المرآة
+                    نفسه حصراً (initOnThread ثم pump ثم teardown).
+                 ② بوابة awaitSink (مهلة 2.5ث): خيط البدء ينتظر جاهزية sink أو
+                    الفشل/المهلة — والفشل ليس خطأً: مسار v2.93 المباشر بلا أي
+                    رسالة (جهاز بلا GL متاح ليس عطلاً)، والتهيئة تجري بالتوازي
+                    مع مصافحة RTMP فلا زمن إضافي.
+                 ③ الخيط ينتظر إشارة go() (بعد live — ترتيب v2.91: لا إطار فوق
+                    المصافحة) ثم ينبض 24fps (pump).
+                 ④ موت الخيط بعد live تدهور رشيق لا فشل قاتل: glMirrorDied يعيد
+                    توجيه الشاشة الافتراضية إلى سطح المرمّز مباشرة — البث يبقى
+                    حياً عند الأدمن (أسوأ حالة: تقطع على شاشة ساكنة).
                  لا شرطة مائلة عكسية إطلاقاً (قيد سلسلة الحقن — درس بناء #24).
                  ═══════════════════════════════════════════════════════════════ */
               private class GlMirror {
-                  final Surface sink;                    /* وجهة الشاشة الافتراضية */
+                  final Surface encoderInput;            /* سطح دخل المرمّز — وجهة الرسم */
                   final int w, h;
                   final java.nio.FloatBuffer quad;       /* 4 رؤوس: x,y,u,v */
+                  final ArbShare owner;                  /* [v2.95] خطاف التدهور الرشيق */
+                  volatile Surface sink = null;          /* وجهة الشاشة الافتراضية — يُنشر بعد نجاح التهيئة */
                   android.opengl.EGLDisplay dpy = android.opengl.EGL14.EGL_NO_DISPLAY;
                   android.opengl.EGLContext ctx = android.opengl.EGL14.EGL_NO_CONTEXT;
                   android.opengl.EGLSurface sfc = android.opengl.EGL14.EGL_NO_SURFACE;
@@ -1587,24 +1635,107 @@ jobs:
                   int tex = 0, prog = 0, aPos = -1, aTc = -1, uSm = -1, uMvp = -1, uStm = -1;
                   final float[] texMat = new float[16];
                   final float[] mvp = new float[16];
-                  volatile boolean run = false;
+                  volatile boolean run = true;
+                  volatile boolean goPump = false;
+                  volatile boolean failed = false;
+                  boolean inited = false;
                   boolean torn = false;
                   Thread th = null;
                   long outNs = 0;
+                  final Object gate = new Object();      /* [v2.95] مصافحة التهيئة والنبض */
                   /* وتيرة ثابتة = عقد KEY_FRAME_RATE (24fps) — بلا استثناء */
                   static final long INTERVAL = 41666667L;
                   /* EGL_RECORDABLE_ANDROID (ملحق EGL_ANDROID_recordable) — ثابت
                      ليس في فئة EGL14 العامة فتكتب قيمته (نمط Grafika المعتمد) */
                   static final int EGL_RECORDABLE = 0x3142;
           
-                  GlMirror(Surface encoderInput, int w, int h) throws Exception {
-                      this.w = w; this.h = h;
+                  /* [v2.95] مقرن خفيف بلا أي نداء GL (لا يكاد يفشل): مراجع
+                     ورباعي جافا صرف — كل EGL داخل الخيط (initOnThread) */
+                  GlMirror(Surface encoderInput, int w, int h, ArbShare owner) {
+                      this.encoderInput = encoderInput; this.w = w; this.h = h; this.owner = owner;
+                      java.nio.ByteBuffer bb = java.nio.ByteBuffer.allocateDirect(4 * 16);
+                      bb.order(java.nio.ByteOrder.nativeOrder());
+                      quad = bb.asFloatBuffer();
+                      quad.put(new float[] { -1f, -1f, 0f, 1f, 1f, -1f, 1f, 1f, -1f, 1f, 0f, 0f, 1f, 1f, 1f, 0f });
+                      quad.position(0);
+                  }
+          
+                  /* [v2.95] انطلاق الخيط — كل شيء من هنا فصاعداً على خيطه */
+                  void start() {
+                      th = new Thread(new Runnable() {
+                          @Override public void run() { lifecycle(); }
+                      }, "arb-gl");
+                      th.start();
+                  }
+          
+                  /* [v2.95] بوابة خيط البدء: true = المرآة جاهزة (sink صالح
+                     للشاشة الافتراضية)، false = فشل التهيئة أو مهلتها — خيط
+                     البدء يسلك المسار المباشر بلا أي رسالة خطأ */
+                  boolean awaitSink(long ms) {
+                      synchronized (gate) {
+                          long end = android.os.SystemClock.uptimeMillis() + ms;
+                          while (run && sink == null && !failed) {
+                              long rest = end - android.os.SystemClock.uptimeMillis();
+                              if (rest <= 0) break;
+                              try { gate.wait(rest); } catch (Throwable ignored) { }
+                          }
+                          return sink != null;
+                      }
+                  }
+          
+                  /* [v2.95] إشارة النبض — بعد live حصراً (ترتيب v2.91 محفوظ:
+                     لا إطار واحد فوق مصافحة RTMP) */
+                  void go() {
+                      synchronized (gate) { goPump = true; gate.notifyAll(); }
+                  }
+          
+                  /* [v2.95] انتظار خروج الخيط — من خيط آخر حصراً (مسار التدهور) */
+                  void awaitExit(long ms) {
+                      try { Thread t = th; if (t != null) t.join(ms); } catch (Throwable ignored) { }
+                  }
+          
+                  /* [v2.95] حياة الخيط: تهيئة كاملة هنا ثم انتظار إشارة النبض
+                     ثم الضخ. فشل التهيئة فشل صامت (مسار مباشر — لا خطأ ظاهر)،
+                     وفشل الضخ بعد live تدهور رشيق عبر glMirrorDied */
+                  void lifecycle() {
+                      try {
+                          if (!initOnThread()) {
+                              failed = true;
+                              return;                     /* finally يفكك ما نُشأ ويحرر البوابة */
+                          }
+                          inited = true;
+                          synchronized (gate) {
+                              gate.notifyAll();
+                              while (run && !goPump) {
+                                  try { gate.wait(); } catch (Throwable ignored) { }
+                              }
+                          }
+                          if (!run) return;
+                          outNs = System.nanoTime();
+                          pump();
+                      } catch (Throwable t) {
+                          if (inited && run && owner != null) {
+                              owner.glMirrorDied();       /* [v2.95] البث الحي لا يموت */
+                          } else if (!inited) {
+                              failed = true;              /* حرر بوابة خيط البدء فوراً */
+                          }
+                      } finally {
+                          teardown();
+                          synchronized (gate) { gate.notifyAll(); }
+                      }
+                  }
+          
+                  /* [v2.95·قلب الإصلاح] تهيئة EGL كلها على هذا الخيط حصراً:
+                     عرضٌ فتهيئةٌ فانتقاء إعداد (RECORDABLE حيثما توفر ثم بدونه —
+                     سائقون لا يعرفونه) فسياقٌ فسطح نافذة فوق دخل المرمّز فربط
+                     eglMakeCurrent على هذا الخيط نفسه — ثم نسيج خارجي
+                     وSurfaceTexture وبرنامج الرسم. فحوص run بين الخطوات: إيقاف
+                     مبكر نظيف إن انتهت الجلسة أثناء التهيئة */
+                  boolean initOnThread() {
                       dpy = android.opengl.EGL14.eglGetDisplay(android.opengl.EGL14.EGL_DEFAULT_DISPLAY);
-                      if (dpy == null || dpy == android.opengl.EGL14.EGL_NO_DISPLAY) throw new Exception("gl-display");
+                      if (dpy == null || dpy == android.opengl.EGL14.EGL_NO_DISPLAY) return false;
                       int[] vmaj = new int[1], vmin = new int[1];
-                      if (!android.opengl.EGL14.eglInitialize(dpy, vmaj, 0, vmin, 0)) throw new Exception("gl-init");
-                      /* إعداد نافذة ES2 + RGB888 (+ RECORDABLE حيثما توفر، ثم
-                         إعادة محاولة بدونه — سائقون لا يعرفونه) */
+                      if (!android.opengl.EGL14.eglInitialize(dpy, vmaj, 0, vmin, 0)) return false;
                       int[] rec = new int[] {
                           android.opengl.EGL14.EGL_RENDERABLE_TYPE, android.opengl.EGL14.EGL_OPENGL_ES2_BIT,
                           android.opengl.EGL14.EGL_SURFACE_TYPE, android.opengl.EGL14.EGL_WINDOW_BIT,
@@ -1625,41 +1756,85 @@ jobs:
                       android.opengl.EGLConfig c = null;
                       if (android.opengl.EGL14.eglChooseConfig(dpy, rec, 0, cs, 0, 1, n, 0) && n[0] > 0) c = cs[0];
                       if (c == null && android.opengl.EGL14.eglChooseConfig(dpy, plain, 0, cs, 0, 1, n, 0) && n[0] > 0) c = cs[0];
-                      if (c == null) throw new Exception("gl-config");
+                      if (c == null) return false;
+                      if (!run) return false;
                       ctx = android.opengl.EGL14.eglCreateContext(dpy, c, android.opengl.EGL14.EGL_NO_CONTEXT,
                           new int[] { android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, android.opengl.EGL14.EGL_NONE }, 0);
-                      if (ctx == null || ctx == android.opengl.EGL14.EGL_NO_CONTEXT) throw new Exception("gl-context");
+                      if (ctx == null || ctx == android.opengl.EGL14.EGL_NO_CONTEXT) return false;
                       sfc = android.opengl.EGL14.eglCreateWindowSurface(dpy, c, encoderInput,
                           new int[] { android.opengl.EGL14.EGL_NONE }, 0);
-                      if (sfc == null || sfc == android.opengl.EGL14.EGL_NO_SURFACE) throw new Exception("gl-surface");
-                      if (!android.opengl.EGL14.eglMakeCurrent(dpy, sfc, sfc, ctx)) throw new Exception("gl-current");
+                      if (sfc == null || sfc == android.opengl.EGL14.EGL_NO_SURFACE) return false;
+                      /* الربط على هذا الخيط (arb-gl) — الرسم كله من هنا على هذا
+                         الخيط وحده (جذر [gl] كان هنا: الربط على خيط البدء) */
+                      if (!android.opengl.EGL14.eglMakeCurrent(dpy, sfc, sfc, ctx)) return false;
+                      if (!run) return false;
                       /* نسيج خارجي يستقبل إطارات الشاشة الافتراضية */
                       int[] texs = new int[1];
                       android.opengl.GLES20.glGenTextures(1, texs, 0);
                       tex = texs[0];
-                      if (tex == 0) throw new Exception("gl-texture");
+                      if (tex == 0) return false;
                       int ext = android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES;
                       android.opengl.GLES20.glBindTexture(ext, tex);
                       android.opengl.GLES20.glTexParameteri(ext, android.opengl.GLES20.GL_TEXTURE_MIN_FILTER, android.opengl.GLES20.GL_LINEAR);
                       android.opengl.GLES20.glTexParameteri(ext, android.opengl.GLES20.GL_TEXTURE_MAG_FILTER, android.opengl.GLES20.GL_LINEAR);
                       android.opengl.GLES20.glTexParameteri(ext, android.opengl.GLES20.GL_TEXTURE_WRAP_S, android.opengl.GLES20.GL_CLAMP_TO_EDGE);
                       android.opengl.GLES20.glTexParameteri(ext, android.opengl.GLES20.GL_TEXTURE_WRAP_T, android.opengl.GLES20.GL_CLAMP_TO_EDGE);
-                      st = new android.graphics.SurfaceTexture(tex);
-                      st.setDefaultBufferSize(w, h);
-                      sink = new Surface(st);
-                      prog = makeProgram();
+                      try {
+                          st = new android.graphics.SurfaceTexture(tex);
+                          st.setDefaultBufferSize(w, h);
+                          sink = new Surface(st);
+                      } catch (Throwable t) { return false; }
+                      try { prog = makeProgram(); } catch (Throwable t) { return false; }
                       aPos = android.opengl.GLES20.glGetAttribLocation(prog, "aPos");
                       aTc = android.opengl.GLES20.glGetAttribLocation(prog, "aTc");
                       uSm = android.opengl.GLES20.glGetUniformLocation(prog, "uSm");
                       uMvp = android.opengl.GLES20.glGetUniformLocation(prog, "uMvp");
                       uStm = android.opengl.GLES20.glGetUniformLocation(prog, "uStm");
-                      if (aPos < 0 || aTc < 0 || uMvp < 0 || uStm < 0) throw new Exception("gl-locations");
-                      /* رباعي كامل الشاشة: مثلث شريط من 4 رؤوس (x,y,u,v) */
-                      java.nio.ByteBuffer bb = java.nio.ByteBuffer.allocateDirect(4 * 16);
-                      bb.order(java.nio.ByteOrder.nativeOrder());
-                      quad = bb.asFloatBuffer();
-                      quad.put(new float[] { -1f, -1f, 0f, 1f, 1f, -1f, 1f, 1f, -1f, 1f, 0f, 0f, 1f, 1f, 1f, 0f });
+                      if (aPos < 0 || aTc < 0 || uMvp < 0 || uStm < 0) return false;
+                      return true;
+                  }
+          
+                  /* نبض المرآة: رسم + تبديل كل 41.67ms مهما فعلت الشاشة — على
+                     هذا الخيط حيث السياق مربوط [v2.95] */
+                  void pump() throws Exception {
+                      long next = System.nanoTime();
+                      while (run) {
+                          next += INTERVAL;
+                          /* التقاط أحدث إطار إن وُجد؛ غيابه = تكرار الأخير
+                             (المحتوى الساكن يخرج إطار P رخيصاً لا صمتاً) */
+                          try { if (st != null) st.updateTexImage(); } catch (Throwable ignored) { }
+                          draw();
+                          outNs += INTERVAL;
+                          android.opengl.EGLExt.eglPresentationTimeANDROID(dpy, sfc, outNs);
+                          if (!android.opengl.EGL14.eglSwapBuffers(dpy, sfc)) throw new Exception("gl-swap");
+                          long rest = next - System.nanoTime();
+                          if (rest > 2000000L) {
+                              try { Thread.sleep(rest / 2000000L); } catch (Throwable ignored) { }
+                          } else if (rest > 0) {
+                              java.util.concurrent.locks.LockSupport.parkNanos(rest);
+                          }
+                      }
+                  }
+          
+                  /* رسم رباعي كامل الشاشة بنسيج الشاشة — مصفوفة تحويل
+                     SurfaceTexture الرسمية (تعكس الاتجاه على كل الأجهزة) */
+                  void draw() {
+                      android.opengl.GLES20.glUseProgram(prog);
+                      android.opengl.GLES20.glActiveTexture(android.opengl.GLES20.GL_TEXTURE0);
+                      android.opengl.GLES20.glBindTexture(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tex);
+                      android.opengl.GLES20.glUniform1i(uSm, 0);
+                      st.getTransformMatrix(texMat);
+                      android.opengl.Matrix.setIdentityM(mvp, 0);
+                      android.opengl.GLES20.glUniformMatrix4fv(uMvp, 0, false, mvp, 0);
+                      android.opengl.GLES20.glUniformMatrix4fv(uStm, 0, false, texMat, 0);
+                      android.opengl.GLES20.glViewport(0, 0, w, h);
                       quad.position(0);
+                      android.opengl.GLES20.glVertexAttribPointer(aPos, 2, android.opengl.GLES20.GL_FLOAT, false, 16, quad);
+                      quad.position(2);
+                      android.opengl.GLES20.glVertexAttribPointer(aTc, 2, android.opengl.GLES20.GL_FLOAT, false, 16, quad);
+                      android.opengl.GLES20.glEnableVertexAttribArray(aPos);
+                      android.opengl.GLES20.glEnableVertexAttribArray(aTc);
+                      android.opengl.GLES20.glDrawArrays(android.opengl.GLES20.GL_TRIANGLE_STRIP, 0, 4);
                   }
           
                   /* برنامج الرسم — فاصل الأسطر بسطر جديد حرفي (char)10: لا
@@ -1715,72 +1890,18 @@ jobs:
                       return sh;
                   }
           
-                  /* انطلاق الخيط — ساعة العرض تُبنى من الآن (رتيبة صارمة) */
-                  void start(final ArbShare owner) {
-                      run = true;
-                      outNs = System.nanoTime();
-                      th = new Thread(new Runnable() {
-                          @Override public void run() { loop(owner); }
-                      }, "arb-gl");
-                      th.start();
-                  }
-          
-                  /* نبض المرآة: رسم + تبديل كل 41.67ms مهما فعلت الشاشة */
-                  void loop(ArbShare owner) {
-                      try {
-                          long next = System.nanoTime();
-                          while (run) {
-                              next += INTERVAL;
-                              /* التقاط أحدث إطار إن وُجد؛ غيابه = تكرار الأخير
-                                 (المحتوى الساكن يخرج إطار P رخيصاً لا صمتاً) */
-                              try { if (st != null) st.updateTexImage(); } catch (Throwable ignored) { }
-                              draw();
-                              outNs += INTERVAL;
-                              android.opengl.EGLExt.eglPresentationTimeANDROID(dpy, sfc, outNs);
-                              if (!android.opengl.EGL14.eglSwapBuffers(dpy, sfc)) throw new Exception("gl-swap");
-                              long rest = next - System.nanoTime();
-                              if (rest > 2000000L) {
-                                  try { Thread.sleep(rest / 2000000L); } catch (Throwable ignored) { }
-                              } else if (rest > 0) {
-                                  java.util.concurrent.locks.LockSupport.parkNanos(rest);
-                              }
-                          }
-                      } catch (Throwable t) {
-                          if (run && owner != null) owner.glMirrorFailed();
-                      } finally {
-                          teardown();
-                      }
-                  }
-          
-                  /* رسم رباعي كامل الشاشة بنسيج الشاشة — مصفوفة تحويل
-                     SurfaceTexture الرسمية (تعكس الاتجاه على كل الأجهزة) */
-                  void draw() {
-                      android.opengl.GLES20.glUseProgram(prog);
-                      android.opengl.GLES20.glActiveTexture(android.opengl.GLES20.GL_TEXTURE0);
-                      android.opengl.GLES20.glBindTexture(android.opengl.GLES11Ext.GL_TEXTURE_EXTERNAL_OES, tex);
-                      android.opengl.GLES20.glUniform1i(uSm, 0);
-                      st.getTransformMatrix(texMat);
-                      android.opengl.Matrix.setIdentityM(mvp, 0);
-                      android.opengl.GLES20.glUniformMatrix4fv(uMvp, 0, false, mvp, 0);
-                      android.opengl.GLES20.glUniformMatrix4fv(uStm, 0, false, texMat, 0);
-                      android.opengl.GLES20.glViewport(0, 0, w, h);
-                      quad.position(0);
-                      android.opengl.GLES20.glVertexAttribPointer(aPos, 2, android.opengl.GLES20.GL_FLOAT, false, 16, quad);
-                      quad.position(2);
-                      android.opengl.GLES20.glVertexAttribPointer(aTc, 2, android.opengl.GLES20.GL_FLOAT, false, 16, quad);
-                      android.opengl.GLES20.glEnableVertexAttribArray(aPos);
-                      android.opengl.GLES20.glEnableVertexAttribArray(aTc);
-                      android.opengl.GLES20.glDrawArrays(android.opengl.GLES20.GL_TRIANGLE_STRIP, 0, 4);
-                  }
-          
-                  /* إيقاف نظيف — التفكيك من الخيط نفسه حيث السياق (join أولاً) */
+                  /* [v2.95] إيقاف نظيف: إشارة خروج (حرر أي منتظر) ثم انضمام
+                     ثم تفكيك — فحوص run داخل التهيئة تخرج الخيط سريعاً */
                   void release() {
                       run = false;
+                      synchronized (gate) { goPump = true; gate.notifyAll(); }
                       try { if (th != null) th.join(1500); } catch (Throwable ignored) { }
                       th = null;
                       teardown();
                   }
-                  void teardown() {
+                  /* التفكيك من الخيط نفسه حيث السياق (الوضع الطبيعي) — مؤمَّن
+                     synchronized ضد سباق release/finally (idempotent) */
+                  synchronized void teardown() {
                       if (torn) return;
                       torn = true;
                       run = false;
@@ -1814,8 +1935,7 @@ jobs:
                       dpy = android.opengl.EGL14.EGL_NO_DISPLAY;
                   }
               }
-          
-              /* ── [v2.88·التحكيم] ناشر RTMP مصغّر (فيديو H.264/AVCC حصراً) ──
+                        /* ── [v2.88·التحكيم] ناشر RTMP مصغّر (فيديو H.264/AVCC حصراً) ──
                  المصافحة C0/C1/C2 ثم أوامر AMF0 (connect → createStream → publish)
                  ثم رسائل فيديو FLV/AVC على قنوات مقسمّة (chunks) — بلا مكتبات:
                  نفس وجهة Larix من الهاتف (MediaMTX) فيظهر البث للأدمن بعقد

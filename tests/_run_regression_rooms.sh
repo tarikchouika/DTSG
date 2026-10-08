@@ -265,7 +265,19 @@ run "v292 تدفق إطارات التحكيم (ساكن)" "tests/_v292_arb_stre
 # بايتات جافا التطبيق → MediaMTX حقيقي → hlsFetch/rewriteHlsPlaylist من
 # server-mediamtx.js الحقيقي نفسه → متصفح حقيقي بمشغل hls.js → فحص بكسلات فعلي.
 run "v293 سلسلة البث الكاملة (ساكن+حي)" "tests/_v293_arb_stream_e2e_test.js"
-run "v294 إيقاع بث التحكيم (ساكن+حي)" "tests/_v294_arb_share_cadence_test.js"
+# [v2.94] حلقة المرآة المستمرة GlMirror (جذر «البث المتقطع: لقطة ثم جمود >5ث»):
+# ساكن: عقود الصنف والتكامل والنبض ومسار الاحتياط. حي (يتخطى بتخطٍ معلن
+# حيث تنقص مكوناته): نموذج التطبيق ينشر نمطي العطل والإصلاح عبر MediaMTX
+# حقيقي وبروكسي الإنتاج — تسميم PART-TARGET/HOLD-BACK للعطل مقابل تدفق
+# ~0.2ث/جزء للإصلاح.
+run "v294 إيقاع حلقة المرآة (ساكن+حي)" "tests/_v294_arb_share_cadence_test.js"
+# [v2.95] ألفة خيوط EGL — جذر رسالة [gl] القاتلة (بلاغ المالك 2026-10-09
+# بعد build34: فشل مشاركة الشاشة أعد المحاولة [gl] على أكثر من هاتف بلا
+# جدوى): بناء v2.94 ربط السياق على خيط arb-begin ورسم من خيط arb-gl بلا
+# سياق ففشل eglSwapBuffers حتماً. العقود الدائمة: كل EGL على خيط المرآة
+# حصراً + بوابة awaitSink (فشل GL = مسار v2.93 المباشر بلا رسالة) + إشارة
+# go() بعد live + التدهور الرشيق (موت الخيط لا يقتل الجلسة — setSurface).
+run "v295 ألفة خيوط EGL (ساكن)"       "tests/_v295_gl_thread_affinity_test.js"
 run "نظافة المستودع"                 "tests/_repo_hygiene_test.js"  "$REPO"
 run "تغطية النشر"                    "tests/_deploy_coverage_test.js"
 run "حارس v247"                      "tests/_v247_guard_test.js"
