@@ -28,6 +28,10 @@
        — تُنشأ عند وصول البث وتُدمّر عند انقطاعه أو تفكيك اللوحة؛ عناصر
        الفيديو P2P الحيّة لا تُمسّ إطلاقاً (قاعدة 17) */
     rtHls: {},
+    /* [v2.96·استقرار] أحدث مسار مشاهدة لكل لاعب (uid -> hls_path من آخر
+       استطلاع — يغذّي إعادة المحاولة بعد خطأ قاتل) وعدّاد محاولاتها */
+    rtWant: {},
+    rtRetry: {},
     /* [v2.76·صفحة التحكيم] حاوية الرسم قابلة للتبديل: التبويب الأصلي في
        لوحة الأدمن (adminContent) أو مركز التحكيم بالصفحة المخصّصة
        (arbConsole) — اتصالات WebRTC تعاد إرفاقها بالفيديوهات الجديدة
@@ -131,9 +135,26 @@
     });
   }
   /* ── [v2.81.4] مشغّل بث المرحّل (HLS عبر بروكسي المنصة) ──
-     الرمز الموقّع يأتي من stream-status (hls_path) — لا يُبنى هنا إطلاقاً */
+     الرمز الموقّع يأتي من stream-status (hls_path) — لا يُبنى هنا إطلاقاً
+     [v2.96·استقرار] كان hls_path يتغير مع كل استطلاع (رمز جديد كل 10ث)
+     فكان المشغّل يُهدم ويُبنى من الصفر كل عشر ثوانٍ — اتصال متدبدب
+     وشاشات سوداء وأخطاء قاتلة «تعذر عرض بث المرحّل» (بلاغ المالك
+     2026-10-10 والفيديو الشاهد). الآن: المشغّل السليم لا يُمسّ؛ دوران
+     الرمز وحده لا يستوجب شيئاً (الرمز القديم صالح دقائق بعد)، وعند اقتراب
+     انتهائه (< 45ث) يُدوَّر المصدر تدويراً خفيفاً (loadSource على نفس
+     المشغّل والفيديو — بلا هدم وبلا وميض)، ولا يُعاد البناء الكامل إلا
+     لمشغّل متوقف أو مسار تغيّر فعلاً (بلا معامل الرمز). */
   function relayBaseUrl() {
     return (typeof root.API_BASE_URL === 'string' && root.API_BASE_URL) ? root.API_BASE_URL : '';
+  }
+  /* انتهاء رمز المشاهدة من المسار نفسه: ?t=<exp-ms>.<sig> — صفر إن لم يوجد */
+  function tokenExpMs(path) {
+    var m = /[?&]t=(\d{10,})\./.exec(String(path || ''));
+    return m ? Number(m[1]) : 0;
+  }
+  /* المسار مجرداً من معامل الرمز — تغيّره هو تغيّر حقيقي يستوجب إعادة بناء */
+  function pathNoToken(p) {
+    return String(p || '').split('?')[0];
   }
   function stopRelayPlayer(uid) {
     var inst = st.rtHls[uid];
@@ -163,8 +184,20 @@
         hls.on(root.Hls.Events.ERROR, function (ev, data) {
           if (data && data.fatal) {
             stopRelayPlayer(uid);
+            /* [v2.96·تعافٍ] الخطأ القاتل يُعرض ثم محاولة واحدة بعد مهلة قصيرة
+               بأحدث مسار (الاستطلاع يجدد الرمز كل 10ث) — لا رسالة ميتة تنتظر
+               الاستطلاع التالي؛ وإن استمر العطب عادت الرسالة تبقى كما كانت */
             if (box) box.innerHTML = '<div style="padding:0 0 8px"><span class="arb-chip arb-failed">🔴 ' +
               esc(T('arb.rtRelayFail') || 'تعذر عرض بث المرحّل') + '</span></div>';
+            var tries = (st.rtRetry && st.rtRetry[uid]) || 0;
+            if (tries < 1) {
+              if (!st.rtRetry) st.rtRetry = {};
+              st.rtRetry[uid] = tries + 1;
+              setTimeout(function () {
+                var latest = st.rtWant && st.rtWant[uid];
+                if (latest) { stopRelayPlayer(uid); startRelayPlayer(uid, latest); }
+              }, 2500);
+            }
           }
         });
       } else if (vid && vid.canPlayType && vid.canPlayType('application/vnd.apple.mpegurl')) {
@@ -176,14 +209,46 @@
       }
     } catch (e) { stopRelayPlayer(uid); }
   }
+  /* [v2.96·تدوير خفيف] تبديل مصدر مشغّل حي بلا هدم: نفس hls ونفس عنصر
+     الفيديو — يُستعمل عند اقتراب انتهاء رمز المشاهدة فيُنتقل للرمز الجديد
+     بلا شاشة سوداء ولا وميض. للمشغّل الأصلي (سفاري) إعادة تحميل بسيطة
+     لنفس العنصر. يُعيد true إن تم التدوير — وإلا فالمتبقي إعادة البناء. */
+  function rotateRelaySrc(uid, hlsPath) {
+    var inst = st.rtHls[uid];
+    if (!inst) return false;
+    var url = relayBaseUrl() + hlsPath;
+    try {
+      if (inst.native) {
+        if (inst.video) { inst.video.src = url; inst.video.play().catch(function () {}); }
+        return true;
+      }
+      if (inst.loadSource) { inst.loadSource(url); return true; }
+    } catch (e) {}
+    return false;
+  }
   function renderRtPlay(roomId, p, rt) {
     var uid = String(p.user_id);
     var box = document.getElementById('arbRtPlay-' + uid);
     if (!box) return;
     var rp = rt.players[uid];
     var want = (rt.available !== false && rp && rp.online && rp.hls_path) ? rp.hls_path : '';
+    if (!st.rtWant) st.rtWant = {};   /* [v2.96·تعافٍ] أحدث مسار لأي إعادة محاولة */
+    st.rtWant[uid] = want;
     if (want) {
-      if (box.dataset.on !== '1' || box.dataset.src !== want) {
+      if (box.dataset.on !== '1') {
+        box.dataset.src = want;
+        startRelayPlayer(uid, want);
+      } else if (box.dataset.src !== want) {
+        /* [v2.96·استقرار] المسار تغيّر: دوران الرمز وحده (المسار مجرداً كما
+           هو) لا يمسّ مشغلاً حياً — رمزه القديم صالح دقائق بعد. قرب انتهائه
+           (< 45ث) يُدوَّر تدويراً خفيفاً للرمز الجديد، وتغيّر المسار الحقيقي
+           (مجرداً من المعامل) يعيد البناء كما كان دوماً. */
+        if (pathNoToken(box.dataset.src) === pathNoToken(want)) {
+          var curExp = tokenExpMs(box.dataset.src || '');
+          if (!curExp || (curExp - Date.now()) > 45000) return;   /* الرمز الحالي صالح — لا شيء يعمل */
+          if (rotateRelaySrc(uid, want)) { box.dataset.src = want; }
+          return;
+        }
         stopRelayPlayer(uid);
         box.dataset.src = want;
         startRelayPlayer(uid, want);
@@ -515,6 +580,9 @@
     /* [v2.81.4] تفكيك مشغّلات بث المرحّل (مصادر HLS نشطة) */
     Object.keys(st.rtHls).forEach(stopRelayPlayer);
     st.rtHls = {};
+    /* [v2.96] مسح حالة الاستقرار (أحدث المسارات وعدّاد المحاولات) */
+    st.rtWant = {};
+    st.rtRetry = {};
     st.viewing = null;
     st.listSig = '';
     st.viewSig = '';

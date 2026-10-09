@@ -604,8 +604,9 @@ const ROOT = path.resolve(__dirname, '..');
   /* [v2.92] arb-page.js تغيّر (إصدار الجسر في شريحة الحالة) فبصمته تُشتق من
      الإصدار كترجمات — arb-admin لم يُمسّ فبصمته التاريخية v2814 كما هي. */
   const pageV = parseInt((/arb-page\.js\?v=v(\d+)/.exec(idxSrc) || [])[1] || '0', 10);
-  ok('index.html: إصدارات ملفات الجولة (arb-admin على v2814 · arb-page مشتقة ≥ v292 · translations ≥ v284)',
-    /arb-admin\.js\?v=v2814/.test(idxSrc) && pageV >= 292 && trV >= 284);
+  /* [v2.96] arb-admin.js تغيّر (استقرار مشغّل المرحّل: لا هدم كل 10ث) ⇒ v296. */
+  ok('index.html: إصدارات ملفات الجولة (arb-admin على v296 · arb-page مشتقة ≥ v292 · translations ≥ v284)',
+    /arb-admin\.js\?v=v296/.test(idxSrc) && pageV >= 292 && trV >= 284);
   const hlsFile = path.join(ROOT, 'js/vendor/hls.light.min.js');
   const hlsSz = fs.existsSync(hlsFile) ? fs.statSync(hlsFile).size : 0;
   ok('js/vendor/hls.light.min.js: موجود بحجم سليم (100KB–1MB) وبرمجية مصغّرة',

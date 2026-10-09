@@ -566,12 +566,17 @@ async function handleUpdate(update) {
   return { ok: true };
 }
 
+/* [v2.96·توكن] مساران كوحدة المنصة (server.js): Bearer ثم كوكي — سفاري
+   والتطبيق بلا كوكيز عبر النطاقات */
 function sessionUser(req) {
   const h = (req && req.headers) || {};
+  const auth = String(typeof h.get === 'function' ? h.get('authorization') : h.authorization || '');
+  const am = /^\s*Bearer\s+([A-Za-z0-9_-]{8,})\s*$/i.exec(auth);
   const cookie = String(typeof h.get === 'function' ? h.get('cookie') : h.cookie || '');
-  const m = cookie.match(/(?:^|;\s*)sid=([^;]+)/);
-  if (!m || !CTX) return null;
-  const id = CTX.sessions[decodeURIComponent(m[1])];
+  const cm = cookie.match(/(?:^|;\s*)sid=([^;]+)/);
+  const sid = am ? am[1] : (cm ? decodeURIComponent(cm[1]) : null);
+  if (!sid || !CTX) return null;
+  const id = CTX.sessions[sid];
   return id != null ? userById(id) : null;
 }
 function json(res, obj, status) {

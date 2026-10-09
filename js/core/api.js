@@ -52,12 +52,28 @@ function _looksBroken(res) {
   return !res.ok && (res.status >= 502 || ct.indexOf('text/html') !== -1);
 }
 
+/* [v2.96·توكن] رمز الجلسة من الدخول (rc_token): سفاري (ITP) وWebView أندرويد
+   يحجبان كوكيز الطرف الثالث عبر النطاقات (pages.dev → workers.dev) فكانت
+   الجلسة تموت لحظة نجاح الدخول. التوكن يُرفق بترويسة Authorization مع كل
+   نداء (الووركر الوسيط يمرر الترويسات حرفياً — تحقق من مصدره)، والخادم
+   يقبل المسارين: الترويسة أولاً ثم الكوكي — فالمتصفحات التي تعمل بالكوكي
+   (كروم/فايرفوكس) لا تتغير تجربتها قيد أنملة. */
+function _sessionToken() {
+  try { return localStorage.getItem('rc_token') || ''; } catch (e) { return ''; }
+}
+function _authHeaders(hdrs) {
+  const out = hdrs || {};
+  const tk = _sessionToken();
+  if (tk) out['Authorization'] = 'Bearer ' + tk;
+  return out;
+}
+
 const API = {
   request(method, url, body) {
     const opts = {
       method: method,
       credentials: 'include',
-      headers: {}
+      headers: _authHeaders({})
     };
     if (body !== undefined) {
       opts.headers['Content-Type'] = 'application/json';

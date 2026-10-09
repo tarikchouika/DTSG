@@ -23,6 +23,15 @@
           .then(function (cfg) { return (cfg && cfg.url) || 'https://casino-api.dmgames-api.workers.dev'; })
           .catch(function () { return 'https://casino-api.dmgames-api.workers.dev'; }));
   basePromise.then(function (b) { API_BASE = b; });
+  /* [v2.96·توكن] EventSource لا يستطيع حمل ترويسة Authorization — رمز الجلسة
+     (rc_token) يُلحق كمعامل ?sid= على قناة SSE فيتعرف عليه الخادم (قبل الكوكي)
+     فتصل أحداث الغرف/المال/التحكيم في سفاري والتطبيق حيث كوكيز الطرف الثالث
+     عبر النطاقات محجوبة. بلا رمز = السلوك القديم حرفياً (كوكي فقط). */
+  function sidQ(base) {
+    var tk = '';
+    try { tk = localStorage.getItem('rc_token') || ''; } catch (e) { }
+    return base + '/api/live' + (tk ? '?sid=' + encodeURIComponent(tk) : '');
+  }
   function toWs(base) {
     if (base.indexOf('http://') === 0) return 'ws' + base.slice(4);
     if (base.indexOf('https://') === 0) return 'wss' + base.slice(5);
@@ -88,7 +97,7 @@
         return;
       }
       try {
-        var es = new OrigES(b + '/api/live', { withCredentials: true });
+        var es = new OrigES(sidQ(b), { withCredentials: true });
         self._es = es;
         es.onopen = function () {
           for (var i = 0; i < self.facades.length; i++) {
@@ -237,7 +246,7 @@
       if (closed || real) return;
       var b = curBase();
       if (!b) { api.readyState = 2; return; }              /* بلا عنوان: لا اتصال ولا أخطاء */
-      real = isSSEMode ? new OrigES(b + '/api/live', { withCredentials: true }) : new LiveWS('global');
+      real = isSSEMode ? new OrigES(sidQ(b), { withCredentials: true }) : new LiveWS('global');
       for (var t in listeners) {
         for (var i = 0; i < listeners[t].length; i++) {
           if (real.addEventListener) real.addEventListener(t, listeners[t][i]);
@@ -259,8 +268,9 @@
     if (!b) return deferredLive();
     /* [SSE-Cookie 2026-09-15] عبر الووركر الوسيط (نطاق مغاير لصفحة dtsg) يجب
        withCredentials: true وإلا فلن يُرسل كوكي sid → getUser=null في الخادم
-       → broadcastRoom يستثني هذا العميل فلا تصل room:update (جاهز/بدء/حركات). */
-    if (isSSEMode) return new OrigES(b + '/api/live', { withCredentials: true });
+       → broadcastRoom يستثني هذا العميل فلا تصل room:update (جاهز/بدء/حركات).
+       [v2.96·توكن] وsidQ يضيف ?sid= فوق ذلك — سفاري/التطبيق بلا كوكيز أصلاً. */
+    if (isSSEMode) return new OrigES(sidQ(b), { withCredentials: true });
     return new LiveWS('global');
   };
   window.EventSource.prototype = OrigES ? OrigES.prototype : {};

@@ -814,12 +814,21 @@ async function handleCallback(cq) {
 }
 
 /* ── واجهة REST للمنصة (صفحة الدعم) ── */
+/* [v2.96·توكن] حل الجلسة ثنائي المسار ك rest المنصة (server.js): ترويسة
+   Authorization: Bearer <sid> ثم كوكي sid — صفحة الدعم في تطبيق الأندرويد
+   كانت تفقد الدخول دائماً لأن WebView يحجب كوكيز الطرف الثالث عبر النطاقات؛
+   التوكن يصل من صفحة الدعم والودجت كأي صفحة أخرى فتعمل بلا كوكي أصلاً. */
 function userFromSession(req) {
   const h = (req && req.headers) || {};
-  const c = String((typeof h.get === 'function' ? h.get('cookie') : h.cookie) || '');
-  const m = c.match(/(?:^|;\s*)sid=([^;]+)/);
-  if (!m) return null;
-  const uid = CTX.sessions[decodeURIComponent(m[1])];
+  const auth = String((typeof h.get === 'function' ? h.get('authorization') : h.authorization) || '');
+  const m = /^\s*Bearer\s+([A-Za-z0-9_-]{8,})\s*$/i.exec(auth);
+  const sid = m ? m[1] : (function () {
+    const c = String((typeof h.get === 'function' ? h.get('cookie') : h.cookie) || '');
+    const cm = c.match(/(?:^|;\s*)sid=([^;]+)/);
+    return cm ? decodeURIComponent(cm[1]) : null;
+  })();
+  if (!sid) return null;
+  const uid = CTX.sessions[sid];
   return uid != null ? (CTX.users[uid] || null) : null;
 }
 function myTickets(userId) {

@@ -37,8 +37,14 @@
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
     });
   }
+  /* [v2.96·تطبيق أندرويد] نفس جذر صفحة الدعم: WebView Capacitor مضيفه
+     localhost بلا منفذ — كان يُظن خادم تطوير same-origin فتذهب نداءات الودجت
+     إلى التطبيق نفسه (404). الحارس يستثنيه فيقرأ /api-url2.json من الحزمة،
+     وترويسة Authorization برمز الجلسة (rc_token) تحمل الدخول حيث لا كوكيز
+     طرف ثالث (سفاري/WebView). */
+  var IS_NATIVE_APP = !!(typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   function base() {
-    if (/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname)) return Promise.resolve(location.origin);
+    if (!IS_NATIVE_APP && /^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname)) return Promise.resolve(location.origin);
     return fetch('/api-url2.json', { cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (c) { return (c && c.url) || location.origin; })
@@ -46,9 +52,15 @@
   }
   function api(path, method, body) {
     return base().then(function (b) {
+      /* [v2.96·توكن] رمز الجلسة (rc_token) يُرفق كترويسة — الكوكي يبقى كما كان */
+      var hdrs = body ? { 'content-type': 'application/json' } : {};
+      try {
+        var tk = localStorage.getItem('rc_token');
+        if (tk) hdrs['Authorization'] = 'Bearer ' + tk;
+      } catch (e) { }
       return fetch(b + path, {
         method: method || 'GET', credentials: 'include',
-        headers: body ? { 'content-type': 'application/json' } : undefined,
+        headers: hdrs,
         body: body ? JSON.stringify(body) : undefined
       }).then(function (r) {
         return r.json().catch(function () { return { ok: false, error: 'HTTP ' + r.status }; })

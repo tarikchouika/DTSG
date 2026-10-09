@@ -714,9 +714,22 @@ function startSession(res, user) {
   sessions[sid] = user.id;
   /* SameSite=None مطلوب لكوكي الجلسة عبر النطاقات (pages.dev → workers.dev → النفق) */
   res.setHeader('Set-Cookie', 'sid=' + sid + '; Path=/; HttpOnly; SameSite=None; Secure');
+  /* [v2.96·توكن] يُعاد لِمَن فتح الجلسة ليُخزَّن محلياً ويرسل عبر Authorization:
+     سفاري (ITP) وWebView أندرويد يحجبان كوكيز الطرف الثالث عبر النطاقات،
+     فالكوكي وحده يميت الجلسة لحظة نجاح الدخول هناك — التوكن يحملها بلا كوكي. */
+  return sid;
+}
+/* [v2.96·توكن] حل الجلسة ثنائي المسار: ترويسة Authorization: Bearer <sid>
+   أولاً ثم كوكي sid — العميل يخزّن التوكن من ردّ الدخول ويرفقه بكل نداء،
+   فيعمل الدخول في سفاري والـAPK حيث الكوكيز عبر النطاقات محجوبة. */
+function sessionTokenFromRequest(req) {
+  const auth = String((req && req.headers && req.headers.authorization) || '');
+  const m = /^\s*Bearer\s+([A-Za-z0-9_-]{8,})\s*$/i.exec(auth);
+  if (m) return m[1];
+  return parseCookies(req).sid || null;
 }
 function getUser(req) {
-  const sid = parseCookies(req).sid;
+  const sid = sessionTokenFromRequest(req);
   const uid = sid ? sessions[sid] : null;
   return (uid != null && users[uid]) ? users[uid] : null;
 }
@@ -1032,7 +1045,17 @@ const server = http.createServer((req, res) => {
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive'
     });
-    const me = getUser(req);
+    /* [v2.96·توكن] EventSource لا يستطيع حمل ترويسة Authorization — التوكن
+       يُقبل هنا عبر ?sid= أيضاً (بعد الكوكي/الترويسة) فتبقى أحداث الغرف
+       والمال والتحكيم تصول سفاري والتطبيق حيث كوكيز الطرف الثالث محجوبة.
+       الووركر الوسيط يمرر معاملات الاستعلام حرفياً (تحقق من مصدره). */
+    const me = (function () {
+      const viaHdr = getUser(req);
+      if (viaHdr) return viaHdr;
+      const qsid = parsedUrl.query ? String(parsedUrl.query.sid || '') : '';
+      const uid = qsid ? sessions[qsid] : null;
+      return (uid != null && users[uid]) ? users[uid] : null;
+    })();
     /* [v2.67·H3] ‎?since=rev — العميل يرسل آخر ترقيم لديه؛ إن كان أقدم من حالة
        الغرفة فنبثّ التحديث + سجل الحركات كاملاً (room:replay) لإعادة البناء */
     const sinceRev = parseInt(parsedUrl.query && parsedUrl.query.since, 10);
@@ -1226,8 +1249,9 @@ const server = http.createServer((req, res) => {
           clearUserLoginFails(username);   /* [v2.80·أمن] نجاح الدخول يصفّي القفل الإسمي أيضاً */
           try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), existing.id); } catch (e) {}
           existing.last_seen = Math.floor(Date.now() / 1000);
-          startSession(res, existing);
-          json({ ok: true, user: publicUser(existing) });
+          const sid = startSession(res, existing);
+          /* [v2.96·توكن] الرمز يُعاد في الرد ليعمل الدخول بلا كوكيز (سفاري/التطبيق) */
+          json({ ok: true, user: publicUser(existing), token: sid });
         });
         return;
       }
@@ -1312,7 +1336,9 @@ const server = http.createServer((req, res) => {
         /* [DM_TEST_MODE] في بيئة الاختبار المحلية فقط: التسجيل المفتوح يفتح جلسة تلقائياً
            (محاكاة سلوك بيئة التطوير القديمة الذي تفترضه اختبارات E2E الـ34 — «سجّل = ادخل»).
            الإنتاج: لا يفتح التسجيل جلسة أبداً (يبقى إنشاء المشرف فقط). */
-        if (REGISTER_TEST_MODE) startSession(res, u);
+        /* [v2.96·توكن] الرمز (بيئة الاختبار فقط) يُعاد كما في الدخول */
+        let regToken = null;
+        if (REGISTER_TEST_MODE) regToken = startSession(res, u);
         /* [Referral] رمز إحالة مميز لكل مسجّل + ربط اختياري برمز محيل */
         u.ref_code = genRefCode(u.id);
         if (data.referral_code) {
@@ -1321,11 +1347,13 @@ const server = http.createServer((req, res) => {
           if (ref && ref.id !== u.id) u.referred_by = ref.id;
         }
         try { db.prepare('UPDATE users SET ref_code = ?, referred_by = ? WHERE id = ?').run(u.ref_code, u.referred_by || null, u.id); } catch (e) {}
-        json({ ok: true, user: publicUser(u) });
+        json({ ok: true, user: publicUser(u), token: regToken });
         return;
       }
       if (pathname === '/api/logout') {
-        const sid = parseCookies(req).sid;
+        /* [v2.96·توكن] تُغلق جلسة الكوكي وجلسة التوكن معاً — من يرسل Authorization
+           بلا كوكي (سفاري/التطبيق) كان خروجه بلا أثر على الجلسة الحقيقية */
+        const sid = sessionTokenFromRequest(req);
         if (sid) delete sessions[sid];
         res.setHeader('Set-Cookie', 'sid=; Path=/; Max-Age=0; SameSite=None; Secure');
         json({ ok: true });
@@ -1374,8 +1402,9 @@ const server = http.createServer((req, res) => {
         }
         try { db.prepare('UPDATE users SET last_seen = ? WHERE id = ?').run(Math.floor(Date.now() / 1000), user.id); } catch (e) {}
         user.last_seen = Math.floor(Date.now() / 1000);
-        startSession(res, user);
-        json({ ok: true, user: publicUser(user) });
+        const sid = startSession(res, user);
+        /* [v2.96·توكن] إكمال 2FA يعيد الرمز كالدخول — العميل يخزّنه (rc_token) */
+        json({ ok: true, user: publicUser(user), token: sid });
         return;
       }
       if (pathname === '/api/2fa/enable') {

@@ -212,11 +212,16 @@ function settleGoldLocal(userId, deltaCoins, opts) {
 function roleOfRequest(req) {
   if (!CTX) return null;
   /* Request.headers = Headers (يقرأ بـ get) أو كائن عادي — ندعم الاثنين */
+  /* [v2.96·توكن] مساران كوحدة المنصة (server.js): Bearer ثم كوكي — سفاري
+     والتطبيق بلا كوكيز عبر النطاقات */
   const h = (req && req.headers) || {};
+  const auth = String((typeof h.get === 'function' ? h.get('authorization') : h.authorization) || '');
+  const am = /^\s*Bearer\s+([A-Za-z0-9_-]{8,})\s*$/i.exec(auth);
   const c = String((typeof h.get === 'function' ? h.get('cookie') : h.cookie) || '');
-  const m = c.match(/(?:^|;\s*)sid=([^;]+)/);
-  if (!m) return null;
-  const uid = CTX.sessions[decodeURIComponent(m[1])];
+  const cm = c.match(/(?:^|;\s*)sid=([^;]+)/);
+  const sid = am ? am[1] : (cm ? decodeURIComponent(cm[1]) : null);
+  if (!sid) return null;
+  const uid = CTX.sessions[sid];
   const u = uid != null ? CTX.users[uid] : null;
   return u ? u.role : null;
 }

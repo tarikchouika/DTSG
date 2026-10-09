@@ -359,6 +359,7 @@ jobs:
                       });
                   } catch (Throwable ignored) { }
                   bindJsInterface();
+                  enableThirdPartyCookies(); /* [v2.96] كوكيز الجلسة عبر النطاقات */
                   applyBarsAppearance();
                   hideSystemBars();          /* [v2.87] الوضع الغامر منذ الإقلاع */
               }
@@ -453,6 +454,23 @@ jobs:
                       if (b == null || b.getWebView() == null || jsBound) return;
                       b.getWebView().addJavascriptInterface(new NativeChrome(), "DTSGNative");
                       jsBound = true;
+                  } catch (Throwable ignored) { }
+              }
+          
+              /* [v2.96] WebView أندرويد يحجب كوكيز الطرف الثالث افتراضياً — كوكي
+                 الجلسة من وسيط الهاتف (نطاق مغاير لأصل التطبيق localhost) لا يُخزَّن
+                 فيموت الدخول لحظة نجاحه (بلاغ المالك 2026-10-10: فقدان الدخول في
+                 التطبيق). المصادقة بالتوكن (rc_token/Authorization) هي المسار الأساسي
+                 للإصلاح ولا تعتمد على الكوكيز؛ هذا التفعيل طبقة إضافية تحفظ كل مسار
+                 يعتمد الكوكي (setAcceptCookie=true أصلاً افتراضي؛ الثالث هو المقفول). */
+              private void enableThirdPartyCookies() {
+                  try {
+                      android.webkit.CookieManager cm = android.webkit.CookieManager.getInstance();
+                      cm.setAcceptCookie(true);
+                      Bridge b = getBridge();
+                      if (b != null && b.getWebView() != null) {
+                          cm.setAcceptThirdPartyCookies(b.getWebView(), true);
+                      }
                   } catch (Throwable ignored) { }
               }
           

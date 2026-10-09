@@ -61,10 +61,17 @@ window.PWAL = window.PWAL || {};
     return BASE;
   }
   async function api(path, body) {
+    /* [v2.96·توكن] رمز الجلسة (rc_token) يُرفق كترويسة — سفاري/التطبيق
+       بلا كوكيز طرف ثالث عبر النطاقات، والكوكي يبقى للمتصفحات التي تقبله */
+    const hdrs = body ? { 'content-type': 'application/json' } : {};
+    try {
+      const tk = localStorage.getItem('rc_token');
+      if (tk) hdrs['Authorization'] = 'Bearer ' + tk;
+    } catch (e) { }
     const r = await fetch(base() + path, {
       method: body ? 'POST' : 'GET',
       credentials: 'include',
-      headers: body ? { 'content-type': 'application/json' } : {},
+      headers: hdrs,
       body: body ? JSON.stringify(body) : undefined
     });
     return await r.json();

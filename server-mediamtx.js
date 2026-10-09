@@ -78,12 +78,35 @@ const RUNTIME_SECRET = STREAM_SECRET || crypto.randomBytes(32).toString('hex');
    الصيغة:  <exp-ms>.<16hex HMAC(secret, "view|<room>|<uid>|<exp-ms>")
    انتهاء افتراضي 15د (MEDIAMTX_VIEW_TTL_MS) — لوحة الأدمن تستطلع كل 10ث
    فتأخذ رمزاً جديداً باستمرار، وانقطاعها يُوقف السحب طبيعياً. */
+/* [v2.96·رمز مستقر] «رمز جديد باستمرار» في التعليق أعلاه كان هو العطب
+   نفسه: exp يُزرع من Date.now() فيختلف الرمز مع كل استطلاع (كل 10ث)،
+   فترى الواجهة hls_path متغيراً وتهدم مشغّل الأدمن السليم وتعيد بناءه من
+   الصفر كل عشر ثوانٍ — اتصال متدبدب وشاشات سوداء أثناء كل إعادة تهيئة
+   وأخطاء قاتلة «تعذر عرض بث المرحّل» (بلاغ المالك 2026-10-10 والفيديو
+   الشاهد: الغرفة 3BAD1D بث اللاعب «عبر الموزع» مباشر والخطأ ظاهر معه).
+   العلاج الجذري: الرمز يُشتق مرة ويُعاد نفسه ما بقي له أكثر من ربع مدته
+   (استطلاع 10ث ⇒ نفس المسار دقائق متواصلة فلا يُهدم المشغل إلا لسبب
+   حقيقي)، ويُجدَّد برمز كامل المدة قبل انتهائه — فيتيح للعميل الانتقال
+   السلس (loadSource خفيف بلا تمزيق الفيديو) قرب الانتهاء. تنقية الخامل
+   عند 512 مفتاحاً — لا نمو بلا سقف. وverifyViewToken لم يتغير قيد أنملة
+   (رمز واحد صالح يحيا كعهدِه). */
+const VIEW_TOKEN_CACHE = new Map();   /* "<room>|<uid>" → { token, exp } */
 function signViewToken(roomId, userId, ttlMs) {
-  const exp = String(Date.now() + Math.max(60000, Number(ttlMs) || 900000));
+  const ttl = Math.max(60000, Number(ttlMs) || 900000);
+  const key = String(roomId) + '|' + String(userId);
+  const now = Date.now();
+  const hit = VIEW_TOKEN_CACHE.get(key);
+  if (hit && (hit.exp - now) > (ttl >> 2)) return hit.token;   /* ربع المدة فأكثر: نفس الرمز */
+  if (VIEW_TOKEN_CACHE.size > 512) {
+    for (const [k, v] of VIEW_TOKEN_CACHE) { if (v.exp <= now) VIEW_TOKEN_CACHE.delete(k); }
+  }
+  const exp = now + ttl;
   const sig = crypto.createHmac('sha256', RUNTIME_SECRET)
     .update('view|' + String(roomId) + '|' + String(userId) + '|' + exp)
     .digest('hex').slice(0, 16);
-  return exp + '.' + sig;
+  const token = exp + '.' + sig;
+  VIEW_TOKEN_CACHE.set(key, { token: token, exp: exp });
+  return token;
 }
 function verifyViewToken(roomId, userId, token) {
   try {

@@ -57,10 +57,14 @@ const idx = read("index.html");
 /* [v2.81.4] api.js تغيّر (إصلاح same-origin) فبصمته صارت v2814 — والملفات
    غير المماسة تبقى على بصماتها (dtsg13/pay12).
    [v2.83] auth.js تغيّر (حرس الهوية المحلية للغرفة المحلية) فبصمته صارت v283.
-   [v2.84] auth.js تغيّ مجدداً (ترجمة مودال الدخول + مزامنة العودة) ⇒ v284. */
-ok(idx.includes("live-ws-bridge.js?v=dtsg13") && idx.includes("api.js?v=v2814") &&
-   idx.includes("auth.js?v=v284") && idx.includes("wallet.js?v=pay12"),
-   "index.html: بصمات الملفات الأربعة محدَّثة (dtsg13/v2814/v284/pay12) — auth.js رُفعت إلى v284 (ترجمة الدخول + مزامنة العودة)");
+   [v2.84] auth.js تغيّر مجدداً (ترجمة مودال الدخول + مزامنة العودة) ⇒ v284.
+   [v2.96] الأربعة تغيّرت (مصادقة التوكن للجلسة عبر النطاقات + جسر SSE داخل
+   التطبيق): api/auth/live-ws-bridge ⇒ v296 وwallet ⇒ pay13 — والجسر صار
+   يُحمَّل داخل التطبيق الأصلي أيضاً (كان يُتخطى فيه فيموت SSE داخل التطبيق). */
+ok(idx.includes("live-ws-bridge.js?v=v296") && idx.includes("api.js?v=v296") &&
+   idx.includes("auth.js?v=v296") && idx.includes("wallet.js?v=pay13") &&
+   idx.indexOf("_dtsgNative") !== -1 && idx.indexOf("if (_dtsgNative ||") !== -1,
+   "index.html: بصمات الملفات الأربعة محدَّثة (v296 x3 + pay13) — والجسر يُحمَّل داخل التطبيق الأصلي أيضاً (v2.96)");
 
 /* ── 3) خط بناء APK: أيقونات من لوغو المنصة ──────────────────────────────── */
 const wfLive = fs.readFileSync(path.join(ROOT, ".github/workflows/build-apk.yml"));

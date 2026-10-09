@@ -12,6 +12,7 @@ var IS_NATIVE_APP = (typeof window !== 'undefined' && !!(window.Capacitor && win
 /* ── حالة المصادقة ── */
 const AUTH = {
   user: null,
+  token: null,   /* [v2.96·توكن] رمز الجلسة (rc_token) — يرسله api.js كترويسة */
   _lastSync: 0
 };
 if (typeof window !== 'undefined') window.AUTH = AUTH;   /* [PR-Sync] يقرؤه جسر WS */
@@ -149,6 +150,9 @@ function authLogin() {
   API.post('/api/login', { username: username, password: password }).then(function (r) {
     if (submit) submit.disabled = false;
     if (r.ok && r.data && r.data.user) {
+      /* [v2.96·توكن] رمز الجلسة يُخزَّن (rc_token) ويرفقه API بكل نداء عبر
+         Authorization — سفاري والتطبيق بلا كوكيز عبر النطاقات بعده يعملان */
+      if (r.data.token) { try { AUTH.token = r.data.token; localStorage.setItem('rc_token', r.data.token); } catch (e) {} }
       applyAuthUser(r.data.user);
       /* [v3-FixH2] القناة SSE فُتحت قبل الدخول (مجهولة) — أعد فتحها بالجلسة */
       try { if (typeof Rooms !== 'undefined' && Rooms.reopenSse) Rooms.reopenSse(); } catch (e) {}
@@ -182,6 +186,8 @@ function authRegister() {
   API.post('/api/register', { username: username, password: password }).then(function (r) {
     if (submit) submit.disabled = false;
     if (r.ok && r.data && r.data.user) {
+      /* [v2.96·توكن] بيئة الاختبار تفتح جلسة وترجع رمزها — يُخزَّن كالدخول */
+      if (r.data.token) { try { AUTH.token = r.data.token; localStorage.setItem('rc_token', r.data.token); } catch (e) {} }
       applyAuthUser(r.data.user);
       /* [v3-FixH2] إعادة فتح قناة SSE بعد إنشاء الجلسة */
       try { if (typeof Rooms !== 'undefined' && Rooms.reopenSse) Rooms.reopenSse(); } catch (e) {}
@@ -199,13 +205,16 @@ function authRegister() {
 function authLogout() {
   authSyncNow();
   API.post('/api/logout').then(function () {
-    AUTH.user = null;
+    /* [v2.96·توكن] مسح الرمز مع الجلسة — الخروج يغلق الاثنين خادمياً */
+    AUTH.user = null; AUTH.token = null;
+    try { localStorage.removeItem('rc_token'); } catch (e) {}
     if (typeof DISABLED === 'object' && DISABLED) DISABLED = {};
     renderAuthChip();
     if (typeof renderAll === 'function') renderAll();
     toast(T('auth.loggedOut'), 'info');
   }).catch(function () {
-    AUTH.user = null;
+    AUTH.user = null; AUTH.token = null;
+    try { localStorage.removeItem('rc_token'); } catch (e) {}
     if (typeof DISABLED === 'object' && DISABLED) DISABLED = {};
     renderAuthChip();
     if (typeof renderAll === 'function') renderAll();
@@ -358,7 +367,7 @@ function submit2faLogin() {
     if (!r.ok) { toast((r.data && r.data.message) || T('auth.error'), 'err'); return; }
     var user = r.data && r.data.user;
     if (!user) { toast(T('auth.error'), 'err'); return; }
-    /* تخزين الرمز المُعاد إن وُجد */
+    /* تخزين الرمز المُعاد إن وُجد — [v2.96] الخادم يعيده دائماً الآن */
     if (r.data && r.data.token) {
       try { AUTH.token = r.data.token; localStorage.setItem('rc_token', r.data.token); } catch (e) {}
     }
@@ -515,6 +524,9 @@ function authHandle401() {
      ردّ 401 من نداء خلفي، وإلا انهار لعب الغرفة المحلية عند أول مزامنة دورية. */
   if (AUTH.user && !AUTH.user.local) {
     AUTH.user = null;
+    /* [v2.96·توكن] الجلسة ماتت خادمياً — الرمز المحلي بلا قيمة بعدها */
+    AUTH.token = null;
+    try { localStorage.removeItem('rc_token'); } catch (e) {}
     if (typeof DISABLED === 'object' && DISABLED) DISABLED = {};
     renderAuthChip();
     if (typeof renderAll === 'function') renderAll();
@@ -613,13 +625,17 @@ if (typeof document !== 'undefined') {
     if (AUTH.user) {
       try {
         /* [v2.42-Bugfix] API_BASE_URL نص فقط (كان قد يكون Promise ⇒ [object Promise]/api/sync) */
+        /* [v2.96·توكن] keepalive لا يحمل كوكي عبر النطاقات في سفاري/التطبيق —
+           الترويسة تحمل الجلسة هناك كما في كل نداءات api.js */
+        var tk = '';
+        try { tk = localStorage.getItem('rc_token') || ''; } catch (eT) {}
         fetch(((typeof window.API_BASE_URL === 'string' && window.API_BASE_URL) ||
           (/^(localhost|127\.0\.0\.1):\d+$/.test(location.hostname) ? location.origin :
             (/(^|\.)dmgames\.pages\.dev$|(^|\.)dtsg\.pages\.dev$/.test(location.hostname) ? 'https://casino-api.dmgames-api.workers.dev' :
               (IS_NATIVE_APP ? (function () { try { return localStorage.getItem('rc_api_base') || 'https://casino-phone.dmgames-api.workers.dev'; } catch (e) { return 'https://casino-phone.dmgames-api.workers.dev'; } })() : 'https://casino-api.tarikc.workers.dev')))) + '/api/sync', {
           method: 'POST',
           credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: Object.assign({ 'Content-Type': 'application/json' }, (tk ? { 'Authorization': 'Bearer ' + tk } : {})),
           body: JSON.stringify({ gold: ST.gold, lang: ST.lang }),
           keepalive: true
         });

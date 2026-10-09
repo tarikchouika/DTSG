@@ -1,6 +1,32 @@
 # DTSG Worklog — Multi-Agent Shared Log
 
 ---
+Task ID: v2.96.0
+Agent: main (Super Z)
+Task: بلاغ المالك 2026-10-10 — ثلاثة أعطال ميدانية: (1) سفاري: الجلسة تنتهي لحظة الدخول (2) تطبيق الأندرويد صفحة الدعم: فقدان الدخول وعدم القدرة على الدخول من الرئيسية (3) مشاركة الشاشة عبر التطبيق: شاشة الأدمن سوداء والاتصال متدبدب — مع فيديو شاهد (غرفة تحكيم 3BAD1D: بث «عبر الموزع» مباشر وخطأ «تعذر عرض بث المرحّل» ظاهر) + دفع الإصلاحات إلى GitHub وCloudflare مع الحفاظ على المكتسبات والنضافة والتنسيق والتدقيق (راجع AGENTS وCHANGELOG والشانجلوغ أولاً — تم).
+
+Work Log:
+- قراءة AGENTS.md كاملة (القواعد 1-34 + خريطة الملفات الحساسة) وآخر إدخالات CHANGELOG (v2.95.x) وworklog — والالتزام بقاعدة 22 (بصمات مشتقة) وقاعدة 18 (توأما السير) وقاعدة 15 (الثلاثية)
+- تحليل الفيديو المرفوع: استخراج 7 إطارات + رؤية AI — غرفة تحكيم حية للأدمن (Live view — 3BAD1D)، اللاعب adil «عبر الموزع» مباشر، ثم خطأ «🔴 Relay stream could not be displayed» — يطابق البلاغ الثالث
+- **تنزيل مصدر ووركر casino-phone من Cloudflare API** (GET /workers/scripts/casino-phone): `new Headers(request.headers)` يمرر كل الترويسات حرفياً + `url.search` كاملاً ⇒ تأكيد أن حل التوكن سيمر عبر السلسلة الحية قبل كتابة سطر واحد
+- **التشخيص الجذري الثلاثي:** ① كوكي sid عبر النطاقات = طرف ثالث يحجبه سفاري ITP كلياً ② support.html وbot-chat.js يطبقان اختصار same-origin على localhost (مضيف WebView Capacitor) فتذهب نداءات الدعم إلى التطبيق نفسه + WebView يقفل كوكيز الطرف الثالث + جسر SSE غير محمَّل في التطبيق أصلاً ③ signViewToken يزرع Date.now() فيتغير الرمز كل استطلاع (10ث) وrenderRtPlay يهدم المشغّل ويعيد بناءه كل عشر ثوانٍ
+- **الإصلاح — المصادقة الثنائية (خادم):** server.js: sessionTokenFromRequest (Bearer ثم كوكي) من getUser + startSession يعيد الرمز + token في ردود الدخول/التسجيل/2FA + ?sid= للـSSE + الخروج يغلق جلسة التوكن — ونفس الحل في server-support.js وserver-payments.js وserver-private-chat.js
+- **الإصلاح — المصادقة الثنائية (عميل):** api.js يرفق Authorization مع كل نداء · auth.js يخزّن rc_token عند الدخول ويمسحه عند الخروج/401 (وبeforeunload يحمل الترويسة) · live-ws-bridge عبر sidQ يلحق ?sid= بالـSSE (3 مواضع) · wallet.js وbot-chat.js وsupport.html كذلك
+- **الإصلاح — صفحة الدعم/التطبيق:** حارس IS_NATIVE_APP قبل اختصار localhost في support.html وbot-chat.js + index.html يحمّل جسر live-ws-bridge داخل التطبيق (_dtsgNative ||) فتعود أحداث SSE للتطبيق
+- **الإصلاح — رمز المشاهدة المستقر:** server-mediamtx.js: VIEW_TOKEN_CACHE لكل <room>|<uid> (نفس الرمز ما بقي له > ربع المدة + تنقية 512) — وverifyViewToken لم يتغير
+- **الإصلاح — مشغّل الأدمن لا يُهدَم:** arb-admin.js: pathNoToken/tokenExpMs + rotateRelaySrc (loadSource خفيف عند <45ث من الانتهاء) + تعافٍ واحد بعد خطأ قاتل (2.5ث بأحدث st.rtWant) + تنظيف الحالة في unmount
+- **سير البناء (التوأمان cmp=0):** enableThirdPartyCookies() في MainActivity بعد bindJsInterface + javac 21 ضد android.jar API 34 COMPILE OK (2283 سطراً)
+- **الإصدار والبصمات (قاعدة 22):** الثلاثية 2.96.0 + DTSG_BUILD v2.96.0 + بصمات المعدَّل: api/auth/live-ws-bridge/arb-admin/bot-chat/translations/ronda/billiards/arb-client/arb-page/local-mp/main ⇒ v296 وwallet ⇒ pay13 في index.html والصفحات العشر
+- **حرس جديد دائم:** tests/_v296_token_auth_test.js (42: ثابت + سلوكي لرمز المشاهدة عبر وحدة الإنتاج) مُدرج في العدّاء — وتحديث حرسين مع عقودهما المتطورة (v2813 بصمات+شرط الجسر، v281 بصمة arb-admin)
+- **اختبار حي للمصادقة على خادم QA (شجرة العمل نفسها):** دخول بلا كوكي ⇒ توكن ⇒ /api/me بالتوكن يعرف المستخدم ⇒ بلا شيء مجهول ⇒ الدعم بالتوكن ⇒ SSE بـ?sid= يصل hello ⇒ الخروج بالتوكن يغلق الجلسة ⇒ الميت يُرفض 401 — **8/8**
+- **البطارية:** v296=42 ✓ · v281=119 ✓ · support_bot=72 ✓ · v288=52 ✓ · v291=34 ✓ · v292=39 ✓ · v293=24 ✓ (حي متخطى بيئياً) · v294=19 ✓ · v295=28 ✓ · v2813=21 ✓ · v285=43 ✓ · v286=23 ✓ · v287=56 ✓ · v2952=18 ✓ · hygiene=5 ✓ · deploy_coverage=21 ✓ — وlive_base_guard فشله الوحيد موروث من الشجرة الأصلية (git stash أثبت ذلك — ليس انحداراً)
+
+Stage Summary:
+- الجذور الثلاثة عولجت جذرياً بتوافق خلفي كامل: المتصفحات العاملة بالكوكي لم تتغير تجربتها قيد أنملة، والواجهة المنشورة تعمل ضد الخادم القديم حتى تحديث الهاتف (عميل arb-admin وحده يوقف التدبدب حتى ضد الخادم القديم)
+- **النشر:** GitHub main (يطلق بناء APK تلقائياً بالجافا والأصول المعدَّلة) + Cloudflare Pages (dtsg.pages.dev ⇒ v2.96.0) — **خادم الهاتف يُحدَّث بالأمر المعتاد على الهاتف: bash scripts/update-phone-server.sh** (إصلاحات الخادم الأربعة + تجديد الجلسات بعده)
+- التوثيق: CHANGELOG (ترويسة + كتلة v2.96.0 كاملة الجذور) + AGENTS قاعدة 35 + هذا الإدخال
+
+---
 Task ID: 1
 Agent: main (Super Z)
 Task: استكشاف مشروع DTSG بعد الدمج من GitHub (v2.65.1) — فهم البنية قبل الإصلاحات المطلوبة

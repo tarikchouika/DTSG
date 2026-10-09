@@ -771,21 +771,26 @@
   <script src="js/core/state.js?v=dtsg6"></script>
   <script>
     /* [Dev localhost] جسر WebSocket (Durable Objects) خاص بالإنتاج على Cloudflare Worker.
-       عند التشغيل المحلي (server.js يدعم SSE أصلاً ولا يدعم WS) نتجاوز الجسر لنبقى على SSE. */
-    if (!/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname)) {
-      document.write('<script src="js/core/live-ws-bridge.js?v=dtsg13"><\/script>');
+       عند التشغيل المحلي (server.js يدعم SSE أصلاً ولا يدعم WS) نتجاوز الجسر لنبقى على SSE.
+       [v2.96·تطبيق أندرويد] التطبيق الأصلي (Capacitor) مضيفه localhost بلا منفذ — كان
+       الجسر يُتخطى فيه أيضاً فتذهب قناة SSE إلى التطبيق نفسه (404) وتُحرم الواجهة
+       أحداث الغرف/المال/التحكيم داخل التطبيق. الآن يُحمّل فيه كالإنتاج فيوجّه القناة
+       إلى وسيط الهاتف (وضع SSE داخله + ?sid= للجلسة بلا كوكيز). */
+    var _dtsgNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (_dtsgNative || !/^(localhost|127\.0\.0\.1)(:\d+)?$/.test(location.hostname)) {
+      document.write('<script src="js/core/live-ws-bridge.js?v=v296"><\/script>');
     }
   </script>
   <!-- [v2.26-merge] dtsg4: فوق dtsg3 سام (rami dtsg3/auth dtsg3 مأخوذة) — إصدار موحّد -->
-  <script src="js/core/api.js?v=v2814"></script>
-  <script src="js/core/auth.js?v=v284"></script>
+  <script src="js/core/api.js?v=v296"></script>
+  <script src="js/core/auth.js?v=v296"></script>
   <script src="js/core/audio.js?v=dtsg7"></script>
   <script src="js/core/utils.js?v=v285"></script>
   <script src="js/core/fx.js?v=dtsg7"></script>
-  <script src="js/i18n/translations.js?v=v295"></script>
+  <script src="js/i18n/translations.js?v=v296"></script>
   <script src="js/rules/game-rules.js?v=dtsg9"></script>
   <script src="js/games/catalog.js?v=dtsg8"></script>
-  <script src="js/games/ronda.js?v=v295"></script>
+  <script src="js/games/ronda.js?v=v296"></script>
   <!-- [RDC] روندا الكلاسيكية: المحرك الأصلي المستورد (ronda-game) حرفياً + الواجهة المنصّية -->
   <script src="ronda-game/js/engine/ronda-core.js?v=rdc6"></script>
   <script src="ronda-game/js/engine/ronda-game.js?v=rdc6"></script>
@@ -840,24 +845,24 @@
   <script src="js/games/chess.js?v=dtsg13"></script>
   <script src="js/games/billiards-physics.js?v=dtsg6"></script>
   <script src="js/games/billiards-rules.js?v=dtsg6"></script>
-  <script src="js/games/billiards.js?v=v295"></script>
+  <script src="js/games/billiards.js?v=v296"></script>
   <script src="js/games/engines.js?v=dtsg15"></script>
   <script src="js/core/rooms.js?v=v280"></script>
   <!-- [v2.83] الغرفة المحلية: لعب جهاز-إلى-جهاز عبر الواي فاي/مشاركة البلوتوث (WebRTC LAN) -->
-  <script src="js/core/local-mp.js?v=v295"></script>
+  <script src="js/core/local-mp.js?v=v296"></script>
   <!-- [v2.75·تحكيم] بث الشاشة للاعب + لوحة الأدمن (WebRTC P2P)
        [v2.76] صفحة التحكيم المخصّصة للمستخدمين والأدمنز -->
   <!-- [v2.81.4·بروكسي HLS] مشغّل بث المرحّل بلوحة الأدمن — hls.js light مُستضاف
        محلياً (لا CDN خارجي) — يُستعمل فقط عندما يصل بث مرحَّل حيّ -->
   <script src="js/vendor/hls.light.min.js?v=v2814"></script>
-  <script src="js/core/arb-client.js?v=v295"></script>
-  <script src="js/core/arb-admin.js?v=v2814"></script>
-  <script src="js/core/arb-page.js?v=v295"></script>
-  <script src="js/main.js?v=v295"></script>
+  <script src="js/core/arb-client.js?v=v296"></script>
+  <script src="js/core/arb-admin.js?v=v296"></script>
+  <script src="js/core/arb-page.js?v=v296"></script>
+  <script src="js/main.js?v=v296"></script>
   <script src="js/core/live.js?v=v281"></script>
   <script src="js/friends.js?v=dtsg6"></script>
   <script src="js/vendor/qr-mini.js?v=qr1"></script>
-  <script src="js/wallet.js?v=pay12"></script>
+  <script src="js/wallet.js?v=pay13"></script>
 
   <!-- ═══════════ Mobile Bottom Navigation Bar ═══════════ -->
   <nav class="mobile-bottom-nav" id="mobileBottomNav" aria-label="التنقل السفلي">
@@ -886,7 +891,7 @@
   <!-- ═══════════ مركز المساعدة العائم (شات بوت الدعم + المدفوعات) — [v2.42] ═══════════
        يُبنى من js/ui/bot-chat.js: زر عائم يفتح نافذة تربط المستخدم ببوت خدمة
        العملاء، وبوت الدردشة الخاص للمسجلين، وبالمحفظة. مخفي في صفحات الألعاب. -->
-  <script src="js/ui/bot-chat.js?v=dtsg11" defer></script>
+  <script src="js/ui/bot-chat.js?v=v296" defer></script>
 
 </body>
 </html>
