@@ -44,6 +44,8 @@
     _fx: null,
     _handHandlers: null,
     _overlayKind: null,
+    _roundEndShown: null,   /* [v2.95.2] رقم الشوطالتي نافذته معروضة — حارس عدم تكرار البناء */
+    _roundEndScheduled: false, /* [v2.95.2] جدولة نافذة الشوط جارية — صريح لا معاد إعادة استعمال _schedKey */   /* [v2.95.1] رقم الشوطالتي نافذته معروضة — حارس عدم تكرار البناء */
 
     /* ── حالة غرفة الأونلاين ── */
     roomMode: false,
@@ -138,6 +140,8 @@
       this._schedKey = null;
       this._settled = false;
       this._overlayKind = null;
+      this._roundEndShown = null;
+      this._roundEndScheduled = false;
     },
     clearTimers: function () { 
       for (let i = 0; i < this._timers.length; i++) clearTimeout(this._timers[i]); 
@@ -392,6 +396,8 @@
       this._lastHumanSeat = -1;
       this._prevBaloot = [false, false];
       this._overlayKind = null;
+      this._roundEndShown = null;
+      this._roundEndScheduled = false;
       this.clearTimers();
       this.hideOverlay();
       const play = (this.config.mode === 'ai' && this.config.play) ? this.config.play : 'tt';
@@ -429,6 +435,8 @@
       this._settled = false;
       this._schedKey = null;
       this._overlayKind = null;
+      this._roundEndShown = null;
+      this._roundEndScheduled = false;
       this.hideOverlay();
       this.showScreen('menu');
       this._applyModeUI();
@@ -467,9 +475,13 @@
     tick: function () {
       const s = NS.state;
       if (!s || !this._attached) return;
-      /* إغلاق مودالات مَنقضية (تقدمت حالة الغرفة) */
-      if (this._overlayKind === 'roundEnd' && s.phase !== 'roundEnd') { this.hideOverlay(); this._overlayKind = null; }
-      if (this._overlayKind === 'matchEnd' && s.phase !== 'matchEnd') { this.hideOverlay(); this._overlayKind = null; }
+      /* إغلاق مودالات مَنقضية (تقدمت حالة الغرفة) — والتصفير **داخل** كل شرط:
+         التصفير في كل tick كان يُبطل حارس عدم التكرار بنفسه (يُصفَّر قبل كل
+         فحص ⇒ كل نداء يمرّ). ويُصفَّر عند مغادرة الشوط/المباراة تحديداً لأن
+         ريماش يُصفّر roundNo إلى 1، فقيمة باقية (1) كانت تُسكت نافذة الشوط
+         التالي — وهو العرض الثاني للخلل نفسِه («0 مرّة»). */
+      if (this._overlayKind === 'roundEnd' && s.phase !== 'roundEnd') { this.hideOverlay(); this._overlayKind = null; this._roundEndShown = null; this._roundEndScheduled = false; }
+      if (this._overlayKind === 'matchEnd' && s.phase !== 'matchEnd') { this.hideOverlay(); this._overlayKind = null; this._roundEndShown = null; this._roundEndScheduled = false; }
       this._renderAll(false);
       if (this._paused) return;
 
@@ -529,8 +541,23 @@
       }
 
       if (s.phase === 'roundEnd') {
-        this._schedKey = null;
-        this.later(() => this.showRoundEnd(), 650);
+        /* [v2.95.2·إصلاح جذري] كان هذا الفرع وحده يجدول بلا حارس: يُصفّر
+           _schedKey ثم يعيد later() في **كل** tick، وtick يمرّ عند كل تغيّر حالة
+           ⇒ النافذة تُبنى بقدر التغيّرات (شوهدت 1·3·4·6·32 مرّة) ومع كل بناء
+           يُعاد تسليح مؤقّت التقدّم الاحتياطي 20ث فلا ينطلق ما دامت التغيّرات
+           واردة — والطرف الذي لا يوارد تغيّراً لا يبني النافذة أصلاً فيصمت عن
+           التصويت وتتعطّل الجولة (نقاط [0,0]).
+
+           حارس صريح (_roundEndScheduled) لا إعادة استعمال `_schedKey`: المفتاح
+           سلسلة مركّبة (phase|turn|roundNo|trick.length)، فإذا تطابقت مع قيمة
+           باقية من شوط سابق —|roundNo يعود إلى 1 عند الريماتش أو طول الحيلة
+           يطابق— لتخطّى الجدولة ولم تُبنَ النافذة أبداً (القياس: بعد أول
+           صيغة نجحت 5 من 6 جولات وبقي جناح واحد بلا بناء عند المضيف).
+           العلم الصريح صحيح بالبناء: جدولةٌ واحدة لكل دخولٍ إلى طور roundEnd. */
+        if (!this._roundEndScheduled) {
+          this._roundEndScheduled = true;
+          this.later(() => this.showRoundEnd(), 650);
+        }
         return;
       }
 
@@ -973,6 +1000,12 @@
     showRoundEnd: function () {
       const s = NS.state;
       if (!s || s.phase !== 'roundEnd' || !s.roundResult) return;
+      /* [v2.95.1] حارس عدم التكرار — خطّ دفاع ثانٍ تحت حارس الجدولة: أي نداء
+         لاحق لنفس الشوط يتجاهَل، فلا تُعاد كتابة النافذة ولا **يُعاد تسليح
+         مؤقّت التقدّم الاحتياطي 20ث** (إعادة التسليح هي ما كان يجمّد الجولة:
+         كل بناء جديد يدفع المؤقّت فحيثما واصلت التغيّرات لمطلقه أبداً). */
+      if (this._roundEndShown === s.roundNo) return;
+      this._roundEndShown = s.roundNo;
       const r = s.roundResult;
       /* [v2.72] جدول معمّم: عمود لكل فريق (فرقان = التخطيط السابق بعينه؛
          فردي = عمود لكل لاعب باسمه) */
@@ -1213,6 +1246,8 @@
       this.showScreen('game');
       this.hideOverlay();
       this._overlayKind = null;
+      this._roundEndShown = null;
+      this._roundEndScheduled = false;
 
       if (room.status === 'playing' && !NS.state) {
         if (this._isDriver) this._hostInitRoom(room);
@@ -1271,6 +1306,8 @@
       this._settled = false;
       this._schedKey = null;
       this._overlayKind = null;
+      this._roundEndShown = null;
+      this._roundEndScheduled = false;
       this.hideOverlay();
       this.showScreen('menu');
       this._applyModeUI();
@@ -1358,6 +1395,8 @@
       this._roundVotes = {};
       this._schedKey = null;
       this._overlayKind = null;
+      this._roundEndShown = null;
+      this._roundEndScheduled = false;
       this._handDeferRound = -1;
       this._lastActAt = Date.now();
       this.hideOverlay();
