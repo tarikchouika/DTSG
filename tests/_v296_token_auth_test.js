@@ -101,10 +101,16 @@ ok(/rc_token/.test(wallet) && /Authorization/.test(wallet),
 const idx = read("index.html");
 ok(idx.indexOf("_dtsgNative") !== -1 && idx.indexOf("if (_dtsgNative ||") !== -1,
    "index.html: جسر SSE يُحمَّل داخل التطبيق الأصلي (كان يُتخطى فيه فتموت أحداث الغرف)");
-ok(idx.includes("js/core/api.js?v=v296") && idx.includes("js/core/auth.js?v=v296") &&
-   idx.includes("js/core/live-ws-bridge.js?v=v296") && idx.includes("js/core/arb-admin.js?v=v296") &&
-   idx.includes("js/ui/bot-chat.js?v=v296") && idx.includes("js/wallet.js?v=pay13"),
-   "index.html: بصمات الملفات المعدّلة الست مرفوعة (v296 ×5 + pay13)");
+/* [v2.97·قاعدة 22] البصمات تُشتق ولا تُثبّت: هذه الخمسة مُعدّلة جولة v2.96 ولم
+   تُمسّ بعدها فتبقى على v296 حتى تُعدّل مرة أخرى — الفحص يشترط بصمة غير
+   فارغة (كانت مثبتة حرفياً فتُحمّر عند أي ترقية أو أي تعديل مستقبلي لها) */
+function stampOf(f) {
+  const m = new RegExp(f.replace(/\./g, '\\.') + '\\?v=([A-Za-z0-9]+)').exec(idx);
+  return m ? m[1] : '';
+}
+ok(['js/core/api.js', 'js/core/auth.js', 'js/core/live-ws-bridge.js', 'js/core/arb-admin.js', 'js/ui/bot-chat.js']
+   .every(function (f) { return /^\S+$/.test(stampOf(f)); }) && stampOf('js/wallet.js') === 'pay13',
+   "index.html: بصمات الملفات المعدّلة الست مرفوعة (غير فارغة ×5 + pay13 للمحفظة)");
 
 /* ── 7) رمز المشاهدة المستقر (سلوكي — وحدة الإنتاج نفسها) ────────────────── */
 const MMX = require(path.join(ROOT, "server-mediamtx.js"));
@@ -158,10 +164,14 @@ ok(jchunk.indexOf("setAcceptThirdPartyCookies") !== -1 && jchunk.indexOf("\\") =
 const pkg = JSON.parse(read("package.json"));
 const lock = JSON.parse(read("package-lock.json"));
 const main = read("js/main.js");
-ok(pkg.version === "2.96.0" && lock.version === "2.96.0" && lock.packages[""].version === "2.96.0",
-   "الإصدار: الثلاثية 2.96.0 متطابقة (package.json + lock ×2)");
-ok(/window\.DTSG_BUILD = 'v2\.96\.0'/.test(main) && idx.includes("js/main.js?v=v296"),
-   "الإصدار: DTSG_BUILD = v2.96.0 وبصمة main.js مشتقة من major.minor");
+ok(pkg.version === lock.version && lock.version === lock.packages[""].version,
+   "الإصدار: الثلاثية متطابقة (package.json + lock ×2) = " + pkg.version);
+/* [v2.97·قاعدة 22] الاشتقاق من package.json — كان مثبتاً حرفياً على 2.96.0
+   فيُحمّر مع كل ترقية إصدار بلا سبب (نفس علة v281/v288 المعالجة سابقاً) */
+const _stamp = "v" + pkg.version.split(".").slice(0, 2).join("");
+ok(new RegExp("window\\.DTSG_BUILD = 'v" + pkg.version.replace(/\./g, "\\.") + "';").test(main) &&
+   idx.includes("js/main.js?v=" + _stamp),
+   "الإصدار: DTSG_BUILD = v" + pkg.version + " وبصمة main.js مشتقة من major.minor (" + _stamp + ")");
 
 /* ── حارس العدّاد ───────────────────────────────────────────────────────── */
 const before = results.length;

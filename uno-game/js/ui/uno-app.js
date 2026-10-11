@@ -41,6 +41,10 @@
       this._syncMute();
       root.UNTranslateStatic(stage);
       this._applyModeUI();
+      /* [v2.97·ملاءمة اليد] إعادة اشتقاق سقف الخطوة عند تغيّر المقاس/الاتجاه —
+         الخطوة تُحسب من العرض الفعلي فتلزمها إعادة حساب عند دوران الشاشة */
+      this._fitHandBound = this._fitHandBound || (() => { try { this._fitHand(); } catch (e) {} });
+      root.addEventListener('resize', this._fitHandBound);
       if (typeof root.UN_resumeRoom === 'function') root.UN_resumeRoom();
     },
     detach: function () {
@@ -48,6 +52,7 @@
       this.exitRoom();
       this._attached = false;
       this.hideOverlay();
+      if (this._fitHandBound && root.removeEventListener) root.removeEventListener('resize', this._fitHandBound);
     },
 
     $: function (id) { return root.document.getElementById(id); },
@@ -107,6 +112,17 @@
       if (dp) this.on(dp, 'click', () => this._doDraw());
       const ub = this.$('unUnoBtn');
       if (ub) this.on(ub, 'click', () => this._doUno());
+      /* [v2.97·زر التخطي — بلاغ المالك 2026-10-12] تفويض دائم على حاوية شريط
+         الأفعال: كان الربط يجري قبل box.innerHTML فلا يجد الزر أصلاً (أو يربط
+         عنصراً قديماً على وشك الاستبدال) فيظهر الزر بلا مستمع نقر إطلاقاً.
+         الحاوية #unActions عنصر دائم من هيكل المسرح (لا يُستبدل innerHTML
+         لها الخارجي أبداً) فالتفويض يقطع صنف العطل كله: أي زر داخل الشريط
+         يعمل فور بناءه مهما كان ترتيب البناء/الإعادة. */
+      const ac = this.$('unActions');
+      if (ac) this.on(ac, 'click', (e) => {
+        const t = e.target && e.target.closest ? e.target.closest('#unPassBtn') : null;
+        if (t) { SFX.click(); this._doPass(); }
+      });
       /* اختيار لون (فقدان التركيز) */
       const ov = this.$('unOverlay');
       if (ov) this.on(ov, 'click', (e) => {
@@ -358,6 +374,8 @@
       handEl.innerHTML = h;
       const cards = handEl.querySelectorAll('.un-handcard');
       for (let i = 0; i < cards.length; i++) this.on(cards[i], 'click', (e) => this._onHandCard(e.currentTarget.getAttribute('data-card')));
+      /* [v2.97·ملاءمة اليد] اشتقاق سقف الخطوة لهذا العدد من الأوراق والعرض الحالي */
+      this._fitHand();
       if (hp) {
         hp.style.display = '';
         const nm = this.$('unName0'); if (nm) nm.textContent = this._seatName(my).substring(0, 2).toUpperCase();
@@ -371,6 +389,29 @@
       }
     },
 
+    /* ═══════════ [v2.97·ملاءمة اليد — بلاغ المالك 2026-10-12] ═══════════
+       الخطوة الثابتة للمروحة (34/30/26px) كانت تجعل سلسلة الأوراق تفيض عن عرض
+       المسرح عند كثرة الأوراق (عقوبات +2/+4) فتُقص أوراق طرفي السلسلة وتختفي
+       (المسرح overflow:hidden) — بورتريه ولاندسكيب معاً.
+       العلاج: سقف ملاءمة يُشتق من العرض الفعلي ويضبط كـ--un-fan-fit على
+       حاوية اليد فتلزمه كل الأوراق (min() في uno.css مع الخطوة الأساسية):
+       خطوة العرض = (العرض - هامش - عرض الورقة) / (العدد - 1) بأرضية 5px
+       تُبقي شريحة من كل ورقة مرئية قابلة للنقر حتى في الأعداد القصوى.
+       مع سقف هبوط القوس 30px وسقف الميلان ‎±22deg في uno.css تبقى أوراق
+       الأطراف داخل حدود الشاشة عمودياً كذلك. */
+    _fitHand: function () {
+      const handEl = this.$('unHand');
+      if (!handEl) return;
+      const cards = handEl.querySelectorAll('.un-handcard');
+      if (cards.length < 2) { handEl.style.removeProperty('--un-fan-fit'); return; }
+      const wrapW = handEl.clientWidth || 0;
+      if (wrapW <= 0) { handEl.style.removeProperty('--un-fan-fit'); return; }
+      const cw = cards[0].offsetWidth || 56;
+      const avail = wrapW - 16;               /* هامش أمان 8px لكل جهة */
+      const fit = (avail - cw) / (cards.length - 1);
+      handEl.style.setProperty('--un-fan-fit', Math.max(5, fit) + 'px');
+    },
+
     /* ═══════════ شريط الأفعال (تخطي/ملاحظة) ═══════════ */
     _renderActions: function () {
       const box = this.$('unActions');
@@ -381,16 +422,16 @@
         const my = this._mySeat(s);
         if (this._isHumanSeat(s, s.turn) && s.turn === my) {
           if (s.drawn != null) {
+            /* [v2.97] بلا ربط هنا: النقر يُلتقط بتفويض دائم من _bindGame
+               على الحاوية (#unActions) — الربط المباشر قبل innerHTML كان معطلاً */
             h += '<p class="un-actions-title un-hint"><b>' + T('un.drawnPlayable') + '</b></p><div class="un-actions-row">' +
               '<button type="button" class="un-abtn un-abtn-gold" id="unPassBtn">' + T('un.pass') + '</button></div>';
-            const pb = this.$('unPassBtn');
-            if (pb) this.on(pb, 'click', () => this._doPass());
           }
         }
       }
-      if (!h) box.classList.remove('show');
-      else box.classList.add('show');
       box.innerHTML = h || '';
+      if (h) box.classList.add('show');
+      else box.classList.remove('show');
     },
 
     /* ═══════════ حركات اللاعب ═══════════ */
@@ -434,6 +475,9 @@
       const s = NS.st;
       if (!s || s.drawn == null) return;
       const my = this._mySeat(s);
+      /* [v2.97] تحصين النقر المفوَّض: لا تخطي إلا لصاحب الدور في مرحلة اللعب
+         (يقطع أي نقر متأخر على زر ظاهر من حالة سابقة) */
+      if (s.phase !== 'play' || s.turn !== my || !this._isHumanSeat(s, my)) return;
       this._netEmit('pass', { seat: my });
       NS.pass(my);
     },

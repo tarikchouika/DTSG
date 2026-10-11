@@ -1544,6 +1544,12 @@ class RoundManager {
     this.highestOpeningScore = 0;
     this.highestOpeningPlayer = null;
     this.jokerDouble = false; // تضاعف جزاء الشوط عند إنهاء بجوكر حر معزول
+    /* [v2.97·الإنهاء الحر] مصدر سحبة الدور الحالي: 'deck' (ورق التوزيع) ·
+       'discard' (المرموق) · 'latour' (لا تور) · 'fojok' (الفوجوك — من ورق التوزيع)
+       · null (لم يسحب بعد). الشوط المضاعف يشترط سحبة الدور الحاسم من ورق
+       التوزيع حصراً (بلاغ المالك 2026-10-12: سحب المرموق ثم الإنهاء بجوكر
+       كان يُحتسب مضاعفاً خطأً). يُضبط عند كل دالة سحب ويُصفَّر في nextPlayer. */
+    this.turnDrawSource = null;
     /* [V29] دورة الموزع الأولى: لا يفتتح ولا يسحب المرموق قبل السحب من ورق التوزيع */
     this.dealerFirstCycle = false;
   }
@@ -1608,6 +1614,7 @@ class RoundManager {
     this.isFirstTourCycle = true;
     this.turnPhase = 'WAITING_DRAW';
     this.jokerDouble = false;
+    this.turnDrawSource = null;
     this.highestOpeningScore = 0;
     this.highestOpeningPlayer = null;
     this.turnSecondsRemaining = this.rules.turnSeconds;
@@ -1750,6 +1757,8 @@ class RoundManager {
     this.currentPlayerIndex = this.firstActiveFrom(this.currentPlayerIndex + 1);
     this.turnPhase = 'WAITING_DRAW';
     this.turnSecondsRemaining = this.rules.turnSeconds;
+    /* [v2.97·الإنهاء الحر] سحبة الدور تخص دورها فقط — تُصفَّر بانتقال الدور */
+    this.turnDrawSource = null;
     /* [v2.78·إلزام الجوكر] الإلزام مقيد بنفس الدور — بداية دور اللاعب القادم
        تسقط أي وسم متقادم عنه (شفاء ذاتي لمسارات آلية أو عملاء أقدم) */
     const _incoming = this.getCurrentPlayer();
@@ -1984,6 +1993,8 @@ class RamiGame {
     player.hand.push(card);
     if (player.displayCards) player.displayCards.push(card);
     this.roundManager.turnPhase = 'WAITING_DISCARD';
+    /* [v2.97·الإنهاء الحر] السحبة من ورق التوزيع (المجرف) = سحبة حرة */
+    this.roundManager.turnDrawSource = 'deck';
     /* [V29] الموزع سحب من ورق التوزيع → انتهت دورة الموزع الأولى (يستطيع الافتتاح الآن) */
     if (player.id === this.roundManager.dealerIndex) this.roundManager.dealerFirstCycle = false;
     return { success: true, card: card };
@@ -2031,6 +2042,8 @@ class RamiGame {
     /* وسم مصدر الورقة: ورقة المرموق/لا تور ليست «حرة» (لا تُفعّل تضاعف الجوكر) */
     card.fromDiscard = true;
     card.fromLaTour = !!isLaTour;
+    /* [v2.97·الإنهاء الحر] سحبة المرموق/لا تور ليست حرة — لا تضاعف جوكر بعدها */
+    this.roundManager.turnDrawSource = isLaTour ? 'latour' : 'discard';
     if (isLaTour) {
       this.roundManager.laTourCard = null; // حرمان باقي اللاعبين بعد سحبها
       player.tookLaTour = true;
@@ -2084,6 +2097,9 @@ class RamiGame {
        وتصبح ورقة مرموق عادية في الكومة */
     player.drawnFojokCard = fojok;
     this.roundManager.turnPhase = 'WAITING_DISCARD';
+    /* [v2.97·الإنهاء الحر] الفوجوك مقلوبة من ورق التوزيع = سحبة حرة
+       (نص القواعد: «الورقة المسحوبة حرة (من ورق التوزيع)») */
+    this.roundManager.turnDrawSource = 'fojok';
     return { success: true, card: fojok, isFojok: true };
   }
 
@@ -2701,12 +2717,22 @@ class RamiGame {
   /* إنهاء الشوط بجوكر حر معزول كالورقة الـ15 (مسحوب من ورق التوزيع، لا من المرموق/لا تور)
      ⇒ تضاعف نقاط الأوراق المتبقية/اليد الكاملة على الخاسرين، دون مضاعفة جزاء الخطأ.
      [2026-09-12] «الجوكر» هنا = الجوكر المطبوع (طالاج) أو البرية المعكوسة (سامبل) —
-     المستخدم نصّ على العمل في الوضعين */
+     المستخدم نصّ على العمل في الوضعين.
+     [v2.97·الإنهاء الحر — بلاغ المالك 2026-10-12] التضاعف يشترط أن يكون الإنهاء
+     نفسه حراً: سحبة الدور الحاسم من ورق التوزيع حصراً (المجرف أو الفوجوك المقلوبة
+     منه). سحب المرموق/لا تور ثم الإنهاء بجوكر (ولو كان الجوكر قديماً حراً في اليد)
+     لا يُفعّل التضاعف — فحص الورقة المعزولة وحده لم يكن ليكشف ذلك لأن وسمها
+     صادق بينما سحبة الدور هي التي تحدد حرية الإنهاء. */
   _setJokerDoubleIfFree(isolatedCard) {
     if (!isolatedCard) return;
     const isJokerish = isolatedCard.isJoker ||
       (this.rules && typeof this.rules.isWildCard === 'function' && this.rules.isWildCard(isolatedCard));
-    if (isJokerish && !isolatedCard.fromDiscard && !isolatedCard.fromLaTour) {
+    /* [v2.97] حرية الإنهاء = مصدر سحبة الدور الحالي من ورق التوزيع:
+       'deck' (المجرف) أو 'fojok' (الفوجوك — نص القواعد: حرة من ورق التوزيع).
+       'discard'/'latour'/null (لم يسحب) ⇒ إنهاء غير حر. */
+    const src = this.roundManager.turnDrawSource;
+    const freeEnding = (src === 'deck' || src === 'fojok');
+    if (isJokerish && freeEnding && !isolatedCard.fromDiscard && !isolatedCard.fromLaTour) {
       this.roundManager.jokerDouble = true;
     }
   }
@@ -5584,6 +5610,7 @@ function ramiSerializeGame(game) {
         highestOpeningScore: rm.highestOpeningScore || 0,
         highestOpeningPlayer: rm.highestOpeningPlayer || null,
         jokerDouble: !!rm.jokerDouble,
+        turnDrawSource: (rm.turnDrawSource === 'deck' || rm.turnDrawSource === 'discard' || rm.turnDrawSource === 'latour' || rm.turnDrawSource === 'fojok') ? rm.turnDrawSource : null,
         dealerFirstCycle: !!rm.dealerFirstCycle,
         turnCount: rm.turnCount || 0,
         isFirstTourCycle: (rm.isFirstTourCycle !== undefined) ? !!rm.isFirstTourCycle : true,
@@ -5661,6 +5688,7 @@ function ramiDeserializeGame() {
     rm.highestOpeningScore = d.rm.highestOpeningScore || 0;
     rm.highestOpeningPlayer = d.rm.highestOpeningPlayer || null;
     rm.jokerDouble = !!d.rm.jokerDouble;
+    rm.turnDrawSource = (d.rm.turnDrawSource === 'deck' || d.rm.turnDrawSource === 'discard' || d.rm.turnDrawSource === 'latour' || d.rm.turnDrawSource === 'fojok') ? d.rm.turnDrawSource : null;
     rm.dealerFirstCycle = !!d.rm.dealerFirstCycle;
     rm.turnCount = (d.rm.turnCount !== undefined) ? d.rm.turnCount : 0;
     rm.isFirstTourCycle = (d.rm.isFirstTourCycle !== undefined) ? !!d.rm.isFirstTourCycle : (rm.turnCount < game.players.length);
