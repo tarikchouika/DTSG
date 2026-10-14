@@ -14,9 +14,12 @@
       للقانون (يجب تجاوز أعلى افتتاح سابق، التساوي مرفوض)».
       الجذر: validateOpening كانت تحسب الجوكر 0 في المجموع الإجمالي
       (totalScore) الذي يُسجَّل في highestOpeningScore ويُقارن به — فيُسجَّل
-      «أعلى افتتاح» أدنى مما يعده صاحبه بعينه فيفتتح الآلي تحته. والعلاج:
-      الجوكر/البرية تُحسب بقيمتها الوجهية (10) في المجموع الإجمالي للمقارنة
-      — بينما تبقى العتبة (freeScore) بلا جوكر كما تقضي القاعدة.
+      «أعلى افتتاح» أدنى مما يعده صاحبه بعينه فيفتتح الآلي تحته.
+      العلاج الأول (v2.98): قيمة وجهية 10 — ثم نقّحه المالك (بلاغ
+      2026-10-15 الثاني): الجوكر يُحسب بنقاط الورقة التي يعوّضها في
+      مجموعته المعنية (متتالية: الرقم الناقص في فجوته / متماثلة: رتبة
+      المجموعة نفسها) — لا 10 دائماً — بينما تبقى العتبة (freeScore)
+      بلا جوكر كما تقضي القاعدة (حرس v2.99 يغطي التفصيل).
    ③ أونو بورتريه: «إسم اللعبة (عبارة أونو) محشورة فوق أيقونة اللاعب الجالس
       في الأعلى — يجب إزاحتها 35 بكسل لأسفل».
       العلاج: قاعدة بورتريه فقط على رأس القائمة (عبارة اسم اللعبة الوحيدة
@@ -54,12 +57,14 @@ console.log('── 2) رامي: عقد تقييم الجوكر في مجموع 
 {
   const src = read('js/games/rami.js');
   ok(src.indexOf('[v2.98·خلل الافتتاح 83 بعد 84]') !== -1, 'كتلة [v2.98·خلل الافتتاح 83 بعد 84] موجودة في validateOpening');
-  ok(src.indexOf('if (hasWild) extraScore += (card.baseValue != null ? card.baseValue : 10);') !== -1, 'الجوكر يُحسب بقيمته الوجهية في المجموع الإجمالي');
+  ok(src.indexOf('[v2.99·بلاغ المالك 2026-10-15] التصحيح الثاني') !== -1, 'كتلة [v2.99·بلاغ المالك] التصحيح الثاني موجودة');
+  ok(src.indexOf('if (hasWild) extraScore += this.wildCardValueInMeld(card, meld);') !== -1, 'الجوكر يُحسب بنقاط الورقة المعوَّضة (wildCardValueInMeld) في المجموع الإجمالي');
   ok(src.indexOf('if (this.isWildCard(card)) continue;') === -1, 'الإسقاط القديم (الجوكر 0) زال');
+  ok(src.indexOf('if (hasWild) extraScore += (card.baseValue != null ? card.baseValue : 10);') === -1, 'القيمة الوجهية الثابتة (10) المنقّحة بتوجيه المالك زالت');
   const rules = read('js/rules/game-rules.js');
-  ok(rules.indexOf('والجوكر يُحسب 10 نقاط في المجموع الإجمالي للمقارنة') !== -1, 'نص القواعد (ع): تقييم الجوكر موثّق');
-  ok(rules.indexOf('a Joker counts 10 points in that overall opening total') !== -1, 'نص القواعد (en): تقييم الجوكر موثّق');
-  ok(rules.indexOf('un joker compte 10 points dans ce total') !== -1, 'نص القواعد (fr): تقييم الجوكر موثّق');
+  ok(rules.indexOf('والجوكر يُحسب بنقاط الورقة التي يعوّضها في مجموعته') !== -1, 'نص القواعد (ع): تقييم الجوكر المعوَّض موثّق');
+  ok(rules.indexOf('a Joker counts the points of the card it substitutes in its own meld') !== -1, 'نص القواعد (en): تقييم الجوكر المعوَّض موثّق');
+  ok(rules.indexOf("compte les points de la carte qu") !== -1, 'نص القواعد (fr): تقييم الجوكر المعوَّض موثّق');
 }
 
 console.log('── 3) أونو: عقد إزاحة العبارة 35px بورتريه (المصدر) ──');
@@ -135,7 +140,7 @@ console.log('── 4) المحرك: بلاغ المالك بالضبط — 84 �
   ok(g.getLegalMoves(bot.id).every(m => m.type !== 'open'), 'getLegalMoves لا تعرض افتتاحاً بـ83');
 }
 
-console.log('── 5) المحرك: جوكر الافتتاح يُحسب 10 — التسجيل بمجموع الإدراك ──');
+console.log('── 5) المحرك: جوكر الافتتاح بنقاط الورقة المعوَّضة — التسجيل بمجموع الإدراك ──');
 {
   const g = new RamiGame('simple', 2, 1, 42, 90);
   g.startMatch(2, 1);
@@ -157,18 +162,18 @@ console.log('── 5) المحرك: جوكر الافتتاح يُحسب 10 —
   rm.turnPhase = 'WAITING_DISCARD';
   rm.dealerFirstCycle = false;
   const rOpen = g.executeMove({ type: 'open', playerId: human.id, cardIds: hSeq.concat(hSet1, hJok).map(c => c.id) });
-  ok(rOpen.success === true && rm.highestOpeningScore === 85, 'افتتاح بجوكر: سُجّل 85 (الجوكر 10) — فعلي: ' + rm.highestOpeningScore);
+  ok(rOpen.success === true && rm.highestOpeningScore === 84, 'افتتاح بجوكر (8-🃏(9)-10): سُجّل 84 (الجوكر معوَّض 9 لا 10) — فعلي: ' + rm.highestOpeningScore);
   const chk = g.rules.validateOpening(
     [new RamiMeld(MELD_TYPE.SEQUENCE, hSeq.slice()),
      new RamiMeld(MELD_TYPE.SET, hSet1.slice()),
      new RamiMeld(MELD_TYPE.SEQUENCE, hJok.slice())], null, rm.jokerIndicator, 0, false);
-  ok(chk.valid === true && chk.freeScore === 57 && chk.score === 85, 'العتبة الحرة لا تتأثر بالجوكر: freeScore=57 والمجموع الإجمالي=85 — فعلي: ' + JSON.stringify({ freeScore: chk.freeScore, score: chk.score }));
+  ok(chk.valid === true && chk.freeScore === 57 && chk.score === 84, 'العتبة الحرة لا تتأثر بالجوكر: freeScore=57 والمجموع الإجمالي=84 (الجوكر 9) — فعلي: ' + JSON.stringify({ freeScore: chk.freeScore, score: chk.score }));
   rm.currentPlayerIndex = g.players.indexOf(bot);
   rm.turnPhase = 'WAITING_DISCARD';
   const plan = RamiExpertAI.expertOpening(g, bot);
   ok(plan === null, 'الآلي 84 (كان يُقبل تحت التسجيل القديم 75) يُرفض الآن');
   const rBot = g.executeMove({ type: 'open', playerId: bot.id, cardIds: bSeq.concat(bSet1, bSet2).map(c => c.id) });
-  ok(rBot.success !== true && bot.hasOpened === false, 'executeMove يرفض افتتاح الآلي 84 بعد 85');
+  ok(rBot.success !== true && bot.hasOpened === false, 'executeMove يرفض افتتاح الآلي 84 بعد 84 (تساوٍ مرفوض)');
 }
 
 console.log('── 6) المحرك: التساوي المرفوض 84=84 ──');

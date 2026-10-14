@@ -1418,6 +1418,77 @@ class RamiRules {
     return s;
   }
 
+  /* [v2.99·بلاغ المالك 2026-10-15] نقاط الورقة البرية داخل مجموعتها المعينة =
+     نقاط الورقة التي يعوّضها فيها بعينها — لا قيمة وجهية ثابتة (10):
+     - متماثلة: الجوكر يعوّض ورقة برتبة المجموعة نفسها → نقاط رتبتها (الآس 10).
+     - متتالية: جوكرات المجموعة يسدّون فجوات الرتب الناقصة أولاً (تصاعداً)
+       ثم يمتد الفائض عند الطرفين حسب موضعه (ذيل: بعد الأخيرة صعوداً /
+       رأس: قبل الأولى هبوطاً — الأقرب للطبيعية أولاً)، وبالآس سياقه:
+       المعوَّض في Q-K-A = 10، والمعوَّض في A-2-3 = 1 — **مستقلاً عن ترتيب
+       المصفوفة** الذي يختلف بين مسارات البناء (تحديد اللاعب يضع الجوكر في
+       فجوته، وتقسيم المحرك يلحق البريات بالطرف) فكلاهما يسدّ الفجوة نفسها.
+     - الذي لا يعوّض ورقة قائمة (خارج 1..14 أو فائض بلا طرف) يبقى على
+       قيمته الوجهية (10 للمطبوع، وقيمته المطبوعة للطبيعية). */
+  wildCardValueInMeld(card, meld) {
+    const face = (card && card.baseValue != null) ? card.baseValue : 10;
+    if (!meld || !meld.cards || !meld.cards.length) return face;
+    const isWild = c => this.isWildCard(c);
+    if (!isWild(card)) return face;
+    const wildList = meld.cards.filter(c => isWild(c));
+    const nats = meld.cards.filter(c => !isWild(c));
+    if (!nats.length) return face; /* جوكرات خالصة: لا ورقة قائمة يعوّضها */
+    if (meld.type === MELD_TYPE.SET) {
+      /* المتماثلة: يعوّض ورقة برتبة المجموعة نفسها — الآس 10 كما في cardPointsInMeld */
+      const r = nats[0].rank;
+      return r === 1 ? 10 : (r >= 10 ? 10 : r);
+    }
+    if (meld.type !== MELD_TYPE.SEQUENCE) return face;
+    /* المتتالية: فجوات الرتب الناقصة بين الطبيعيات (تصاعداً) */
+    const aceHigh = nats.some(c => c.rank >= 12);
+    const rankOf = c => (c.rank === 1 ? (aceHigh ? 14 : 1) : c.rank);
+    const sortedNats = nats.slice().sort((a, b) => rankOf(a) - rankOf(b));
+    const gapRanks = [];
+    for (let i = 1; i < sortedNats.length; i++) {
+      for (let r = rankOf(sortedNats[i - 1]) + 1; r < rankOf(sortedNats[i]); r++) gapRanks.push(r);
+    }
+    /* تصنيف جوكرات المصفوفة إلى قطع حسب موقعها من الطبيعيات */
+    const firstNatIdx = meld.cards.indexOf(nats.reduce((lo, c) => meld.cards.indexOf(c) < meld.cards.indexOf(lo) ? c : lo, nats[0]));
+    const lastNatIdx = meld.cards.indexOf(nats.reduce((hi, c) => meld.cards.indexOf(c) > meld.cards.indexOf(hi) ? c : hi, nats[0]));
+    const headW = [], interW = [], tailW = [];
+    for (const w of wildList) {
+      const i = meld.cards.indexOf(w);
+      if (i < firstNatIdx) headW.push(w);
+      else if (i > lastNatIdx) tailW.push(w);
+      else interW.push(w);
+    }
+    /* الرأس: الأقرب للطبيعية أولاً (آخر المصفوفة) */
+    headW.reverse();
+    /* ملء الفجوات: الداخلية أولاً ثم الرأس ثم الذيل (كلٌّ بترتيبه) */
+    const assign = new Map(); /* id الجوكر → الرتبة المعوَّضة */
+    const fillQueue = interW.concat(headW, tailW);
+    let gi = 0;
+    for (const w of fillQueue) {
+      if (gi >= gapRanks.length) break;
+      assign.set(w.id, gapRanks[gi++]);
+    }
+    /* الفائض بعد الفجوات يمتد عند الطرفين: الذيل صعوداً ثم الرأس هبوطاً */
+    const top = rankOf(sortedNats[sortedNats.length - 1]);
+    const bottom = rankOf(sortedNats[0]);
+    let up = top + 1, down = bottom - 1;
+    for (const w of tailW) {
+      if (assign.has(w.id)) continue;
+      if (up <= 14) { assign.set(w.id, up); up++; }
+    }
+    for (const w of headW) {
+      if (assign.has(w.id)) continue;
+      if (down >= 1) { assign.set(w.id, down); down--; }
+    }
+    const val = assign.get(card.id);
+    if (val == null) return face;    /* لا ورقة قائمة يعوّضها (فائض داخلي بلا طرف) */
+    if (val === 1) return 1;        /* آس منخفض معوَّض في بداية المتتالية (A-2-3) */
+    return val >= 10 ? 10 : val;    /* 10/J/Q/K والآس العالي (14) = 10 */
+  }
+
   /* التحقق من الافتتاح: SET + Sequence، المجموع > threshold، لا Joker */
     /* التحقق الصارم من شروط الافتتاح: متتالية نقية + متماثلة نقية + مجموع ≥ 71 بدون جوكر + تجاوز أعلى افتتاح سابق */
   validateOpening(melds, drawnDiscardCard, jokerIndicator, highestPrevScore, isLaTour) {
@@ -1471,16 +1542,18 @@ class RamiRules {
       const hasDrawn = drawnDiscardCard && meld.cards.some(c => c.id === drawnDiscardCard.id);
       const hasWild = hasJoker || (hasDrawn && !drawnOk);
       for (const card of meld.cards) {
-        /* [v2.98·خلل الافتتاح 83 بعد 84] الجوكر/الورقة البرية تُحسب بقيمتها
-           الوجهية (10 للمطبوع، وقيمتها المطبوعة لجوكر السامبل الطبيعي) في المجموع
-           الإجمالي الذي يُقارن به أعلى افتتاح سابق ويُسجَّل به — كما يعده اللاعب
-           بعينه (قيم الافتتاح: J/Q/K/A = 10، وقانون النهاية: ورقة الجوكر = 10).
-           كانت تُحسب 0 فيُسجَّل «أعلى افتتاح» أدنى مما يعده صاحبه بعينه، فيفتتح
-           الخصم الآلي تحته بمجموع أقل (بلاغ المالك: 84 بشرية ثم 83 آلية).
-           العتبة (freeScore) تبقى بلا جوكر إطلاقاً كما تقضي القاعدة
-           «دون جوكر في الحساب». */
+        /* [v2.98·خلل الافتتاح 83 بعد 84] تاريخ الجذر: كانت تحسب الجوكر 0 في
+         المجموع الإجمالي (totalScore) الذي يُسجَّل في highestOpeningScore
+         ويُقارن به، فيفتتح الآلي تحته بمجموع أقل.
+         [v2.99·بلاغ المالك 2026-10-15] التصحيح الثاني: الجوكر لا يُحسب قيمة
+         وجهية ثابتة (10) بل **بنقاط الورقة التي يعوّضها في مجموعته المعنية**
+         (متتالية: الرقم الناقص في فجوته / متماثلة: رتبة المجموعة نفسها)
+         — فجوكر فجوة 9-في-المتتالية (8-🃏-10) يُعَدّ 9 لا 10، وجوكر متماثلة
+         الخمسات يُعَدّ 5 — كما يعده صاحبه بعينه حين يقرأ مجموعته.
+         العتبة (freeScore) تبقى بلا جوكر إطلاقاً كما تقضي «دون جوكر في
+         الحساب». */
         if (this.isWildCard(card)) {
-          if (hasWild) extraScore += (card.baseValue != null ? card.baseValue : 10);
+          if (hasWild) extraScore += this.wildCardValueInMeld(card, meld);
           continue;
         }
         const pts = this.cardPointsInMeld(card, meld);
