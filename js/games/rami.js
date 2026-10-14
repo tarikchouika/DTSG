@@ -1471,7 +1471,18 @@ class RamiRules {
       const hasDrawn = drawnDiscardCard && meld.cards.some(c => c.id === drawnDiscardCard.id);
       const hasWild = hasJoker || (hasDrawn && !drawnOk);
       for (const card of meld.cards) {
-        if (this.isWildCard(card)) continue;
+        /* [v2.98·خلل الافتتاح 83 بعد 84] الجوكر/الورقة البرية تُحسب بقيمتها
+           الوجهية (10 للمطبوع، وقيمتها المطبوعة لجوكر السامبل الطبيعي) في المجموع
+           الإجمالي الذي يُقارن به أعلى افتتاح سابق ويُسجَّل به — كما يعده اللاعب
+           بعينه (قيم الافتتاح: J/Q/K/A = 10، وقانون النهاية: ورقة الجوكر = 10).
+           كانت تُحسب 0 فيُسجَّل «أعلى افتتاح» أدنى مما يعده صاحبه بعينه، فيفتتح
+           الخصم الآلي تحته بمجموع أقل (بلاغ المالك: 84 بشرية ثم 83 آلية).
+           العتبة (freeScore) تبقى بلا جوكر إطلاقاً كما تقضي القاعدة
+           «دون جوكر في الحساب». */
+        if (this.isWildCard(card)) {
+          if (hasWild) extraScore += (card.baseValue != null ? card.baseValue : 10);
+          continue;
+        }
         const pts = this.cardPointsInMeld(card, meld);
         if (hasWild) extraScore += pts;
         else freeScore += pts;
@@ -4834,24 +4845,47 @@ class RamiUIAdapter {
         this.handSlots[s] = this.handSlots[s].filter(c => keepIds.has(c.id));
         this.handSlots[s].forEach(c => placedIds.add(c.id));
       }
-      /* ضمان وجود كل أوراق المجموعات المنزلة في الخانات */
+      /* [v2.98·خلل الخصوم] ضمان عرض كل مجموعة منزلة كاملةً مرتّبةً في خانتها:
+         الورقة المضافة لمجموعة ظاهرة (من خصم أو من اللاعب نفسه) كانت تُرمى في
+         «أول خانة فارغة / الأقل ازدحاماً» بشكل عشوائي — والصحيح أنها توضع في
+         موضعها داخل مجموعتها المعنية: المتتالية تصاعدياً (الجوكر في فجوته)
+         والمتماثلة كما هي — الخانة = التي تعرض أكثر أوراق المجموعة فعلاً */
       if (player.melds && player.melds.length > 0) {
         for (const m of player.melds) {
-          const unplaced = m.cards.filter(c => !placedIds.has(c.id));
-          if (unplaced.length > 0) {
-            let emptySlot = this.handSlots.findIndex(s => s.length === 0);
-            if (emptySlot === -1) {
-              emptySlot = 0;
+          if (!m.cards || !m.cards.length) continue;
+          const meldIdSet = new Set(m.cards.map(c => c.id));
+          let homeSlot = -1, bestCnt = 0;
+          for (let s = 0; s < 5; s++) {
+            const cnt = this.handSlots[s].reduce((n, c) => n + (meldIdSet.has(c.id) ? 1 : 0), 0);
+            if (cnt > bestCnt) { bestCnt = cnt; homeSlot = s; }
+          }
+          if (homeSlot === -1) {
+            /* المجموعة غير معروضة بعد: خانة فارغة أولاً وإلا الأقل ازدحاماً */
+            homeSlot = this.handSlots.findIndex(s => s.length === 0);
+            if (homeSlot === -1) {
+              homeSlot = 0;
               for (let s = 1; s < 5; s++) {
-                if (this.handSlots[s].length < this.handSlots[emptySlot].length) emptySlot = s;
+                if (this.handSlots[s].length < this.handSlots[homeSlot].length) homeSlot = s;
               }
             }
-            const ord = (m.type === MELD_TYPE.SEQUENCE)
-              ? ramiOrderSequenceCards(unplaced, c => this.game.rules.isWildCard(c))
-              : unplaced;
-            this.handSlots[emptySlot].push(...ord);
-            unplaced.forEach(c => placedIds.add(c.id));
           }
+          const orderedFull = (m.type === MELD_TYPE.SEQUENCE)
+            ? ramiOrderSequenceCards(m.cards.slice(), c => this.game.rules.isWildCard(c))
+            : m.cards.slice();
+          /* إعادة بناء خانة المجموعة: ما قبلها محفوظ + المجموعة كاملة مرتبة
+             في موضعها + ما بعدها محفوظ — فتظهر الورقة الجديدة وسط مجموعتها */
+          const slotArr = this.handSlots[homeSlot];
+          const firstIdx = slotArr.findIndex(c => meldIdSet.has(c.id));
+          let before, after;
+          if (firstIdx === -1) { before = slotArr; after = []; }
+          else { before = slotArr.slice(0, firstIdx); after = slotArr.slice(firstIdx).filter(c => !meldIdSet.has(c.id)); }
+          this.handSlots[homeSlot] = before.concat(orderedFull, after);
+          /* إزالة أي أوراق مشتّتة لنفس المجموعة من الخانات الأخرى (لا تكرار) */
+          for (let s = 0; s < 5; s++) {
+            if (s === homeSlot) continue;
+            this.handSlots[s] = this.handSlots[s].filter(c => !meldIdSet.has(c.id));
+          }
+          m.cards.forEach(c => placedIds.add(c.id));
         }
       }
       for (const card of (player.hand || [])) {

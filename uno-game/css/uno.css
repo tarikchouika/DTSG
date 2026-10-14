@@ -39,6 +39,12 @@
 .un-menuwrap {
   position: absolute; inset: 0;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
+  /* [v2.98·بلاغ المالك] قياس حي كشف أن قوس القائمة في اللاندسكيب/الشاشات
+     القصيرة يفيض فالمحاذاة المركزية تقصّ رأس القائمة (عبارة أونو) فوق
+     حافة الشاشة بلا وصول (top سالب) — safe center تُبقيه داخل الشاشة
+     عند الفيضان وتسلك سلوك center تماماً حين يتّسع (بلا أي تغيير بصري).
+     المتصفحات القديمة (<115) تُسقط السطر الثاني وتُبقي center كما كان. */
+  justify-content: safe center;
   gap: 14px; padding: 18px; overflow-y: auto;
 }
 .un-menuhead { text-align: center; }
@@ -122,6 +128,13 @@
   opacity: 0.16; pointer-events: none; z-index: 5;
 }
 .un-tablelogo img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ── [v2.98·بلاغ المالك] بورتريه: عبارة اسم اللعبة (أونو) كانت محشورة قرب
+     قمة الشاشة فوق منطقة اللاعب الجالس في الأعلى — تُزاح 35px لأسفل في
+     البورتريه حصراً (اللاندسكيب ومركز القائمة والتنسيق العام كما هي بتمامها) ── */
+@media (orientation: portrait) {
+  .un-stage .un-menuhead { padding-top: 35px; }
+}
 
 /* ── HUD ── */
 .un-hud {
