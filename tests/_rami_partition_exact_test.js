@@ -22,20 +22,27 @@ const ctx = {
 };
 ctx.window.document = fakeDoc;
 vm.createContext(ctx);
-vm.runInContext(code + '\n;globalThis.__X = { partitionSelectedCards, RamiRules, RamiCard, RamiGame, RamiMeld, MELD_TYPE, clearRamiPartitionCache, RamiExpertAI };', ctx);
-const { partitionSelectedCards, RamiRules, RamiCard, RamiGame, RamiMeld, MELD_TYPE, clearRamiPartitionCache, RamiExpertAI } = ctx.__X;
+vm.runInContext(code + '\n;globalThis.__X = { partitionSelectedCards, RamiRules, RamiCard, RamiGame, RamiMeld, MELD_TYPE, clearRamiPartitionCache, RamiExpertAI, ramiOrderSequenceCards };', ctx);
+const { partitionSelectedCards, RamiRules, RamiCard, RamiGame, RamiMeld, MELD_TYPE, clearRamiPartitionCache, RamiExpertAI, ramiOrderSequenceCards } = ctx.__X;
 
 let pass = 0, fail = 0;
 const ok = (m) => { pass++; console.log('  ✅ ' + m); };
 const bad = (m) => { fail++; console.log('  ❌ ' + m); };
 
-/* ═══ المرجع: نسخة DFS القديمة حرفياً (السلوك المجمّد قبل FREEZE-CORE) ═══ */
+/* ═══ المرجع: نسخة DFS القديمة حرفياً (السلوك المجمّد قبل FREEZE-CORE)
+   [v2.101] + التطبيع الكانوني نفسه المطبَّق في الإنتاج (partitionSelectedCards):
+   المقارنة الحرفية تبقى قائمة على اختيار المجموعات وكسر التعادل، والترتيب
+   الكانوني (الفجوة أولاً ثم الطرفان — بلاغ المالك الرابع) موحَّد على الجانبين */
 function partitionReference(cards, rules, mode) {
   if (!cards || cards.length < 3) return [];
   const validator = rules.validator;
   const openingMode = (mode === 'opening');
   if (validator.isValidSet(cards, true)) return [new RamiMeld(MELD_TYPE.SET, cards.slice())];
-  if (validator.isValidSequence(cards, true)) return [new RamiMeld(MELD_TYPE.SEQUENCE, cards.slice())];
+  if (validator.isValidSequence(cards, true)) {
+    const fm = new RamiMeld(MELD_TYPE.SEQUENCE, cards.slice());
+    fm.cards = ramiOrderSequenceCards(fm.cards, c => rules.isWildCard(c));
+    return [fm];
+  }
   const validSubsets = [];
   const seenSubset = new Set();
   function pushIfValid(type, combo) {
@@ -106,6 +113,10 @@ function partitionReference(cards, rules, mode) {
     }
   }
   search(0, new Set(), []);
+  /* [v2.101] التطبيع الكانوني الموحَّد مع الإنتاج — قبل المقارنة الحرفية */
+  for (const m of bestCombination) {
+    if (m.type === MELD_TYPE.SEQUENCE) m.cards = ramiOrderSequenceCards(m.cards, c => rules.isWildCard(c));
+  }
   return bestCombination;
 }
 

@@ -96,6 +96,100 @@ function getPlayerInitials(name, index) {
 }
 
 
+/* ═══ [V16→V31] الترتيب الكانوني للمتتالية: الفجوة أولاً ثم الطرفان ═══
+   يستخدم عند العرض وعند الإدراج: الأوراق الطبيعية مرتبة تصاعدياً، والجوكر
+   يوضع في موضع الورقة التي يعوّضها.
+   [v2.101·بلاغ المالك 2026-10-15 الرابع — «اختيار اللاعب يضع الجوكر في فجوته،
+   بينما تقسيم المحرك يُلحقه بالطرف»] V23 كان يستنتج رتبة الجوكر المعوَّضة من
+   موضعه في المصفوفة الداخلة — وهذا صحيح فقط حين تحمل المصفوفة ترتيب اللاعب
+   (تحديده/ترتيب خانته)، لكن ناتج تقسيم المحرك (partitionSelectedCards) يُلحق
+   البريات بطرف المصفوفة (أثر التعداد pool=group.concat(wilds)) فيقرؤه V23
+   «امتداداً عند الطرف» ويثبّته هناك في كل عرض لاحق (كل مسارات العرض تعيد
+   تطبيق هذه الدالة). العلاج الجذري: ترتيب كانوني واحد يطابق محرك التقييم
+   wildCardValueInMeld (v2.99) حرفياً — مستقلاً عن أثر الترتيب:
+   • الفجوات الداخلية الناقصة بين الطبيعيات تُسدّ أولاً (تصاعداً) — إلزامٌ لا
+     خيار فيه: لا قراءة صحيحة للمتتالية إلا بسدّها، فوضع الجوكر بالطرف مع
+     فجوة داخلية قائمة قراءةٌ مستحيلة أصلاً (8-10-🃏 لا تُقرأ 8-10-J أبداً).
+   • الفائض بعد الفجوات يمتد عند الطرفين حسب موضعه الأصلي: الذيل صعوداً
+     والرأس هبوطاً — نية اللاعب حيث يوجد خيار حقيقي (V28: نقرة الورقة
+     الصغيرة/الكبيرة عند إدراج الجوكر تبقى معبّرة).
+   • الذي لا يعوّض ورقة قائمة (فائض داخلي بلا طرف أو خارج 1..14) يبقى في
+     موضعه النسبي الأصلي — كما يبقى على قيمته الوجهية في التقييم.
+   والنتيجة نقطة ثابتة: إعادة تطبيق الترتيب على ناتجه تعيده كما هو، فيتطابق
+   المخزَّن مع المعروض وتستقر فهارس النقر (cardIdx) بين المسارين. */
+function ramiOrderSequenceCards(cards, isWild) {
+  if (!cards || !cards.length) return cards || [];
+  const nats = cards.filter(c => !isWild(c));
+  const jokers = cards.filter(c => isWild(c));
+  if (!nats.length) return jokers.slice();
+  /* الآس عالٍ (14) إذا وُجدت صورة K/Q في نفس المتتالية حتى يُقرأ Q-K-A صحيحاً */
+  const aceHigh = nats.some(c => c.rank >= 12);
+  const rankOf = c => (c.rank === 1 ? (aceHigh ? 14 : 1) : c.rank);
+  /* [V21] ترتيب تصاعدي: الأصغر يميناً ثم الأكبر شمالاً */
+  const sorted = nats.slice().sort((a, b) => rankOf(a) - rankOf(b));
+  if (!jokers.length) return sorted;
+  /* [V31] الإسناد الكانوني — مطابق لـ wildCardValueInMeld (v2.99):
+     فجوات الرتب الناقصة بين الطبيعيات (تصاعداً) تُسدّ أولاً من الداخلية
+     فالرأس فالذيل، ثم يمتد الفائض عند الطرفين حسب موضع الجوكر الأصلي
+     من الطبيعيات في المصفوفة (الذيل صعوداً ثم الرأس هبوطاً). */
+  const gapRanks = [];
+  for (let i = 1; i < sorted.length; i++) {
+    for (let r = rankOf(sorted[i - 1]) + 1; r < rankOf(sorted[i]); r++) gapRanks.push(r);
+  }
+  const idxOf = new Map();
+  cards.forEach(function (c, i) { idxOf.set(c, i); });
+  let firstNatIdx = -1, lastNatIdx = -1;
+  for (const c of nats) {
+    const i = idxOf.get(c);
+    if (firstNatIdx < 0 || i < firstNatIdx) firstNatIdx = i;
+    if (i > lastNatIdx) lastNatIdx = i;
+  }
+  const headW = [], interW = [], tailW = [];
+  for (const w of jokers) {
+    const i = idxOf.get(w);
+    if (i < firstNatIdx) headW.push(w);
+    else if (i > lastNatIdx) tailW.push(w);
+    else interW.push(w);
+  }
+  headW.reverse(); /* الرأس: الأقرب للطبيعية أولاً */
+  const assign = new Map();
+  const fillQueue = interW.concat(headW, tailW);
+  let gi = 0;
+  for (const w of fillQueue) {
+    if (gi >= gapRanks.length) break;
+    assign.set(w, gapRanks[gi++]);
+  }
+  const top = rankOf(sorted[sorted.length - 1]);
+  const bottom = rankOf(sorted[0]);
+  let up = top + 1, down = bottom - 1;
+  for (const w of tailW) { if (!assign.has(w) && up <= 14) { assign.set(w, up); up++; } }
+  for (const w of headW) { if (!assign.has(w) && down >= 1) { assign.set(w, down); down--; } }
+  /* البناء: كل مسنَد بمفتاح رتبته (تعادل ⇒ الطبيعية قبل الجوكر ثم الأقدم
+     موضعاً)، وغير المسند يعود إلى موضعه النسبي بين جيرانه المسنَدين */
+  const assigned = [];
+  const floating = [];
+  cards.forEach(function (c, i) {
+    if (isWild(c)) {
+      const v = assign.get(c);
+      if (v != null) assigned.push({ card: c, val: v, wild: true, orig: i });
+      else floating.push({ card: c, orig: i });
+    } else {
+      assigned.push({ card: c, val: rankOf(c), wild: false, orig: i });
+    }
+  });
+  assigned.sort(function (a, b) {
+    return (a.val - b.val) || ((a.wild ? 1 : 0) - (b.wild ? 1 : 0)) || (a.orig - b.orig);
+  });
+  const out = assigned.map(function (it) { return it.card; });
+  for (const f of floating) {
+    let pos = 0;
+    for (let k = 0; k < assigned.length; k++) if (assigned[k].orig < f.orig) pos = k + 1;
+    out.splice(pos, 0, f.card);
+  }
+  return out;
+}
+
+
 /* ── خوارزمية تقسيم الأوراق المحددة إلى مجموعات متتالية ومتماثلة صالحة للافتتاح والإنزال ── */
 /* [EXPERT-AI] ذاكرة نتائج التقسيم — التقسيم الدقيق أغلى عملية حسابية،
    ويُستدعى مراراً بنفس مجموعة الأوراق خلال الدور الواحد.
@@ -157,8 +251,23 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
     return __ramiPartCache.get(cacheKey).map(m => new RamiMeld(m.type, m.cards.slice()));
   }
 
+  /* [v2.101·بلاغ المالك الرابع] التطبيع الكانوني لناتج التقسيم: البريات في
+     ناتج التعداد ملحقة بطرف المصفوفة (pool=group.concat(wilds)) — فكان الجوكر
+     المعوِّض لفجوة داخلية يُخزَّن بالطرف فيقرؤه العرض «امتداداً» (خلل «تقسيم
+     المحرك يُلحقه بالطرف»). الآن كل متتالية في الناتج تُخزَّن كانونياً:
+     الجوكر في فجوته إن وُجدت، والفائض عند طرفه — فيتطابق المخزَّن مع
+     المعروض (عقد فهارس النقر cardIdx) ويستقر إعادة الترتيب عليه (نقطة ثابتة).
+     نفس تطبيع المرجع في tests/_rami_partition_exact_test.js — المقارنة الحرفية
+     بين المحركين تبقى قائمة على اختيار المجموعات وكسر التعادل. */
+  const normSeq = (m) => {
+    if (m && m.type === MELD_TYPE.SEQUENCE && m.cards && m.cards.length) {
+      m.cards = ramiOrderSequenceCards(m.cards, c => rules.isWildCard(c));
+    }
+    return m;
+  };
+
   if (validator.isValidSet(cards, true)) return [new RamiMeld(MELD_TYPE.SET, cards.slice())];
-  if (validator.isValidSequence(cards, true)) return [new RamiMeld(MELD_TYPE.SEQUENCE, cards.slice())];
+  if (validator.isValidSequence(cards, true)) return [normSeq(new RamiMeld(MELD_TYPE.SEQUENCE, cards.slice()))];
 
   const validSubsets = [];
   const seenSubset = new Set();
@@ -346,6 +455,10 @@ function partitionSelectedCards(cards, rules, mode, budgetMs) {
     }
     exactDeadline = 0;
   }
+  /* [v2.101] التطبيع الكانوني قبل الخزن والعودة — يشمل مسار الميزانية (الخبير)
+     ومسار اللاعب (المحرك المخزَّن وDFS الاحتياطي) معاً؛ وإعادة التطبيع على ناتج
+     كانوني أصلاً لا تغيّر شيئاً (نقطة ثابتة) فلا كلفة سلوكية على المسار الساخن */
+  bestCombination.forEach(normSeq);
   if (!budget) {
     if (__ramiPartCache.size > 3000) __ramiPartCache.clear();
     __ramiPartCache.set(cacheKey, bestCombination.map(m => new RamiMeld(m.type, m.cards.slice())));
@@ -5398,47 +5511,6 @@ function aggregatePenaltyText(labels) {
   }).join('؛ ');
 }
 
-/* ═══ [V16] ترتيب أوراق المتتالية تصاعدياً مع وضع الجوكرات في فجواتها/أطرافها ═══
-   يستخدم عند العرض وعند الإدراج: الأوراق الطبيعية مرتبة، والجوكر يوضع في الفجوة
-   الوحيدة أو الطرف الصحيح — لضمان «ترتيب صحيح بالنسبة للمتتاليات». */
-function ramiOrderSequenceCards(cards, isWild) {
-  if (!cards || !cards.length) return cards || [];
-  const nats = cards.filter(c => !isWild(c));
-  const jokers = cards.filter(c => isWild(c));
-  if (!nats.length) return jokers.slice();
-  /* الآس عالٍ (14) إذا وُجدت صورة K/Q في نفس المتتالية حتى يُقرأ Q-K-A صحيحاً */
-  const aceHigh = nats.some(c => c.rank >= 12);
-  const rankOf = c => (c.rank === 1 ? (aceHigh ? 14 : 1) : c.rank);
-  /* [V21] ترتيب تصاعدي: الأصغر يميناً ثم الأكبر شمالاً */
-  const sorted = nats.slice().sort((a, b) => rankOf(a) - rankOf(b));
-  if (!jokers.length) return sorted;
-  /* [V23] موضع كل جوكر يُحدَّد حسب موضعه الأصلي الذي وضعه اللاعب:
-     - وسط الترتيب (طبيعية قبله وطبيعية بعده) → الرقم الناقص في الفجوة
-     - ثالثاً بعد رقمين متتاليين (طرفه الكبير) → الورقة التالية الأكبر
-     - في البداية (قبل كل الطبيعيات) → الورقة السابقة الأصغر */
-  const items = nats.map(c => ({ card: c, val: rankOf(c) }));
-  for (const jk of jokers) {
-    const idx = cards.indexOf(jk);
-    const before = cards.slice(0, idx).filter(c => !isWild(c));
-    const after = cards.slice(idx + 1).filter(c => !isWild(c));
-    let val;
-    if (before.length && after.length) {
-      /* وسط الترتيب: الرقم الناقص بين آخر طبيعية قبله وأول طبيعية بعده */
-      val = rankOf(before[before.length - 1]) + 1;
-    } else if (before.length) {
-      /* طرف كبير: الورقة التالية الأكبر بعد آخر طبيعية */
-      val = rankOf(before[before.length - 1]) + 1;
-    } else {
-      /* طرف صغير: الورقة السابقة الأصغر قبل أول طبيعية */
-      val = rankOf(after[0]) - 1;
-    }
-    items.push({ card: jk, val: val });
-  }
-  /* ترتيب تصاعدي (الأصغر يميناً)؛ عند التساوي تُوضع الطبيعية قبل الجوكر */
-  items.sort((a, b) => (a.val - b.val) || ((isWild(a.card) ? 1 : 0) - (isWild(b.card) ? 1 : 0)));
-  return items.map(it => it.card);
-}
-
 /* تحديد المواضع الممكنة لجوكر في متتالية (لإبلاغ اللاعب بالمكان) */
 function ramiJokerSlotDescription(meld, rules) {
   const isWild = c => rules.isWildCard(c);
@@ -5814,6 +5886,23 @@ function ramiDeserializeGame() {
     } else {
       game.rules.jokerIndicator = null;
     }
+
+    /* [v2.101·بلاغ المالك الرابع] شفاء المجموعات المحفوظة قبل الترتيب الكانوني:
+       المتتاليات المخزَّنة بترتيب قديم (الجوكر المعوِّض للفجوة بالطرف — أثر تقسيم
+       سابق للإصلاح) تُعاد كانونياً عند الاستئناف فيتطابق المخزَّن مع المعروض
+       وفهارس النقر (cardIdx) — ويشمل مجموعات اللاعبين ومجموعات الطاولة المشتركة.
+       إعادة التطبيع على ناتج الإصلاح نفسه لا تغيّر شيئاً (نقطة ثابتة)، وهو شفاء
+       تجميلي لا يُفشل الاستئناف أبداً. */
+    try {
+      const healSeq = (m) => {
+        if (m && m.type === MELD_TYPE.SEQUENCE && m.cards && m.cards.length) {
+          m.cards = ramiOrderSequenceCards(m.cards, c => game.rules.isWildCard(c));
+        }
+        return m;
+      };
+      for (const p of rm.players) (p.melds || []).forEach(healSeq);
+      (rm.tableMelds || []).forEach(healSeq);
+    } catch (e) { /* شفاء تجميلي — لا يُفشل الاستئناف */ }
 
     if (d.handSlots && Array.isArray(d.handSlots) && d.handSlots.length === 5) {
       game._savedHandSlots = d.handSlots.map(function (slot) {
