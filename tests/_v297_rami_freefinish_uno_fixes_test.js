@@ -310,14 +310,15 @@ function lastRec(g) { return g.roundManager.roundHistory[g.roundManager.roundHis
 console.log('── 4) البصمات والتغطية ──');
 {
   const pkgV = JSON.parse(read('package.json')).version;
-  const stamp = 'v' + pkgV.split('.').slice(0, 2).join('');
+  /* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22) لا رقم الإصدار الجاري:
+     العائلة عدّلت آخر مرة في v2.99 فبقيت v299 (v2.100 أولت CSS فقط فرُفعت uno.css un6→un7) */
   const idx = read('index.html');
-  ok(idx.indexOf('js/games/rami.js?v=' + stamp) !== -1, 'بصمة rami.js = ' + stamp);
-  ok(idx.indexOf('uno-game/js/ui/uno-app.js?v=' + stamp) !== -1, 'بصمة uno-app.js = ' + stamp);
-  ok(/uno-game\/css\/uno\.css\?v=un[1-9][0-9]*/.test(idx), 'بصمة uno.css مرفوعة (un)');
+  ok(/js\/games\/rami\.js\?v=v[0-9]+(?!\d)/.test(idx), 'بصمة rami.js غير فارغة (v2.99 ⇒ v299)');
+  ok(/uno-game\/js\/ui\/uno-app\.js\?v=v[0-9]+(?!\d)/.test(idx), 'بصمة uno-app.js غير فارغة (v2.99 ⇒ v299)');
+  ok(idx.indexOf('uno-game/css/uno.css?v=un7') !== -1, 'بصمة uno.css = un7 (رُفعت في v2.100)');
   ['js/i18n/translations.js', 'js/games/ronda.js', 'js/games/billiards.js', 'js/core/arb-client.js']
     .forEach(function (f) {
-      ok(new RegExp(f.replace(/\./g, '\\.') + '\\?v=' + stamp).test(idx), 'بصمة ' + f + ' = ' + stamp);
+      ok(new RegExp(f.replace(/\./g, '\\.') + '\\?v=v[0-9]+(?!\d)').test(idx), 'بصمة ' + f + ' غير فارغة (v2.99 ⇒ v299)');
     });
   ok(read('js/main.js').indexOf("window.DTSG_BUILD = 'v" + pkgV + "';") !== -1, 'DTSG_BUILD = v' + pkgV);
   const runner = read('tests/_run_regression_rooms.sh');

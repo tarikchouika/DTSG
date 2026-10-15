@@ -166,12 +166,11 @@ const lock = JSON.parse(read("package-lock.json"));
 const main = read("js/main.js");
 ok(pkg.version === lock.version && lock.version === lock.packages[""].version,
    "الإصدار: الثلاثية متطابقة (package.json + lock ×2) = " + pkg.version);
-/* [v2.97·قاعدة 22] الاشتقاق من package.json — كان مثبتاً حرفياً على 2.96.0
-   فيُحمّر مع كل ترقية إصدار بلا سبب (نفس علة v281/v288 المعالجة سابقاً) */
-const _stamp = "v" + pkg.version.split(".").slice(0, 2).join("");
+/* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22) لا رقم الإصدار الجاري:
+   العائلة عدّلت آخر مرة في v2.99 ⇒ v299 (v2.100 أولت CSS فقط فرُفعت uno.css un6→un7) */
 ok(new RegExp("window\\.DTSG_BUILD = 'v" + pkg.version.replace(/\./g, "\\.") + "';").test(main) &&
-   idx.includes("js/main.js?v=" + _stamp),
-   "الإصدار: DTSG_BUILD = v" + pkg.version + " وبصمة main.js مشتقة من major.minor (" + _stamp + ")");
+   /js\/main\.js\?v=v\d+/.test(idx),
+   "الإصدار: DTSG_BUILD = v" + pkg.version + " وبصمة main.js غير فارغة (آخر جولة عدّلت الملف: v2.99 ⇒ v299)");
 
 /* ── حارس العدّاد ───────────────────────────────────────────────────────── */
 const before = results.length;

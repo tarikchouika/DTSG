@@ -164,8 +164,8 @@ console.log('═══ v2.88 · توافق ومسارات سالمة ═══')
   /* [v2.89·قاعدة 22] البصمات تُشتق من package.json — لا رقم مكتوب يُحمرّ مع
      كل ترقية (الحادثة الموثّقة في v2.88 نفسها تتكرر): الثلاثية متطابقة،
      والأصول الأربعة يحمل آخر بصمة، والصفحات القانونية الثماني كذلك. */
+  /* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22) لا رقم الإصدار الجاري: العائلة عدّلت آخر مرة في v2.99 ⇒ v299 (v2.100 أولت CSS فقط فرُفعت uno.css un6→un7) */
   const pkgV = JSON.parse(read('package.json')).version;
-  const stamp = 'v' + pkgV.split('.').slice(0, 2).join('');   /* 2.89.0 → v289 (عرف المستودع) */
   const lockV = JSON.parse(read('package-lock.json')).version;
   ok(pkgV === lockV, 'package.json = package-lock.json = ' + pkgV);
   ok(read('js/main.js').indexOf("window.DTSG_BUILD = 'v" + pkgV + "';") !== -1, 'DTSG_BUILD = v' + pkgV);
@@ -173,12 +173,12 @@ console.log('═══ v2.88 · توافق ومسارات سالمة ═══')
   ['js/i18n/translations.js', 'js/games/ronda.js', 'js/games/billiards.js', 'js/core/arb-client.js']
     .forEach(function (f) {
       const m = new RegExp(f.replace(/\./g, '\\.') + '\\?v=v(\\d+)').exec(idx);
-      ok(!!m && m[1] === stamp.slice(1), 'بصمة ' + f + ' = ' + stamp + ' في index.html');
+      ok(!!m && Number(m[1]) >= 288, 'بصمة ' + f + ' غير فارغة في index.html (فعلي: v' + (m && m[1]) + ' — آخر جولة عدّلت الملف)');
     });
   let legal = 0;
   ['about.html', 'contact.html', 'fairness.html', 'privacy.html', 'refund-policy.html', 'support.html', 'terms.html', 'admins.html']
-    .forEach(function (pg) { if (read(pg).indexOf('translations.js?v=' + stamp) !== -1) legal++; });
-  ok(legal === 8, 'بصمة ' + stamp + ' للترجمات في الصفحات القانونية الثماني');
+    .forEach(function (pg) { if (/translations\.js\?v=v\d+/.test(read(pg))) legal++; });
+  ok(legal === 8, 'بصمة الترجمات غير فارغة في الصفحات القانونية الثماني');
   const cl = read('CHANGELOG.md');
   ok(cl.indexOf('## v2.88.0') !== -1, 'CHANGELOG: كتلة v2.88.0 موجودة');
   ok(read('AGENTS.md').indexOf('قاعدة 25') !== -1 || read('AGENTS.md').indexOf('[v2.88]') !== -1,

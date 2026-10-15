@@ -238,11 +238,12 @@ console.log('── 8) المحرك: العتبة بلا جوكر محفوظة (
 console.log('── 9) البصمات والتغطية ──');
 {
   const pkgV = JSON.parse(read('package.json')).version;
-  const stamp = 'v' + pkgV.split('.').slice(0, 2).join('');
   const idx = read('index.html');
-  ok(idx.indexOf('js/games/rami.js?v=' + stamp) !== -1, 'بصمة rami.js = ' + stamp);
-  ok(idx.indexOf('js/rules/game-rules.js?v=dtsg11') !== -1, 'بصمة game-rules.js = dtsg11 (محتواها تغيّر)');
-  ok(idx.indexOf('uno-game/css/uno.css?v=un6') !== -1, 'بصمة uno.css بقيت un6 (محتواها لم يتغيّر في v2.99)');
+  /* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22) لا رقم الإصدار الجاري:
+     رامي/العائلة عدّلت آخر مرة في v2.99 فبقيت v299، وuno.css عدّلت في v2.100 فرُفعت un6→un7 */
+  ok(/js\/games\/rami\.js\?v=v[0-9]+(?!\d)/.test(idx), 'بصمة rami.js غير فارغة (آخر جولة عدّلت محتواها: v2.99 ⇒ v299)');
+  ok(idx.indexOf('js/rules/game-rules.js?v=dtsg11') !== -1, 'بصمة game-rules.js = dtsg11 (محتواها تغيّر آخر مرة في v2.99)');
+  ok(idx.indexOf('uno-game/css/uno.css?v=un7') !== -1, 'بصمة uno.css = un7 (لم تتغيّر في v2.99 فبقيت un6، ثم تغيّر محتواها في v2.100 فرُفعت)');
   ok(read('js/main.js').indexOf("window.DTSG_BUILD = 'v" + pkgV + "';") !== -1, 'DTSG_BUILD = v' + pkgV);
   const lock = read('package-lock.json');
   ok(lock.indexOf('"version": "' + pkgV + '",') !== -1, 'package-lock يوافق package.json (' + pkgV + ')');

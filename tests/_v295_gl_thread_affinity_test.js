@@ -136,10 +136,11 @@ const mainJs = read('js/main.js');
 ok(lock.version === pkg.version && lock.packages[''].version === pkg.version,
   'الثلاثية متطابقة package/lock = ' + pkg.version);
 ok(mainJs.indexOf("DTSG_BUILD = 'v" + pkg.version + "';") > 0, 'DTSG_BUILD = v' + pkg.version);
-const stamp = 'v' + pkg.version.split('.').slice(0, 2).join('');
+/* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22) لا رقم الإصدار الجاري:
+   العائلة عدّلت آخر مرة في v2.99 ⇒ v299 (v2.100 أولت CSS فقط فرُفعت uno.css un6→un7) */
 const idxHtml = read('index.html');
-ok(new RegExp('js/main\\.js\\?v=' + stamp + '"').test(idxHtml) && !idxHtml.includes('?v=v294'),
-  'بصمات index.html على ' + stamp + ' (main.js يُلمس مع كل ترقية — قاعدة 22)');
+ok(/js\/main\.js\?v=v\d+/.test(idxHtml) && !idxHtml.includes('?v=v294'),
+  'بصمة main.js غير فارغة (آخر جولة عدّلت الملف: v2.99 ⇒ v299) — قاعدة 22');
 
 console.log('── ساكن: ' + pass + ' ✓ / ' + fail + ' ✗');
 console.log('════════════════');

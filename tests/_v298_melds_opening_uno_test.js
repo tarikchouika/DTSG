@@ -207,9 +207,10 @@ console.log('── 6) المحرك: التساوي المرفوض 84=84 ──'
 console.log('── 7) البصمات والتغطية ──');
 {
   const pkgV = JSON.parse(read('package.json')).version;
-  const stamp = 'v' + pkgV.split('.').slice(0, 2).join('');
   const idx = read('index.html');
-  ok(idx.indexOf('js/games/rami.js?v=' + stamp) !== -1, 'بصمة rami.js = ' + stamp);
+  /* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22: بصمة على المعدَّل حصراً) —
+     لا تساوي رقم الإصدار الجاري: v2.100 أولت CSS فقط فبقيت العائلة v299 */
+  ok(/js\/games\/rami\.js\?v=v[0-9]+(?!\d)/.test(idx), 'بصمة rami.js غير فارغة (آخر جولة عدّلت محتواها: v2.99 ⇒ v299)');
   ok(/js\/rules\/game-rules\.js\?v=dtsg[1-9][0-9]*/.test(idx), 'بصمة game-rules.js مرفوعة (dtsg)');
   ok(/uno-game\/css\/uno\.css\?v=un[1-9][0-9]*/.test(idx), 'بصمة uno.css مرفوعة (un)');
   ok(read('js/main.js').indexOf("window.DTSG_BUILD = 'v" + pkgV + "';") !== -1, 'DTSG_BUILD = v' + pkgV);

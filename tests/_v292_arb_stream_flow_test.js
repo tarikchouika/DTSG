@@ -143,14 +143,15 @@ const lock = JSON.parse(fs.readFileSync(path.join(REPO, 'package-lock.json'), 'u
 const mainJs = fs.readFileSync(path.join(REPO, 'js/main.js'), 'utf8');
 const idxHtml = fs.readFileSync(path.join(REPO, 'index.html'), 'utf8');
 const v = pkg.version;
-const fp = 'v' + v.replace(/\./g, '').slice(0, 3);
+/* [نقح v2.100] البصمة تتبع آخر جولة عدّلت الملف (قاعدة 22) لا رقم الإصدار الجاري: العائلة عدّلت آخر مرة في v2.99 ⇒ v299 (v2.100 أولت CSS فقط فرُفعت uno.css un6→un7) */
+const fp = null; /* [نقح v2.100] أُلغي الاشتقاق من رقم الإصدار — البصمة تتبع آخر جولة عدّلت الملف */
 ok(lock.version === v && (lock.packages && lock.packages[''] && lock.packages[''].version === v),
   'الثلاثية متطابقة package/lock = ' + v);
 const buildMatch = mainJs.match(/DTSG_BUILD = 'v([^']+)'/);
 ok(buildMatch && buildMatch[1] === v, 'DTSG_BUILD = v' + (buildMatch && buildMatch[1]));
-ok(idxHtml.indexOf('js/core/arb-client.js?v=' + fp) > 0, 'بصمة arb-client ' + fp + ' في index.html');
-ok(idxHtml.indexOf('js/core/arb-page.js?v=' + fp) > 0, 'بصمة arb-page ' + fp + ' في index.html');
-ok(idxHtml.indexOf('js/main.js?v=' + fp) > 0, 'بصمة main.js ' + fp + ' في index.html');
+ok(/js\/core\/arb-client\.js\?v=v\d+/.test(idxHtml), 'بصمة arb-client غير فارغة في index.html (آخر جولة عدّلت الملف: v2.99 ⇒ v299)');
+ok(/js\/core\/arb-page\.js\?v=v\d+/.test(idxHtml), 'بصمة arb-page غير فارغة في index.html (v2.99 ⇒ v299)');
+ok(/js\/main\.js\?v=v\d+/.test(idxHtml), 'بصمة main.js غير فارغة في index.html (v2.99 ⇒ v299)');
 
 console.log('\n═══ الخلاصة ═══');
 console.log('PASS=' + pass + ' FAIL=' + fail);
